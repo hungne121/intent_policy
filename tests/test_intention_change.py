@@ -1,9 +1,9 @@
 """Phase-2 scenario extensions: cue-onset expert, intention-change variants, scenario overrides."""
 import pytest
 
-from benchmark.runner import ExpertAgent, run_episode
-from scenarios.config import ScenarioConfig, sample_variation
-from scenarios.scenario_registry import make_scenario, scenario_overrides
+from intent_policy.benchmark.runner import ExpertAgent, run_episode
+from intent_policy.scenarios.config import ScenarioConfig, sample_variation
+from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
 from scripts.reproduce_episode import compare
 
 ONSET = {'expert': {'trigger': 'cue_onset'}}

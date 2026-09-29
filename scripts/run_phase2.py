@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from scripts.common import load_yaml, resolve
+from intent_policy.utils import load_yaml, resolve
 
 CONDITIONS = {'noinfo': ['intent_mask=true'], 'oracle': ['intent_mask=false']}
 TRACE_CONDITIONS = {'none', 'correct'}          # keep per-step traces only where the analyses need them

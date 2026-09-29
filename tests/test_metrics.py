@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from benchmark import metrics as M
-from benchmark.metrics import compute_episode_metrics, aggregate, ALL_METRICS
+from intent_policy.benchmark import metrics as M
+from intent_policy.benchmark.metrics import compute_episode_metrics, aggregate, ALL_METRICS
 from conftest import ev
 
 CTX = M.EpisodeContext(['a', 'b', 'c'])

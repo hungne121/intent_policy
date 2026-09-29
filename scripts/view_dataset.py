@@ -15,9 +15,9 @@ import rerun.blueprint as rrb
 import torch
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.scripts.lerobot_dataset_viz import get_feature_names, to_hwc_uint8_numpy
-from controllers.restricted_action import RestrictedAction
-from intent.representation import OBJECT_VOCAB, PREFIX, REGION_VOCAB
-from scripts.common import resolve
+from intent_policy.sim.restricted_action import RestrictedAction
+from intent_policy.intent.representation import OBJECT_VOCAB, PREFIX, REGION_VOCAB
+from intent_policy.utils import resolve
 
 LABEL_TEXT = ', '.join(f'{a.value} {a.name}' for a in RestrictedAction)
 

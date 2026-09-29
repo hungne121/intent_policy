@@ -4,9 +4,9 @@ import argparse
 from pathlib import Path
 import time
 
-from benchmark.runner import ExpertAgent
-from controllers.restricted_action import RestrictedActionConfig, RestrictedActionMapper
-from scenarios.scenario_registry import PHASE1_SCENARIOS, make_scenario
+from intent_policy.benchmark.runner import ExpertAgent
+from intent_policy.sim.restricted_action import RestrictedActionConfig, RestrictedActionMapper
+from intent_policy.scenarios.scenario_registry import PHASE1_SCENARIOS, make_scenario
 
 
 def main():

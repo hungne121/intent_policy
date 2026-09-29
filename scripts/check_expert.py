@@ -13,10 +13,10 @@ import argparse
 import json
 from collections import Counter
 import numpy as np
-from benchmark.runner import ExpertAgent, run_episode
-from scenarios.config import _deep_merge
-from scenarios.scenario_registry import make_scenario, scenario_overrides
-from scripts.common import load_yaml, resolve, controller_config
+from intent_policy.benchmark.runner import ExpertAgent, run_episode
+from intent_policy.scenarios.config import _deep_merge
+from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
+from intent_policy.utils import load_yaml, resolve, controller_config
 
 HEAD_FOR_NEW_TARGET_M = 0.02    # robot "responds" once its horizontal distance to the new target shrank by this much
 

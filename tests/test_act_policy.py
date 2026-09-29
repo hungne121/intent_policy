@@ -9,11 +9,11 @@ import torch
 from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.policies.act.modeling_act import ACT, ACTPolicy
 
-from benchmark.runner import ExpertAgent, ObservationConfig, run_episode
-from env.base_env import ROOT
-from policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
-from policies.policy_agent import PolicyAgent
-from scenarios.scenario_registry import make_scenario
+from intent_policy.benchmark.runner import ExpertAgent, ObservationConfig, run_episode
+from intent_policy.sim.base_env import ROOT
+from intent_policy.policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
+from intent_policy.policies.policy_agent import PolicyAgent
+from intent_policy.scenarios.scenario_registry import make_scenario
 from scripts.collect_demos import features
 from scripts.train_policy import build_config, run_batch
 
@@ -65,7 +65,7 @@ def test_policy_is_lerobot_act_with_one_shared_backbone(tiny_dataset):
 
 def test_no_skill_specific_models_or_routing():
     forbidden = ('ACT_PICK', 'ACT_PLACE', 'ACT_HANDOVER', 'ACT_RETRACT', 'SkillSelector', 'skill_selector')
-    for pkg in ('policies', 'scenarios', 'benchmark', 'controllers', 'experts', 'scripts', 'env', 'human'):
+    for pkg in ('intent_policy', 'scripts'):
         for f in (ROOT / pkg).rglob('*.py'):
             text = f.read_text()
             assert not any(word in text for word in forbidden), f'{f} mentions a skill-specific model'

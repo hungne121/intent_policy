@@ -29,8 +29,8 @@ from lerobot.configs.types import FeatureType
 from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.utils.feature_utils import dataset_to_policy_features
 
-from policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
-from scripts.common import load_yaml, resolve
+from intent_policy.policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
+from intent_policy.utils import load_yaml, resolve
 
 
 def intent_keys(policy_yaml: dict) -> list[str]:

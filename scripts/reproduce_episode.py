@@ -11,9 +11,9 @@ import sys
 import numpy as np
 import torch
 
-from benchmark.runner import ExpertAgent, NoisyExpertAgent, ObservationConfig, load_record, run_episode
-from controllers.restricted_action import RestrictedActionConfig
-from scenarios.scenario_registry import make_scenario
+from intent_policy.benchmark.runner import ExpertAgent, NoisyExpertAgent, ObservationConfig, load_record, run_episode
+from intent_policy.sim.restricted_action import RestrictedActionConfig
+from intent_policy.scenarios.scenario_registry import make_scenario
 
 
 def rebuild_agent(record: dict, checkpoint: str | None = None, device: str | None = None):
@@ -22,7 +22,7 @@ def rebuild_agent(record: dict, checkpoint: str | None = None, device: str | Non
         if policy.get('noise') == 'dart':
             return NoisyExpertAgent(policy['burst_prob'], policy['burst_ticks'])
         return ExpertAgent()
-    from policies.policy_agent import PolicyAgent
+    from intent_policy.policies.policy_agent import PolicyAgent
     return PolicyAgent(checkpoint or policy['checkpoint'], device=device or policy.get('device'), oracle_condition=policy.get('oracle_spec'),
                        eval_seeds=policy.get('eval_seeds'), controller_cfg=RestrictedActionConfig(**record['controller']),
                        temporal_ensemble_coeff=policy.get('temporal_ensemble_coeff'))

@@ -20,10 +20,10 @@ from collections import defaultdict
 import numpy as np
 import torch
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from controllers.restricted_action import RestrictedAction as A
-from intent.representation import PREFIX, features, record_from_features
-from policies.policy_agent import load_policy
-from scripts.common import resolve
+from intent_policy.sim.restricted_action import RestrictedAction as A
+from intent_policy.intent.representation import PREFIX, features, record_from_features
+from intent_policy.policies.policy_agent import load_policy
+from intent_policy.utils import resolve
 
 STEP = {int(A.MOVE_FORWARD): (0, 1), int(A.MOVE_BACKWARD): (0, -1), int(A.MOVE_LEFT): (1, 1),
         int(A.MOVE_RIGHT): (1, -1), int(A.MOVE_UP): (2, 1), int(A.MOVE_DOWN): (2, -1)}

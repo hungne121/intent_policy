@@ -22,11 +22,11 @@ from datetime import datetime, timezone
 
 import torch
 
-from benchmark.metrics import aggregate, ALL_METRICS
-from benchmark.runner import ExpertAgent, run_episode, save_record
-from scenarios.config import _deep_merge
-from scenarios.scenario_registry import make_scenario, scenario_overrides
-from scripts.common import load_yaml, resolve, observation_config, controller_config
+from intent_policy.benchmark.metrics import aggregate, ALL_METRICS
+from intent_policy.benchmark.runner import ExpertAgent, run_episode, save_record
+from intent_policy.scenarios.config import _deep_merge
+from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
+from intent_policy.utils import load_yaml, resolve, observation_config, controller_config
 
 
 def fmt(v):
@@ -64,7 +64,7 @@ def markdown(results: dict) -> str:
 def build_agent(args_d: dict, eval_seeds: list[int], ctrl_cfg):
     if args_d['expert']:
         return ExpertAgent()
-    from policies.policy_agent import PolicyAgent
+    from intent_policy.policies.policy_agent import PolicyAgent
     return PolicyAgent(resolve(args_d['checkpoint']), args_d['device'], args_d['oracle_condition'], eval_seeds, ctrl_cfg,
                        args_d['temporal_ensemble_coeff'])
 

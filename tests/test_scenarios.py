@@ -5,11 +5,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from benchmark.metrics import ALL_METRICS
-from benchmark.runner import ExpertAgent, run_episode
-from env.base_env import ROOT
-from scenarios.config import ScenarioConfig, sample_variation
-from scenarios.scenario_registry import PHASE1_SCENARIOS, SCENARIOS, make_scenario
+from intent_policy.benchmark.metrics import ALL_METRICS
+from intent_policy.benchmark.runner import ExpertAgent, run_episode
+from intent_policy.sim.base_env import ROOT
+from intent_policy.scenarios.config import ScenarioConfig, sample_variation
+from intent_policy.scenarios.scenario_registry import PHASE1_SCENARIOS, SCENARIOS, make_scenario
 from conftest import hold_agent_steps
 
 ROLES = {'instructor_object_to_target': 'instructor', 'collaborator_object_handover': 'collaborator',
@@ -55,17 +55,17 @@ def test_instructor_scene_contents():
 
 
 def test_scenario_code_is_independent_of_policy_code():
-    for pkg in ('scenarios', 'benchmark', 'human', 'env', 'controllers'):
-        for f in (ROOT / pkg).glob('*.py'):
+    for pkg in ('scenarios', 'benchmark', 'sim'):
+        for f in (ROOT / 'intent_policy' / pkg).glob('*.py'):
             tree = ast.parse(f.read_text())
             mods = {n.module or '' for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
             mods |= {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
-            assert not any(m.startswith(('policies', 'lerobot', 'torch')) for m in mods), f'{f} imports policy code'
+            assert not any(m.startswith(('intent_policy.policies', 'lerobot', 'torch')) for m in mods), f'{f} imports policy code'
 
 
 def test_registry_selects_environments_not_policies():
     for cls in SCENARIOS.values():
-        assert 'policy' not in cls.__module__ and not hasattr(cls, 'select_action')
+        assert not cls.__module__.startswith('intent_policy.policies') and not hasattr(cls, 'select_action')
 
 
 @pytest.mark.parametrize('sid', PHASE1_SCENARIOS)

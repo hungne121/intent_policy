@@ -13,8 +13,8 @@ from collections import defaultdict
 import numpy as np
 import torch
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from policies.policy_agent import load_policy
-from scripts.common import resolve
+from intent_policy.policies.policy_agent import load_policy
+from intent_policy.utils import resolve
 
 WINDOW = 20      # frames (1 s) after the evidence point
 

@@ -3,9 +3,9 @@ import numpy as np
 import pytest
 import torch
 
-from controllers.restricted_action import (RestrictedAction as A, RestrictedActionConfig, RestrictedActionMapper,
+from intent_policy.sim.restricted_action import (RestrictedAction as A, RestrictedActionConfig, RestrictedActionMapper,
                                            NUM_RESTRICTED_ACTIONS, validate_action)
-from policies.restricted_action_head import RestrictedActionHead
+from intent_policy.policies.restricted_action_head import RestrictedActionHead
 
 EXPECTED = ['HOLD', 'MOVE_FORWARD', 'MOVE_BACKWARD', 'MOVE_LEFT', 'MOVE_RIGHT', 'MOVE_UP', 'MOVE_DOWN',
             'OPEN_GRIPPER', 'CLOSE_GRIPPER']

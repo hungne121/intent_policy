@@ -10,7 +10,7 @@ reports, per split / scenario / role / overall and per metric:
   * lead / delay dose-response (Spearman trend) for the timing metrics.
 The pre-registered pass criteria of the protocol decide PASS / FAIL. IR alone never counts as gain.
 
-  ./run.sh -m scripts.analyze_phase2 --output reports/phase2_results
+  ./run.sh -m scripts.analyze_phase2 --output docs/reports/phase2_results
 """
 import argparse
 import json
@@ -18,8 +18,8 @@ from collections import defaultdict
 from pathlib import Path
 import numpy as np
 from scipy import stats
-from benchmark.metrics import ALL_METRICS, METRIC_CLASSES
-from scripts.common import load_yaml, resolve
+from intent_policy.benchmark.metrics import ALL_METRICS, METRIC_CLASSES
+from intent_policy.utils import load_yaml, resolve
 
 BINARY = {'CSR', 'CFR', 'HCS', 'WCR', 'DSR'}
 DOSE = [('lead_200ms', -0.2), ('lead_100ms', -0.1), ('correct', 0.0), ('delay_100ms', 0.1), ('delay_200ms', 0.2),

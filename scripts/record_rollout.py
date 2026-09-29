@@ -19,11 +19,11 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw
 
-from benchmark.runner import run_episode, save_record
-from controllers.restricted_action import RestrictedAction
-from scenarios.config import _deep_merge
-from scenarios.scenario_registry import make_scenario, scenario_overrides
-from scripts.common import load_yaml, resolve, observation_config, controller_config
+from intent_policy.benchmark.runner import run_episode, save_record
+from intent_policy.sim.restricted_action import RestrictedAction
+from intent_policy.scenarios.config import _deep_merge
+from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
+from intent_policy.utils import load_yaml, resolve, observation_config, controller_config
 
 SHOWN_EVENTS = ('human_cue_onset', 'human_intention_evident', 'human_intention_change', 'robot_target_commit',
                 'object_grasp', 'object_release', 'disruption_start', 'disruption_end', 'human_robot_contact',
@@ -95,7 +95,7 @@ def main():
     exp, protocol = load_yaml(args.config), load_yaml(args.protocol)
     split = next(s for s in protocol['splits'] if s['name'] == args.split)
     obs_cfg, ctrl_cfg = observation_config(exp), controller_config(exp)
-    from policies.policy_agent import PolicyAgent
+    from intent_policy.policies.policy_agent import PolicyAgent
     agent = PolicyAgent(resolve(args.checkpoint), args.device, protocol['conditions'][args.condition], args.seeds,
                         ctrl_cfg, protocol.get('inference', {}).get('temporal_ensemble_coeff', 'config'))
     out = resolve(args.output_dir)

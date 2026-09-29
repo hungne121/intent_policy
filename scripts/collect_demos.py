@@ -30,13 +30,13 @@ from collections import Counter
 import numpy as np
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.datasets.utils import create_lerobot_dataset_card
-from benchmark.runner import run_episode, ExpertAgent, NoisyExpertAgent
-from controllers.restricted_action import RestrictedAction
-from intent.oracle import OracleIntentProvider
-from intent.representation import dataset_features as oracle_features, features as oracle_values
-from scenarios.config import _deep_merge
-from scenarios.scenario_registry import make_scenario, scenario_overrides
-from scripts.common import load_yaml, resolve, observation_config, controller_config
+from intent_policy.benchmark.runner import run_episode, ExpertAgent, NoisyExpertAgent
+from intent_policy.sim.restricted_action import RestrictedAction
+from intent_policy.intent.oracle import OracleIntentProvider
+from intent_policy.intent.representation import dataset_features as oracle_features, features as oracle_values
+from intent_policy.scenarios.config import _deep_merge
+from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
+from intent_policy.utils import load_yaml, resolve, observation_config, controller_config
 
 JOINTS = ['shoulder_pan', 'shoulder_lift', 'elbow', 'wrist_1', 'wrist_2', 'wrist_3']
 STATE_NAMES = [f'{j}.pos' for j in JOINTS] + ['gripper.pos', 'tcp.x', 'tcp.y', 'tcp.z']

@@ -1,8 +1,8 @@
 # Human-Intention-Aware Robot Action Policy — UR3e + SusGrip (MuJoCo)
 
 Tài liệu nguồn của project. Định hướng nghiên cứu đầy đủ nằm trong
-[agent/new/agent.md](agent/new/agent.md); yêu cầu từng phase trong `agent/new/phase_*.md`.
-Báo cáo triển khai Phase 0/1: [reports/FOUNDATION_IMPLEMENTATION_REPORT.md](reports/FOUNDATION_IMPLEMENTATION_REPORT.md).
+[docs/requirements/agent.md](docs/requirements/agent.md); yêu cầu từng phase trong `docs/requirements/phase_*.md`.
+Báo cáo triển khai: [docs/reports/](docs/reports/).
 
 ## 1. Mục tiêu nghiên cứu
 
@@ -40,7 +40,7 @@ RestrictedActionMapper (Cartesian set-point + IK)
           ManipulationEnv.step([7])  →  MuJoCo UR3e + SusGrip
 ```
 
-- `policies/hri_act/`: `HRIACTConfig(ACTConfig)` (đăng ký `type: hri_act`) và
+- `intent_policy/policies/hri_act/`: `HRIACTConfig(ACTConfig)` (đăng ký `type: hri_act`) và
   `HRIACTPolicy(ACTPolicy)`. Mạng ACT của LeRobot được dùng nguyên vẹn; latent `h` lấy bằng
   forward-pre-hook trên `action_head` gốc, nên cả hai đầu dùng chung một lần forward.
 - `action_mode: restricted | continuous` chọn bằng config (`configs/policy/*.yaml`).
@@ -50,28 +50,35 @@ RestrictedActionMapper (Cartesian set-point + IK)
 ## 3. Cấu trúc thư mục
 
 ```text
-intent_policy/
-├── agent/new/                    # Định hướng nghiên cứu + yêu cầu từng phase (không sửa)
-├── assets/                       # scene.xml (UR3e + SusGrip + bàn), meshes, provenance, license
+intent_policy/                    # thư mục project
+├── intent_policy/                # MỘT package Python chứa toàn bộ code
+│   ├── sim/                      # MuJoCo env (IK, assisted grasp, render), scene_builder,
+│   │                             #   restricted_action (enum 9 hành động + mapper tất định),
+│   │                             #   người scripted (HumanState, min-jerk, tất định theo seed)
+│   ├── scenarios/                # BaseScenario + 4 scenario + registry + lấy mẫu biến thể
+│   ├── experts/                  # expert có thông tin đặc quyền — CHỈ dùng sinh demo
+│   ├── intent/                   # oracle ý định: provider, representation, corruption
+│   ├── policies/                 # HRI-ACT (LeRobot), restricted head, intent fusion, PolicyAgent
+│   ├── benchmark/                # events, logger, metrics (HRIBench-style), runner (bản ghi episode)
+│   └── utils.py                  # đọc config, đường dẫn, chuyển observation → batch
+├── scripts/                      # lệnh chạy: collect_demos, train_policy, evaluate, run_phase2,
+│                                 #   analyze_phase2, counterfactual_probe, view_*, record_rollout, ...
 ├── configs/
 │   ├── robot.yaml                # tần số điều khiển, tư thế home, giới hạn tốc độ, assisted grasp
 │   ├── scene/common.yaml         # bố cục chung: bàn, người, camera, ngưỡng an toàn, servo gain
 │   ├── scenarios/*.yaml          # 4 scenario: role, goal, scene, biến thể, hành vi người, timing,
 │   │                             #   success, safety, protocol, metric áp dụng, định nghĩa metric
 │   ├── controller/restricted_action.yaml   # ánh xạ 9 hành động → lệnh controller
-│   ├── policy/act_{restricted,continuous}.yaml
-│   └── experiments/foundation_baseline.yaml  # FOUNDATION-BASELINE (No-Intent)
-├── env/                          # MuJoCo env (IK, assisted grasp, render) + scene_builder
-├── controllers/restricted_action.py   # enum 9 hành động + mapper tất định
-├── human/                        # HumanState + người scripted (min-jerk, tất định theo seed)
-├── scenarios/                    # BaseScenario + 4 scenario + registry + lấy mẫu biến thể
-├── benchmark/                    # events, logger, metrics (HRIBench-style), runner (bản ghi episode)
-├── experts/scripted_expert.py    # expert có thông tin đặc quyền — CHỈ dùng sinh demo
-├── policies/                     # restricted head, HRI-ACT (LeRobot), PolicyAgent
-├── scripts/                      # view_scene, collect_demos, view_dataset, train_policy, evaluate, reproduce_episode
+│   ├── policy/                   # act_restricted, act_restricted_oracle, act_continuous
+│   ├── experiments/              # foundation_baseline, phase2_oracle, ...
+│   └── benchmark/                # protocol eval có phiên bản (phase2_protocol_v1)
+├── assets/                       # scene.xml (UR3e + SusGrip + bàn), meshes, provenance, license
 ├── tests/                        # pytest
-├── reports/                      # báo cáo triển khai
-└── archive/pre_phase1_draft/     # bản nháp cũ đã bị thay thế (không dùng)
+├── docs/
+│   ├── requirements/             # định hướng nghiên cứu + yêu cầu từng phase (không sửa)
+│   ├── reports/                  # báo cáo triển khai từng phase
+│   └── paper/                    # bản nháp đồ án
+└── outputs/                      # dataset, checkpoint, kết quả eval (không đưa vào git)
 ```
 
 ## 4. Bốn scenario Phase 1 (config-driven)
@@ -86,7 +93,7 @@ người**, +Y bên trái robot, +Z lên trên. Robot đặt tại gốc, ngư�
 | `collaborator_bowl_assistance` | collaborator | 2 vật + 2 bát (object_a↔bowl_a, object_b↔bowl_b). Người cầm một vật lên và chờ. | Robot đặt **đúng bát** trước mặt người; người thả vật vào bát; vật nằm trong bát. Bát sai = thất bại. |
 | `intruder_pick_place_interruption` | intruder | Pick-and-place thông thường; trong lúc robot đang chạy, tay người đi vào vùng nguy hiểm (hộp không gian làm việc cố định). | Robot đứng yên trong lúc tay ở trong vùng (sau 0.5 s phản ứng), chỉ tiếp tục khi vùng trống, hoàn thành nhiệm vụ, không va chạm. |
 
-Biến thể tất định theo seed (`scenarios/config.py::sample_variation`): vị trí vật/vùng/bát, tư
+Biến thể tất định theo seed (`intent_policy/scenarios/config.py::sample_variation`): vị trí vật/vùng/bát, tư
 thế home, lựa chọn của người, thời điểm cue, tốc độ người, quỹ đạo, thời điểm/vị trí/thời lượng
 xâm nhập. Mỗi episode lưu `scenario_id, episode_id, seed, role, variation`.
 
@@ -132,7 +139,7 @@ Xem dữ liệu bằng rerun: `lerobot-dataset-viz` (chuẩn LeRobot) hoặc `sc
 
 ## 7. Event và metric
 
-Event (`benchmark/events.py`, mỗi event có `episode_id, timestamp, event_type, scenario_id, role,
+Event (`intent_policy/benchmark/events.py`, mỗi event có `episode_id, timestamp, event_type, scenario_id, role,
 entity_id, payload`): episode_start/end, human_motion_start/end, human_cue_onset,
 human_intention_change, robot_motion_start/end, robot_action_change,
 interaction_window_start/end, object_grasp/release, human_robot_contact,
@@ -140,7 +147,7 @@ safety_distance_violation, protocol_step_complete, disruption_start/end,
 recovery_start/complete, task_success/failure.
 
 Metric **HRIBench-style**: công thức do project tự định nghĩa, chưa đối chiếu với bài báo HRIBench.
-Tất cả được tính **chỉ từ event** (`benchmark/metrics.py`) và báo cáo riêng từng metric, không có
+Tất cả được tính **chỉ từ event** (`intent_policy/benchmark/metrics.py`) và báo cáo riêng từng metric, không có
 điểm tổng hợp:
 
 | Metric | Định nghĩa (mỗi episode, sau đó lấy trung bình) |

@@ -3,15 +3,15 @@ import numpy as np
 import pytest
 import torch
 
-from benchmark.runner import ExpertAgent, NoisyExpertAgent, run_episode
-from intent.corruption import Delayed, Noisy, Wrong, derangement, make_corruption
-from intent.oracle import OracleIntentProvider
-from intent.representation import PREFIX, feature_shapes, features
-from policies.hri_act import HRIACTConfig
-from policies.intent_fusion import IntentFusion
-from scenarios.config import ScenarioConfig, sample_variation
-from scenarios.scenario_registry import make_scenario
-from scripts.common import load_yaml
+from intent_policy.benchmark.runner import ExpertAgent, NoisyExpertAgent, run_episode
+from intent_policy.intent.corruption import Delayed, Noisy, Wrong, derangement, make_corruption
+from intent_policy.intent.oracle import OracleIntentProvider
+from intent_policy.intent.representation import PREFIX, feature_shapes, features
+from intent_policy.policies.hri_act import HRIACTConfig
+from intent_policy.policies.intent_fusion import IntentFusion
+from intent_policy.scenarios.config import ScenarioConfig, sample_variation
+from intent_policy.scenarios.scenario_registry import make_scenario
+from intent_policy.utils import load_yaml
 
 PHASE2 = {'expert': {'trigger': 'evidence'}, 'scene_variation': {'twin_pairs': True}}
 

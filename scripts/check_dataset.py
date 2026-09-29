@@ -21,7 +21,7 @@ import numpy as np
 import torch
 import torchvision
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from scripts.common import resolve
+from intent_policy.utils import resolve
 
 CUE_COMPLETE = {'instructor_object_to_target': 'instruction_given', 'collaborator_object_handover': 'human_selection_shown',
                 'collaborator_bowl_assistance': 'human_picked_object'}

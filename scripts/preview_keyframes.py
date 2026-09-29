@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.scripts.lerobot_dataset_viz import to_hwc_uint8_numpy
-from scripts.common import resolve
+from intent_policy.utils import resolve
 
 AFTER_CHANGE_S = 0.6
 

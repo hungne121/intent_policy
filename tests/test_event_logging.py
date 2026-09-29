@@ -1,10 +1,10 @@
 """Event stream contract, episode records, serialisation and reproduction from config + seed."""
 import pytest
 
-from benchmark.events import EventType, REQUIRED_EVENT_TYPES
-from benchmark.logger import EpisodeEventLogger, EventOrderError
-from benchmark.runner import ExpertAgent, load_record, run_episode, save_record
-from scenarios.scenario_registry import PHASE1_SCENARIOS, make_scenario
+from intent_policy.benchmark.events import EventType, REQUIRED_EVENT_TYPES
+from intent_policy.benchmark.logger import EpisodeEventLogger, EventOrderError
+from intent_policy.benchmark.runner import ExpertAgent, load_record, run_episode, save_record
+from intent_policy.scenarios.scenario_registry import PHASE1_SCENARIOS, make_scenario
 from scripts.reproduce_episode import compare
 from conftest import assert_monotonic
 

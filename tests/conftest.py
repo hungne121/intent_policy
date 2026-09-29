@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from scenarios.scenario_registry import make_scenario, PHASE1_SCENARIOS
+from intent_policy.scenarios.scenario_registry import make_scenario, PHASE1_SCENARIOS
 
 
 @pytest.fixture(scope='session')
