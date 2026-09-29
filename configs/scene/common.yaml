@@ -1,0 +1,41 @@
+# Shared scene layout for all HRI scenarios. World frame = robot base_link frame shifted by
+# table height: +X points from the robot towards the human, +Y to the robot's left, +Z up.
+base_model: assets/scene.xml        # UR3e + SusGrip + table; builder removes demo cube/receiver
+table_top_z: 0.62
+robot_servo:                        # arm joint position-servo gains (base asset: kp 600 / kv 50 lags ~3 cm
+  kp: 2000                          # at 0.2 m/s and shakes grasped objects loose); gripper unchanged
+  kv: 100
+
+palette:                            # named RGBA colours referenced by scenario configs
+  red:    [0.90, 0.12, 0.10, 1.0]
+  blue:   [0.12, 0.30, 0.95, 1.0]
+  yellow: [0.98, 0.78, 0.08, 1.0]
+  green:  [0.10, 0.75, 0.20, 0.9]
+  purple: [0.60, 0.20, 0.85, 0.9]
+  orange: [0.98, 0.50, 0.08, 1.0]
+
+human:
+  torso_pos: [1.03, 0.0, 0.97]      # standing behind the far table edge, facing -X
+  shoulder: [0.97, -0.14, 1.12]     # right shoulder; forearm capsule is drawn towards it
+  forearm_length: 0.26
+  hand_rest: [0.84, -0.14, 0.80]
+  hand_geom_radius: 0.03            # palm sphere radius used for distance/safety queries
+
+cameras:                            # look-at definitions; converted to MuJoCo xyaxes
+  scene: {pos: [0.40, -0.70, 1.12], target: [0.46, 0.02, 0.66], fovy: 58}
+  top:   {pos: [0.45, 0.0, 1.55], target: [0.45, 0.0, 0.62], fovy: 55}
+  front: {pos: [1.25, -1.05, 1.45], target: [0.45, 0.0, 0.70], fovy: 50}
+  # eye-in-hand camera on the gripper body (pos/target/up in the sus2f_base_link frame, TCP at z=0.138):
+  # side-mounted 7.5 cm off the finger plane on the OUTER side (-y = away from the arm's elbow fold, towards
+  # the human at home yaw) so the fingertips and the object between them stay visible. The asset's original
+  # wrist camera sat behind the gripper base and saw mostly the gripper itself.
+  wrist: {body: sus2f_base_link, pos: [0.0, -0.075, 0.09], target: [0.0, 0.0, 0.22], up: [0.0, -1.0, 0.0], fovy: 70}
+
+safety:
+  contact_distance_m: 0.003         # human_robot_contact when any robot/human geom gap <= this
+  violation_distance_m: 0.05        # safety_distance_violation when gap < this while robot moves
+
+robot_motion:
+  tcp_speed_threshold: 0.02         # m/s; above => robot moving (robot_motion_start/end events)
+  gripper_speed_threshold: 0.01     # m/s
+  min_idle_s: 0.15                  # hysteresis before logging robot_motion_end

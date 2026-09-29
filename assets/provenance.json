@@ -1,0 +1,85 @@
+{
+  "source": "/home/hungdao/ur_ws/src/ur_action_intent/urdf/ur3e_susgrip.urdf",
+  "source_sha256": "3db7c7f70b41c452db2a55ce636d76a588348d4fdedf1a463eefa8f165ede990",
+  "mujoco_version": "3.3.7",
+  "mimics": [
+    [
+      "base_slider_l_joint",
+      "gripper_joint",
+      0.000753,
+      0.036
+    ],
+    [
+      "slider_outer_l_joint",
+      "gripper_joint",
+      0.609479,
+      -9.632
+    ],
+    [
+      "finger_outer_l_joint",
+      "gripper_joint",
+      -0.609479,
+      9.632
+    ],
+    [
+      "finger_inner_l_joint",
+      "gripper_joint",
+      0.609479,
+      -9.632
+    ],
+    [
+      "pad_inner_l_joint",
+      "gripper_joint",
+      -1.218957,
+      19.264
+    ],
+    [
+      "passive_pad_inner_l_joint",
+      "gripper_joint",
+      -1.218957,
+      19.264
+    ],
+    [
+      "base_slider_r_joint",
+      "gripper_joint",
+      0.000753,
+      0.036
+    ],
+    [
+      "slider_outer_r_joint",
+      "gripper_joint",
+      -0.609479,
+      9.632
+    ],
+    [
+      "finger_outer_r_joint",
+      "gripper_joint",
+      -0.609479,
+      9.632
+    ],
+    [
+      "finger_inner_r_joint",
+      "gripper_joint",
+      -0.609479,
+      9.632
+    ],
+    [
+      "pad_inner_r_joint",
+      "gripper_joint",
+      1.218957,
+      -19.264
+    ],
+    [
+      "passive_pad_inner_r_joint",
+      "gripper_joint",
+      1.218957,
+      -19.264
+    ]
+  ],
+  "notes": [
+    "Original collision meshes used for rendering.",
+    "Robot self-collision disabled; robot/world and object contacts enabled.",
+    "Gravity compensation enabled for position control.",
+    "Receiver weld represents hand acquisition only, never robot grasp."
+  ]
+}

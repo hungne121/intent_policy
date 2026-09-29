@@ -1,0 +1,13 @@
+# Simulation
+mujoco==3.3.7
+numpy>=1.26
+scipy>=1.11
+PyYAML>=6
+glfw==2.10.2
+PyOpenGL==3.1.10
+Pillow>=10
+# Policy / learning: LeRobot is used from the local checkout ../lerobot (pip install -e ../lerobot),
+# version 0.6.2 at commit 64b23178; it brings torch/torchvision/datasets.
+lerobot==0.6.2
+# Tests
+pytest>=8

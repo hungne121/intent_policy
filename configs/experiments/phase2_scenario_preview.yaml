@@ -1,0 +1,42 @@
+# PHASE-2 SCENARIO PREVIEW (review gate G2a): new expert timing + intention-change variants only.
+# No oracle features and no policy yet. Collected with scripts/collect_demos.py (splits below).
+experiment: phase2_scenario_preview
+phase: 2
+seed: 0
+policy:
+  config: configs/policy/act_restricted.yaml
+  action_mode: restricted
+  use_intent: false
+intent:
+  provider: none
+benchmark:
+  scenarios:
+    - instructor_object_to_target
+    - collaborator_object_handover
+    - collaborator_bowl_assistance
+    - intruder_pick_place_interruption
+  eval_seed_start: 100000
+  eval_episodes_per_scenario: 20
+observation:
+  cameras: [scene, wrist]
+  width: 256
+  height: 192
+controller: configs/controller/restricted_action.yaml
+scenario_overrides:                  # deep-merged into every scenario YAML (the merged config is stored per episode)
+  all:
+    expert: {trigger: cue_onset}     # act from the human's cue onset instead of waiting for the full cue
+  intruder_pick_place_interruption:
+    expert: {yield_prediction_horizon_s: 0.5}
+data:
+  repo_id: local/hri_phase2_scenario_preview
+  root: outputs/datasets/hri_phase2_scenario_preview
+  seed_start: 0
+  splits:                            # collected in this order; seeds continue across splits
+    - name: nominal
+      episodes_per_scenario: 5
+    - name: intention_change
+      episodes_per_scenario: 5
+      scenarios: [collaborator_object_handover, instructor_object_to_target]
+      scenario_overrides:
+        all:
+          intention_change: {probability: 1.0}

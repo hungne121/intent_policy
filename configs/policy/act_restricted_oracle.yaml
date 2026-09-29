@@ -1,0 +1,34 @@
+# Phase 2: restricted LeRobot ACT + oracle intention branches fused with the ACT latent.
+# Same ACT hyper-parameters as act_restricted.yaml. The No-Information condition is this config with
+# intent_mask: true (identical architecture and parameter count, intention inputs zeroed).
+type: hri_act
+action_mode: restricted
+chunk_size: 16                    # H=16 (phase_4.md)
+n_action_steps: 1                 # re-plan every decision
+vision_backbone: resnet18
+pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+dim_model: 256
+n_heads: 8
+dim_feedforward: 1024
+n_encoder_layers: 4
+n_decoder_layers: 1
+use_vae: false
+dropout: 0.1
+optimizer_lr: 1.0e-4
+optimizer_lr_backbone: 1.0e-5
+optimizer_weight_decay: 1.0e-4
+use_intent: true
+intent_mask: false
+intent_embed_dim: 64
+intent_hidden_dim: 128
+intent_branches:                  # Phase-2 bundle: spatial/target + future hand motion (0.5 s)
+  spatial:
+    - observation.oracle.object_id
+    - observation.oracle.object_valid
+    - observation.oracle.object_rel
+    - observation.oracle.region_id
+    - observation.oracle.region_valid
+    - observation.oracle.region_rel
+  motion:
+    - observation.oracle.future_hand_rel_0p5
+    - observation.oracle.future_hand_vel_0p5

@@ -1,0 +1,44 @@
+introduction
+	
+	Các mô hình học bắt chước hiện tại đang phát triển mạnh mẽ cho thấy khả năng điều khiển robot chính xác và hiệu quả trong các tác vụ robot hoạt động độc lập. Tuy nhiên trước bối cảnh công nghệ trí tuệ nhân tạo phát triển mạnh mẽ, robot được mong đợi tham gia và đời sống con người nhiều hơn trong tương lai. Điều đó đòi hỏi robot không chỉ cần phải hành động chính xác với mong muốn của con người mà còn phải phối hợp hiệu quả và an toàn trong môi trương người và robot cùng làm việc. Các chinh sách học bắt trước hiện tại gặp vấn đề không chỉ với việc phán đoán chính xác ý định của con người mà còn trong khả năng phối hợp, phản hồi và tính an toàn.
+	Giả thiết đặt ra rằng khi làm giàu nguồn thông tin của mô hình hành động băng các tín hiệu về ý định của con người, mô hình sẽ cải thiện được độ chính xác, tốc độ phản hồi và khả năng đánh giá độ an toàn trong tình huống tương tác. Đồ án đề xuất xây dựng một mô hình chính sách hành động học bắt chước được huấn luyện với thông tin ý định dự đoán từ con người, và đánh giá mô hình này trong bộ bối cảnh nhiệm vụ được xây dựng rõ ràng chi tiết bằng các chỉ số đánh giá riêng cho các nhiệm vụ phối hợp người và robot.
+	Đóng góp của dự án:
+		1. Xây dựng một mô hình chính sách học bắt chước có nhận thức ý định. Đánh giá tác động của ý định con người lên mô hình.
+		2. Xây dựng bộ bối cảnh nhiệm vụ gồm: Instructor (Robot thực thi theo tín hiệu chỉ dẫn của người), Collaborator (Robot phối hợp cùng con người hòan thành các nhiệm vụ), Intruder (Robot hành động chính xác với các bối cảnh người xâm nhập không gian làm việc). 
+		3. Quy trình đánh giá độ hiệu quả của chính sách ý định với bộ chỉ số đánh giá tương tác người robot.
+
+Relevant Research
+	
+	1. ACT: Mô hình hành động học bắt chước
+	2. Mô hình dự đoán ý định
+	3. HRIBENCH: nghiên cứu xây dựng bộ bối cảnh nhiệm vụ và bộ chỉ số đánh giá cho HRI
+	
+Human Intention effect policy model
+
+	Trước hết ta cần trả lời liệu thông tin ý định con người có thực sự ảnh hướng đến mô hình chính sách hành động robot, và ảnh hưởng đó có mang xu hướng cải thiện mô hình không? 
+	Mô hình ACT là một mô hình hành dộng học bắt chước với đầu ra là một chuỗi góp khớp điêu khiển cơ cấu tay máy. Nhằm giảm thiểu độ bất định và đánh giá tác động ý định con người một cách chính xác nhất, ta sẽ giới hạn không gian hành động của ACT thành 9 hành động cơ bản sau: Tiến (tới, lùi, trái, phải), lên xuống, dừng, đóng mở tay máy. Ta sẽ xây dựng và huấn luyện 4 bộ dataset 2x2 để đánh giá như sau:
+	
+	A: Demo robot hành động không có thông tin ý định. Thời điểm phản hồi là khi ý định người hoàn toàn rõ ràng.
+	B: Demo robot hành động không có thông tin ý định. Thời điểm phản hồi là trước khi ý định người hoàn toàn rõ ràng.
+	C: Demo robot hành dộng có thông tin ý định. Thời điểm phản hồi là khi ý định người hoàn toàn rõ ràng.
+	D: Demo robot hành động có thông tin ý định. Thời điểm phản hồi là trước khi ý định người hoàn toàn rõ ràng.
+
+Ta thực hiện so sánh kết quả để trả lời các câu hỏi sau:
+	Chính sách hành động gốc có khả năng phản ứng sớm với ý định của người không? So sánh A và B.
+	Chính sách hành động có nhận thức ý định có cải thiện độ chính xác không? So sánh A với C.
+	Chinh sách hành động có nhận thức ý định có khả năng phản ứng sớm với ý định của người không? So sánh D với B.
+	Câu hỏi chính: Ý định có cải thiện chinh sách hành động gốc không? So sánh A với D.
+
+Intention information representation effect policy model
+
+	Phần này ta muốn trả lời câu hỏi loại biểu diễn tín hiệu nào? Tín hiệu ý định nào từ người cải thiện chính sách động ra sao? như thế nào? và so sánh đánh giá các loại biểu diễn này.
+	
+Intention aware Policy model in HRI
+
+
+
+Evual
+
+Conclusion
+
+	

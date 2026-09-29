@@ -1,0 +1,18 @@
+# Deterministic mapping: restricted action id -> low-level controller command.
+# The simulator world frame equals the UR3e `base_link` frame (translated by the table height):
+#   +X = from the robot towards the human, +Y = robot's left, +Z = up.
+# NOTE: UR's own `base` frame (teach pendant) is rotated 180 deg about Z w.r.t. base_link;
+#       choosing control_frame: base therefore flips MOVE_FORWARD/BACKWARD and LEFT/RIGHT.
+restricted_action:
+  control_frame: base_link          # any MuJoCo body name; deltas are rotated into world by its orientation
+  translation_step: {x: 0.01, y: 0.01, z: 0.01}   # [m] Cartesian set-point change per action
+  execution_ticks: 1                # control ticks (20 Hz) the resulting joint target is held
+  gripper:
+    open: 0.085                     # [m] SusGrip opening command for OPEN_GRIPPER
+    closed: 0.0                     # [m] command for CLOSE_GRIPPER (contact stops the fingers)
+  limits:                           # Cartesian set-point box in the world frame [m]
+    x: [0.12, 0.56]
+    y: [-0.32, 0.32]
+    z: [0.635, 0.95]
+  orientation: top_down             # fixed tool orientation used by IK
+  max_ik_error: 0.004               # [m] translations whose set-point IK cannot reach are refused

@@ -1,0 +1,245 @@
+<mujoco model="ur3e_susgrip_low_level">
+  <compiler angle="radian" meshdir="../meshes" />
+  <asset>
+    <mesh name="base" content_type="model/stl" file="base.stl" />
+    <mesh name="shoulder" content_type="model/stl" file="shoulder.stl" />
+    <mesh name="upperarm" content_type="model/stl" file="upperarm.stl" />
+    <mesh name="forearm" content_type="model/stl" file="forearm.stl" />
+    <mesh name="wrist1" content_type="model/stl" file="wrist1.stl" />
+    <mesh name="wrist2" content_type="model/stl" file="wrist2.stl" />
+    <mesh name="wrist3" content_type="model/stl" file="wrist3.stl" />
+    <mesh name="SUS_2F_Base" content_type="model/stl" file="SUS_2F_Base.STL" />
+    <mesh name="SUS_2F_Slider_L" content_type="model/obj" file="SUS_2F_Slider_L.obj" />
+    <mesh name="SUS_2F_Outer_L" content_type="model/obj" file="SUS_2F_Outer_L.obj" />
+    <mesh name="SUS_2F_Finger_L" content_type="model/obj" file="SUS_2F_Finger_L.obj" />
+    <mesh name="SUS_2F_Inner_L" content_type="model/obj" file="SUS_2F_Inner_L.obj" />
+    <mesh name="SUS_2F_Pad_L" content_type="model/obj" file="SUS_2F_Pad_L.obj" />
+    <mesh name="SUS_2F_Passive_Link_L" content_type="model/obj" file="SUS_2F_Passive_Link_L.obj" />
+    <mesh name="SUS_2F_Slider_R" content_type="model/obj" file="SUS_2F_Slider_R.obj" />
+    <mesh name="SUS_2F_Outer_R" content_type="model/obj" file="SUS_2F_Outer_R.obj" />
+    <mesh name="SUS_2F_Finger_R" content_type="model/obj" file="SUS_2F_Finger_R.obj" />
+    <mesh name="SUS_2F_Inner_R" content_type="model/obj" file="SUS_2F_Inner_R.obj" />
+    <mesh name="SUS_2F_Pad_R" content_type="model/obj" file="SUS_2F_Pad_R.obj" />
+    <mesh name="SUS_2F_Passive_Link_R" content_type="model/obj" file="SUS_2F_Passive_Link_R.obj" />
+  </asset>
+  <worldbody>
+    <body name="robot_mount" pos="0 0 0.62" gravcomp="1">
+      <body name="base_link" gravcomp="1">
+        <body name="base_link_inertia" quat="0 0 0 1" gravcomp="1">
+          <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="2" diaginertia="0.005625 0.00305317 0.00305317" />
+          <geom pos="0 0 0" quat="0 0 0 1" type="mesh" mesh="base" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+          <body name="shoulder_link" pos="0 0 0.15185" gravcomp="1">
+            <inertial pos="0 0 -0.02" quat="0.824382 0.56456 0.0308962 -0.0266815" mass="1.98" diaginertia="0.00276682 0.00263413 0.00207745" />
+            <joint name="shoulder_pan_joint" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-54 54" damping="0.1" armature="0.01" />
+            <geom quat="0 0 0 1" type="mesh" mesh="shoulder" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+            <body name="upper_arm_link" quat="0.707107 0.707107 0 0" gravcomp="1">
+              <inertial pos="-0.11355 0 0.1157" quat="0.511541 0.487878 0.493562 0.506653" mass="3.4445" diaginertia="0.0460286 0.0449496 0.00420725" />
+              <joint name="shoulder_lift_joint" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-54 54" damping="0.1" armature="0.01" />
+              <geom pos="0 0 0.12" quat="0.5 0.5 -0.5 -0.5" type="mesh" mesh="upperarm" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+              <body name="forearm_link" pos="-0.24355 0 0" gravcomp="1">
+                <inertial pos="-0.1632 0 0.0238" quat="0.498615 0.501366 0.496974 0.503022" mass="1.437" diaginertia="0.0113396 0.0110896 0.00105099" />
+                <joint name="elbow_joint" pos="0 0 0" axis="0 0 1" range="-3.14159 3.14159" actuatorfrcrange="-28 28" damping="0.1" armature="0.01" />
+                <geom pos="0 0 0.027" quat="0.5 0.5 -0.5 -0.5" type="mesh" mesh="forearm" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+                <body name="wrist_1_link" pos="-0.2132 0 0.13105" gravcomp="1">
+                  <inertial pos="0 -0.01 0" quat="0.982855 0.184339 -0.00385192 0.00065385" mass="0.871" diaginertia="0.000817416 0.000708389 0.000525695" />
+                  <joint name="wrist_1_joint" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-9 9" damping="0.1" armature="0.01" />
+                  <geom pos="0 0 -0.104" quat="0.707107 0.707107 0 0" type="mesh" mesh="wrist1" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+                  <body name="wrist_2_link" pos="0 -0.08535 -1.75056e-11" quat="0.707107 0.707107 0 0" gravcomp="1">
+                    <inertial pos="0 0.01 0" quat="0.997726 -0.0659421 0.00057165 -0.0139161" mass="0.805" diaginertia="0.000605916 0.000587282 0.000379501" />
+                    <joint name="wrist_2_joint" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-9 9" damping="0.1" armature="0.01" />
+                    <geom pos="0 0 -0.08535" quat="1 0 0 0" type="mesh" mesh="wrist2" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+                    <body name="wrist_3_link" pos="0 0.0921 -1.889e-11" quat="0.707107 -0.707107 0 0" gravcomp="1">
+                      <inertial pos="0 0 -0.02" quat="-0.0596463 0.703375 0.0549048 0.706181" mass="0.261" diaginertia="0.000137102 0.000108615 0.000107983" />
+                      <joint name="wrist_3_joint" pos="0 0 0" axis="0 0 1" actuatorfrcrange="-9 9" damping="0.1" armature="0.01" />
+                      <geom pos="0 0 -0.0921" quat="0.707107 0.707107 0 0" type="mesh" mesh="wrist3" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.35 0.55 0.7 1" condim="4" />
+                      <body name="ft_frame" quat="0 1 0 0" gravcomp="1" />
+                      <body name="flange" quat="0.5 -0.5 -0.5 -0.5" gravcomp="1">
+                        <body name="tool0" quat="0.5 0.5 0.5 0.5" gravcomp="1">
+                          <body name="sus2f_base_link" gravcomp="1">
+                            <inertial pos="0 0 0.06" quat="0.807746 0 0 0.589531" mass="0.148118" diaginertia="0.000135034 0.000126596 0.00012653" />
+                            <geom pos="0 0 0.06" quat="0.707107 -0.707107 0 0" type="mesh" mesh="SUS_2F_Base" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                            <body name="gripper_link" gravcomp="1">
+                              <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                              <joint name="gripper_joint" pos="0 0 0" axis="0 0 1" type="slide" range="0 0.13" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                            </body>
+                            <body name="sus2f_slider_l_link" gravcomp="1">
+                              <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                              <joint name="base_slider_l_joint" pos="0 0 0" axis="0 0 1" type="slide" range="0 0.015" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                              <geom type="mesh" mesh="SUS_2F_Slider_L" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                              <body name="sus2f_outer_l_link" pos="-0.053 0 0.043" gravcomp="1">
+                                <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                <joint name="slider_outer_l_joint" pos="0 0 0" axis="0 1 0" range="-1.5 1.5" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                                <geom pos="0.053 0 -0.043" type="mesh" mesh="SUS_2F_Outer_L" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                <body name="sus2f_finger_l_link" pos="0 0 0.054" gravcomp="1">
+                                  <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                  <joint name="finger_outer_l_joint" pos="0 0 0" axis="0 1 0" damping="0.1" armature="0.01" />
+                                  <geom pos="0.053 0 -0.097" quat="1 0 0 0" type="mesh" mesh="SUS_2F_Finger_L" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                  <body name="sus2f_inner_l_link" pos="0.013 0 0" gravcomp="1">
+                                    <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                    <joint name="finger_inner_l_joint" pos="0 0 0" axis="0 1 0" damping="0.1" armature="0.01" />
+                                    <geom pos="0.04 0 -0.097" type="mesh" mesh="SUS_2F_Inner_L" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                    <body name="sus2f_pad_l_link" pos="0 0 -0.027" gravcomp="1">
+                                      <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                      <joint name="pad_inner_l_joint" pos="0 0 0" axis="0 1 0" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                                      <geom pos="0 0.016 0.027" quat="0.707107 0 0 -0.707107" type="mesh" mesh="SUS_2F_Pad_L" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                    </body>
+                                    <body name="sus2f_passive_pad_l_link" pos="0 0 -0.027" gravcomp="1">
+                                      <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                      <joint name="passive_pad_inner_l_joint" pos="0 0 0" axis="0 1 0" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                                      <geom pos="0 -0.016 0.027" quat="0.707107 0 0 0.707107" type="mesh" mesh="SUS_2F_Passive_Link_L" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                    </body>
+                                  </body>
+                                </body>
+                              </body>
+                            </body>
+                            <body name="sus2f_slider_r_link" gravcomp="1">
+                              <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                              <joint name="base_slider_r_joint" pos="0 0 0" axis="0 0 1" type="slide" range="0 0.015" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                              <geom type="mesh" mesh="SUS_2F_Slider_R" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                              <body name="sus2f_outer_r_link" pos="0.053 0 0.043" gravcomp="1">
+                                <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                <joint name="slider_outer_r_joint" pos="0 0 0" axis="0 1 0" range="-1.5 1.5" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                                <geom pos="-0.053 0 -0.043" quat="3.26795e-07 0 0 1" type="mesh" mesh="SUS_2F_Outer_R" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                <body name="sus2f_finger_r_link" pos="0 0 0.054" quat="3.26795e-07 0 0 1" gravcomp="1">
+                                  <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                  <joint name="finger_outer_r_joint" pos="0 0 0" axis="0 1 0" damping="0.1" armature="0.01" />
+                                  <geom pos="0.053 0 -0.097" quat="1 0 0 0" type="mesh" mesh="SUS_2F_Finger_R" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                  <body name="sus2f_inner_r_link" pos="0.013 0 0" quat="3.26795e-07 0 0 1" gravcomp="1">
+                                    <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                    <joint name="finger_inner_r_joint" pos="0 0 0" axis="0 1 0" damping="0.1" armature="0.01" />
+                                    <geom pos="0.04 0 -0.097" quat="3.26795e-07 0 0 1" type="mesh" mesh="SUS_2F_Inner_R" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                    <body name="sus2f_pad_r_link" pos="0 0 -0.027" gravcomp="1">
+                                      <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                      <joint name="pad_inner_r_joint" pos="0 0 0" axis="0 1 0" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                                      <geom pos="0 -0.016 0.027" quat="0.707107 0 0 0.707107" type="mesh" mesh="SUS_2F_Pad_R" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                    </body>
+                                    <body name="sus2f_passive_pad_r_link" pos="0 0 -0.027" gravcomp="1">
+                                      <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001" />
+                                      <joint name="passive_pad_inner_r_joint" pos="0 0 0" axis="0 1 0" actuatorfrcrange="-100 100" damping="0.1" armature="0.01" />
+                                      <geom pos="0 0.016 0.027" quat="0.707107 0 0 -0.707107" type="mesh" mesh="SUS_2F_Passive_Link_R" contype="1" conaffinity="2" friction="1.2 0.01 0.001" rgba="0.3 0.3 0.33 1" condim="4" />
+                                    </body>
+                                  </body>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                          <site name="tcp" pos="0 0 0.138" size="0.005" rgba="1 0 0 1" />
+                          <camera name="wrist" pos="0 0 -0.02" xyaxes="1 0 0 0 -1 0" fovy="60" />
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+        <body name="base" quat="0 0 0 1" gravcomp="1" />
+      </body>
+    </body>
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.15 0.18 0.22 1" contype="2" conaffinity="3" />
+    <geom name="table" type="box" pos="0.35 0 0.59" size="0.6 0.5 0.03" rgba="0.65 0.6 0.5 1" contype="2" conaffinity="3" friction="0.8 0.01 0.001" />
+    <body name="receiver" mocap="true" pos="0.3 -0.18 0.78">
+      <geom name="receiver_visual" type="sphere" size="0.025" rgba="0 0 0 0" contype="0" conaffinity="0" />
+    </body>
+    <light pos="0 -1 2" dir="0 0 -1" directional="true" />
+    <camera name="front" pos="1.2 -1.2 1.45" xyaxes=".707 .707 0 -.32 .32 .89" fovy="55" />
+    <camera name="top" pos="0.3 0 1.6" xyaxes="1 0 0 0 1 0" fovy="55" />
+    <body name="cube" pos="0.29 -0.12 0.64">
+      <freejoint name="cube_free" />
+      <geom name="cube_geom" type="box" size="0.018 0.018 0.018" mass=".07" rgba="0.9 0.12 0.1 1.0" contype="2" conaffinity="3" friction="1.5 .01 .001" condim="4" />
+    </body>
+    <body name="object_1" pos="0.35 0.0 0.645">
+      <freejoint name="object_1_free" />
+      <geom name="object_1_geom" type="cylinder" size="0.019 0.023" mass=".07" rgba="0.12 0.3 0.95 1.0" contype="2" conaffinity="3" friction="1.5 .01 .001" condim="4" />
+    </body>
+    <body name="bowl_red" pos="0.28 -0.19 0.625">
+      <freejoint name="bowl_red_free" />
+      <geom name="bowl_red_bottom" type="cylinder" size=".055 .004" mass=".07" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" friction="1.5 .01 .001" />
+      <geom name="bowl_red_wall_0" type="box" pos="0.052 0.0 0.023" size=".005 .011 .023" euler="0 0 0.0" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_1" type="box" pos="0.04804173569058691 0.019899538482984667 0.023" size=".005 .011 .023" euler="0 0 0.39269908169872414" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_2" type="box" pos="0.03676955262170047 0.036769552621700466 0.023" size=".005 .011 .023" euler="0 0 0.7853981633974483" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_3" type="box" pos="0.01989953848298467 0.04804173569058691 0.023" size=".005 .011 .023" euler="0 0 1.1780972450961724" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_4" type="box" pos="3.1840816777831182e-18 0.052 0.023" size=".005 .011 .023" euler="0 0 1.5707963267948966" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_5" type="box" pos="-0.019899538482984664 0.04804173569058691 0.023" size=".005 .011 .023" euler="0 0 1.9634954084936207" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_6" type="box" pos="-0.036769552621700466 0.03676955262170047 0.023" size=".005 .011 .023" euler="0 0 2.356194490192345" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_7" type="box" pos="-0.04804173569058691 0.019899538482984674 0.023" size=".005 .011 .023" euler="0 0 2.748893571891069" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_8" type="box" pos="-0.052 6.3681633555662364e-18 0.023" size=".005 .011 .023" euler="0 0 3.141592653589793" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_9" type="box" pos="-0.048041735690586916 -0.01989953848298466 0.023" size=".005 .011 .023" euler="0 0 3.5342917352885173" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_10" type="box" pos="-0.03676955262170048 -0.036769552621700466 0.023" size=".005 .011 .023" euler="0 0 3.9269908169872414" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_11" type="box" pos="-0.019899538482984695 -0.048041735690586895 0.023" size=".005 .011 .023" euler="0 0 4.319689898685965" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_12" type="box" pos="-9.552245033349354e-18 -0.052 0.023" size=".005 .011 .023" euler="0 0 4.71238898038469" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_13" type="box" pos="0.019899538482984678 -0.0480417356905869 0.023" size=".005 .011 .023" euler="0 0 5.105088062083414" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_14" type="box" pos="0.03676955262170046 -0.03676955262170048 0.023" size=".005 .011 .023" euler="0 0 5.497787143782138" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_wall_15" type="box" pos="0.048041735690586895 -0.0198995384829847 0.023" size=".005 .011 .023" euler="0 0 5.890486225480862" mass=".004" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_red_handle" type="box" pos="-.072 0 .023" size=".025 .015 .009" mass=".015" rgba="0.85 0.12 0.12 1.0" contype="2" conaffinity="3" friction="1.5 .01 .001" />
+    </body>
+    <body name="bowl_blue" pos="0.28 0.18 0.625">
+      <freejoint name="bowl_blue_free" />
+      <geom name="bowl_blue_bottom" type="cylinder" size=".055 .004" mass=".07" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" friction="1.5 .01 .001" />
+      <geom name="bowl_blue_wall_0" type="box" pos="0.052 0.0 0.023" size=".005 .011 .023" euler="0 0 0.0" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_1" type="box" pos="0.04804173569058691 0.019899538482984667 0.023" size=".005 .011 .023" euler="0 0 0.39269908169872414" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_2" type="box" pos="0.03676955262170047 0.036769552621700466 0.023" size=".005 .011 .023" euler="0 0 0.7853981633974483" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_3" type="box" pos="0.01989953848298467 0.04804173569058691 0.023" size=".005 .011 .023" euler="0 0 1.1780972450961724" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_4" type="box" pos="3.1840816777831182e-18 0.052 0.023" size=".005 .011 .023" euler="0 0 1.5707963267948966" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_5" type="box" pos="-0.019899538482984664 0.04804173569058691 0.023" size=".005 .011 .023" euler="0 0 1.9634954084936207" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_6" type="box" pos="-0.036769552621700466 0.03676955262170047 0.023" size=".005 .011 .023" euler="0 0 2.356194490192345" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_7" type="box" pos="-0.04804173569058691 0.019899538482984674 0.023" size=".005 .011 .023" euler="0 0 2.748893571891069" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_8" type="box" pos="-0.052 6.3681633555662364e-18 0.023" size=".005 .011 .023" euler="0 0 3.141592653589793" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_9" type="box" pos="-0.048041735690586916 -0.01989953848298466 0.023" size=".005 .011 .023" euler="0 0 3.5342917352885173" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_10" type="box" pos="-0.03676955262170048 -0.036769552621700466 0.023" size=".005 .011 .023" euler="0 0 3.9269908169872414" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_11" type="box" pos="-0.019899538482984695 -0.048041735690586895 0.023" size=".005 .011 .023" euler="0 0 4.319689898685965" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_12" type="box" pos="-9.552245033349354e-18 -0.052 0.023" size=".005 .011 .023" euler="0 0 4.71238898038469" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_13" type="box" pos="0.019899538482984678 -0.0480417356905869 0.023" size=".005 .011 .023" euler="0 0 5.105088062083414" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_14" type="box" pos="0.03676955262170046 -0.03676955262170048 0.023" size=".005 .011 .023" euler="0 0 5.497787143782138" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_wall_15" type="box" pos="0.048041735690586895 -0.0198995384829847 0.023" size=".005 .011 .023" euler="0 0 5.890486225480862" mass=".004" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" />
+      <geom name="bowl_blue_handle" type="box" pos="-.072 0 .023" size=".025 .015 .009" mass=".015" rgba="0.1 0.25 0.9 1.0" contype="2" conaffinity="3" friction="1.5 .01 .001" />
+    </body>
+    <body name="human_torso" pos=".67 0 .95">
+      <geom type="box" size=".065 .13 .19" rgba=".25 .36 .52 1" contype="0" conaffinity="0" />
+      <geom type="sphere" pos="0 0 .29" size=".07" rgba=".78 .57 .42 1" contype="0" conaffinity="0" />
+    </body>
+    <body name="human_hand" mocap="true" pos=".56 0 .9">
+      <geom name="human_palm" type="ellipsoid" size=".035 .025 .016" rgba=".85 .63 .46 1" contype="0" conaffinity="0" />
+      <geom name="human_finger" type="capsule" fromto="-.02 0 0 -.065 0 0" size=".007" rgba=".85 .63 .46 1" contype="0" conaffinity="0" />
+    </body>
+    <body name="human_forearm" mocap="true" pos=".64 0 .9">
+      <geom name="human_arm_geom" type="capsule" size=".022 .11" quat=".7071068 0 .7071068 0" rgba=".78 .57 .42 1" contype="0" conaffinity="0" />
+    </body>
+    <geom name="request_board" type="box" pos=".57 -.18 .96" size=".008 .09 .075" rgba=".93 .93 .93 1" contype="0" conaffinity="0" />
+    <body name="request_object" mocap="true" pos=".55 -.21 .97">
+      <geom name="request_box" type="box" size=".018 .018 .018" rgba="1 0 0 0" contype="0" conaffinity="0" />
+      <geom name="request_cylinder" type="cylinder" size=".019 .023" rgba="1 0 0 0" contype="0" conaffinity="0" />
+      <geom name="request_sphere" type="sphere" size=".021" rgba="1 0 0 0" contype="0" conaffinity="0" />
+    </body>
+    <geom name="request_destination" type="box" pos=".55 -.14 .96" size=".008 .022 .022" rgba=".1 .8 .2 1" contype="0" conaffinity="0" />
+  </worldbody>
+  <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81" iterations="100" cone="elliptic" />
+  <equality>
+    <joint joint1="base_slider_l_joint" joint2="gripper_joint" polycoef="0.000753 0.036 0 0 0" solref="0.004 1" />
+    <joint joint1="slider_outer_l_joint" joint2="gripper_joint" polycoef="0.609479 -9.632 0 0 0" solref="0.004 1" />
+    <joint joint1="finger_outer_l_joint" joint2="gripper_joint" polycoef="-0.609479 9.632 0 0 0" solref="0.004 1" />
+    <joint joint1="finger_inner_l_joint" joint2="gripper_joint" polycoef="0.609479 -9.632 0 0 0" solref="0.004 1" />
+    <joint joint1="pad_inner_l_joint" joint2="gripper_joint" polycoef="-1.218957 19.264 0 0 0" solref="0.004 1" />
+    <joint joint1="passive_pad_inner_l_joint" joint2="gripper_joint" polycoef="-1.218957 19.264 0 0 0" solref="0.004 1" />
+    <joint joint1="base_slider_r_joint" joint2="gripper_joint" polycoef="0.000753 0.036 0 0 0" solref="0.004 1" />
+    <joint joint1="slider_outer_r_joint" joint2="gripper_joint" polycoef="-0.609479 9.632 0 0 0" solref="0.004 1" />
+    <joint joint1="finger_outer_r_joint" joint2="gripper_joint" polycoef="-0.609479 9.632 0 0 0" solref="0.004 1" />
+    <joint joint1="finger_inner_r_joint" joint2="gripper_joint" polycoef="-0.609479 9.632 0 0 0" solref="0.004 1" />
+    <joint joint1="pad_inner_r_joint" joint2="gripper_joint" polycoef="1.218957 -19.264 0 0 0" solref="0.004 1" />
+    <joint joint1="passive_pad_inner_r_joint" joint2="gripper_joint" polycoef="1.218957 -19.264 0 0 0" solref="0.004 1" />
+    <weld name="receiver_grasp" body1="receiver" body2="cube" active="false" relpose="0 0 0 1 0 0 0" solref=".01 1" />
+    <weld name="receiver_grasp_object_1" body1="receiver" body2="object_1" active="false" relpose="0 0 0 1 0 0 0" solref=".01 1" />
+    <weld name="receiver_grasp_bowl_red" body1="receiver" body2="bowl_red" active="false" relpose="0 0 0 1 0 0 0" solref=".01 1" />
+    <weld name="receiver_grasp_bowl_blue" body1="receiver" body2="bowl_blue" active="false" relpose="0 0 0 1 0 0 0" solref=".01 1" />
+  </equality>
+  <actuator>
+    <position name="shoulder_pan_joint" joint="shoulder_pan_joint" kp="600" kv="50" forcelimited="true" forcerange="-150 150" />
+    <position name="shoulder_lift_joint" joint="shoulder_lift_joint" kp="600" kv="50" forcelimited="true" forcerange="-150 150" />
+    <position name="elbow_joint" joint="elbow_joint" kp="600" kv="50" forcelimited="true" forcerange="-150 150" />
+    <position name="wrist_1_joint" joint="wrist_1_joint" kp="600" kv="50" forcelimited="true" forcerange="-150 150" />
+    <position name="wrist_2_joint" joint="wrist_2_joint" kp="600" kv="50" forcelimited="true" forcerange="-150 150" />
+    <position name="wrist_3_joint" joint="wrist_3_joint" kp="600" kv="50" forcelimited="true" forcerange="-150 150" />
+    <position name="gripper" joint="gripper_joint" kp="1500" kv="15" ctrllimited="true" ctrlrange="0 0.085" forcelimited="true" forcerange="-40 40" />
+  </actuator>
+</mujoco>

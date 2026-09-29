@@ -1,0 +1,37 @@
+# FOUNDATION-BASELINE: LeRobot ACT, restricted head, NO intention information (Phase 1).
+experiment: foundation_baseline
+phase: 1
+seed: 0
+policy:
+  config: configs/policy/act_restricted.yaml
+  action_mode: restricted
+  use_intent: false
+intent:
+  provider: none
+benchmark:
+  scenario_set: phase1
+  scenarios:
+    - instructor_object_to_target
+    - collaborator_object_handover
+    - collaborator_bowl_assistance
+    - intruder_pick_place_interruption
+  eval_seed_start: 100000          # evaluation seeds never overlap demonstration seeds
+  eval_episodes_per_scenario: 20
+observation:
+  cameras: [scene, wrist]
+  width: 256                       # recorded + rendered camera size (LIBERO-like; 128x96 made objects 2-4 px)
+  height: 192
+controller: configs/controller/restricted_action.yaml
+data:
+  repo_id: local/hri_phase1_noint
+  root: outputs/datasets/hri_phase1_noint
+  episodes_per_scenario: 100       # successful scripted-expert demonstrations per scenario
+  seed_start: 0
+training:
+  steps: 20000
+  batch_size: 32
+  num_workers: 8
+  log_every: 100
+  save_every: 2000
+  amp: false                       # fp16 autocast gave NaN losses with ACT on the GTX 1650 (fp32 ~2 steps/s at batch 32)
+  output_dir: outputs/train/foundation_baseline

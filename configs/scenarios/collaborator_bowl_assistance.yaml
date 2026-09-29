@@ -1,0 +1,56 @@
+scenario_id: collaborator_bowl_assistance
+role: collaborator
+goal: >-
+  The human picks one of two objects. The robot must bring the matching bowl
+  (object_a <-> bowl_a, object_b <-> bowl_b) to the delivery spot in front of the human;
+  the human then drops the object into that bowl. A wrong bowl never earns success.
+task: Bring the bowl that matches the object the human picks up to the delivery spot.          # LeRobot per-frame task string (same for every episode)
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  objects:
+    object_a: {shape: box, size: [0.018, 0.018, 0.018], color: red, label: red cube}
+    object_b: {shape: cylinder, size: [0.02, 0.018], color: blue, label: blue cylinder}
+  bowls:
+    bowl_a: {color: red, radius: 0.05, pairs_with: object_a}
+    bowl_b: {color: blue, radius: 0.05, pairs_with: object_b}
+  delivery_spot: [0.45, 0.0]        # "in front of the human", bowl centre target
+  delivery_tolerance_m: 0.05
+scene_variation:
+  object_slots: [[0.60, -0.10], [0.60, 0.10]]     # near the human, robot does not touch them
+  object_jitter_m: 0.01
+  bowl_slots: [[0.30, -0.15], [0.30, 0.15]]
+  bowl_jitter_m: 0.012
+  robot_home_jitter_rad: 0.04
+  appearance_permutation: false
+  selected_object: [object_a, object_b]
+human_behavior:
+  type: bowl_requester
+  cue_onset_s: [0.4, 1.5]           # hand starts reaching for the chosen object
+  reach_s: [0.9, 1.4]
+  lift_s: [1.0, 1.5]
+  hold_pose_offset: [0.10, 0.0, 0.16]   # held object waits above/behind the delivery spot
+  drop_height_m: 0.07
+  drop_move_s: [0.8, 1.2]
+  speed_scale: [0.8, 1.25]
+expert:                             # demonstrator only (never a policy input)
+  trigger: cue_complete             # cue_complete (Phase 1) | cue_onset (Phase 2)
+timing:
+  timeout_s: 45.0
+  stable_s: 0.5
+success_conditions:
+  correct_bowl: true
+  bowl_at_delivery_spot: true
+  object_in_bowl: true
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [human_picked_object, correct_bowl_grasped, bowl_delivered, object_placed_in_bowl]
+applicable_metrics: [CSR, CT, IR, TSync, Rsp, OC, CFR, HCS, AM, WCR, WCD]
+metric_params:
+  rsp_trigger: {event_type: protocol_step_complete, step: human_picked_object}
+  rsp_response: robot_motion_start
+  ir_start: {event_type: protocol_step_complete, step: human_picked_object}
+  tsync_human: {event_type: interaction_window_start, kind: bowl_request}
+  tsync_robot: {event_type: protocol_step_complete, step: bowl_delivered}
+  am_cue_complete: {event_type: protocol_step_complete, step: human_picked_object}
+  commit_stage: bowl

@@ -1,0 +1,19 @@
+# LeRobot ACT - original continuous action-chunk head (preserved for Phase 4).
+type: hri_act
+action_mode: continuous
+use_intent: false
+chunk_size: 16                    # H=16, prefix=2 (phase_4.md): [B,16,7], execute 2 steps per inference
+n_action_steps: 2
+vision_backbone: resnet18
+pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+dim_model: 256
+n_heads: 8
+dim_feedforward: 1024
+n_encoder_layers: 4
+n_decoder_layers: 1
+use_vae: true                     # ACT default objective (L1 + KL)
+kl_weight: 10.0
+dropout: 0.1
+optimizer_lr: 1.0e-4
+optimizer_lr_backbone: 1.0e-5
+optimizer_weight_decay: 1.0e-4

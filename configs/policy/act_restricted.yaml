@@ -1,0 +1,18 @@
+# LeRobot ACT (HRIACTConfig = ACTConfig + action-mode selection) - restricted diagnostic head.
+type: hri_act
+action_mode: restricted
+use_intent: false                 # Phase 1 baseline: no intention information
+chunk_size: 16                    # H=16 (phase_4.md); 0.8 s of 20 Hz decisions -> 16 x 9 logits
+n_action_steps: 1                 # re-plan every decision (needed to react to the human)
+vision_backbone: resnet18
+pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+dim_model: 256                    # reduced from LeRobot's 512 for the 4 GB GPU / small dataset
+n_heads: 8
+dim_feedforward: 1024
+n_encoder_layers: 4
+n_decoder_layers: 1
+use_vae: false                    # classification head: no action-chunk VAE needed
+dropout: 0.1
+optimizer_lr: 1.0e-4
+optimizer_lr_backbone: 1.0e-5
+optimizer_weight_decay: 1.0e-4

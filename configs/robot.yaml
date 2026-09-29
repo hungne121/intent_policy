@@ -1,0 +1,14 @@
+model: assets/scene.xml             # base robot scene (UR3e + SusGrip + table); scenarios add objects
+control_hz: 20
+home: [-0.714, -2.121, 1.682, -1.132, -1.571, -0.714]   # retracted: TCP (0.20, 0.00, 0.84), top-down
+max_joint_speed: 1.5                # [rad/s] per-joint target rate limit
+max_gripper_speed: 0.12             # [m/s] finger-gap target rate limit
+assisted_grasp:
+  # SusGrip fingertips move on an arc and rise ~1.2 cm while closing, which rotates objects about
+  # the grasp axis and makes purely frictional grasps unreliable in MuJoCo (see report). As in
+  # iGibson/BEHAVIOR "assistive grasping", an object is attached to the gripper with a weld ONLY
+  # when both fingers physically touch it while the gripper is commanded closed; it is released
+  # as soon as the gripper is commanded open. Positioning errors still make grasps fail.
+  enabled: true
+  close_below: 0.03                 # [m] gripper command below which attachment may happen
+  open_above: 0.05                  # [m] gripper command above which the attachment is released

@@ -1,0 +1,61 @@
+# PHASE-2 ORACLE INTENTION UTILITY: No Information (masked intent, same architecture) vs Oracle
+# Spatial + Future-Motion bundle, restricted head, same demonstrations / split / seeds / budget.
+#
+# Information-timing contract: the demonstrator commits to a target only when the target has become
+# predictable from the observable cue (`human_intention_evident`, 40% of the revealing hand motion;
+# the instruction board is explicit at once). The oracle is valid from the same moment.
+experiment: phase2_oracle
+phase: 2
+seed: 0
+policy:
+  config: configs/policy/act_restricted_oracle.yaml          # conditions override use_intent / intent_mask
+  action_mode: restricted
+intent:
+  provider: oracle
+  horizons_s: [0.5, 1.0]            # recorded future-hand horizons; the Phase-2 bundle uses 0.5 s
+  evidence_fraction: 0.4
+benchmark:
+  scenarios:
+    - instructor_object_to_target
+    - collaborator_object_handover
+    - collaborator_bowl_assistance
+    - intruder_pick_place_interruption
+  protocol: configs/benchmark/phase2_protocol_v1.yaml
+observation:
+  cameras: [scene, wrist]
+  width: 256
+  height: 192
+controller: configs/controller/restricted_action.yaml
+scenario_overrides:                  # deep-merged into every scenario YAML (the merged config is stored per episode)
+  all:
+    expert: {trigger: evidence}
+    scene_variation: {twin_pairs: true}
+  intruder_pick_place_interruption:
+    expert: {yield_prediction_horizon_s: 0.5}
+    scene_variation: {twin_pairs: false}   # no human choice to pair
+data:
+  repo_id: local/hri_phase2_oracle
+  root: outputs/datasets/hri_phase2_oracle
+  seed_start: 0
+  noise:                             # DART-style perturbation (labels stay the expert's clean actions)
+    episode_fraction: 0.3            # decided per twin pair, so both members are clean or both noisy
+    burst_prob: 0.03
+    burst_ticks: [3, 8]
+  splits:                            # collected in this order; seeds continue across splits
+    - name: nominal
+      episodes_per_scenario: 100
+    - name: intention_change
+      episodes_per_scenario: 40
+      scenarios: [collaborator_object_handover, instructor_object_to_target]
+      scenario_overrides:
+        all:
+          intention_change: {probability: 1.0}
+training:
+  steps: 20000
+  batch_size: 32
+  num_workers: 8
+  log_every: 100
+  save_every: 2000
+  amp: false
+  seeds: [0, 1, 2]                   # training seeds per condition
+  output_root: outputs/train/phase2
