@@ -1,5 +1,6 @@
-# PHASE-2 SCENARIO PREVIEW (review gate G2a): new expert timing + intention-change variants only.
-# No oracle features and no policy yet. Collected with scripts/collect_demos.py (splits below).
+# SCENARIO PREVIEW (review before collection): a few episodes of every task T1-T5 from the demo list, scripted
+# expert, no oracle features. Collect with `scripts/collect_demos.py --config <this> --per-task 2`, or record
+# videos with `scripts/record_rollout.py --expert --list configs/scenario_lists/demo_v1.jsonl --per-task 1`.
 experiment: phase2_scenario_preview
 phase: 2
 seed: 0
@@ -10,33 +11,19 @@ policy:
 intent:
   provider: none
 benchmark:
-  scenarios:
-    - instructor_object_to_target
-    - collaborator_object_handover
-    - collaborator_bowl_assistance
-    - intruder_pick_place_interruption
-  eval_seed_start: 100000
-  eval_episodes_per_scenario: 20
+  scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
+  eval_list: configs/scenario_lists/eval_v1.jsonl
 observation:
-  cameras: [scene, wrist]
+  cameras: [high, wrist, top]
   width: 256
   height: 192
 controller: configs/controller/restricted_action.yaml
-scenario_overrides:                  # deep-merged into every scenario YAML (the merged config is stored per episode)
+scenario_overrides:
   all:
-    expert: {trigger: cue_onset}     # act from the human's cue onset instead of waiting for the full cue
-  intruder_pick_place_interruption:
+    expert: {trigger: evidence}      # act when the target becomes predictable from the gesture
+  t4_interrupt:
     expert: {yield_prediction_horizon_s: 0.5}
 data:
-  repo_id: local/hri_phase2_scenario_preview
-  root: outputs/datasets/hri_phase2_scenario_preview
-  seed_start: 0
-  splits:                            # collected in this order; seeds continue across splits
-    - name: nominal
-      episodes_per_scenario: 5
-    - name: intention_change
-      episodes_per_scenario: 5
-      scenarios: [collaborator_object_handover, instructor_object_to_target]
-      scenario_overrides:
-        all:
-          intention_change: {probability: 1.0}
+  repo_id: local/hri_scenario_preview
+  root: outputs/datasets/hri_scenario_preview
+  scenario_list: configs/scenario_lists/demo_v1.jsonl

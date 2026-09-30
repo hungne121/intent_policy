@@ -11,8 +11,8 @@ import numpy as np
 from intent_policy.intent.oracle import HORIZONS, OracleRecord, horizon_tag
 
 PREFIX = 'observation.oracle.'
-OBJECT_VOCAB = ('object_a', 'object_b', 'object_c', 'bowl_a', 'bowl_b')
-REGION_VOCAB = ('target_region_a', 'target_region_b', 'receive_pose', 'delivery_spot', 'intrusion_point')
+OBJECT_VOCAB = ('B1', 'B2', 'B3', 'B1p', 'C1', 'C2', 'C3')              # objects_catalog (scence_construct.md §3.1)
+REGION_VOCAB = ('P1', 'P2', 'H1', 'H2', 'U_cup', 'intrusion_point')     # configs/layout.yaml zones + T4 intrusion
 
 
 def feature_shapes(horizons=HORIZONS) -> dict[str, int]:

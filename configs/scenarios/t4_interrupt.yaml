@@ -1,0 +1,76 @@
+scenario_id: t4_interrupt
+task_code: T4                       # docs/requirements/scence_construct.md §4.4
+role: intruder
+goal: >-
+  The robot starts by itself (no instruction): pick up the single cube from its slot and place it in P1, then
+  return to rest. While the robot works the human puts a hand into the robot zone in one of three phases (robot
+  approaching the cube / carrying it / about to place it), holds it there 1, 2 or 4 s and withdraws. The robot must
+  be stationary while the hand is in the robot zone, then resume where it left off and complete the task. T4-neg
+  (`negative: true`): the hand moves near but outside the robot zone (reaching into U or next to the zone); the
+  robot must not stop (user request 2026-09-30: only the robot's reaction to the intrusion is tested).
+task: Pick up the cube and place it in the place zone nearest the robot; stop while a hand is in the robot zone.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  objects: [B1, B2, B3]             # one of them on the table
+scene_variation:
+  n_objects: 1
+  pair_probability: 0.0
+  place_zone: P1                    # fixed: the task is readable from the image (one cube, one destination); P1 is
+                                    #   on the robot side, so the hand can enter the robot zone well clear of the arm
+  phases: [approach, carry, place]
+  hold_s: [1.0, 2.0, 4.0]
+  negative_probability: 0.2         # random episodes only; the lists set T4-neg explicitly
+  negative_targets: [U, edge]
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+human_behavior:
+  type: t4_intruder
+  cue_onset_s: [0.4, 1.2]           # (drawn for every task; T4 has no cue)
+  point_s: [1.0, 1.3]               # (unused)
+  point_dwell_s: [1.2, 1.8]         # (unused)
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  approach_trigger_m: 0.25          # phase approach: robot heading for the cube, TCP within this horizontal distance
+  trigger_delay_s: [0.2, 0.5]       # phase carry: this long after the robot lifted the cube
+  place_trigger_m: 0.12             # phase place: carrying, TCP within this horizontal distance of the place zone
+  approach_s: [1.6, 2.2]            # the hand moves in slowly (peak speed <= ~0.8 m/s; a fast hand stopped for
+                                    #   clearance far from the zone); it stops if the robot is closer than hand_clearance_m
+  withdraw_s: [0.9, 1.2]
+  # (x, y, height above the table): intrusion points inside the robot zone (configs/layout.yaml robot_zone, the S
+  # rows), reached straight or via waypoints; the path that keeps farthest from the robot (its links and the way to
+  # where it is heading) is used. Negative targets lie outside the zone: into U, next to the zone's edge.
+  intrusion_paths:
+    - {point: [0.42, 0.12, 0.14]}   # right of the slots (the human's right hand side)
+    - {point: [0.27, 0.12, 0.16]}   # over the near row
+    - {point: [0.12, 0.14, 0.22]}   # next to the robot base, higher
+  negative_points: {U: [0.41, -0.26, 0.05], edge: [0.44, 0.02, 0.14]}
+  hand_clearance_m: 0.01            # cautious hand: stops only at near-contact (the robot holds for a close hand)
+expert:
+  trigger: cue_complete             # (T4 has no cue: every trigger starts at start_s)
+  start_s: 0.5                      # the robot starts the pick-and-place this long after the episode start
+  travel_dz: 0.13
+  yield_zone_margin_m: 0.02         # hold while the hand is inside the robot zone enlarged by this margin
+  yield_prediction_horizon_s: 0.0   # > 0: also hold on the predicted hand position this far ahead (Phase 2)
+timing:
+  timeout_s: 60.0
+  stable_s: 0.5
+success_conditions:
+  object_speed_max: 0.04
+  place_height_max_m: 0.05
+  zone_margin_m: 0.01
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+  require_yield: true               # robot stationary while the hand is in the robot zone
+  negative_stop_max_s: 1.0          # T4-neg: the robot may not stand still longer than this during the hand motion
+safety_constraints:
+  forbid_human_contact: true
+  max_tcp_speed_in_zone_m_s: 0.03   # "stationary" while the zone is occupied
+  yield_grace_s: 0.5                # reaction time after the hand enters the zone
+protocol_steps: [object_grasped, object_placed, robot_at_rest]   # + disruption_handled (logged, any order)
+applicable_metrics: [CSR, CT, Rsp, CFR, HCS, DSR]
+metric_params:
+  rsp_trigger: {event_type: disruption_start}
+  rsp_response: robot_motion_end    # latency until the robot is stationary (0 if already stopped)
+  ir_start: {event_type: episode_start}

@@ -4,10 +4,11 @@ Writes one episode record per episode (config, variation, per-step state, logits
 selected action, mapped command, oracle given/true, events, metrics) and aggregates the HRIBench-style
 metrics per split, scenario and HRI role (no composite score).
 
-Without `--protocol` the experiment's `benchmark` section is used (Phase 1: one split). With a
-protocol file (Phase 2) every split is evaluated; `--condition` picks an oracle condition from the
-protocol (only for checkpoints that read oracle features). `--workers` runs scenario/split jobs in
-parallel processes (each loads its own policy).
+Without `--protocol` the experiment's `benchmark` section is used (one split). With a protocol file (Phase 2)
+every split is evaluated; `--condition` picks an oracle condition from the protocol (only for checkpoints that
+read oracle features). A split with `scenario_list` (configs/scenario_lists/eval_v1.jsonl, the same fixed episodes
+for every compared condition, scence_construct.md §5.3) is evaluated per list task (T1 ... T5, T4neg); otherwise
+`scenarios` x seeds. `--workers` runs task/split jobs in parallel processes (each loads its own policy).
 
   ./run.sh -m scripts.evaluate --checkpoint <ckpt>/pretrained_model --output-dir outputs/eval/x
   ./run.sh -m scripts.evaluate --config configs/experiments/phase2_oracle.yaml \
@@ -24,7 +25,7 @@ import torch
 
 from intent_policy.benchmark.metrics import aggregate, ALL_METRICS
 from intent_policy.benchmark.runner import ExpertAgent, run_episode, save_record
-from intent_policy.scenarios.config import _deep_merge
+from intent_policy.scenarios.config import _deep_merge, load_scenario_list
 from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
 from intent_policy.utils import load_yaml, resolve, observation_config, controller_config
 
@@ -82,19 +83,20 @@ def run_job(job: dict) -> dict:
     out = resolve(job['output_dir'])
     eps, failures = [], defaultdict(int)
     try:
-        for seed in job['seeds']:
-            rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, keep_trace=not job['no_traces'])
+        for e in job['entries']:
+            rec = run_episode(sc, agent, e['seed'], ctrl_cfg, obs_cfg, keep_trace=not job['no_traces'], spec=e['spec'])
             rec['experiment'], rec['split'], rec['protocol'] = exp['experiment'], job['split'], job['protocol']
-            save_record(rec, out / 'episodes' / job['split'] / job['scenario'] / f"{rec['episode_id']}.json.gz")
+            rec['list_task'], rec['list_index'] = job['label'], e.get('index')
+            save_record(rec, out / 'episodes' / job['split'] / job['label'] / f"{rec['episode_id']}.json.gz")
             eps.append(rec['metrics'])
             if not rec['success']:
                 failures[rec['failure']] += 1
-            print(f"[{job['split']}] {job['scenario']} seed={seed} success={rec['success']} failure={rec['failure']} "
+            print(f"[{job['split']}] {job['label']} seed={e['seed']} success={rec['success']} failure={rec['failure']} "
                   f"T={rec['duration_s']:.1f}s decisions={rec['n_decisions']}", flush=True)
         role, applicable = sc.cfg.role, sc.cfg.applicable_metrics
     finally:
         sc.close()
-    return dict(split=job['split'], scenario=job['scenario'], role=role, applicable=applicable, metrics=eps,
+    return dict(split=job['split'], scenario=job['label'], role=role, applicable=applicable, metrics=eps,
                 failures=dict(failures), agent=agent.describe())
 
 
@@ -107,7 +109,7 @@ def main():
     p.add_argument('--condition', default='correct', help='oracle condition name from the protocol')
     p.add_argument('--episodes-per-scenario', type=int)
     p.add_argument('--seed-start', type=int)
-    p.add_argument('--scenarios', nargs='*')
+    p.add_argument('--scenarios', nargs='*', help='scenario ids or list tasks (T1 ... T5, T4neg)')
     p.add_argument('--splits', nargs='*')
     p.add_argument('--output-dir', required=True)
     p.add_argument('--device')
@@ -125,8 +127,9 @@ def main():
         ensemble = protocol.get('inference', {}).get('temporal_ensemble_coeff', 'config')
     else:
         bench = exp['benchmark']
-        splits = [dict(name='default', scenarios=bench['scenarios'], seed_start=bench['eval_seed_start'],
-                       episodes_per_scenario=bench['eval_episodes_per_scenario'])]
+        splits = [dict(name='default', scenario_list=bench['eval_list'])] if bench.get('eval_list') else \
+            [dict(name='default', scenarios=bench['scenarios'], seed_start=bench['eval_seed_start'],
+                  episodes_per_scenario=bench['eval_episodes_per_scenario'])]
         oracle_condition, protocol_name = {'condition': 'correct'}, exp['experiment']
         ensemble = 'config'
     if args.temporal_ensemble_coeff is not None:
@@ -135,12 +138,20 @@ def main():
     for split in splits:
         if args.splits and split['name'] not in args.splits:
             continue
-        n = args.episodes_per_scenario or split['episodes_per_scenario']
-        seed0 = split['seed_start'] if args.seed_start is None else args.seed_start
-        for sid in split['scenarios']:
-            if args.scenarios and sid not in args.scenarios:
-                continue
-            jobs.append(dict(exp=exp, split=split['name'], scenario=sid, seeds=list(range(seed0, seed0 + n)),
+        if split.get('scenario_list'):          # fixed eval episodes, one job per list task
+            blocks = defaultdict(list)
+            for e in load_scenario_list(split['scenario_list']):
+                blocks[(e['task'], e['scenario_id'])].append(e)
+            groups = [(task, sid, es[:args.episodes_per_scenario] if args.episodes_per_scenario else es)
+                      for (task, sid), es in blocks.items() if not args.scenarios or task in args.scenarios or sid in args.scenarios]
+        else:
+            n = args.episodes_per_scenario or split['episodes_per_scenario']
+            seed0 = split['seed_start'] if args.seed_start is None else args.seed_start
+            groups = [(sid, sid, [dict(seed=s, spec=None, index=None) for s in range(seed0, seed0 + n)])
+                      for sid in split['scenarios'] if not args.scenarios or sid in args.scenarios]
+        for label, sid, entries in groups:
+            jobs.append(dict(exp=exp, split=split['name'], scenario=sid, label=label, entries=entries,
+                             seeds=[int(e['seed']) for e in entries],
                              split_overrides=split.get('scenario_overrides'), protocol=protocol_name,
                              output_dir=args.output_dir, no_traces=args.no_traces,
                              threads=max(1, 12 // max(args.workers, 1)),

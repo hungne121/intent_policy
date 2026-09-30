@@ -20,7 +20,7 @@ WINDOW = 20      # frames (1 s) after the evidence point
 
 
 def phase_of(m: dict, frame: int) -> str:
-    ev = [e['frame'] for e in m.get('intention_evident', []) if e['kind'] in ('instruction', 'target_object', 'intrusion')]
+    ev = [e['frame'] for e in m.get('intention_evident', []) if e['kind'] in ('target_object', 'intrusion')]
     cue = int(round(m['human_cue_onset_t'] * 20)) if m.get('human_cue_onset_t') is not None else None
     if ev and ev[0] <= frame < ev[0] + WINDOW:
         return 'decision_window'

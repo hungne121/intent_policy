@@ -1,6 +1,7 @@
 # Shared scene layout for all HRI scenarios. World frame = robot base_link frame shifted by
 # table height: +X points from the robot towards the human, +Y to the robot's left, +Z up.
 base_model: assets/scene.xml        # UR3e + SusGrip + table; builder removes demo cube/receiver
+layout: configs/layout.yaml         # table extents, zones S/P/H/U and their tape markers (scence_construct.md §3)
 table_top_z: 0.62
 robot_servo:                        # arm joint position-servo gains (base asset: kp 600 / kv 50 lags ~3 cm
   kp: 2000                          # at 0.2 m/s and shakes grasped objects loose); gripper unchanged
@@ -10,30 +11,62 @@ palette:                            # named RGBA colours referenced by scenario 
   red:    [0.90, 0.12, 0.10, 1.0]
   blue:   [0.12, 0.30, 0.95, 1.0]
   yellow: [0.98, 0.78, 0.08, 1.0]
-  green:  [0.10, 0.75, 0.20, 0.9]
+  green:  [0.10, 0.75, 0.20, 1.0]
   purple: [0.60, 0.20, 0.85, 0.9]
   orange: [0.98, 0.50, 0.08, 1.0]
+  white:  [0.93, 0.93, 0.93, 1.0]
 
-human:
-  torso_pos: [1.03, 0.0, 0.97]      # standing behind the far table edge, facing -X
-  shoulder: [0.97, -0.14, 1.12]     # right shoulder; forearm capsule is drawn towards it
-  forearm_length: 0.26
-  hand_rest: [0.84, -0.14, 0.80]
-  hand_geom_radius: 0.03            # palm sphere radius used for distance/safety queries
+floor_z: -0.23                      # floor below the table top: a 0.85 m standing workbench (table top z=0.62)
+
+objects_catalog:                    # scence_construct.md §3.1; scenario configs list the keys they use. Objects not on
+                                    # the table in an episode are parked out of sight (3-4 objects per episode).
+  B1:  {shape: box, size: [0.02, 0.02, 0.02], color: red, label: "B1 red cube"}
+  B2:  {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: "B2 blue cube"}
+  B3:  {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: "B3 yellow cube"}
+  B1p: {shape: box, size: [0.02, 0.02, 0.02], color: red, label: "B1' red cube, identical to B1"}
+  # cups (outer radius, height): a 4 cm cube fits inside (inner diameter 6.4 cm > cube diagonal 5.7 cm); the robot
+  # grasps the rim on the -X side (fingers straddle the wall), the human takes the cup by its body
+  C1:  {shape: cup, size: [0.036, 0.085], color: white, label: "C1 white cup"}
+  C2:  {shape: cup, size: [0.036, 0.085], color: white, label: "C2 white cup, identical to C1"}
+  C3:  {shape: cup, size: [0.036, 0.085], color: green, label: "C3 green cup"}
+parking: {x: -2.5, y0: -1.0, dy: 0.25}   # parked objects stand on the floor here (outside every camera view)
+
+human:                              # HY-Motion 1.0 wooden mannequin (1.73 m), posed from the scripted palm
+  model: assets/human/skeleton.json # built by scripts/build_human_asset.py
+  stand_xy: [0.30, -0.48]           # 90-degree arrangement: standing at the robot's right-hand table edge (y=-0.36),
+                                    #   0.30 m to the side of the robot base (U / H / P rows still centred on the human)
+  facing_deg: 90                    # facing +Y, across the table (world yaw of the facing direction)
+  active_arm: r                     # the gesturing arm (facing +Y, the human's right is +X); the other hangs relaxed
+  max_lean_deg: 70                  # waist lean towards the palm target, only as far as the reach needs
+  head_pitch_deg: 20                # head tilted down towards the table
+  hand_rest: [0.49, -0.40, 0.66]    # forearm resting on the table edge in front of the right shoulder
+  hand_geom_radius: 0.045           # palm proxy radius (distance / safety queries)
+  proxy_radius: {palm: 0.045, forearm: 0.04, upperarm: 0.05, torso: 0.14, head: 0.10}
+  face_markers: true                # eyes + nose on the blank mannequin face so head orientation (gaze) reads in the images
 
 cameras:                            # look-at definitions; converted to MuJoCo xyaxes
-  scene: {pos: [0.40, -0.70, 1.12], target: [0.46, 0.02, 0.66], fovy: 58}
-  top:   {pos: [0.45, 0.0, 1.55], target: [0.45, 0.0, 0.62], fovy: 55}
-  front: {pos: [1.25, -1.05, 1.45], target: [0.45, 0.0, 0.70], fovy: 50}
-  # eye-in-hand camera on the gripper body (pos/target/up in the sus2f_base_link frame, TCP at z=0.138):
-  # side-mounted 7.5 cm off the finger plane on the OUTER side (-y = away from the arm's elbow fold, towards
-  # the human at home yaw) so the fingertips and the object between them stay visible. The asset's original
-  # wrist camera sat behind the gripper base and saw mostly the gripper itself.
-  wrist: {body: sus2f_base_link, pos: [0.0, -0.075, 0.09], target: [0.0, 0.0, 0.22], up: [0.0, -1.0, 0.0], fovy: 70}
+  # policy inputs (experiment `observation.cameras`): `high` (across the table from the human, sees the table and
+  # the human, like ALOHA's cam_high), `wrist` and `top` (straight down on the workspace).
+  high:  {pos: [0.30, 0.70, 1.50], target: [0.30, -0.20, 0.90], fovy: 70}   # across the table from the human,
+                                    #   straight in line with them (robot's view of the human), low enough to see the
+                                    #   face nearly head-on; frames the head, the hands and every zone (calibrate_layout check)
+  top:   {pos: [0.40, -0.04, 1.40], target: [0.21, 0.00, 0.62], fovy: 58}   # above the zones S/P/H/U, tilted from +X
+                                    #   so the arm at rest (near the base) does not hide the slots next to the base
+  # eye-in-hand camera on the gripper body (pos/target/up in the sus2f_base_link frame, approach axis +z, TCP at
+  # z=0.138), laid out like robosuite's `eye_in_hand` used by LeRobot's LIBERO/RoboCasa envs: mounted beside the
+  # gripper off the finger plane (clear of the SusGrip housing), looking down the approach axis with a slight
+  # tilt so the fingertips sit at the bottom corners and the grasped object between them.
+  wrist: {body: sus2f_base_link, pos: [0.0, -0.08, 0.10], target: [0.0, -0.03, 0.30], up: [0.0, -1.0, 0.0], fovy: 75}
+
+lights:                             # soft, shadow-free lighting as in the LIBERO scenes (LeRobot sim benchmarks)
+  key:  {pos: [1.0, 1.0, 4.0], dir: [0.0, -0.15, -1.0], diffuse: [0.8, 0.8, 0.8], specular: [0.3, 0.3, 0.3], directional: false, castshadow: false}
+  fill: {pos: [-3.0, -3.0, 4.0], dir: [0.0, -0.15, -1.0], diffuse: [0.8, 0.8, 0.8], specular: [0.3, 0.3, 0.3], directional: false, castshadow: false}
+headlight: {ambient: [0.3, 0.3, 0.3], diffuse: [0.3, 0.3, 0.3], specular: [0.0, 0.0, 0.0]}
 
 safety:
   contact_distance_m: 0.003         # human_robot_contact when any robot/human geom gap <= this
-  violation_distance_m: 0.05        # safety_distance_violation when gap < this while robot moves
+  violation_distance_m: 0.05        # safety_distance_violation when gap < this while the arm moves (TCP speed;
+                                    #   a gripper-only motion such as the hand-over release does not count)
 
 robot_motion:
   tcp_speed_threshold: 0.02         # m/s; above => robot moving (robot_motion_start/end events)

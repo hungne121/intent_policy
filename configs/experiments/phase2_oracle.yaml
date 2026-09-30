@@ -2,8 +2,8 @@
 # Spatial + Future-Motion bundle, restricted head, same demonstrations / split / seeds / budget.
 #
 # Information-timing contract: the demonstrator commits to a target only when the target has become
-# predictable from the observable cue (`human_intention_evident`, 40% of the revealing hand motion;
-# the instruction board is explicit at once). The oracle is valid from the same moment.
+# predictable from the observable gesture (`human_intention_evident`, 40% of the revealing hand motion).
+# The oracle is valid from the same moment.
 experiment: phase2_oracle
 phase: 2
 seed: 0
@@ -15,41 +15,26 @@ intent:
   horizons_s: [0.5, 1.0]            # recorded future-hand horizons; the Phase-2 bundle uses 0.5 s
   evidence_fraction: 0.4
 benchmark:
-  scenarios:
-    - instructor_object_to_target
-    - collaborator_object_handover
-    - collaborator_bowl_assistance
-    - intruder_pick_place_interruption
+  scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
   protocol: configs/benchmark/phase2_protocol_v1.yaml
 observation:
-  cameras: [scene, wrist]
+  cameras: [high, wrist, top]
   width: 256
   height: 192
 controller: configs/controller/restricted_action.yaml
 scenario_overrides:                  # deep-merged into every scenario YAML (the merged config is stored per episode)
   all:
     expert: {trigger: evidence}
-    scene_variation: {twin_pairs: true}
-  intruder_pick_place_interruption:
+  t4_interrupt:
     expert: {yield_prediction_horizon_s: 0.5}
-    scene_variation: {twin_pairs: false}   # no human choice to pair
 data:
   repo_id: local/hri_phase2_oracle
   root: outputs/datasets/hri_phase2_oracle
-  seed_start: 0
+  scenario_list: configs/scenario_lists/demo_v1.jsonl   # T1-T5 incl. T4-neg and the T5 changes of mind
   noise:                             # DART-style perturbation (labels stay the expert's clean actions)
-    episode_fraction: 0.3            # decided per twin pair, so both members are clean or both noisy
+    episode_fraction: 0.3
     burst_prob: 0.03
     burst_ticks: [3, 8]
-  splits:                            # collected in this order; seeds continue across splits
-    - name: nominal
-      episodes_per_scenario: 100
-    - name: intention_change
-      episodes_per_scenario: 40
-      scenarios: [collaborator_object_handover, instructor_object_to_target]
-      scenario_overrides:
-        all:
-          intention_change: {probability: 1.0}
 training:
   steps: 20000
   batch_size: 32

@@ -19,7 +19,7 @@ from scripts.train_policy import build_config, run_batch
 
 SMALL = dict(chunk_size=8, n_action_steps=1, dim_model=64, n_heads=4, dim_feedforward=128, n_encoder_layers=1,
              n_decoder_layers=1, pretrained_backbone_weights=None)
-OBS = ObservationConfig(('scene', 'wrist'), 48, 36)
+OBS = ObservationConfig(('high', 'wrist'), 48, 36)
 
 
 @pytest.fixture(scope='module')
@@ -27,7 +27,7 @@ def tiny_dataset(tmp_path_factory, scenarios):
     """Two expert episodes recorded exactly like scripts/collect_demos.py (small images)."""
     root = tmp_path_factory.mktemp('ds') / 'tiny'
     ds = LeRobotDataset.create(repo_id='local/tiny', fps=20, features=features(OBS), root=root, use_videos=True)
-    for sid, seed in (('instructor_object_to_target', 1), ('intruder_pick_place_interruption', 2)):
+    for sid, seed in (('t1_pick_place', 2), ('t4_interrupt', 3)):
         frames = []
 
         def on_frame(obs, decision, target, scenario):
@@ -45,7 +45,7 @@ def tiny_dataset(tmp_path_factory, scenarios):
 def make_policy(meta, mode, **over):
     yaml_cfg = dict(type='hri_act', action_mode=mode, use_vae=(mode == 'continuous'), **SMALL)
     yaml_cfg.update(over)
-    cfg = build_config(yaml_cfg, meta, 'cpu', ['scene', 'wrist'])
+    cfg = build_config(yaml_cfg, meta, 'cpu', ['high', 'wrist'])
     return HRIACTPolicy(cfg), cfg
 
 
@@ -78,10 +78,10 @@ def test_no_skill_specific_models_or_routing():
 def test_dataset_features_map_to_act_features(tiny_dataset):
     meta = LeRobotDatasetMetadata('local/tiny', root=tiny_dataset)
     _, cfg = make_policy(meta, 'restricted')
-    assert set(cfg.input_features) == {'observation.state', 'observation.images.scene', 'observation.images.wrist'}
+    assert set(cfg.input_features) == {'observation.state', 'observation.images.high', 'observation.images.wrist'}
     assert set(cfg.output_features) == {'action'} and cfg.action_feature.shape == (7,)
     assert cfg.robot_state_feature.shape == (10,)
-    assert cfg.image_features['observation.images.scene'].shape == (3, 36, 48)
+    assert cfg.image_features['observation.images.high'].shape == (3, 36, 48)
     assert cfg.restricted_label_key not in cfg.output_features          # never normalised as an action
     item = loaded(tiny_dataset, cfg)[5]
     assert item['action'].shape == (cfg.chunk_size, 7) and item['restricted_action'].shape == (cfg.chunk_size,)
@@ -140,7 +140,7 @@ def test_policy_runs_on_the_simulator_without_intention_input(tiny_dataset, tmp_
     policy.save_pretrained(ckpt); pre.save_pretrained(ckpt); post.save_pretrained(ckpt)
     agent = PolicyAgent(ckpt, device='cpu')
     assert agent.action_mode == mode and agent.describe()['use_intent'] is False
-    raw = copy.deepcopy(scenarios['collaborator_bowl_assistance'].cfg.to_dict())
+    raw = copy.deepcopy(scenarios['t3_assist'].cfg.to_dict())
     raw['timing']['timeout_s'] = 1.0                       # short smoke episode
     sc = make_scenario(raw)
     try:
@@ -165,7 +165,7 @@ def test_training_resume_is_exact(tiny_dataset, tmp_path, monkeypatch):
     policy_cfg = tmp_path / 'policy.yaml'
     policy_cfg.write_text(yaml.safe_dump(dict(type='hri_act', action_mode='restricted', use_vae=False, dropout=0.1, **SMALL)))
     exp = dict(experiment='resume_test', seed=3, policy=dict(config=str(policy_cfg)), intent=dict(provider='none'),
-               observation=dict(cameras=['scene', 'wrist'], width=48, height=36),
+               observation=dict(cameras=['high', 'wrist'], width=48, height=36),
                data=dict(repo_id='local/tiny', root=str(tiny_dataset)),
                training=dict(steps=12, batch_size=4, num_workers=0, log_every=3, save_every=6, output_dir=str(tmp_path / 'x')))
     exp_cfg = tmp_path / 'exp.yaml'

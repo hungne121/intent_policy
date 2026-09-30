@@ -16,11 +16,13 @@ human stage segments, protocol-step times, evidence / commitment / intention-cha
 goes to meta/hri_episodes.jsonl for inspection. View with `lerobot-dataset-viz` or
 `scripts/view_dataset.py`.
 
-Experiment configs may set `scenario_overrides` (deep-merged into the scenario YAMLs), `data.splits`
-(e.g. nominal + intention_change episodes, each with its own overrides) and `data.noise` (DART-style
-perturbation of a fraction of the episodes; the recorded labels stay the expert's clean actions).
-Scenarios with `scene_variation.twin_pairs` are recorded in pairs (seeds 2k, 2k+1 differ only in the
-human's choice); a pair is kept only if both episodes succeed.
+Episodes come from a balanced scenario list (`data.scenario_list`, scripts/generate_scenarios.py; one entry =
+task, scenario, seed, discrete spec; docs/requirements/scence_construct.md §5) or, without a list, from
+`data.splits` x `benchmark.scenarios` x seeds (random specs). `--tasks` / `--per-task` select a subset of the list
+(e.g. a preview). Experiment configs may set `scenario_overrides` (deep-merged into the scenario YAMLs) and
+`data.noise` (DART-style perturbation of a fraction of the episodes; the recorded labels stay the expert's clean
+actions). A list entry whose expert episode fails is not stored (reported, with its reason, in
+meta/hri_rejected.jsonl).
 """
 import argparse
 import json
@@ -34,7 +36,7 @@ from intent_policy.benchmark.runner import run_episode, ExpertAgent, NoisyExpert
 from intent_policy.sim.restricted_action import RestrictedAction
 from intent_policy.intent.oracle import OracleIntentProvider
 from intent_policy.intent.representation import dataset_features as oracle_features, features as oracle_values
-from intent_policy.scenarios.config import _deep_merge
+from intent_policy.scenarios.config import _deep_merge, load_scenario_list
 from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
 from intent_policy.utils import load_yaml, resolve, observation_config, controller_config
 
@@ -75,7 +77,7 @@ def frame_of(t: float) -> int:
     return int(round(t * 20))
 
 
-def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index) -> tuple[dict, list, dict]:
+def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index, spec=None) -> tuple[dict, list, dict]:
     frames, stages, humans, targets, actions, commits, noise = [], [], [], [], [], [], []
     gt = {}
 
@@ -100,21 +102,22 @@ def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index)
         if decision.extras.get('expert_commit'):
             commits.append(dict(t=round(scenario.time, 3), frame=len(frames) - 1, target=decision.extras['expert_commit']))
 
-    rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, on_frame=on_frame, keep_trace=False)
+    rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, on_frame=on_frame, keep_trace=False, spec=spec)
     info = dict(gt=gt, stages=stages, humans=humans, targets=targets, actions=actions, commits=commits,
                 noise_frames=int(sum(noise)))
     return rec, frames, info
 
 
-def episode_meta(index, sid, split, seed, sc, rec, frames, info) -> dict:
+def episode_meta(index, sid, split, seed, sc, rec, frames, info, entry=None) -> dict:
     ev = rec['events']
     of = lambda kind: [dict(t=round(e['timestamp'], 3), frame=frame_of(e['timestamp']), **e['payload'])
                        for e in ev if e['event_type'] == kind]
     protocol = [dict(step=e['payload']['step'], t=round(e['timestamp'], 3), frame=frame_of(e['timestamp']), by=e['entity_id'])
                 for e in ev if e['event_type'] == 'protocol_step_complete']
     cue = [round(e['timestamp'], 3) for e in ev if e['event_type'] == 'human_cue_onset']
-    return dict(episode_index=index, scenario_id=sid, role=rec['role'], task=sc.cfg.task, seed=seed, split=split,
-                expert=sc.cfg.expert, agent=rec['policy'], twin=rec['variation'].get('twin'),
+    return dict(episode_index=index, scenario_id=sid, role=rec['role'], task=sc.cfg.task, task_code=rec['task'],
+                list_task=None if entry is None else entry['task'], list_index=None if entry is None else entry['index'],
+                spec=rec['spec'], seed=seed, split=split, expert=sc.cfg.expert, agent=rec['policy'],
                 n_frames=len(frames), duration_s=round(rec['duration_s'], 3),
                 ground_truth_intention_at_start=info['gt'], ground_truth_intention_at_end=sc.get_ground_truth_intention_information(),
                 variation=rec['variation'], human_cue_onset_t=cue[0] if cue else None,
@@ -127,23 +130,45 @@ def episode_meta(index, sid, split, seed, sc, rec, frames, info) -> dict:
                 min_human_robot_distance=round(rec['min_human_robot_distance'], 4), metrics=rec['metrics'])
 
 
+def entries_of(exp: dict, data: dict, args) -> list[dict]:
+    """Episodes to record: {split, scenario_id, seed, spec, task, index}."""
+    if data.get('scenario_list'):
+        per = Counter()
+        out = []
+        for e in load_scenario_list(data['scenario_list']):
+            if (args.tasks and e['task'] not in args.tasks) or (args.per_task and per[e['task']] >= args.per_task):
+                continue
+            per[e['task']] += 1
+            out.append(dict(e, split=e['task']))
+        return out
+    splits = data.get('splits') or [dict(name='default', episodes_per_scenario=data['episodes_per_scenario'])]
+    out, seed = [], int(data['seed_start'])
+    for split in splits:
+        for sid in split.get('scenarios') or exp['benchmark']['scenarios']:
+            if args.scenarios and sid not in args.scenarios:
+                continue
+            n = args.per_task or int(split['episodes_per_scenario'])
+            out += [dict(split=split['name'], scenario_id=sid, seed=seed + i, spec=None, task=None, index=None,
+                         overrides=split.get('scenario_overrides')) for i in range(n)]
+            seed += n
+    return out
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--config', default='configs/experiments/foundation_baseline.yaml')
-    p.add_argument('--episodes-per-scenario', type=int)
     p.add_argument('--root', help='override data.root')
     p.add_argument('--repo-id', help='override data.repo_id')
-    p.add_argument('--seed-start', type=int, help='override data.seed_start')
-    p.add_argument('--scenarios', nargs='*', help='subset of benchmark.scenarios')
+    p.add_argument('--scenario-list', help='override data.scenario_list')
+    p.add_argument('--tasks', nargs='*', help='subset of list tasks (T1 T2 T3 T4 T4neg T5)')
+    p.add_argument('--per-task', type=int, help='first N list entries per task (without a list: episodes per scenario)')
+    p.add_argument('--scenarios', nargs='*', help='without a list: subset of benchmark.scenarios')
     p.add_argument('--overwrite', action='store_true')
     args = p.parse_args()
     exp = load_yaml(args.config)
     data = exp['data']
-    data.update({k: v for k, v in dict(root=args.root, repo_id=args.repo_id, seed_start=args.seed_start).items()
+    data.update({k: v for k, v in dict(root=args.root, repo_id=args.repo_id, scenario_list=args.scenario_list).items()
                  if v is not None})
-    splits = data.get('splits') or [dict(name='default', episodes_per_scenario=data['episodes_per_scenario'])]
-    if args.episodes_per_scenario is not None:
-        splits = [{**s, 'episodes_per_scenario': args.episodes_per_scenario} for s in splits]
     root = resolve(data['root'])
     if root.exists():
         if not args.overwrite:
@@ -157,47 +182,39 @@ def main():
     ds = LeRobotDataset.create(repo_id=data['repo_id'], fps=20, features=features(obs_cfg, horizons), root=root,
                                robot_type='ur3e_susgrip', use_videos=True, image_writer_threads=4)
     scenario_ids = list(exp['benchmark']['scenarios'])
-    meta, seed = [], int(data['seed_start'])
+    entries = entries_of(exp, data, args)
+    meta, rejected, cache = [], [], {}
     t0 = time.time()
-    for split in splits:
-        for sid in split.get('scenarios') or scenario_ids:
-            if args.scenarios and sid not in args.scenarios:
-                continue
-            split_overrides = scenario_overrides({'scenario_overrides': split.get('scenario_overrides')}, sid)
-            sc = make_scenario(sid, _deep_merge(scenario_overrides(exp, sid), split_overrides))
-            twin = bool(sc.cfg.scene_variation.get('twin_pairs'))
-            if twin and seed % 2:
-                seed += 1
-            done = rejected = noisy_groups = 0
-            while done < int(split['episodes_per_scenario']):
-                group = [seed, seed + 1] if twin else [seed]
-                base = seed // 2 if twin else seed
-                noisy = bool(noise_cfg) and np.random.default_rng(base * 7 + 11).random() < float(noise_cfg['episode_fraction'])
-                results = []
-                for s in group:
-                    agent = NoisyExpertAgent(noise_cfg['burst_prob'], noise_cfg['burst_ticks']) if noisy else ExpertAgent()
-                    results.append((s, *record_episode(sc, agent, s, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid))))
-                    if not results[-1][1]['success']:
-                        break
-                if len(results) == len(group) and all(r[1]['success'] for r in results):
-                    for s, rec, frames, info in results:
-                        for fr in frames:
-                            ds.add_frame({**fr, 'task': sc.cfg.task})
-                        ds.save_episode()
-                        meta.append(episode_meta(len(meta), sid, split['name'], s, sc, rec, frames, info))
-                    done += len(group)
-                    noisy_groups += noisy
-                else:
-                    rejected += len(group)
-                    print(f"  {sid} seeds={group}: expert failed ({results[-1][1]['failure']}), group dropped", flush=True)
-                seed += len(group)
-            print(f"[{split['name']}] {sid}: {done} episodes kept ({noisy_groups} noisy groups), {rejected} rejected  "
-                  f'[{time.time() - t0:.0f}s]', flush=True)
-            sc.close()
+    for n, e in enumerate(entries):
+        sid, seed = e['scenario_id'], int(e['seed'])
+        key = (sid, json.dumps(e.get('overrides'), sort_keys=True))
+        if key not in cache:
+            cache[key] = make_scenario(sid, _deep_merge(scenario_overrides(exp, sid),
+                                                        scenario_overrides({'scenario_overrides': e.get('overrides')}, sid)))
+        sc = cache[key]
+        noisy = bool(noise_cfg) and np.random.default_rng(seed * 7 + 11).random() < float(noise_cfg['episode_fraction'])
+        agent = NoisyExpertAgent(noise_cfg['burst_prob'], noise_cfg['burst_ticks']) if noisy else ExpertAgent()
+        rec, frames, info = record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid), e['spec'])
+        if rec['success']:
+            for fr in frames:
+                ds.add_frame({**fr, 'task': sc.cfg.task})
+            ds.save_episode()
+            meta.append(episode_meta(len(meta), sid, e['split'], seed, sc, rec, frames, info, e if e['index'] is not None else None))
+        else:
+            rejected.append(dict(entry=e, failure=rec['failure'], noisy=noisy))
+            print(f"  {e['split']} {sid} seed={seed}: expert failed ({rec['failure']}), not stored", flush=True)
+        if (n + 1) % 10 == 0 or n + 1 == len(entries):
+            print(f'[{n + 1}/{len(entries)}] kept {len(meta)}, rejected {len(rejected)}  [{time.time() - t0:.0f}s]', flush=True)
+    for sc in cache.values():
+        sc.close()
     ds.finalize()
+    dump = lambda o: o.tolist() if isinstance(o, np.ndarray) else str(o)
     with open(root / 'meta/hri_episodes.jsonl', 'w') as f:
         for m in meta:
-            f.write(json.dumps(m, default=lambda o: o.tolist() if isinstance(o, np.ndarray) else str(o)) + '\n')
+            f.write(json.dumps(m, default=dump) + '\n')
+    with open(root / 'meta/hri_rejected.jsonl', 'w') as f:
+        for r in rejected:
+            f.write(json.dumps(r, default=dump) + '\n')
     (root / 'meta/hri_restricted_actions.json').write_text(json.dumps(dict(
         ids={a.value: a.name for a in RestrictedAction}, controller=ctrl_cfg.to_dict()), indent=2))
     (root / 'meta/hri_experiment_config.json').write_text(json.dumps(exp, indent=2))

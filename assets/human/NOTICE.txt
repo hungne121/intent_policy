@@ -1,0 +1,6 @@
+Tencent HY-MOTION 1.0 is licensed under the Tencent HY-MOTION 1.0 Community License Agreement, Copyright © 2025 Tencent. All Rights Reserved. The trademark rights of “Tencent HY” are owned by Tencent or its affiliate.
+
+Modified files: the meshes (*.obj) and texture (wood.png) in this directory were derived from the HY-Motion 1.0
+wooden body model (scripts/gradio/static/assets/dump_wooden) by scripts/build_human_asset.py: re-oriented to the
+simulator's axes, split into rigid segments by dominant skinning joint, and the texture resized to 1024x1024.
+The full license text is in LICENSE_HY-Motion-1.0.txt.

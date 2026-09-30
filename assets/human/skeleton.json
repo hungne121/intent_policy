@@ -1,0 +1,272 @@
+{
+ "source": "HY-Motion 1.0 wooden body model (Tencent), scripts/gradio/static/assets/dump_wooden",
+ "license": "Tencent HY-Motion 1.0 Community License Agreement (see HY-Motion-1.0/License.txt); research use within its Territory",
+ "source_sha256": {
+  "v_template.bin": "b9fbe1f34bfe8a07442d11166e169318022a18da8bc62ce0a9930dfdb3171050",
+  "j_template.bin": "4f488cc9d0b650a816f5a8eda49eda7bc796f490e9130a6e0dec5be137d7b929",
+  "skinWeights.bin": "343eac2902627ee6b45b547eb7d9f1526562eca7ba178d1dc71f9e466f307a77",
+  "skinIndice.bin": "846794fb90ea01e069435ad242caefb3d5c2f913fef3255c247f48836ddc1bda",
+  "kintree.bin": "98a20fa3b53193790b63d9ac3a9c917f2f70fbe6e053dca495c75317ff4b756a",
+  "faces.bin": "777b0806d2843c797ed18644eecc11466ff822b33b02d263c22f8ad3730e9bb5",
+  "uvs.bin": "23c92c60b609261d927990d31cbf6ace0c14cb70a5ac753a5f3927cb8c5c8191",
+  "joint_names.json": "f29139c07a3e8c160cb3512428aac6e272697ade096a7e682024c47424e064d1",
+  "Boy_lambert4_BaseColor.webp": "aaed26cb89635f9d995c9c373919185c412f00f6b4a903873ac75ccd7a549439"
+ },
+ "frame": "world axes: facing -X, Z up, left = -Y; soles at z=0, pelvis above the origin; T-pose",
+ "height_m": 1.7308,
+ "joints": {
+  "Pelvis": [
+   0.0,
+   0.0,
+   0.97017
+  ],
+  "L_Hip": [
+   0.0031,
+   -0.08237,
+   0.88024
+  ],
+  "R_Hip": [
+   0.0031,
+   0.07878,
+   0.88024
+  ],
+  "Spine1": [
+   -0.00351,
+   -0.0018,
+   1.06436
+  ],
+  "L_Knee": [
+   0.01356,
+   -0.10163,
+   0.50292
+  ],
+  "R_Knee": [
+   0.01356,
+   0.09606,
+   0.50282
+  ],
+  "Spine2": [
+   -0.00097,
+   -0.0018,
+   1.18698
+  ],
+  "L_Ankle": [
+   0.06568,
+   -0.10287,
+   0.10478
+  ],
+  "R_Ankle": [
+   0.06568,
+   0.0952,
+   0.10468
+  ],
+  "Spine3": [
+   0.02321,
+   -0.0018,
+   1.26724
+  ],
+  "L_Foot": [
+   -0.07703,
+   -0.11543,
+   0.03314
+  ],
+  "R_Foot": [
+   -0.07703,
+   0.10738,
+   0.03298
+  ],
+  "Neck": [
+   0.04317,
+   -0.0018,
+   1.46307
+  ],
+  "L_Collar": [
+   0.04845,
+   -0.05649,
+   1.38608
+  ],
+  "R_Collar": [
+   0.04845,
+   0.0529,
+   1.38608
+  ],
+  "Head": [
+   0.04467,
+   -0.0018,
+   1.55872
+  ],
+  "L_Shoulder": [
+   0.04508,
+   -0.16715,
+   1.39846
+  ],
+  "R_Shoulder": [
+   0.04508,
+   0.16356,
+   1.39846
+  ],
+  "L_Elbow": [
+   0.05778,
+   -0.43524,
+   1.41039
+  ],
+  "R_Elbow": [
+   0.05778,
+   0.43165,
+   1.41039
+  ],
+  "L_Wrist": [
+   0.07095,
+   -0.70428,
+   1.41442
+  ],
+  "R_Wrist": [
+   0.07095,
+   0.70069,
+   1.41442
+  ]
+ },
+ "palm": {
+  "l": [
+   0.07154,
+   -0.74906,
+   1.4158
+  ],
+  "r": [
+   0.07154,
+   0.74547,
+   1.4158
+  ]
+ },
+ "index_ray": {
+  "l": [
+   [
+    0.04712,
+    -0.79488,
+    1.40988
+   ],
+   [
+    0.04489,
+    -0.88205,
+    1.40532
+   ]
+  ],
+  "r": [
+   [
+    0.04712,
+    0.79129,
+    1.40988
+   ],
+   [
+    0.04489,
+    0.87846,
+    1.40532
+   ]
+  ]
+ },
+ "segments": {
+  "pelvis": {
+   "pivot": "Pelvis",
+   "parent": null,
+   "vertices": 9008,
+   "mesh": "pelvis.obj"
+  },
+  "torso": {
+   "pivot": "Spine1",
+   "parent": "pelvis",
+   "vertices": 3683,
+   "mesh": "torso.obj"
+  },
+  "head": {
+   "pivot": "Neck",
+   "parent": "torso",
+   "vertices": 2448,
+   "mesh": "head.obj"
+  },
+  "l_upperarm": {
+   "pivot": "L_Shoulder",
+   "parent": "torso",
+   "vertices": 1236,
+   "mesh": "l_upperarm.obj"
+  },
+  "l_forearm": {
+   "pivot": "L_Elbow",
+   "parent": "l_upperarm",
+   "vertices": 1166,
+   "mesh": "l_forearm.obj"
+  },
+  "l_hand": {
+   "pivot": "L_Wrist",
+   "parent": "l_forearm",
+   "vertices": 2299,
+   "mesh": "l_hand_relaxed.obj",
+   "variants": {
+    "relaxed": "l_hand_relaxed.obj",
+    "point": "l_hand_point.obj",
+    "grasp": "l_hand_grasp.obj",
+    "offer": "l_hand_offer.obj",
+    "relaxed-point-25": "l_hand_relaxed-point-25.obj",
+    "relaxed-point-50": "l_hand_relaxed-point-50.obj",
+    "relaxed-point-75": "l_hand_relaxed-point-75.obj",
+    "relaxed-grasp-25": "l_hand_relaxed-grasp-25.obj",
+    "relaxed-grasp-50": "l_hand_relaxed-grasp-50.obj",
+    "relaxed-grasp-75": "l_hand_relaxed-grasp-75.obj",
+    "relaxed-offer-25": "l_hand_relaxed-offer-25.obj",
+    "relaxed-offer-50": "l_hand_relaxed-offer-50.obj",
+    "relaxed-offer-75": "l_hand_relaxed-offer-75.obj",
+    "point-grasp-25": "l_hand_point-grasp-25.obj",
+    "point-grasp-50": "l_hand_point-grasp-50.obj",
+    "point-grasp-75": "l_hand_point-grasp-75.obj",
+    "point-offer-25": "l_hand_point-offer-25.obj",
+    "point-offer-50": "l_hand_point-offer-50.obj",
+    "point-offer-75": "l_hand_point-offer-75.obj",
+    "grasp-offer-25": "l_hand_grasp-offer-25.obj",
+    "grasp-offer-50": "l_hand_grasp-offer-50.obj",
+    "grasp-offer-75": "l_hand_grasp-offer-75.obj"
+   }
+  },
+  "r_upperarm": {
+   "pivot": "R_Shoulder",
+   "parent": "torso",
+   "vertices": 1236,
+   "mesh": "r_upperarm.obj"
+  },
+  "r_forearm": {
+   "pivot": "R_Elbow",
+   "parent": "r_upperarm",
+   "vertices": 1166,
+   "mesh": "r_forearm.obj"
+  },
+  "r_hand": {
+   "pivot": "R_Wrist",
+   "parent": "r_forearm",
+   "vertices": 2299,
+   "mesh": "r_hand_relaxed.obj",
+   "variants": {
+    "relaxed": "r_hand_relaxed.obj",
+    "point": "r_hand_point.obj",
+    "grasp": "r_hand_grasp.obj",
+    "offer": "r_hand_offer.obj",
+    "relaxed-point-25": "r_hand_relaxed-point-25.obj",
+    "relaxed-point-50": "r_hand_relaxed-point-50.obj",
+    "relaxed-point-75": "r_hand_relaxed-point-75.obj",
+    "relaxed-grasp-25": "r_hand_relaxed-grasp-25.obj",
+    "relaxed-grasp-50": "r_hand_relaxed-grasp-50.obj",
+    "relaxed-grasp-75": "r_hand_relaxed-grasp-75.obj",
+    "relaxed-offer-25": "r_hand_relaxed-offer-25.obj",
+    "relaxed-offer-50": "r_hand_relaxed-offer-50.obj",
+    "relaxed-offer-75": "r_hand_relaxed-offer-75.obj",
+    "point-grasp-25": "r_hand_point-grasp-25.obj",
+    "point-grasp-50": "r_hand_point-grasp-50.obj",
+    "point-grasp-75": "r_hand_point-grasp-75.obj",
+    "point-offer-25": "r_hand_point-offer-25.obj",
+    "point-offer-50": "r_hand_point-offer-50.obj",
+    "point-offer-75": "r_hand_point-offer-75.obj",
+    "grasp-offer-25": "r_hand_grasp-offer-25.obj",
+    "grasp-offer-50": "r_hand_grasp-offer-50.obj",
+    "grasp-offer-75": "r_hand_grasp-offer-75.obj"
+   }
+  }
+ },
+ "texture": "wood.png"
+}

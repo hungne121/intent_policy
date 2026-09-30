@@ -1,6 +1,6 @@
 # Deterministic mapping: restricted action id -> low-level controller command.
 # The simulator world frame equals the UR3e `base_link` frame (translated by the table height):
-#   +X = from the robot towards the human, +Y = robot's left, +Z = up.
+#   +X = robot forward, +Y = robot's left, +Z = up (the human stands at the robot's right, -Y).
 # NOTE: UR's own `base` frame (teach pendant) is rotated 180 deg about Z w.r.t. base_link;
 #       choosing control_frame: base therefore flips MOVE_FORWARD/BACKWARD and LEFT/RIGHT.
 restricted_action:
@@ -10,9 +10,9 @@ restricted_action:
   gripper:
     open: 0.085                     # [m] SusGrip opening command for OPEN_GRIPPER
     closed: 0.0                     # [m] command for CLOSE_GRIPPER (contact stops the fingers)
-  limits:                           # Cartesian set-point box in the world frame [m]
-    x: [0.12, 0.56]
-    y: [-0.32, 0.32]
-    z: [0.635, 0.95]
+  limits:                           # Cartesian set-point box in the world frame [m]: every robot location of
+    x: [-0.13, 0.45]                #   configs/layout.yaml (slots S incl. the cup-rim grasps, P, U_cup, the
+    y: [-0.36, 0.44]                #   hand-over points in front of H) plus a few cm; the rest pose is inside
+    z: [0.635, 1.00]                #   (z up to 1.0: a cup held by its rim above the upturned palm in T2)
   orientation: top_down             # fixed tool orientation used by IK
   max_ik_error: 0.004               # [m] translations whose set-point IK cannot reach are refused

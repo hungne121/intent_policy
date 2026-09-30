@@ -1,0 +1,66 @@
+scenario_id: t3_assist
+task_code: T3                       # docs/requirements/scence_construct.md §4.4, reworked (user request 2026-09-30)
+role: collaborator
+goal: >-
+  A learned workflow: two cubes lie in U, each paired with a cup on one of the six slots (red B1 with the green
+  cup C3, blue B2 with the white cup C1). The human picks up one cube, without pointing; the robot must anticipate
+  from that action which cup is needed, stand it in the cup spot of U (U_cup, the former support zone A) and return
+  to rest; the human then drops the cube into the cup. T3 checks whether the robot coordinates in time and in step
+  with the human. T5 on T3: the human switches cubes (early: while reaching; late: puts the first cube back when the
+  robot is close to its cup and takes the other one), before the robot grasps a cup.
+task: Bring the cup that belongs to the cube the human picks up to the cup spot in front of the human, then return to rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  objects: [C1, C3, B1, B2]
+scene_variation:
+  pairs: {B1: C3, B2: C1}           # cube in U -> its cup (fixed: the workflow the robot has learned)
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+human_behavior:
+  type: t3_requester
+  cue_onset_s: [0.4, 1.2]           # the reach towards a cube in U starts (the intention cue)
+  u_reach_s: [0.9, 1.3]
+  hold_pose: [0.36, -0.36, 0.78]    # the cube is held here (above the right part of U) while waiting for the cup
+  hold_s: [0.7, 1.0]
+  put_back_s: [1.0, 1.4]            # T5 late: the first cube is put back on its spot
+  point_s: [1.0, 1.3]               # (drawn for every task, unused: no pointing in T3)
+  point_dwell_s: [0.3, 0.5]         # the hand pauses above a cube before taking it
+  robot_clear_m: 0.20               # the cube is dropped once the cup stands in U_cup and the gripper is this far away
+  point_length_m: 0.50
+  speed_scale: [0.8, 1.25]
+  drop_height_m: 0.15               # cube centre above the table when released over the cup (cup 8.5 cm tall)
+  drop_move_s: [0.8, 1.2]
+  rest_s: [0.9, 1.2]
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+  withdraw_s: [1.0, 1.3]            # early change: the hand is pulled back before reaching for the other cube
+  pause_s: [0.4, 0.7]               # pause before reaching for the other cube
+  early_dwell_s: [0.7, 1.0]         # early change: the hand hovers this long above the first cube, then withdraws
+expert:
+  trigger: cue_complete
+  travel_dz: 0.20
+timing:
+  timeout_s: 60.0
+  stable_s: 0.5
+success_conditions:
+  zone_margin_m: 0.01               # cup centre inside the U_cup square (10 x 10 cm, the left part of U)
+  upright_min: 0.9                  # cup axis z component
+  object_speed_max: 0.04
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [block_picked, cup_grasped, cup_at_support, block_in_cup]   # + robot_at_rest (logged, any order w.r.t.
+                                    #   block_in_cup: the human drops the cube once the gripper is clear; success needs both)
+applicable_metrics: [CSR, CT, IR, TSync, Rsp, OC, CFR, HCS, AM, WCR, WCD, CRsp]
+metric_params:
+  rsp_trigger: {event_type: protocol_step_complete, step: block_picked}
+  rsp_response: robot_motion_start
+  ir_start: {event_type: protocol_step_complete, step: block_picked}
+  tsync_human: {event_type: interaction_window_start, kind: assist}
+  tsync_robot: {event_type: protocol_step_complete, step: cup_at_support}
+  am_cue_complete: {event_type: protocol_step_complete, step: block_picked}
+  commit_stage: object

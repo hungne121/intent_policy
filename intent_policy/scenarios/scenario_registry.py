@@ -1,18 +1,23 @@
-"""Map scenario ids to environment implementations. Selects environments, never policies."""
+"""Map scenario ids to environment implementations. Selects environments, never policies.
+
+Tasks of docs/requirements/scence_construct.md §4.4: T1-T4 are scenarios; T5 (change of mind) is T1-T3 with a
+`change` spec and T4-neg is T4 with `negative: true` (scenario lists, scripts/generate_scenarios.py).
+"""
 from pathlib import Path
 from intent_policy.scenarios.config import ScenarioConfig
-from intent_policy.scenarios.instructor_object_to_target import InstructorObjectToTarget
-from intent_policy.scenarios.collaborator_object_handover import CollaboratorObjectHandover
-from intent_policy.scenarios.collaborator_bowl_assistance import CollaboratorBowlAssistance
-from intent_policy.scenarios.intruder_pick_place_interruption import IntruderPickPlaceInterruption
+from intent_policy.scenarios.t1_pick_place import PickPlaceTask
+from intent_policy.scenarios.t2_handover import HandoverTask
+from intent_policy.scenarios.t3_assist import AssistTask
+from intent_policy.scenarios.t4_interrupt import InterruptTask
 
 SCENARIOS = {
-    'instructor_object_to_target': InstructorObjectToTarget,
-    'collaborator_object_handover': CollaboratorObjectHandover,
-    'collaborator_bowl_assistance': CollaboratorBowlAssistance,
-    'intruder_pick_place_interruption': IntruderPickPlaceInterruption,
+    't1_pick_place': PickPlaceTask,
+    't2_handover': HandoverTask,
+    't3_assist': AssistTask,
+    't4_interrupt': InterruptTask,
 }
-PHASE1_SCENARIOS = tuple(SCENARIOS)
+TASK_SCENARIOS = tuple(SCENARIOS)
+SCENARIO_OF_TASK = {'T1': 't1_pick_place', 'T2': 't2_handover', 'T3': 't3_assist', 'T4': 't4_interrupt'}
 
 
 def make_scenario(config: str | Path | ScenarioConfig | dict, overrides: dict | None = None, **kwargs):

@@ -4,7 +4,7 @@ import pytest
 from intent_policy.benchmark.events import EventType, REQUIRED_EVENT_TYPES
 from intent_policy.benchmark.logger import EpisodeEventLogger, EventOrderError
 from intent_policy.benchmark.runner import ExpertAgent, load_record, run_episode, save_record
-from intent_policy.scenarios.scenario_registry import PHASE1_SCENARIOS, make_scenario
+from intent_policy.scenarios.scenario_registry import TASK_SCENARIOS, make_scenario
 from scripts.reproduce_episode import compare
 from conftest import assert_monotonic
 
@@ -15,20 +15,20 @@ MINIMUM_EVENTS = {
     'human_robot_contact', 'safety_distance_violation', 'protocol_step_complete', 'disruption_start',
     'disruption_end', 'recovery_start', 'recovery_complete', 'task_success', 'task_failure'}
 EXPECTED_PER_SCENARIO = {
-    'instructor_object_to_target': {'human_cue_onset', 'object_grasp', 'object_release', 'robot_motion_start',
-                                    'robot_action_change', 'protocol_step_complete', 'task_success'},
-    'collaborator_object_handover': {'human_cue_onset', 'interaction_window_start', 'interaction_window_end',
-                                     'object_grasp', 'object_release', 'task_success'},
-    'collaborator_bowl_assistance': {'human_cue_onset', 'interaction_window_start', 'interaction_window_end',
-                                     'object_grasp', 'object_release', 'task_success'},
-    'intruder_pick_place_interruption': {'disruption_start', 'disruption_end', 'recovery_start',
-                                         'recovery_complete', 'object_grasp', 'object_release', 'task_success'},
+    't1_pick_place': {'human_cue_onset', 'object_grasp', 'object_release', 'robot_motion_start',
+                      'robot_action_change', 'protocol_step_complete', 'task_success'},
+    't2_handover': {'human_cue_onset', 'interaction_window_start', 'interaction_window_end',
+                    'object_grasp', 'object_release', 'task_success'},
+    't3_assist': {'human_cue_onset', 'interaction_window_start', 'interaction_window_end',
+                  'object_grasp', 'object_release', 'task_success'},
+    't4_interrupt': {'disruption_start', 'disruption_end', 'recovery_start',
+                     'recovery_complete', 'object_grasp', 'object_release', 'task_success'},
 }
 
 
 @pytest.fixture(scope='module')
 def expert_records(scenarios):
-    return {sid: run_episode(scenarios[sid], ExpertAgent(), 21) for sid in PHASE1_SCENARIOS}
+    return {sid: run_episode(scenarios[sid], ExpertAgent(), 3) for sid in TASK_SCENARIOS}
 
 
 def test_event_vocabulary_is_complete():
@@ -55,7 +55,7 @@ def test_logger_contract():
     assert e.payload == {'selected_object': 'object_a'}
 
 
-@pytest.mark.parametrize('sid', PHASE1_SCENARIOS)
+@pytest.mark.parametrize('sid', TASK_SCENARIOS)
 def test_required_events_emitted_in_order(expert_records, sid):
     rec = expert_records[sid]
     events = rec['events']
@@ -73,7 +73,7 @@ def test_required_events_emitted_in_order(expert_records, sid):
     assert [e['seq'] for e in events] == list(range(len(events)))
 
 
-@pytest.mark.parametrize('sid', PHASE1_SCENARIOS)
+@pytest.mark.parametrize('sid', TASK_SCENARIOS)
 def test_episode_record_contains_required_data(expert_records, sid):
     rec = expert_records[sid]
     for k in ('scenario_id', 'role', 'seed', 'variation', 'human_trajectory_variant', 'policy', 'controller',
@@ -91,19 +91,19 @@ def test_episode_record_contains_required_data(expert_records, sid):
 
 
 def test_record_serialisation_roundtrip(expert_records, tmp_path):
-    rec = expert_records['collaborator_object_handover']
+    rec = expert_records['t2_handover']
     path = save_record(rec, tmp_path / 'ep.json.gz')
     back = load_record(path)
     assert back['events'] == rec['events'] and back['variation'] == rec['variation']
     assert back['trace'][10]['state']['human']['hand_position'] == rec['trace'][10]['state']['human']['hand_position']
 
 
-@pytest.mark.parametrize('sid', PHASE1_SCENARIOS)
+@pytest.mark.parametrize('sid', TASK_SCENARIOS)
 def test_episode_reproduces_from_saved_config_and_seed(expert_records, tmp_path, sid):
     saved = load_record(save_record(expert_records[sid], tmp_path / 'rec.json.gz'))
     sc = make_scenario(saved['scenario_config'])            # rebuilt from the saved configuration
     try:
-        again = run_episode(sc, ExpertAgent(), saved['seed'], episode_id=saved['episode_id'])
+        again = run_episode(sc, ExpertAgent(), saved['seed'], episode_id=saved['episode_id'], spec=saved['spec'])
     finally:
         sc.close()
     assert compare(saved, again) == []

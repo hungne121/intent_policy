@@ -1,0 +1,12 @@
+# Balanced scenario lists (docs/requirements/scence_construct.md §5), built by scripts/generate_scenarios.py.
+# The lists are fixed files: the demo list drives data collection, the eval list is reused unchanged for every
+# compared condition (§5.3). Re-running the generator with these seeds reproduces them exactly (§5.2 rule 6).
+version: 1
+seeds: {demo: 20260929, eval: 20260930}          # generator seeds (discrete specs)
+episode_seed_start: {demo: 0, eval: 100000}      # per-episode seeds (continuous variation: jitter, human timing)
+counts:
+  # §5.1; N_P = N_H = 2 (configs/layout.yaml), so T1 and T2 are scaled by 2/3 (90 -> 60, 75 -> 50)
+  demo: {T1: 60, T2: 50, T3: 60, T4: 40, T4neg: 10, T5: 60}
+  eval: {T1: 20, T2: 20, T3: 20, T4: 20, T4neg: 20, T5: 20}
+pair_fraction: 0.3333                            # §5.2 rule 3: T1 / T2 (and T4, T5 on T1 / T2) with an identical pair
+holdout: []                                      # §5.1 option: combinations never in the demo list, e.g. [T1:S3-P1, T2:S6-H1]

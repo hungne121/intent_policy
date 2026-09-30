@@ -1,0 +1,56 @@
+scenario_id: t1_pick_place
+task_code: T1                       # docs/requirements/scence_construct.md §4.4
+role: instructor
+goal: >-
+  Three cubes stand on 3 of the 6 robot-zone slots S1-S6 (in 1/3 of the episodes two of them are the identical
+  red cubes B1 and B1', and the target is one of them). The human points at the target cube, then at a place zone
+  P. The robot must pick exactly that cube, place it inside that P zone without touching the other objects and
+  return to rest. T5 (change of mind, a scenario-list spec with `change`): before the robot grasps, the human
+  withdraws the hand and points at another cube instead; the robot must switch to it.
+task: Pick up the cube the human points at, place it in the zone the human points at, then return to rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  objects: [B1, B2, B3, B1p]        # objects_catalog keys; those not used in an episode are parked
+scene_variation:                    # random episodes when no scenario-list spec is given (tests, ad-hoc runs);
+  n_objects: 3                      # the balanced lists come from scripts/generate_scenarios.py
+  pair_probability: 0.333           # identical pair B1 + B1' on the table, the target one of them (§5.2 rule 3)
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+human_behavior:
+  type: t1_instructor
+  cue_onset_s: [0.4, 1.2]           # the first pointing motion starts
+  point_s: [1.0, 1.3]               # duration of a pointing motion
+  point_dwell_s: [1.8, 2.5]         # the pointing gesture is held this long
+  rest_s: [0.9, 1.2]                # back to the rest pose
+  point_length_m: 0.50              # pointing palm: this far from the shoulder along the ray (arm nearly straight)
+  speed_scale: [0.8, 1.25]
+intention_change:                   # T5; `probability` > 0 adds random changes to random episodes (tests)
+  probability: 0.0
+  late_trigger_m: 0.15              # late change: TCP within this horizontal distance of the old target, no grasp yet
+  withdraw_s: [1.0, 1.3]            # the pointing hand is withdrawn to rest (clearly) before pointing at the new target
+  pause_s: [0.4, 0.7]               # pause at rest before pointing at the new target
+  early_dwell_s: [0.7, 1.0]         # early change: the first pointing is held this long, then withdrawn
+expert:                             # demonstrator only (never a policy input)
+  trigger: cue_complete             # cue_complete (act once the instruction is complete) | evidence | cue_onset
+  travel_dz: 0.13                   # travel height above the table (cubes only)
+timing:
+  timeout_s: 45.0
+  stable_s: 0.5
+success_conditions:
+  object_speed_max: 0.04
+  place_height_max_m: 0.05          # object centre above the table after release
+  zone_margin_m: 0.01               # object centre at least this far inside the 12 x 12 cm tape square
+  other_object_moved_max_m: 0.02    # "không chạm vật khác": other objects stay put and are never touched
+  rest_tolerance_m: 0.04            # back at rest: TCP within this distance of the rest pose, gripper empty
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [instruction_given, object_grasped, object_placed, robot_at_rest]
+applicable_metrics: [CSR, CT, IR, Rsp, OC, AM, WCR, WCD, CRsp]
+metric_params:                      # event definitions used by HRIBench-style metrics
+  rsp_trigger: {event_type: protocol_step_complete, step: instruction_given}
+  rsp_response: robot_motion_start
+  ir_start: {event_type: protocol_step_complete, step: instruction_given}
+  am_cue_complete: {event_type: protocol_step_complete, step: instruction_given}
+  commit_stage: object

@@ -23,7 +23,7 @@ TRANSLATIONS = {int(a) for a in (RestrictedAction.MOVE_FORWARD, RestrictedAction
 
 @dataclass
 class ObservationConfig:
-    cameras: tuple = ('scene', 'wrist')
+    cameras: tuple = ('high', 'wrist')
     width: int = 128
     height: int = 96
 
@@ -108,12 +108,13 @@ class NoisyExpertAgent(ExpertAgent):
 
 def run_episode(scenario, agent: Agent, seed: int, controller_cfg: RestrictedActionConfig | None = None,
                 obs_cfg: ObservationConfig | None = None, on_frame=None, keep_trace: bool = True,
-                episode_id: str | None = None) -> dict:
-    """Run one episode to termination and return the full episode record."""
+                episode_id: str | None = None, spec: dict | None = None) -> dict:
+    """Run one episode to termination and return the full episode record. `spec`: discrete episode spec from a
+    scenario list (None: drawn from the seed)."""
     controller_cfg = controller_cfg or RestrictedActionConfig.load()
     obs_cfg = obs_cfg or ObservationConfig()
     wall = time.monotonic()
-    scenario.reset(seed, episode_id=episode_id)
+    scenario.reset(seed, episode_id=episode_id, spec=spec)
     mapper = RestrictedActionMapper(scenario.env, controller_cfg)
     agent.reset(scenario, mapper)
     need_obs = agent.needs_observation or on_frame is not None
@@ -148,6 +149,7 @@ def run_episode(scenario, agent: Agent, seed: int, controller_cfg: RestrictedAct
     cfg = scenario.cfg
     metrics = compute_episode_metrics(events, cfg.applicable_metrics, cfg.protocol_steps, cfg.metric_params)
     return dict(schema=SCHEMA, episode_id=scenario.episode_id, scenario_id=cfg.id, role=cfg.role, seed=int(seed),
+                task=scenario.variation['task'], spec=scenario.variation['spec'],
                 scenario_config=cfg.to_dict(), scenario_source=cfg.source, variation=scenario.variation,
                 human_trajectory_variant=scenario.variation['human'], policy=agent.describe(),
                 controller=controller_cfg.to_dict(), observation=obs_cfg.to_dict(),

@@ -33,12 +33,11 @@ TABLE_Z = 0.62
 def alternative(meta: dict, rec, key: str):
     """The other candidate of the target's group and its (static, pre-grasp) world position."""
     v = meta['variation']
-    for group, xy in (('object_xy', v.get('object_xy', {})), ('bowl_xy', v.get('bowl_xy', {})), ('region_xy', v.get('region_xy', {}))):
-        if key in xy:
-            others = [k for k in xy if k != key]
-            alt = others[0]
-            z = rec.object_pos[2] if rec.object_pos is not None else TABLE_Z
-            return alt, np.array([*xy[alt], z if group != 'region_xy' else TABLE_Z])
+    xy = {k: p for k, p in v.get('object_xy', {}).items() if k in v['spec']['layout']}     # objects on the slots
+    if key in xy:
+        alt = [k for k in xy if k != key][0]
+        z = rec.object_pos[2] if rec.object_pos is not None else TABLE_Z
+        return alt, np.array([*xy[alt], z])
     return None, None
 
 
@@ -83,7 +82,7 @@ def main():
     for m in metas:
         if m['episode_index'] % args.val_every != args.val_every - 1:
             continue
-        ev = [e for e in m.get('intention_evident', []) if e['kind'] in ('instruction', 'target_object', 'intrusion')]
+        ev = [e for e in m.get('intention_evident', []) if e['kind'] in ('target_object', 'intrusion')]
         if not ev:
             continue
         f0 = ev[0]['frame']
@@ -92,7 +91,7 @@ def main():
             tcp = item['observation.state'][7:10].numpy().astype(float)
             stored = {k: item[k].numpy() for k in item if k.startswith(PREFIX)}
             rec = record_from_features(stored)
-            intruder = m['scenario_id'] == 'intruder_pick_place_interruption'
+            intruder = m['scenario_id'] == 't4_interrupt' and rec.region_key == 'intrusion_point'
             key = rec.region_key if intruder else rec.object_key
             if key is None:
                 continue

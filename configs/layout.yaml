@@ -1,0 +1,49 @@
+# Table layout by reach (docs/requirements/scence_construct.md §3). World frame: robot base at the origin,
+# +X forward from the robot, +Y the robot's left, table top z = 0.62. The human stands at the robot's right-hand
+# table edge (y = -0.36), facing +Y (90-degree arrangement, configs/scene/common.yaml `human`), at x = 0.30 with the
+# U / H / P rows centred on the human (user request 2026-09-30).
+#
+# Measured in simulation by `scripts/calibrate_layout.py measure` (replaces teleop / human trials, §3.3 steps 1-2):
+#   robot: 3/3 grasps of a 4 cm cube + IK reach 15 cm above the table for radius 0.15-0.45 m, -105..105 deg;
+#          R_eff = 0.40 m = 80 % of the UR3e spec reach (0.50 m), used as the hard limit for every robot location.
+#   human: comfortable reach = palm reachable with a waist lean <= 30 deg (standing at a 0.85 m bench): about
+#          0.25-0.30 m deep on the table and 0.42 m at hand height (+15 cm) from the table edge.
+# Rows by distance from the human (user request 2026-09-30, replaces the arcs of §3.2 rule 3): U right in front of
+# the human, then the hand zones H, then the place zones P, then two straight, slightly staggered rows of slots S.
+# Departures from the md (user decisions): the support zone A is merged into U (the robot stands the cup in the
+# left part of U); the P row is centred on the human, the human only points at P (never places there), so P is
+# checked for pointing; S rows are straight (min angle between pointing rays 5 deg instead of 6).
+# `scripts/calibrate_layout.py check` verifies every rule of §3.2, runs the robot 5/5 and human-comfort tests and
+# fills `image_coords` below.
+layout_version: 2
+r_eff: 0.40
+comfort_lean_deg: 30
+min_ray_angle_deg: 5.0              # S slots: min angle between two pointing rays / lines of sight from the human
+table: {x: [-0.25, 0.95], y: [-0.36, 0.50]}
+marker_size: 0.12                   # P/H tape squares [m]; S slots get a small cross at the centre
+zones:
+  # robot zone: two straight rows of three slots, 12 cm apart; the far row is shifted 3 cm (so le) so no two slots
+  # share a line of sight / pointing ray from the human; every slot keeps the TCP of a cup-rim grasp >= 0.16 m from
+  # the base axis (closer, the arm whips near the shoulder singularity and upsets the cup)
+  S1: {kind: slot, xy: [0.03, 0.28]}
+  S2: {kind: slot, xy: [0.15, 0.28]}
+  S3: {kind: slot, xy: [0.27, 0.28]}
+  S4: {kind: slot, xy: [0.12, 0.14]}
+  S5: {kind: slot, xy: [0.24, 0.14]}
+  S6: {kind: slot, xy: [0.36, 0.14]}
+  # shared zone: rows centred on the human (x = 0.25); H = the receiving hand 15 cm above the table
+  P1: {kind: place, xy: [0.24, -0.03]}
+  P2: {kind: place, xy: [0.36, -0.03]}
+  H1: {kind: hand, xy: [0.24, -0.15], height: 0.15}
+  H2: {kind: hand, xy: [0.36, -0.15], height: 0.15}
+  # U right in front of the human (one tape rectangle, 9 cm from the table edge so the gripper stays clear of the
+  # human's body): T3's two cubes on the right (human side, outside R_eff) and, on the left, U_cup, where the robot
+  # stands the cup (the former support zone A; no tape of its own)
+  U:  {kind: human_store, xy: [0.30, -0.26], size: [0.30, 0.08], blocks: [[0.35, -0.26], [0.41, -0.26]]}
+  U_cup: {kind: support, xy: [0.205, -0.26], size: [0.10, 0.08], marker: false}
+# robot zone for T4 (interrupt): table region the human cannot reach comfortably (the S rows), where the robot must
+# stop while the hand is inside (x/y box on the table, up to `z_top` above it)
+robot_zone: {x: [-0.20, 0.45], y: [0.07, 0.48], z_top: 0.45}
+image_coords:                       # (u, v) px in 640x480 renders, filled by `calibrate_layout check`
+  high: {S1: [430.5, 444.3], S2: [381.4, 444.3], S3: [332.3, 444.3], S4: [384.7, 391.5], S5: [341.6, 391.5], S6: [298.4, 391.5], P1: [338.8, 342.4], P2: [301.2, 342.4], H1: [338.5, 281.9], H2: [301.5, 281.9], U: [320.0, 293.2], U_cup: [345.3, 293.2]}
+  top: {S1: [439.2, 125.8], S2: [456.2, 181.2], S3: [474.3, 240.5], S4: [381.6, 181.0], S5: [397.1, 240.3], S6: [413.8, 303.9], P1: [307.4, 258.8], P2: [320.9, 323.8], H1: [225.4, 255.0], H2: [238.5, 335.8], U: [187.3, 317.3], U_cup: [180.4, 265.8]}

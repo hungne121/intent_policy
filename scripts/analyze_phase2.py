@@ -181,7 +181,7 @@ def main():
                                   reduces_benefit=reduces))
 
     dose_rows = []
-    for g in [k for k in groups if '/overall' in k or k.endswith('collaborator_object_handover') or k.endswith('collaborator_bowl_assistance')]:
+    for g in [k for k in groups if '/overall' in k or k.endswith('/T2') or k.endswith('/T3') or k.endswith('/T5')]:
         for metric in ('AM', 'CT', 'CSR', 'Rsp', 'CRsp', 'WCR'):
             pts = []
             for cond, x in DOSE:

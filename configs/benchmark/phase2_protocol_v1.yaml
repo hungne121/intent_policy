@@ -1,24 +1,13 @@
-# Versioned evaluation protocol for Phase 2 (oracle intention utility). Every condition and every
-# training seed is evaluated on exactly these splits / seeds; scenario configs are the experiment's
-# (twin pairs => consecutive seeds share the layout and differ only in the human's choice).
-protocol: hri_phase2_v1
+# Versioned evaluation protocol for Phase 2 (oracle intention utility). Every condition and every training seed
+# is evaluated on exactly the same fixed episodes: the eval scenario list (scence_construct.md §5.3; 20 episodes per
+# task T1, T2, T3, T4, T4-neg, T5, seeds 100000+). Scenario configs are the experiment's.
+protocol: hri_phase2_v2
 splits:
-  - name: nominal
-    scenarios: [instructor_object_to_target, collaborator_object_handover, collaborator_bowl_assistance,
-                intruder_pick_place_interruption]
-    seed_start: 100000
-    episodes_per_scenario: 30
-  - name: intention_change
-    scenarios: [collaborator_object_handover, instructor_object_to_target]
-    seed_start: 110000
-    episodes_per_scenario: 30
-    scenario_overrides:
-      all:
-        intention_change: {probability: 1.0}
-# Inference setting, fixed before any Phase-2 evaluation. ACT temporal ensembling weights exp(-m*i), i=0
-# oldest; m chosen on held-out tuning seeds 200000+ (8/scenario, Phase-1 checkpoint): max total CSR, ties by
-# fewer safety failures. m=-0.1 and m=-0.2 both 27/32; m=-0.2 had one intruder contact (HCS 0.875), so -0.1.
-# Grid and per-scenario results: outputs/eval/tuning_te/.
+  - name: eval
+    scenario_list: configs/scenario_lists/eval_v1.jsonl
+# Inference setting, fixed before any Phase-2 evaluation. ACT temporal ensembling weights exp(-m*i), i=0 oldest.
+# m=-0.1 was chosen on the previous (pre-T1-T5) scene; it must be re-tuned on held-out seeds (200000+) with a
+# checkpoint trained on the T1-T5 demonstrations before the Phase-2 evaluation.
 inference:
   temporal_ensemble_coeff: -0.1
 # Oracle conditions (evaluation-time; the No-Information policy is the capacity-matched masked checkpoint).

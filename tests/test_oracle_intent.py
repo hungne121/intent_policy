@@ -1,4 +1,4 @@
-"""Phase 2: information-timing contract, oracle features, corruptions, intent fusion, twin demonstrations."""
+"""Phase 2: information-timing contract, oracle features, corruptions, intent fusion, counterfactual demonstrations."""
 import numpy as np
 import pytest
 import torch
@@ -9,24 +9,24 @@ from intent_policy.intent.oracle import OracleIntentProvider
 from intent_policy.intent.representation import PREFIX, feature_shapes, features
 from intent_policy.policies.hri_act import HRIACTConfig
 from intent_policy.policies.intent_fusion import IntentFusion
-from intent_policy.scenarios.config import ScenarioConfig, sample_variation
+from intent_policy.scenarios.config import random_spec
 from intent_policy.scenarios.scenario_registry import make_scenario
 from intent_policy.utils import load_yaml
 
-PHASE2 = {'expert': {'trigger': 'evidence'}, 'scene_variation': {'twin_pairs': True}}
+PHASE2 = {'expert': {'trigger': 'evidence'}}
 
 
 @pytest.fixture(scope='module')
 def handover():
-    sc = make_scenario('collaborator_object_handover', PHASE2)
+    sc = make_scenario('t2_handover', PHASE2)
     yield sc
     sc.close()
 
 
-def run_with_oracle(sc, seed, provider=None, agent=None):
+def run_with_oracle(sc, seed, provider=None, agent=None, spec=None):
     provider = provider or OracleIntentProvider()
     out = []
-    rec = run_episode(sc, agent or ExpertAgent(), seed, keep_trace=False,
+    rec = run_episode(sc, agent or ExpertAgent(), seed, keep_trace=False, spec=spec,
                       on_frame=lambda o, d, t, s: out.append((s.time, provider.record(s), d)))
     return rec, out
 
@@ -37,6 +37,7 @@ def evident_time(rec):
 
 def test_oracle_target_is_unknown_until_the_cue_makes_it_predictable(handover):
     rec, frames = run_with_oracle(handover, 4)
+    assert rec['success']
     t_ev = evident_time(rec)
     cue = next(e['timestamp'] for e in rec['events'] if e['event_type'] == 'human_cue_onset')
     assert cue < t_ev                                            # evidence comes after the cue starts
@@ -61,7 +62,7 @@ def test_predicted_hand_follows_the_contract(handover):
     for _ in range(400):
         handover.step(handover.env.hold())
         seg = human.segment
-        if seg is not None and seg.label == 'indicate_object':
+        if seg is not None and seg.label == 'point_object':
             progress = (human.t_last - seg.start_t) / seg.duration
             pred = human.predicted_hand_position(0.5)
             if progress < human.evidence_fraction - 0.05:
@@ -123,19 +124,16 @@ def test_delay_noise_shuffle_are_exact_and_deterministic(handover):
     assert lead == 0.1
 
 
-def test_twin_pairs_differ_only_in_the_choice():
-    cfg = ScenarioConfig.load('collaborator_object_handover', PHASE2)
-    a, b = sample_variation(cfg, 10), sample_variation(cfg, 11)
-    assert a['selected_object'] != b['selected_object']
-    strip = lambda v: {k: x for k, x in v.items() if k not in ('seed', 'selected_object', 'twin')}
-    assert strip(a) == strip(b)
-
-
-def test_clean_twin_demonstrations_share_labels_until_the_commitment(handover):
+def test_counterfactual_demonstrations_share_labels_until_the_commitment(handover):
+    """Same layout with the identical pair B1 / B1' and the same seed, only the pointed-at twin differs: the
+    evidence-mode expert acts identically until it commits to the target, then differently."""
+    base = random_spec(handover.cfg, np.random.default_rng(3))
+    layout = {'B1': 'S2', 'B1p': 'S5', 'B3': 'S1'}
     labels = []
-    for seed in (20, 21):
-        rec, frames = run_with_oracle(handover, seed)
-        assert rec['success']
+    for target in ('B1', 'B1p'):
+        spec = dict(base, target=target, layout=layout, pair=True, timing='on_time')
+        rec, frames = run_with_oracle(handover, 12, spec=spec)
+        assert rec['success'], rec['failure']
         labels.append(([d.action_id for _, _, d in frames],
                        next(i for i, (_, _, d) in enumerate(frames) if d.extras.get('expert_commit'))))
     (la, ca), (lb, cb) = labels
@@ -162,7 +160,7 @@ def test_fusion_starts_as_identity_and_mask_ignores_inputs():
 
 
 def test_commitment_events_follow_the_robot(handover):
-    rec, _ = run_with_oracle(handover, 8)
+    rec, _ = run_with_oracle(handover, 3)
     commits = [e for e in rec['events'] if e['event_type'] == 'robot_target_commit']
     assert commits and commits[0]['payload']['correct'] and commits[0]['payload']['target'] == handover.human.selected_object
     assert rec['metrics']['WCR'] == 0.0 and rec['metrics']['AM'] > 0

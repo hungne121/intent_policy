@@ -13,7 +13,7 @@ bộ phân loại ý định, không phải mỗi kỹ năng một model.
 
 | Phase | Nội dung | Trạng thái |
 |---|---|---|
-| 0/1 Foundation | LeRobot ACT + mô phỏng + 4 scenario HRI + đầu restricted 9 hành động + event/metric + baseline No-Intent | **Đã triển khai** (xem báo cáo) |
+| 0/1 Foundation | LeRobot ACT + mô phỏng + task HRI T1–T5 + đầu restricted 9 hành động + event/metric + baseline No-Intent | Scene và task T1–T5 đã dựng; chưa thu demo / train lại |
 | 2 Oracle utility | Oracle Spatial+Motion so với No-Intent (correct/wrong/shuffled/noisy/delayed) | Chưa bắt đầu |
 | 3 Information ablation | Spatial vs Motion vs Spatial+Motion | Chưa bắt đầu |
 | 4 Continuous ACT transfer | Đưa thông tin đã chọn vào đầu ACT liên tục gốc | Chưa bắt đầu (đường continuous đã sẵn) |
@@ -22,7 +22,7 @@ bộ phân loại ý định, không phải mỗi kỹ năng một model.
 ## 2. Kiến trúc
 
 ```text
-Observation (observation.state [10] + observation.images.{scene,wrist} 256×192)
+Observation (observation.state [10] + observation.images.{high,wrist,top} 256×192)
         │
         ▼
 LeRobot ACT (ACTPolicy/ACT không sửa: ResNet18 + Transformer encoder/decoder, action chunking)
@@ -55,7 +55,7 @@ intent_policy/                    # thư mục project
 │   ├── sim/                      # MuJoCo env (IK, assisted grasp, render), scene_builder,
 │   │                             #   restricted_action (enum 9 hành động + mapper tất định),
 │   │                             #   người scripted (HumanState, min-jerk, tất định theo seed)
-│   ├── scenarios/                # BaseScenario + 4 scenario + registry + lấy mẫu biến thể
+│   ├── scenarios/                # BaseScenario + task T1–T4 (T5, T4-neg là biến thể) + registry + spec/biến thể
 │   ├── experts/                  # expert có thông tin đặc quyền — CHỈ dùng sinh demo
 │   ├── intent/                   # oracle ý định: provider, representation, corruption
 │   ├── policies/                 # HRI-ACT (LeRobot), restricted head, intent fusion, PolicyAgent
@@ -65,8 +65,10 @@ intent_policy/                    # thư mục project
 │                                 #   analyze_phase2, counterfactual_probe, view_*, record_rollout, ...
 ├── configs/
 │   ├── robot.yaml                # tần số điều khiển, tư thế home, giới hạn tốc độ, assisted grasp
-│   ├── scene/common.yaml         # bố cục chung: bàn, người, camera, ngưỡng an toàn, servo gain
-│   ├── scenarios/*.yaml          # 4 scenario: role, goal, scene, biến thể, hành vi người, timing,
+│   ├── layout.yaml               # bố trí bàn theo tầm với: ô S, vùng P/H/A/U, vùng robot, toạ độ ảnh
+│   ├── scene/common.yaml         # bàn, bộ vật, người, camera, ánh sáng, ngưỡng an toàn, servo gain
+│   ├── scenario_lists/           # danh sách kịch bản cân bằng demo_v1 / eval_v1 (+ cấu hình sinh)
+│   ├── scenarios/*.yaml          # task T1–T4: role, goal, scene, biến thể, hành vi người, timing,
 │   │                             #   success, safety, protocol, metric áp dụng, định nghĩa metric
 │   ├── controller/restricted_action.yaml   # ánh xạ 9 hành động → lệnh controller
 │   ├── policy/                   # act_restricted, act_restricted_oracle, act_continuous
@@ -81,21 +83,64 @@ intent_policy/                    # thư mục project
 └── outputs/                      # dataset, checkpoint, kết quả eval (không đưa vào git)
 ```
 
-## 4. Bốn scenario Phase 1 (config-driven)
+## 4. Scene và các task T1–T5 (theo [docs/requirements/scence_construct.md](docs/requirements/scence_construct.md))
 
-Khung toạ độ: world = `base_link` của UR3e dịch lên độ cao bàn; **+X hướng từ robot về phía
-người**, +Y bên trái robot, +Z lên trên. Robot đặt tại gốc, người đứng sau mép bàn phía +X.
+Khung toạ độ: world = `base_link` của UR3e dịch lên độ cao bàn (mặt bàn z = 0.62, bàn đứng 0.85 m); +X phía
+trước robot, +Y bên trái robot, +Z lên trên. Người **đứng, bố trí chéo 90°**: đứng ở mép bàn bên phải robot
+(y = −0.48), nhìn về +Y, lệch sang bên 0.30 m so với đế robot; các hàng U/H/P căn giữa trước mặt người.
 
-| Scenario | Role | Nội dung | Thành công |
+**Bố trí bàn theo hàng** (`configs/layout.yaml`, yêu cầu 2026-09-30; đo và kiểm tra bằng
+`scripts/calibrate_layout.py`, báo cáo `outputs/layout/layout_check.md`). Tính từ người ra xa:
+- U: một ô băng dính 30 × 8 cm ngay trước người. Nửa phải đặt 2 khối của T3 (chỉ người với tới). Nửa trái là
+  `U_cup`, chỗ robot đặt cốc, tức vùng A cũ đã gộp vào U;
+- hàng H: H1, H2, lòng bàn tay nhận cao 15 cm;
+- hàng P: P1, P2. Người chỉ chỉ tay vào P, không tự đặt đồ vào P, nên P được kiểm theo cử chỉ chỉ tay;
+- 2 hàng ô vật thẳng, mỗi hàng 3 ô cách nhau 12 cm: S4–S6 gần, S1–S3 xa, lệch nhau 3 cm. Người không với tới thoải
+  mái. Không bao giờ đặt cốc sát một vật khác trong cùng hàng, vì tay kẹp mở sẽ đụng thành cốc;
+- vùng robot cho T4: `robot_zone` (hộp phía trên các hàng S).
+Mọi vị trí robot nằm trong R_eff = 0.40 m và robot gắp 5/5 ở mọi vị trí (cốc 5/5 ở mọi ô S). Người với tới H/U và chỉ
+vào mọi ô P/S với độ nghiêng lưng ≤ 30°. Tia chỉ tay giữa hai ô S bất kỳ lệch nhau ≥ 5°.
+
+**Camera:**
+- `high` đặt ở mép bàn đối diện, thẳng hàng với người, cao 1.5 m, thấy mặt và tay người trong mọi tư thế;
+- `top` nhìn từ trên xuống cụm ô, hơi nghiêng từ phía +X để cánh tay robot lúc nghỉ không che các ô gần đế;
+- `wrist` gắn trên tay kẹp.
+Tư thế nghỉ của robot (TCP (0.15, 0, 0.85)) ở ngay trước đế robot, không che ô nào trong ảnh `high`/`top`, cũng
+không che tay người trong ảnh `high`.
+
+**Chuyển động người** (ma-nơ-canh gỗ HY-Motion 1.0, khung xương SMPL-H, `intent_policy/sim/human_body.py`):
+- chỉ tay: tay gần như duỗi thẳng (lòng bàn tay cách vai 0.50 m trên tia vai → mục tiêu); cổ tay ngắm sao cho tia ngón
+  trỏ (đốt `Index1` → đầu ngón của mesh HY-Motion) đi qua đúng mục tiêu, lệch dưới 2 cm; mỗi lần chỉ giữ 1.8–2.5 s;
+- bàn tay có 4 hình (tự nhiên, chỉ, nắm, ngửa đón) và các hình trung gian 25/50/75 %, nên ngón đóng mở trong khoảng
+  0.2 s thay vì đổi hình đột ngột;
+- handover: người ngửa lòng bàn tay chìa ra (cẳng tay xoay ngửa dần), robot đưa vật tới ngay phía trên lòng bàn tay,
+  người nâng tay đỡ lấy rồi kéo xuống về phía mình;
+- đổi ý: rút tay về hẳn tư thế nghỉ (1.0–1.3 s, tay vẫn giữ dáng chỉ), dừng 0.4–0.7 s rồi mới chỉ sang mục tiêu mới.
+
+**Bộ vật** (`configs/scene/common.yaml` `objects_catalog`): khối 4 cm B1 đỏ, B2 xanh, B3 vàng, B1' đỏ giống hệt B1;
+cốc C1, C2 trắng giống hệt nhau, C3 xanh lá (robot gắp cốc ở thành miệng cốc). Mỗi episode đặt 3–4 vật trên bàn (T4:
+1 khối), các vật khác được cất ra ngoài tầm camera.
+
+| Task | Scenario (role) | Người | Robot / thành công |
 |---|---|---|---|
-| `instructor_object_to_target` | instructor | 3 vật khác màu + hình (khối đỏ, trụ xanh, chữ thập vàng), 2 vùng vuông khác màu. Người hiển thị yêu cầu trên bảng (ký hiệu vật + màu vùng) và chỉ tay vào vật rồi vùng. | Gắp đúng vật, nhả nằm yên trong đúng vùng. Sai vật / sai vùng / nhả ngoài vùng = thất bại. |
-| `collaborator_object_handover` | collaborator | 2 vật; người chọn ngẫu nhiên một vật (chỉ tay tới vật), sau đó chờ ở tư thế nhận. | Robot gắp đúng vật, đưa trước lòng bàn tay, người nhận, robot nhả, người giữ vật. |
-| `collaborator_bowl_assistance` | collaborator | 2 vật + 2 bát (object_a↔bowl_a, object_b↔bowl_b). Người cầm một vật lên và chờ. | Robot đặt **đúng bát** trước mặt người; người thả vật vào bát; vật nằm trong bát. Bát sai = thất bại. |
-| `intruder_pick_place_interruption` | intruder | Pick-and-place thông thường; trong lúc robot đang chạy, tay người đi vào vùng nguy hiểm (hộp không gian làm việc cố định). | Robot đứng yên trong lúc tay ở trong vùng (sau 0.5 s phản ứng), chỉ tiếp tục khi vùng trống, hoàn thành nhiệm vụ, không va chạm. |
+| T1 pick & place | `t1_pick_place` (instructor) | chỉ vào khối mục tiêu → chỉ vào vùng P | gắp đúng khối → đặt trong đúng P → về tư thế nghỉ; không chạm vật khác |
+| T2 handover | `t2_handover` (collaborator) | chỉ vào vật → đưa tay ra ở vùng H: sớm / đúng lúc / muộn (robot cầm chờ 2–5 s) | đưa đúng vật tới tay đang chờ, giữ yên, chỉ nhả khi người đã cầm và kéo |
+| T3 assist ("quy trình đã học") | `t3_assist` (collaborator) | không chỉ tay: lấy 1 trong 2 khối ở U (B1 ↔ cốc C3, B2 ↔ cốc C1), cầm chờ; khi cốc đã đứng ở `U_cup` và tay kẹp đã lui ra thì thả khối vào | đoán từ việc người với tới khối nào → mang đúng cốc cặp với khối đó tới `U_cup` → về tư thế nghỉ |
+| T4 interrupt | `t4_interrupt` (intruder) | không ra hiệu; đưa tay (chậm) vào vùng robot ở 1 trong 3 pha (tiến tới vật / mang vật / sắp đặt), giữ 1, 2 hoặc 4 s | tự làm pick & place 1 khối → P1; đứng yên khi tay ở trong vùng (phản ứng 0.5 s), tiếp tục đúng chỗ đang dở, không va chạm |
+| T4-neg | `t4_interrupt`, `negative: true` | tay đi gần nhưng ngoài vùng robot (với vào U, cạnh vùng) | robot **không** được dừng (> 1 s) |
+| T5 đổi ý | T1 / T2 / T3 với `change` | T1/T2: chỉ mục tiêu cũ → rút tay về (không có cử chỉ hủy riêng) → chỉ mục tiêu mới. T3: với khối cũ → rụt tay (sớm), hoặc đặt khối cũ lại chỗ cũ (muộn) → lấy khối kia. Sớm (ngay sau cử chỉ đầu) hoặc muộn (robot đã tới gần vật cũ), luôn trước khi robot gắp | hoàn thành task gốc với mục tiêu mới, không chạm vật cũ |
 
-Biến thể tất định theo seed (`intent_policy/scenarios/config.py::sample_variation`): vị trí vật/vùng/bát, tư
-thế home, lựa chọn của người, thời điểm cue, tốc độ người, quỹ đạo, thời điểm/vị trí/thời lượng
-xâm nhập. Mỗi episode lưu `scenario_id, episode_id, seed, role, variation`.
+Một episode = **spec rời rạc** (task, vật mục tiêu, bố trí ô, vùng P/H, cặp giống nhau, timing, thứ tự khối ở U, pha, đổi ý) cộng
+với các biến thiên liên tục lấy từ seed (lệch vị trí, thời gian của người). Spec lấy từ danh sách kịch bản cân
+bằng (`configs/scenario_lists/{demo,eval}_v1.jsonl`, sinh bằng `scripts/generate_scenarios.py` với seed cố định,
+theo quy tắc §5.2). Không có danh sách thì spec được sinh ngẫu nhiên từ seed. Danh sách demo có 280 episode (T1 60,
+T2 50, T3 60, T4 40, T4-neg 10, T5 60), danh sách eval có 20 episode mỗi task. Mỗi episode lưu `scenario_id,
+episode_id, seed, role, task, spec, variation`.
+
+Expert (`intent_policy/experts/scripted_expert.py`) có 3 chế độ `trigger`:
+- `cue_complete`: hành động khi người ra hiệu xong (T3: khi người đã nhấc khối lên; T4 không có ra hiệu, robot bắt đầu sau 0.5 s ở mọi chế độ);
+- `evidence`: hành động khi ý định đã đoán được từ cử chỉ, ở 40% chuyển động; chỉ chạm vật khi cử chỉ đã được giữ 1.6 s;
+- `cue_onset`: biết trước ý định (cận trên).
 
 ## 5. Không gian hành động restricted (9 hành động)
 
@@ -121,8 +166,9 @@ công. Mỗi frame:
 | key | shape | nội dung |
 |---|---|---|
 | `observation.state` | 10 | 6 góc khớp (rad), độ mở kẹp (m), TCP x,y,z (m, world) |
-| `observation.images.scene` | 192×256×3 video | camera cố định nhìn toàn cảnh |
-| `observation.images.wrist` | 192×256×3 video | camera cổ tay, gắn phía ngoài kẹp (khung `sus2f_base_link`) |
+| `observation.images.high` | 192×256×3 video | camera cố định chính giữa phía sau–trên robot, thấy bàn và người |
+| `observation.images.wrist` | 192×256×3 video | camera cổ tay kiểu `eye_in_hand` (robosuite/LIBERO), gắn cạnh kẹp |
+| `observation.images.top` | 192×256×3 video | camera nhìn thẳng xuống vùng làm việc |
 | `action` | 7 | joint target 6 khớp + kẹp đã thực thi (nhãn cho ACT continuous) |
 | `restricted_action` | 1 | id hành động 0–8 (nhãn cho restricted head) |
 | `task` | chuỗi | câu lệnh chung của scenario (không nêu vật/đích của episode) |
@@ -175,30 +221,36 @@ cd /home/hungdao/ur_ws/src/intent_policy
 # Test tự động
 ./run.sh -m pytest tests -q
 
-# Xem scenario (GUI, cần display); --expert để expert tự làm nhiệm vụ
-MUJOCO_GL=glfw ./run.sh -m scripts.view_scene --scenario collaborator_bowl_assistance --seed 3 --expert
-# Ảnh headless
-./run.sh -m scripts.view_scene --scenario intruder_pick_place_interruption --expert --ticks 120 \
-    --camera front --screenshot .cache/intruder.png
+# Bố trí bàn: đo tầm với, kiểm tra các quy tắc §3.2/§3.3, ghi toạ độ ảnh, chụp ảnh bố trí
+./run.sh -m scripts.calibrate_layout measure --out outputs/layout
+./run.sh -m scripts.calibrate_layout check --out outputs/layout
+# Sinh lại danh sách kịch bản cân bằng (seed cố định trong configs/scenario_lists/generator.yaml)
+./run.sh -m scripts.generate_scenarios
+# Kiểm tra expert trên danh sách (theo task, có thể so sánh nhiều trigger)
+./run.sh -m scripts.check_expert --list configs/scenario_lists/demo_v1.jsonl --per-task 20 \
+    --triggers cue_complete evidence --output outputs/expert_check/demo_v1
+# Video xem trước: 1 episode mỗi task từ danh sách demo
+./run.sh -m scripts.record_rollout --expert --list configs/scenario_lists/demo_v1.jsonl --per-task 1 \
+    --output-dir outputs/videos/expert_preview
+# Xem một episode của danh sách (GUI, cần display), hoặc ảnh headless
+MUJOCO_GL=glfw ./run.sh -m scripts.view_scene --list configs/scenario_lists/demo_v1.jsonl --index 0 --expert
+./run.sh -m scripts.view_scene --scenario t4_interrupt --expert --ticks 200 --camera high --screenshot .cache/t4.png
 
-# 1) Thu thập demo của expert vào LeRobotDataset (No-Intent observation)
-#    bộ xem trước nhỏ (5 episode/scenario) rồi bộ đầy đủ theo experiment config
+# 1) Thu thập demo của expert vào LeRobotDataset theo danh sách demo (chỉ lưu episode thành công)
+#    bộ xem trước nhỏ (2 episode mỗi task) rồi bộ đầy đủ
 ./run.sh -m scripts.collect_demos --root outputs/datasets/hri_phase1_preview \
-    --repo-id local/hri_phase1_preview --episodes-per-scenario 5
+    --repo-id local/hri_phase1_preview --per-task 2
 ./run.sh -m scripts.collect_demos --overwrite
 #    xem demo (rerun): chuẩn LeRobot, hoặc kèm nhãn + timeline ground truth
 ./run.sh -m lerobot.scripts.lerobot_dataset_viz --repo-id local/hri_phase1_preview \
     --root outputs/datasets/hri_phase1_preview --episode-index 0
 ./run.sh -m scripts.view_dataset --root outputs/datasets/hri_phase1_preview --episode-index 0
-./run.sh -m scripts.view_dataset --root outputs/datasets/hri_phase1_preview \
-    --save outputs/viz/hri_phase1_preview --jpeg-quality 95      # xuất .rrd cho mọi episode
-./run.sh -m rerun outputs/viz/hri_phase1_preview/*.rrd
 # 2) Train baseline No-Intent (restricted head)
 ./run.sh -m scripts.train_policy
 #    đường continuous ACT gốc:
 ./run.sh -m scripts.train_policy --policy-config configs/policy/act_continuous.yaml \
     --output-dir outputs/train/continuous_smoke --steps 2000
-# 3) Đánh giá (seed 100000–100019, không trùng seed demo)
+# 3) Đánh giá trên danh sách eval cố định (seed 100000+, không trùng seed demo)
 ./run.sh -m scripts.evaluate --checkpoint outputs/train/foundation_baseline/checkpoints/last/pretrained_model \
     --output-dir outputs/eval/foundation_baseline
 ./run.sh -m scripts.evaluate --expert --output-dir outputs/eval/expert_reference
@@ -206,20 +258,11 @@ MUJOCO_GL=glfw ./run.sh -m scripts.view_scene --scenario collaborator_bowl_assis
 ./run.sh -m scripts.reproduce_episode outputs/eval/foundation_baseline/episodes/<scenario>/<episode>.json.gz
 ```
 
-Phase 2 — preview scenario mới (mốc duyệt G2a): expert hành động từ cue onset, Handover đổi vật,
-Instructor đổi vùng đích (`configs/experiments/phase2_scenario_preview.yaml`; mặc định trong YAML
-scenario vẫn là hành vi Phase 1):
+Phase 2 dùng expert `evidence` (`configs/experiments/phase2_oracle.yaml`, protocol
+`configs/benchmark/phase2_protocol_v1.yaml` = danh sách eval). Preview trước khi thu:
+`configs/experiments/phase2_scenario_preview.yaml` với `--per-task`.
 
-```bash
-./run.sh -m scripts.check_expert --config configs/experiments/phase2_scenario_preview.yaml --seeds 60 \
-    --compare-cue-complete --output outputs/viz/hri_phase2_scenario_preview/expert_check
-./run.sh -m scripts.collect_demos --config configs/experiments/phase2_scenario_preview.yaml --overwrite
-./run.sh -m scripts.view_dataset --root outputs/datasets/hri_phase2_scenario_preview --episode-index 20
-./run.sh -m scripts.preview_keyframes --root outputs/datasets/hri_phase2_scenario_preview \
-    --out outputs/viz/hri_phase2_scenario_preview/keyframes
-```
-
-Kết quả đánh giá: `results.json`, `results.md` (bảng theo role) và `episodes/<scenario>/*.json.gz`.
+Kết quả đánh giá: `results.json`, `results.md` (bảng theo role, theo task) và `episodes/<split>/<task>/*.json.gz`.
 Mỗi bản ghi episode chứa config scenario đầy đủ, biến thể, trạng thái robot/người/vật theo từng
 bước, logits/xác suất/hành động được chọn, lệnh controller, toàn bộ event, kết quả và metric.
 
@@ -229,14 +272,32 @@ bước, logits/xác suất/hành động được chọn, lệnh controller, to
   vật về mặt vật lý* trong lúc kẹp đang đóng, và nhả ngay khi kẹp mở; tương tự "assistive grasping"
   của iGibson/BEHAVIOR. Lý do: ngón SusGrip đi theo cung tròn khi đóng, khiến gắp thuần ma sát không
   tin cậy (đo được 0–75% tuỳ hình dạng).
-- Người là proxy scripted (tay + cẳng tay dạng mocap). Hình học người chỉ để hiển thị; va chạm và
-  vi phạm khoảng cách được đo bằng khoảng cách hình học chính xác giữa robot và người.
-  Người scripted không tự đâm vào robot.
+- Người là ma-nơ-canh gỗ của HY-Motion 1.0 (Tencent; `assets/human/`, dựng bằng `scripts/build_human_asset.py`,
+  giấy phép và NOTICE đi kèm), tách thành các đoạn cứng. Hành vi scripted chỉ điều khiển lòng bàn tay;
+  `intent_policy/sim/human_body.py` suy ra toàn thân: thân cúi ở eo vừa đủ để với tới, tay chủ động theo IK
+  hai khâu, tay kia buông thõng, bàn tay đổi dáng thả lỏng / chỉ / nắm. Hình học người chỉ để hiển thị; va
+  chạm và vi phạm khoảng cách đo bằng khoảng cách hình học tới các proxy ẩn (lòng bàn tay, cẳng tay, cánh
+  tay trên, thân, đầu). Vi phạm khoảng cách chỉ tính khi *tay máy* chuyển động (mở kẹp để trao vật thì
+  không tính). Người scripted không tự đâm vào robot.
 - Servo khớp tay máy kp=2000/kv=100 (asset gốc kp=600 bám trễ ~3 cm ở 0.2 m/s).
 - `wrist_3` của UR3e là khớp không giới hạn; code chỉ kẹp các khớp có `limited=1`.
-- Camera cổ tay được định nghĩa lại trong `configs/scene/common.yaml` (camera gốc của asset nằm sau
-  thân kẹp, gần như chỉ thấy kẹp): lệch 7.5 cm khỏi mặt phẳng ngón về phía ngoài (xa góc gập tay
-  máy), nhìn vào điểm 8 cm dưới TCP, fovy 70°. Ảnh so sánh: `outputs/viz/wrist_camera_*.png`.
+- Camera (`configs/scene/common.yaml`): `high` đặt ở mép bàn đối diện người, thẳng hàng với người, tức là góc nhìn
+  của robot về phía người (0.25, 0.70, 1.50 m → nhìn về phía người, fovy 70°). Camera thấy mặt người gần như chính diện
+  và thấy mọi vùng. Tư thế nghỉ của robot đỗ ở góc sau đế robot, nên tay kẹp lúc nghỉ không che tay người hay ô nào.
+  `wrist` bố trí như `eye_in_hand` của robosuite (LIBERO/RoboCasa trong LeRobot): đặt cạnh kẹp, lệch khỏi mặt phẳng
+  ngón 8 cm, nhìn dọc trục tiếp cận, đầu ngón ở hai góc dưới ảnh, fovy 75°. `top` nhìn thẳng xuống, căn giữa các vùng
+  S/P/H/U. Policy dùng cả ba camera. Ánh sáng dịu, không đổ bóng như các scene LIBERO. Sàn ở z = −0.23
+  (bàn đứng cao 0.85 m). Mặt ma-nơ-canh được gắn mắt và mũi đơn giản (`face_markers`) để đọc được hướng đầu.
+- Hộp giới hạn điểm đặt của bộ điều khiển (`configs/controller/restricted_action.yaml`) bao mọi vị trí robot trong
+  `layout.yaml`. Expert vòng ra ngoài (x ≥ 0.22 m) khi phải băng qua y = 0 gần đế robot, vì phía trên đế tay máy
+  gần kỳ dị và các khớp trễ so với điểm đặt. Expert cũng chờ tay kẹp tới đúng vị trí rồi mới hạ xuống gắp.
+- T4: expert dừng khi tay ở trong vùng robot (thêm biên 2 cm), và cũng dừng khi lòng bàn tay cách TCP dưới 12 cm
+  (giám sát khoảng cách: không bao giờ di chuyển vào tay người). Người đưa tay vào chậm (đỉnh ≤ ~0.8 m/s), theo đường
+  cách xa các khâu robot và đường đi tới đích của robot nhất. Tay dừng lại nếu sắp chạm robot; khoảng dự phòng tính
+  theo tốc độ tay và robot đang tiến lại gần nhau, nên tay đi song song với robot thì không dừng sớm.
+- Chỉ số commit (`robot_target_commit`, WCR/AM): robot đi theo từng trục một (hình chữ L), nên đoạn đường từ tư thế
+  nghỉ vào vùng làm việc có thể bị tính là commit sai (test `test_commitment_events_follow_the_robot` đang báo lỗi).
+  Vấn đề này chưa được xử lý.
 
 ## 10. Lưu ý môi trường
 

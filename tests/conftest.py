@@ -2,13 +2,13 @@
 import numpy as np
 import pytest
 
-from intent_policy.scenarios.scenario_registry import make_scenario, PHASE1_SCENARIOS
+from intent_policy.scenarios.scenario_registry import make_scenario, TASK_SCENARIOS
 
 
 @pytest.fixture(scope='session')
 def scenarios():
-    """One instance per Phase-1 scenario (MuJoCo model built once per session)."""
-    made = {sid: make_scenario(sid) for sid in PHASE1_SCENARIOS}
+    """One instance per task scenario T1-T4 (MuJoCo model built once per session)."""
+    made = {sid: make_scenario(sid) for sid in TASK_SCENARIOS}
     yield made
     for sc in made.values():
         sc.close()

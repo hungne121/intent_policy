@@ -38,7 +38,7 @@ def test_invalid_action_ids_fail(bad):
 
 @pytest.fixture
 def mapper(scenarios):
-    sc = scenarios['intruder_pick_place_interruption']
+    sc = scenarios['t4_interrupt']
     sc.reset(0)
     m = RestrictedActionMapper(sc.env, RestrictedActionConfig.load())
     return m
@@ -78,7 +78,7 @@ def test_hold_generates_no_translation_and_identical_joint_target(mapper):
 
 
 def test_mapping_is_deterministic(scenarios):
-    sc = scenarios['intruder_pick_place_interruption']
+    sc = scenarios['t4_interrupt']
     seq = [1, 3, 5, 0, 8, 2, 4, 6, 7, 0]
     runs = []
     for _ in range(2):
@@ -90,7 +90,7 @@ def test_mapping_is_deterministic(scenarios):
 
 
 def test_translation_magnitude_and_frame_are_configurable(scenarios):
-    sc = scenarios['intruder_pick_place_interruption']
+    sc = scenarios['t4_interrupt']
     sc.reset(0)
     cfg = RestrictedActionConfig.load()
     cfg.translation_step = {'x': 0.02, 'y': 0.005, 'z': 0.03}
@@ -107,7 +107,7 @@ def test_translation_magnitude_and_frame_are_configurable(scenarios):
 
 
 def test_controller_limits_refuse_out_of_workspace_setpoints(scenarios):
-    sc = scenarios['intruder_pick_place_interruption']
+    sc = scenarios['t4_interrupt']
     sc.reset(0)
     m = RestrictedActionMapper(sc.env, RestrictedActionConfig.load())
     zmax = m.cfg.limits['z'][1]
@@ -119,9 +119,11 @@ def test_controller_limits_refuse_out_of_workspace_setpoints(scenarios):
 @pytest.mark.parametrize('action,axis,sign', [(A.MOVE_FORWARD, 0, 1), (A.MOVE_BACKWARD, 0, -1), (A.MOVE_LEFT, 1, 1),
                                               (A.MOVE_RIGHT, 1, -1), (A.MOVE_UP, 2, 1), (A.MOVE_DOWN, 2, -1)])
 def test_executed_motion_moves_tcp_in_the_commanded_direction(scenarios, action, axis, sign):
-    sc = scenarios['intruder_pick_place_interruption']
+    sc = scenarios['t4_interrupt']
     sc.reset(1)
     m = RestrictedActionMapper(sc.env, RestrictedActionConfig.load())
+    for a in [A.MOVE_FORWARD] * 10 + [A.HOLD] * 20:   # from the rest pose (near the base) out into the workspace
+        sc.step(m.map(int(a)).joint_target)
     start = sc.tcp()
     for _ in range(5):
         sc.step(m.map(int(action)).joint_target)
@@ -133,7 +135,7 @@ def test_executed_motion_moves_tcp_in_the_commanded_direction(scenarios, action,
 
 
 def test_gripper_commands_use_the_gripper_controller(scenarios):
-    sc = scenarios['intruder_pick_place_interruption']
+    sc = scenarios['t4_interrupt']
     sc.reset(1)
     m = RestrictedActionMapper(sc.env, RestrictedActionConfig.load())
     for _ in range(25):

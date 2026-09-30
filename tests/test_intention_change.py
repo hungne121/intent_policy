@@ -1,14 +1,15 @@
-"""Phase-2 scenario extensions: cue-onset expert, intention-change variants, scenario overrides."""
+"""T5 change of mind on T1-T3 (withdraw, then point at the new target; before the robot grasps), expert triggers
+(cue_complete / evidence / cue_onset), scenario overrides."""
+import numpy as np
 import pytest
 
 from intent_policy.benchmark.runner import ExpertAgent, run_episode
-from intent_policy.scenarios.config import ScenarioConfig, sample_variation
+from intent_policy.scenarios.config import ScenarioConfig, random_spec, sample_variation
 from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
 from scripts.reproduce_episode import compare
 
-ONSET = {'expert': {'trigger': 'cue_onset'}}
-CHANGE = {'expert': {'trigger': 'cue_onset'}, 'intention_change': {'probability': 1.0}}
-CHANGE_SCENARIOS = ('collaborator_object_handover', 'instructor_object_to_target')
+CHANGE = {'intention_change': {'probability': 1.0}}
+BASES = ('t1_pick_place', 't2_handover', 't3_assist')
 
 
 class IgnoreChangeExpert(ExpertAgent):
@@ -18,92 +19,103 @@ class IgnoreChangeExpert(ExpertAgent):
         self.expert._follow_intention_change = lambda: None
 
 
-@pytest.fixture(scope='module')
-def change_scenarios():
-    made = {sid: make_scenario(sid, CHANGE) for sid in CHANGE_SCENARIOS}
-    yield made
-    for sc in made.values():
-        sc.close()
+def change_spec(sid: str, timing: str, seed: int = 1) -> dict:
+    cfg = ScenarioConfig.load(sid)
+    spec = random_spec(cfg, np.random.default_rng(seed))
+    if spec['task'] == 'T2':
+        spec['timing'] = 'on_time'
+    old = next(k for k in spec['layout'] if k != spec['target'])
+    return dict(spec, change=dict(timing=timing, old=old))
 
 
 def test_overrides_are_merged_and_stored():
-    exp = {'scenario_overrides': {'all': ONSET, 'intruder_pick_place_interruption': {'expert': {'yield_prediction_horizon_s': 0.5}}}}
-    ov = scenario_overrides(exp, 'intruder_pick_place_interruption')
-    assert ov['expert'] == {'trigger': 'cue_onset', 'yield_prediction_horizon_s': 0.5}
-    cfg = ScenarioConfig.load('intruder_pick_place_interruption', ov)
-    assert cfg.expert['trigger'] == 'cue_onset' and cfg.to_dict()['expert']['yield_prediction_horizon_s'] == 0.5
-    assert ScenarioConfig.load('intruder_pick_place_interruption').expert['trigger'] == 'cue_complete'
+    exp = {'scenario_overrides': {'all': {'expert': {'trigger': 'evidence'}}, 't4_interrupt': {'expert': {'yield_prediction_horizon_s': 0.5}}}}
+    ov = scenario_overrides(exp, 't4_interrupt')
+    assert ov['expert'] == {'trigger': 'evidence', 'yield_prediction_horizon_s': 0.5}
+    cfg = ScenarioConfig.load('t4_interrupt', ov)
+    assert cfg.expert['trigger'] == 'evidence' and cfg.to_dict()['expert']['yield_prediction_horizon_s'] == 0.5
+    assert ScenarioConfig.load('t4_interrupt').expert['trigger'] == 'cue_complete'
 
 
-@pytest.mark.parametrize('sid', CHANGE_SCENARIOS)
-def test_intention_change_variation_is_appended_and_disabled_by_default(sid):
-    base = ScenarioConfig.load(sid)
-    changed = ScenarioConfig.load(sid, CHANGE)
+@pytest.mark.parametrize('sid', BASES)
+def test_change_is_off_by_default_and_part_of_the_spec(sid):
+    base, changed = ScenarioConfig.load(sid), ScenarioConfig.load(sid, CHANGE)
     for seed in range(5):
         v0, v1 = sample_variation(base, seed), sample_variation(changed, seed)
-        assert 'intention_change' not in v0
-        assert v1['intention_change']['enabled'] and v1['intention_change']['type'] == changed.intention_change['type']
-        assert {k: v for k, v in v1.items() if k != 'intention_change'} == v0     # earlier draws unchanged
+        assert v0['change'] is None and 'change' not in v0['spec']
+        ch = v1['change']
+        assert ch['timing'] in ('early', 'late') and ch['old'] in v1['spec']['layout'] and ch['old'] != v1['target_object']
+    with pytest.raises(ValueError):
+        sample_variation(ScenarioConfig.load('t4_interrupt'), 0, dict(random_spec(ScenarioConfig.load('t4_interrupt'),
+                                                                               np.random.default_rng(0)), change={'timing': 'early', 'old': 'B2'}))
 
 
-@pytest.mark.parametrize('sid', CHANGE_SCENARIOS)
-def test_expert_follows_the_changed_intention(change_scenarios, sid):
-    sc = change_scenarios[sid]
-    rec = run_episode(sc, ExpertAgent(), 7, keep_trace=False)
-    changes = [e for e in rec['events'] if e['event_type'] == 'human_intention_change']
-    assert rec['success'] and len(changes) == 1
-    payload = changes[0]['payload']
-    assert payload['current'] != payload['previous']
-    if sid == 'collaborator_object_handover':
-        assert payload['kind'] == 'target_object' and sc.robot_target() == payload['current']
-        assert sc.human.holding == payload['current']
-    else:
-        assert payload['kind'] == 'target_region' and sc.req_target == payload['current']
-        placed = [e for e in rec['events'] if e['event_type'] == 'protocol_step_complete'
-                  and e['payload']['step'] == 'object_released_in_target']
-        assert placed[0]['payload']['target'] == payload['current']
-    assert not any(e['event_type'] in ('human_robot_contact', 'safety_distance_violation') for e in rec['events'])
+@pytest.mark.parametrize('trigger', ['cue_complete', 'evidence'])
+@pytest.mark.parametrize('timing', ['early', 'late'])
+@pytest.mark.parametrize('sid', BASES)
+def test_expert_follows_the_change_of_mind(sid, timing, trigger):
+    sc = make_scenario(sid, {'expert': {'trigger': trigger}})
+    try:
+        spec = change_spec(sid, timing)
+        rec = run_episode(sc, ExpertAgent(), 1, keep_trace=False, spec=spec)
+        changes = [e for e in rec['events'] if e['event_type'] == 'human_intention_change']
+        assert rec['success'], rec['failure']
+        assert len(changes) == 1 and changes[0]['payload']['previous'] == spec['change']['old']
+        assert changes[0]['payload']['current'] == spec['target'] == sc.robot_target()
+        assert not any(e['event_type'] == 'object_grasp' and e['entity_id'] == 'robot' and e['payload']['object'] == spec['change']['old']
+                       for e in rec['events'])
+        steps = rec['protocol_steps_completed']
+        assert 'change_indicated' in steps
+        assert not any(e['event_type'] in ('human_robot_contact',) for e in rec['events'])
+    finally:
+        sc.close()
 
 
-@pytest.mark.parametrize('sid,failure', [('collaborator_object_handover', 'wrong_object_manipulated'),
-                                         ('instructor_object_to_target', 'wrong_target_region')])
-def test_ignoring_the_change_fails(change_scenarios, sid, failure):
-    rec = run_episode(change_scenarios[sid], IgnoreChangeExpert(), 7, keep_trace=False)
-    assert not rec['success'] and rec['failure'] == failure
+@pytest.mark.parametrize('sid', BASES)
+def test_ignoring_a_late_change_fails(sid):
+    sc = make_scenario(sid)
+    try:
+        rec = run_episode(sc, IgnoreChangeExpert(), 1, keep_trace=False, spec=change_spec(sid, 'late'))
+    finally:
+        sc.close()
+    assert not rec['success'] and rec['failure'] in ('touched_other_object', 'wrong_object_manipulated')
 
 
-def test_cue_onset_expert_starts_at_the_cue():
+def test_anticipating_triggers_start_earlier():
     records = {}
-    for trigger in ('cue_complete', 'cue_onset'):
-        sc = make_scenario('instructor_object_to_target', {'expert': {'trigger': trigger}})
+    for trigger in ('cue_complete', 'evidence', 'cue_onset'):
+        sc = make_scenario('t1_pick_place', {'expert': {'trigger': trigger}})
         try:
             records[trigger] = run_episode(sc, ExpertAgent(), 5, keep_trace=False)
         finally:
             sc.close()
     lag = {}
     for trigger, rec in records.items():
-        assert rec['success']
+        assert rec['success'], (trigger, rec['failure'])
         cue = next(e['timestamp'] for e in rec['events'] if e['event_type'] == 'human_cue_onset')
         lag[trigger] = next(e['timestamp'] for e in rec['events'] if e['event_type'] == 'robot_motion_start' and e['timestamp'] >= cue) - cue
     assert lag['cue_onset'] < 0.3 < 2.0 < lag['cue_complete']
-    assert records['cue_onset']['metrics']['CT'] < records['cue_complete']['metrics']['CT']
+    assert records['evidence']['metrics']['CT'] < records['cue_complete']['metrics']['CT']
 
 
-def test_predictive_yield_expert_succeeds_without_violations():
-    sc = make_scenario('intruder_pick_place_interruption', {'expert': {'trigger': 'cue_onset', 'yield_prediction_horizon_s': 0.5}})
+def test_predictive_yield_expert_succeeds_without_contact():
+    sc = make_scenario('t4_interrupt', {'expert': {'trigger': 'evidence', 'yield_prediction_horizon_s': 0.5}})
     try:
-        rec = run_episode(sc, ExpertAgent(), 6, keep_trace=False)
+        rec = run_episode(sc, ExpertAgent(), 3, keep_trace=False)
     finally:
         sc.close()
-    assert rec['success'] and rec['metrics']['DSR'] == 1.0 and rec['metrics']['HCS'] == 1.0
+    assert rec['success'] and rec['metrics']['DSR'] == 1.0 and rec['metrics']['CFR'] == 1.0
 
 
-def test_change_episode_reproduces_from_saved_config(change_scenarios):
-    rec = run_episode(change_scenarios['collaborator_object_handover'], ExpertAgent(), 9)
+def test_change_episode_reproduces_from_saved_config():
+    sc = make_scenario('t2_handover', {'expert': {'trigger': 'evidence'}})
+    try:
+        rec = run_episode(sc, ExpertAgent(), 1, spec=change_spec('t2_handover', 'late'))
+    finally:
+        sc.close()
     sc = make_scenario(rec['scenario_config'])
     try:
-        again = run_episode(sc, ExpertAgent(), rec['seed'], episode_id=rec['episode_id'])
+        again = run_episode(sc, ExpertAgent(), rec['seed'], episode_id=rec['episode_id'], spec=rec['spec'])
     finally:
         sc.close()
-    assert rec['scenario_config']['intention_change']['probability'] == 1.0
-    assert compare(rec, again) == []
+    assert rec['spec']['change']['timing'] == 'late' and compare(rec, again) == []

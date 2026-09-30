@@ -1,46 +1,57 @@
-"""Privileged waypoint expert that emits restricted actions (demonstration generator).
+"""Privileged waypoint expert that emits restricted actions (demonstration generator) for the tasks T1-T5.
 
-The expert reads simulator ground truth (object poses, the human's choice and stage). That is
-acceptable for a *teacher*: the learned No-Intent policy only ever sees the recorded
-observations (proprioception + images). One expert class handles all scenarios through a
-per-scenario plan of generic steps; there is no per-skill model anywhere.
+The expert reads simulator ground truth (object poses, the human's choice and stage). That is acceptable for a
+*teacher*: the learned No-Intent policy only ever sees the recorded observations (proprioception + images). One
+expert class handles all tasks through a per-task plan of generic steps; there is no per-skill model anywhere.
+
+  T1       grasp the cube -> (place zone known) -> place it in P -> rest
+  T4       no instruction: from start_s grasp the single cube -> place it in P1 -> rest; hold while a hand is in the
+           robot zone (every trigger behaves the same)
+  T2       grasp the object -> hold it at a staging point until a hand is out in a hand zone -> present it in front
+           of the palm, hold still -> release when the human has taken it and pulls -> rest
+  T3       grasp the cup paired with the cube the human picks up, by the rim -> stand it in U_cup -> rest
+  T5       re-plan to the new target (before any grasp)
 
 Scenario config `expert` block (teacher settings only):
-  trigger: cue_complete  start once the human has finished the cue (Phase 1 default)
-           cue_onset     clairvoyant: commit to the target as soon as the cue starts (upper-bound variant)
-           evidence      information-timing contract (Phase 2): from the cue onset only target-agnostic
-                         motion (open the gripper, go to a staging point between the candidates); commit
-                         to a target only at `human_intention_evident` events, i.e. when the target has
-                         become predictable from the observable cue. Commit times are recorded (L_demo).
-  yield_prediction_horizon_s: intruder also yields on the predicted hand position this far ahead
-                         (evidence mode: `predicted_hand_position`, cue_onset mode: the planned motion)
-Guarded moves (cue_onset / evidence) hold while the human hand occupies the destination or is next to
-the arm. The expert re-plans on intention changes (cue_onset: at the change, evidence: once the new
-target is evident).
+  trigger: cue_complete  act once the human's cue is complete (instruction_given / target_indicated / block_picked;
+                         after a change of mind: once the new target has been indicated)
+           evidence      information-timing contract (Phase 2): from the cue onset only target-agnostic motion (open
+                         the gripper, go to a staging point above the candidates); commit to a target only at
+                         `human_intention_evident` events, i.e. when the target has become predictable from the
+                         observable gesture, and touch it only CONFIRM_S after that. A withdrawn pointing hand (T5)
+                         is evidence too: the robot rises and waits.
+           cue_onset     clairvoyant: the target is known at the cue onset and after a change at the change itself
+  travel_dz: travel height above the table
+  T2 staging_offset: holding point w.r.t. the centre of the hand zones
+  T4 yield_zone_margin_m / yield_prediction_horizon_s: hold while the (predicted) hand is in the robot zone
+Guarded moves (cue_onset / evidence) hold while the human hand occupies the destination or is next to the arm.
 """
 from __future__ import annotations
 import numpy as np
 from intent_policy.benchmark.events import EventType as E
 from intent_policy.sim.restricted_action import RestrictedAction as A
 
-TRAVEL_DZ = 0.13        # travel height above the table
-GRASP_DZ = 0.012        # TCP height above object centre when grasping (fingertips reach ~3 cm below TCP)
 SETTLE_TOL = 0.004      # hold until the measured TCP is this close to the set-point before gripping
-YIELD_DISTANCE = 0.35   # intruder: hold while the human hand is closer than this to the TCP (the arm needs ~0.15 s to stop)
-YIELD_GEOM_DISTANCE = 0.25  # ... or closer than this to any robot link (the hand may approach the wrist/forearm)
-YIELD_ZONE_MARGIN = 0.05    # ... or inside the danger zone enlarged by this margin
-# cue-onset expert, guarded moves (horizontal distances; only while the hand is within GUARD_Z in height):
+# guarded moves (horizontal distances; only while the hand is within GUARD_Z in height):
 GUARD_OCCUPIED_XY = 0.14    # the move's destination counts as occupied when the hand is this close to it ...
 GUARD_APPROACH_XY = 0.20    # ... then the robot stops once it is this close to the hand
 GUARD_CLOSE_XY = 0.10       # and it always stops when the hand is this close to the TCP / set-point
 GUARD_Z = 0.15
+SEPARATION_M = 0.12     # T4: also hold while the palm is this close to the TCP ...
+SEPARATION_GEOM_M = 0.04  # ... or any human proxy this close to a robot link
+CONFIRM_S = 1.6         # evidence mode: touch the target only once its gesture has been held this long (a pointing
+                        # that is withdrawn earlier, T5 early change, never leads to touching the old target)
+R_SAFE = 0.22           # moves across y = 0 go around the robot base at least this far out (near-singular above it)
 TRIGGERS = ('cue_complete', 'cue_onset', 'evidence')
+CUE_COMPLETE_STEP = {'T1': 'instruction_given', 'T2': 'target_indicated', 'T3': 'block_picked'}
+FOREVER = 10 ** 6
 
 
 class Step:
-    """One plan step. `kind`: wait | goto | grip | hold | settle. `guard`: hold while the hand is near (cue_onset)."""
-    def __init__(self, kind, target=None, until=None, ticks=0, name='', guard=False):
-        self.kind, self.target, self.until, self.ticks, self.name, self.guard = kind, target, until, ticks, name, guard
+    """One plan step. kind: wait | goto | grip | hold | settle | call. `guard`: hold while the hand is near
+    (anticipating triggers). `skip`: callable, the step ends as soon as it returns True."""
+    def __init__(self, kind, target=None, until=None, ticks=0, name='', guard=False, skip=None):
+        self.kind, self.target, self.until, self.ticks, self.name, self.guard, self.skip = kind, target, until, ticks, name, guard, skip
 
 
 class ScriptedExpert:
@@ -59,54 +70,69 @@ class ScriptedExpert:
         if self.trigger not in TRIGGERS:
             raise ValueError(f'expert.trigger must be one of {TRIGGERS}, got {self.trigger!r}')
         self.anticipate = self.trigger in ('cue_onset', 'evidence')
+        self.code = sc.cfg.task_code
+        self.travel = self.z0 + float(ecfg.get('travel_dz', 0.13))
+        self.yield_margin = float(ecfg.get('yield_zone_margin_m', 0.0))
         self.yield_horizon = float(ecfg.get('yield_prediction_horizon_s', 0.0))
-        v = sc.variation
-        self.obj = v['selected_object'] if 'selected_object' in v else v['requested_object']
-        self.region = v.get('requested_target')
+        self.obj: str | None = None
+        self.zone: str | None = None
         self.n_changes = self.n_evidence = 0
         self.committed: str | None = None
+        self.commit_t = 0.0
         self.commit_log: list[dict] = []
         self._new_commit: str | None = None
-        builder = {'instructor_object_to_target': self._plan_pick_place,
-                   'intruder_pick_place_interruption': self._plan_pick_place,
-                   'collaborator_object_handover': self._plan_handover,
-                   'collaborator_bowl_assistance': self._plan_bowl}[sc.cfg.id]
         self.tcp_obj_offset = np.zeros(3)
-        if self.trigger == 'evidence' and sc.cfg.role != 'intruder':
+        self.retreat_point = None
+        if self.code == 'T4':                   # no instruction: the robot starts the pick-and-place by itself
+            start = float(ecfg.get('start_s', 0.5))
+            self._set_plan([Step('wait', until=lambda: sc.time >= start - 1e-9, name='wait_start'),
+                            Step('call', target=self._start_known, name='start')])
+        elif self.trigger == 'evidence':
             self._set_plan(self._precommit_plan())
         else:
-            self._set_plan(builder())
+            cue = (lambda: sc.logger.count(E.HUMAN_CUE_ONSET) > 0) if self.trigger == 'cue_onset' \
+                else (lambda: CUE_COMPLETE_STEP[self.code] in sc.protocol_done)
+            self._set_plan([Step('wait', until=cue, name='wait_cue'), Step('call', target=self._start_known, name='start')])
+
+    def _start_known(self) -> None:
+        """cue_complete / cue_onset (and T4): the current choice of the human is known."""
+        self.obj, self.zone = self.sc.human.selected_object, self._known_zone()
+        self._commit(self.obj, self._task_steps())
+
+    def _known_zone(self) -> str | None:
+        """Zone known without evidence: T3's cup spot U_cup and T4's fixed place zone P1, T1's place zone once
+        instructed, T2's hand zone once the hand is out (cue_onset: from the start)."""
+        sc = self.sc
+        if self.code in ('T3', 'T4') or self.trigger == 'cue_onset':
+            return sc.variation['target_zone']
+        if self.code == 'T1':
+            return sc.variation['target_zone'] if 'instruction_given' in sc.protocol_done else None
+        return sc.variation['target_zone'] if 'hand_ready' in sc.protocol_done else None
 
     def _set_plan(self, plan) -> None:
         self.plan = plan
         self.i = 0
         self.counter = 0
         self.axis = None
-
-    def _trigger(self, protocol_step: str, name: str) -> Step:
-        """Wait for the human cue: its completion (Phase 1) or its onset (anticipatory expert)."""
-        sc = self.sc
-        if self.anticipate:
-            return Step('wait', until=lambda: sc.logger.count(E.HUMAN_CUE_ONSET) > 0, name='wait_cue_onset')
-        return Step('wait', until=lambda: protocol_step in sc.protocol_done, name=name)
+        self.blocked: set[int] = set()
+        self._moved_from = None
+        self._band = False
 
     def _staging_point(self) -> np.ndarray:
         """Target-agnostic waiting point: above the centroid of the candidate grasp points."""
         sc = self.sc
-        if sc.cfg.id == 'collaborator_bowl_assistance':
-            points = [self._bowl_handle(b)(sc.pos(b)) for b in sc.bowls]
-        else:
-            points = [sc.pos(k) for k in sc.objects]
-        return np.r_[np.mean(np.asarray(points)[:, :2], axis=0), self.z0 + TRAVEL_DZ]
+        points = [sc.grasp_point(k) for k in sc.variation['spec']['layout']]
+        return np.r_[np.mean(np.asarray(points)[:, :2], axis=0), self.travel]
 
     def _precommit_plan(self):
         sc = self.sc
         return [Step('wait', until=lambda: sc.logger.count(E.HUMAN_CUE_ONSET) > 0, name='wait_cue_onset'),
                 Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25, name='open'),
                 Step('goto', self._staging_point, name='staging', guard=True),
-                Step('hold', ticks=10**6, name='await_evidence')]
+                Step('hold', ticks=FOREVER, name='await_evidence')]
 
     def _commit(self, target: str, plan) -> None:
+        self.commit_t = self.sc.time
         self.committed = self._new_commit = target
         self.commit_log.append(dict(t=round(self.sc.time, 4), target=target))
         self._set_plan(plan)
@@ -117,88 +143,74 @@ class ScriptedExpert:
 
     def _lift_step(self, name: str) -> Step:
         """Rise to travel height (never down) before a re-planned lateral move."""
-        return Step('goto', lambda: np.r_[self.mapper.setpoint[:2], max(self.mapper.setpoint[2], self.z0 + TRAVEL_DZ)],
-                    name=name)
+        return Step('goto', lambda: np.r_[self.mapper.setpoint[:2], max(self.mapper.setpoint[2], self.travel)], name=name)
 
-    def _grasp_steps(self, key, grasp_point):
+    def _task_steps(self) -> list[Step]:
+        obj = self.obj
+        grasp = self._grasp_steps(obj)
+        if self.code in ('T1', 'T4'):
+            return grasp + [Step('wait', until=lambda: self.zone is not None, name='await_zone')] + self._place_steps(obj) + self._home_steps()
+        if self.code == 'T2':
+            return grasp + self._handover_steps(obj)
+        # T3: the cup stands right in front of the human: first move away from them (+y, not into the base band)
+        clear = Step('goto', lambda: np.r_[self.mapper.setpoint[0], max(self.mapper.setpoint[1], -R_SAFE - 0.005), self.travel],
+                     name='clear_human')
+        return grasp + self._place_steps(obj) + [clear] + self._home_steps()
+
+    def _grasp_steps(self, key):
         sc = self.sc
         return [
             Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25, name='open'),
-            Step('goto', lambda: np.r_[grasp_point()[:2], self.z0 + TRAVEL_DZ], name='above_grasp', guard=True),
-            Step('goto', lambda: grasp_point(), name='descend', guard=True),
-            Step('settle', ticks=20, name='settle_before_grasp'),
+            Step('goto', lambda: np.r_[sc.grasp_point(key)[:2], self.travel], name='above_grasp', guard=True),
+            Step('settle', ticks=60, name='settle_above_grasp'),     # descend only once the TCP is above the grasp
+            Step('wait', until=lambda: self.trigger != 'evidence' or self.code == 'T4' or sc.time - self.commit_t >= CONFIRM_S,
+                 name='confirm_target'),
+            Step('goto', lambda: sc.grasp_point(key), name='descend', guard=True),
+            Step('settle', ticks=60, name='settle_before_grasp'),   # near the base the joints lag the set-point
             Step('grip', 'close', until=lambda: sc.grasp_state[key], ticks=30, name='close'),
             Step('hold', ticks=3, name='settle_grasp'),
-            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.z0 + TRAVEL_DZ], name='lift'),
+            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='lift'),
         ]
 
-    def _object_grasp_point(self, key):
-        return lambda: self.sc.pos(key) + [0, 0, GRASP_DZ]
-
-    def _plan_pick_place(self):
-        sc = self.sc
-        obj = self.obj
-        wait = [self._trigger('instruction_given', 'wait_instruction')] if sc.cfg.role == 'instructor' \
-            else [Step('hold', ticks=int(self.rng.integers(3, 12)), name='start_delay')]
-        return wait + self._grasp_steps(obj, self._object_grasp_point(obj)) + self._place_steps(obj)
-
     def _place_steps(self, obj):
-        """Transport to / release in the *current* target region (it may be revised by the human)."""
+        """Transport to / release in the *current* zone (T1/T4: place zone P, T3: the cup spot U_cup)."""
         sc = self.sc
-        region_xy = lambda: sc.region_pos(self.region)[:2]
-        place = lambda: np.r_[region_xy(), sc.rest_height[obj] + 0.012 + GRASP_DZ]
+        cup = sc.scene['objects'][obj]['shape'] == 'cup'
+        drop = 0.003 if cup else 0.012
+        above = lambda: np.r_[sc.zone_pos(self.zone)[:2] + self.tcp_obj_offset[:2], self.travel]
+        place = lambda: np.r_[sc.zone_pos(self.zone)[:2], sc.rest_height[obj] + drop] + self.tcp_obj_offset
         return [
-            Step('goto', lambda: np.r_[region_xy(), self.z0 + TRAVEL_DZ], name='transport', guard=True),
+            Step('goto', above, name='transport', guard=True),
             Step('goto', place, name='lower', guard=True),
             Step('settle', ticks=15, name='settle_before_release'),
             Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
-            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.z0 + TRAVEL_DZ], name='retreat'),
-            Step('hold', ticks=10**6, name='done'),
+            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='retreat'),
         ]
 
-    def _plan_handover(self):
-        return [self._trigger('human_selection_shown', 'wait_selection')] + self._handover_steps(self.obj)
+    def _home_steps(self):
+        return [Step('goto', lambda: self.sc.rest_tcp, name='to_rest'), Step('hold', ticks=FOREVER, name='done')]
 
     def _handover_steps(self, obj):
         sc = self.sc
-        receive = np.array(sc.variation['human']['receive_pose'])
-        present = receive + np.asarray(sc.cfg.human_behavior['handover_offset'])
-        staging = receive + np.asarray(sc.cfg.human_behavior['robot_wait_offset'])
-        return self._grasp_steps(obj, self._object_grasp_point(obj)) + [
-            Step('goto', lambda: staging + self.tcp_obj_offset, name='to_staging'),
-            Step('wait', until=lambda: 'human_ready_to_receive' in sc.protocol_done, name='wait_human_ready'),
-            Step('goto', lambda: present + self.tcp_obj_offset, name='to_handover'),
-            Step('wait', until=lambda: sc.human.holding == obj, name='wait_human_grasp'),
+        hands = [k for k, z in sc.zones.items() if z['kind'] == 'hand']
+        staging = np.mean([sc.zone_pos(k) for k in hands], axis=0) + np.asarray(sc.cfg.expert['staging_offset'], float)
+        above = np.asarray(sc.cfg.human_behavior['present_offset'], float) + [0.0, 0.0, sc.rest_height[obj] - sc.table_z]
+        present = lambda: sc.zone_pos(self.zone) + above + self.tcp_obj_offset     # just above the upturned palm
+        human = sc.human
+        return [
+            Step('goto', lambda: staging + self.tcp_obj_offset, name='to_staging', guard=True, skip=lambda: self.zone is not None),
+            Step('wait', until=lambda: self.zone is not None, name='await_hand'),
+            # beside the palm on the robot side at travel height, up to presentation height, then over the upturned palm
+            Step('goto', lambda: np.r_[present()[:2] + [0.0, 0.08], self.travel], name='beside_hand'),
+            Step('goto', lambda: present() + [0.0, 0.08, 0.0], name='rise_to_present'),
+            Step('goto', present, name='to_handover'),
+            Step('wait', until=lambda: human.holding == obj and human.stage in ('pulling', 'wait_release'), name='wait_pull'),
             Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
-            Step('wait', until=lambda: sc.human.stage in ('withdrawing', 'done'), name='wait_human_withdraw'),
+            Step('wait', until=lambda: human.stage in ('withdraw_with_object', 'done'), name='wait_human_withdraw'),
             Step('goto', lambda: self.retreat_point, name='retreat'),
-            Step('hold', ticks=10**6, name='done'),
-        ]
+        ] + self._home_steps()
 
-    def _bowl_for(self, obj: str) -> str:
-        return {v['pairs_with']: k for k, v in self.sc.scene['bowls'].items()}[obj]
-
-    def _bowl_handle(self, bowl: str):
-        r = self.sc.scene['bowls'][bowl].get('radius', 0.05)
-        return lambda p: np.r_[p[0] - (r + 0.03), p[1], p[2] + 0.02 + GRASP_DZ]
-
-    def _plan_bowl(self):
-        return [self._trigger('human_picked_object', 'wait_pick')] + self._bowl_steps(self._bowl_for(self.obj))
-
-    def _bowl_steps(self, bowl: str):
-        sc = self.sc
-        handle = self._bowl_handle(bowl)
-        delivery = np.r_[sc.delivery, 0.0]
-        return self._grasp_steps(bowl, lambda: handle(sc.pos(bowl))) + [
-            Step('goto', lambda: handle(np.r_[delivery[:2], self.z0 + TRAVEL_DZ - 0.02]), name='carry'),
-            Step('goto', lambda: handle(np.r_[delivery[:2], sc.rest_height[bowl] + 0.006]), name='lower'),
-            Step('grip', 'open', until=lambda: not sc.grasp_state[bowl] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
-            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.z0 + TRAVEL_DZ], name='up'),
-            Step('goto', lambda: np.r_[0.25, self.mapper.setpoint[1], self.z0 + TRAVEL_DZ], name='clear'),
-            Step('hold', ticks=10**6, name='done'),
-        ]
-
-    # ------------------------------------------------------------------ intention changes
+    # ------------------------------------------------------------------ following the human
     def _follow_evidence(self) -> None:
         """Evidence mode: commit / re-commit when the human's target becomes predictable."""
         sc = self.sc
@@ -206,37 +218,31 @@ class ScriptedExpert:
         grasping = any(sc.grasp_state.values())
         for ev in new:
             kind = ev['kind']
-            if kind == 'instruction' and not grasping:
-                self.obj, self.region = ev['object'], ev['region']
-                self._commit(self.obj, [self._lift_step('commit_lift')] + self._grasp_steps(self.obj, self._object_grasp_point(self.obj))
-                             + self._place_steps(self.obj))
-            elif kind == 'target_region':
-                self.region = ev['region']
-                if sc.grasp_state.get(self.obj, False):
-                    self._commit(self.region, [self._lift_step('replan_lift')] + self._place_steps(self.obj))
-            elif kind == 'target_object' and not grasping and (self.committed is None or ev['object'] != self.obj):
+            if kind == 'target_zone':
+                self.zone = ev['zone']              # pending steps read the zone when they start
+                self.commit_log.append(dict(t=round(sc.time, 4), target=self.zone))
+            elif kind == 'target_withdrawn' and not grasping and self.obj is not None:
+                self.obj = self.committed = None    # the pointing hand is withdrawn: rise and wait
+                self._set_plan([self._lift_step('withdrawn_lift'), Step('hold', ticks=FOREVER, name='await_evidence')])
+            elif kind == 'target_object' and not grasping and ev['object'] != self.obj:
                 self.obj = ev['object']
-                if sc.cfg.id == 'collaborator_bowl_assistance':
-                    bowl = self._bowl_for(self.obj)
-                    self._commit(bowl, [self._lift_step('commit_lift')] + self._bowl_steps(bowl))
-                else:
-                    self._commit(self.obj, [self._lift_step('commit_lift')] + self._handover_steps(self.obj))
+                if self.code == 'T3':
+                    self.zone = sc.variation['target_zone']
+                self._commit(self.obj, [self._lift_step('commit_lift')] + self._task_steps())
 
     def _follow_intention_change(self) -> None:
+        """cue_onset: switch at the change; cue_complete: stop, and switch once the new target has been pointed at."""
         sc = self.sc
         if len(sc.intention_changes) == self.n_changes:
             return
         self.n_changes = len(sc.intention_changes)
         change = sc.intention_changes[-1]
-        if change['kind'] == 'target_object':
-            if any(sc.grasp_state.values()):
-                return
-            self.obj = change['current']
-            self._set_plan([self._lift_step('replan_lift')] + self._handover_steps(self.obj))
-        elif change['kind'] == 'target_region':
-            self.region = change['current']
-            if sc.grasp_state.get(self.obj, False):
-                self._set_plan([self._lift_step('replan_lift')] + self._place_steps(self.obj))
+        if self.obj is None or any(sc.grasp_state.values()):
+            return                                  # not started yet (the plan reads the choice at its start) / too late
+        self.obj = change['current']
+        wait = [] if self.trigger == 'cue_onset' else \
+            [Step('wait', until=lambda: 'change_indicated' in sc.protocol_done, name='wait_new_target')]
+        self._commit(self.obj, [self._lift_step('replan_lift')] + wait + self._task_steps())
 
     # ------------------------------------------------------------------ acting
     def _toward(self, target) -> int | None:
@@ -247,30 +253,54 @@ class ScriptedExpert:
         if not over.any():
             self.axis = None
             return None
+        # A translation the controller refused (IK reach, e.g. passing over the robot base) blocks its axis until
+        # the set-point moves again: the path then goes around along another axis.
+        if self._moved_from is not None and np.array_equal(self._moved_from, self.mapper.setpoint) and self.axis is not None:
+            self.blocked.add(self.axis)
+            self.axis = None
+        elif self._moved_from is not None:
+            self.blocked.clear()
+        free = over & ~np.isin(np.arange(3), list(self.blocked))
+        # Moves along y through the band |y| < R_SAFE pass the robot base (the arm is near-singular above it and the
+        # joints lag the set-point): first out to x >= R_SAFE along +x, then across, and only then inwards along x
+        # (world frame = base_link frame here).
+        sp, tg = self.mapper.setpoint, np.asarray(target, float)
+        band = bool(over[1] and 0 not in self.blocked and min(sp[1], tg[1]) < R_SAFE and max(sp[1], tg[1]) > -R_SAFE)
+        if self._band and not band:
+            self.axis = None                    # out of the band: choose the axis again (e.g. inwards before going on
+        self._band = band                       #   towards a human standing at the end of the y move)
+        if band:
+            if sp[0] < R_SAFE - float(np.max(self.tol)):
+                self.axis = None
+                self._moved_from = sp.copy()
+                return A.MOVE_FORWARD
+            if 1 not in self.blocked and err_frame[0] < 0:
+                free[0] = False                 # no inward x move before the y move is done
         # Keep moving along the current axis until it is done: fewer direction switches
         # (a zig-zag staircase shakes the grasped object loose).
-        if self.axis is None or not over[self.axis]:
-            self.axis = int(np.argmax(np.abs(err_frame) - self.tol))
+        if self.axis is None or not free[self.axis]:
+            score = np.where(free, np.abs(err_frame) - self.tol, -np.inf) if free.any() else np.abs(err_frame) - self.tol
+            self.axis = int(np.argmax(score))
         axis = self.axis
         positive = err_frame[axis] > 0
+        self._moved_from = self.mapper.setpoint.copy()
         return [(A.MOVE_FORWARD, A.MOVE_BACKWARD), (A.MOVE_LEFT, A.MOVE_RIGHT), (A.MOVE_UP, A.MOVE_DOWN)][axis][0 if positive else 1]
 
-    def _near_danger(self, hand: np.ndarray) -> bool:
-        sc = self.sc
-        in_zone = bool(np.all(hand >= sc.zone_lo - YIELD_ZONE_MARGIN) and np.all(hand <= sc.zone_hi + YIELD_ZONE_MARGIN))
-        return in_zone or float(np.linalg.norm(hand - sc.tcp())) < YIELD_DISTANCE
-
     def _yield(self) -> bool:
+        """T4: hold while the human hand is in the robot zone (optionally also the predicted hand), and while a
+        hand is right next to the gripper anywhere (separation monitoring: never move into a hand)."""
         sc = self.sc
-        if sc.cfg.role != 'intruder':
+        if self.code != 'T4':
             return False
-        if self._near_danger(sc.human.pos) or sc.human_distance < YIELD_GEOM_DISTANCE:
+        if sc.in_robot_zone(sc.human.pos, self.yield_margin):
+            return True
+        if float(np.linalg.norm(sc.human.pos - sc.tcp())) < SEPARATION_M or sc.human_distance < SEPARATION_GEOM_M:
             return True
         if self.yield_horizon <= 0:
             return False
         future = sc.human.predicted_hand_position(self.yield_horizon) if self.trigger == 'evidence' \
             else sc.human.planned_hand_position(sc.time + self.yield_horizon)
-        return self._near_danger(future)
+        return sc.in_robot_zone(future, self.yield_margin)
 
     def _guard_hold(self, destination) -> bool:
         """Hold instead of moving towards a hand that occupies the destination or is next to the arm.
@@ -285,14 +315,24 @@ class ScriptedExpert:
         return near(np.r_[np.asarray(destination)[:2], hand[2]], GUARD_OCCUPIED_XY) and any(near(p, GUARD_APPROACH_XY) for p in arm)
 
     def act(self) -> int:
+        moved_from, self._moved_from = self._moved_from, None
         if self.trigger == 'evidence':
             self._follow_evidence()
         else:
             self._follow_intention_change()
+            if self.zone is None and self.obj is not None:
+                self.zone = self._known_zone()
         if self._yield():
             return int(A.HOLD)
         while self.i < len(self.plan):
             step = self.plan[self.i]
+            if step.skip is not None and step.skip():
+                self._advance()
+                continue
+            if step.kind == 'call':
+                self._advance()
+                step.target()
+                continue
             if step.kind == 'wait':
                 if step.until():
                     self._advance()
@@ -314,7 +354,8 @@ class ScriptedExpert:
             if step.kind == 'grip':
                 if (step.until is not None and step.until()) or self.counter >= step.ticks:
                     if step.name == 'release':
-                        self.retreat_point = self.mapper.setpoint + [-0.10, 0.0, 0.05]
+                        away = [0.0, 0.08, 0.08] if self.code == 'T2' else [0.0, 0.0, 0.05]   # T2: up and away from the hand (+Y)
+                        self.retreat_point = self.mapper.setpoint + away
                     if step.name == 'close':
                         key = self._grasped_key()
                         if key is not None:
@@ -325,11 +366,13 @@ class ScriptedExpert:
                 return int(A.OPEN_GRIPPER if step.target == 'open' else A.CLOSE_GRIPPER)
             if step.kind == 'goto':
                 target = step.target()
+                self._moved_from = moved_from
                 a = self._toward(target)
                 if a is None:
                     self._advance()
                     continue
                 if step.guard and self.anticipate and self._guard_hold(target):
+                    self._moved_from = None
                     return int(A.HOLD)
                 return int(a)
         return int(A.HOLD)

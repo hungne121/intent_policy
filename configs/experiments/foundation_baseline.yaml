@@ -9,24 +9,18 @@ policy:
 intent:
   provider: none
 benchmark:
-  scenario_set: phase1
-  scenarios:
-    - instructor_object_to_target
-    - collaborator_object_handover
-    - collaborator_bowl_assistance
-    - intruder_pick_place_interruption
-  eval_seed_start: 100000          # evaluation seeds never overlap demonstration seeds
-  eval_episodes_per_scenario: 20
+  scenario_set: scence_construct_v1  # tasks T1-T5 (docs/requirements/scence_construct.md §4.4)
+  scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
+  eval_list: configs/scenario_lists/eval_v1.jsonl   # fixed eval episodes, 20 per task (seeds 100000+)
 observation:
-  cameras: [scene, wrist]
+  cameras: [high, wrist, top]
   width: 256                       # recorded + rendered camera size (LIBERO-like; 128x96 made objects 2-4 px)
   height: 192
 controller: configs/controller/restricted_action.yaml
 data:
   repo_id: local/hri_phase1_noint
   root: outputs/datasets/hri_phase1_noint
-  episodes_per_scenario: 100       # successful scripted-expert demonstrations per scenario
-  seed_start: 0
+  scenario_list: configs/scenario_lists/demo_v1.jsonl   # balanced demo episodes (scripts/generate_scenarios.py)
 training:
   steps: 20000
   batch_size: 32

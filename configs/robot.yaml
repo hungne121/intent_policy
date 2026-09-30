@@ -1,6 +1,9 @@
 model: assets/scene.xml             # base robot scene (UR3e + SusGrip + table); scenarios add objects
 control_hz: 20
-home: [-0.714, -2.121, 1.682, -1.132, -1.571, -0.714]   # retracted: TCP (0.20, 0.00, 0.84), top-down
+home: [-1.062, -2.370, 1.663, -0.864, -1.571, -2.633]   # rest: TCP (0.15, 0.00, 0.85), top-down, tool yaw 0; in front of
+                                    #   the base, clear of the high camera's view of the human's hands
+tool_yaw_deg: 0.0                   # top-down tool yaw about world Z: 0 = fingers close along world X (the human stands
+                                    #   at the robot's side, -Y, and takes objects from their free -Y face); -90 = along Y
 max_joint_speed: 1.5                # [rad/s] per-joint target rate limit
 max_gripper_speed: 0.12             # [m/s] finger-gap target rate limit
 assisted_grasp:

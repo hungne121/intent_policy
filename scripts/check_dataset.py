@@ -23,15 +23,14 @@ import torchvision
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from intent_policy.utils import resolve
 
-CUE_COMPLETE = {'instructor_object_to_target': 'instruction_given', 'collaborator_object_handover': 'human_selection_shown',
-                'collaborator_bowl_assistance': 'human_picked_object'}
+CUE_COMPLETE = {'t1_pick_place': 'instruction_given', 't2_handover': 'target_indicated', 't3_assist': 'block_picked'}
+# (T4 has no cue: the robot starts by itself)
 POST_EVIDENCE_FRAMES = 10          # 0.5 s after the target became predictable
 PRE_CUE_FRAMES = 2
 
 
 def target_label(m: dict) -> str | None:
-    v = m['variation']
-    return v.get('selected_object') or (v.get('requested_object') if m['scenario_id'] == 'instructor_object_to_target' else None)
+    return m['variation'].get('target_object')
 
 
 def target_side(m: dict) -> int | None:
@@ -45,7 +44,7 @@ def target_side(m: dict) -> int | None:
 
 
 def first_evidence_frame(m: dict) -> int | None:
-    ev = [e for e in m.get('intention_evident', []) if e['kind'] in ('instruction', 'target_object')]
+    ev = [e for e in m.get('intention_evident', []) if e['kind'] == 'target_object']
     return ev[0]['frame'] if ev else None
 
 
@@ -167,7 +166,7 @@ def main():
         c = m['expert_commits'][0]['t']
         L = lat[f"{m['scenario_id']}/{m['split']}"]
         L['commit_minus_cue_onset_s'].append(c - m['human_cue_onset_t'])
-        ev = [e['t'] for e in m.get('intention_evident', []) if e['kind'] in ('instruction', 'target_object')]
+        ev = [e['t'] for e in m.get('intention_evident', []) if e['kind'] == 'target_object']
         if ev:
             L['commit_minus_evidence_s'].append(c - ev[0])
         done = [s['t'] for s in m['protocol_steps'] if s['step'] == CUE_COMPLETE.get(m['scenario_id'])]

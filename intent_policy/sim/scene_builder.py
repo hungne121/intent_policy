@@ -1,15 +1,14 @@
 """Build an in-memory MJCF scene for one scenario from its (merged) scene configuration.
 
 The UR3e/SusGrip robot, table and physics options come unchanged from `assets/scene.xml`;
-this module only adds task objects, target regions, bowls, the scripted human proxy, the
-instruction board and cameras. Object poses/colours are set per episode by the scenario.
+this module adds the task objects (cubes, cups), the zone tape markers of configs/layout.yaml, the human
+mannequin (HY-Motion wooden model segments + invisible distance proxies), cameras, lights, the floor height
+and table legs. Object poses are set per episode by the scenario.
 """
+import json
 import xml.etree.ElementTree as ET
 import numpy as np
 from intent_policy.sim.base_env import ROOT
-
-BOARD_SHAPES = {'box': '0.036 0.036 0.036', 'cylinder': '0.036 0.036', 'sphere': '0.038', 'cross': '0.048 0.014 0.018'}
-
 
 def _fmt(values) -> str:
     return ' '.join(f'{float(v):.6g}' for v in np.atleast_1d(values))
@@ -37,6 +36,8 @@ def resolve_color(spec, palette) -> list[float]:
 
 def object_half_height(obj: dict) -> float:
     shape, size = obj['shape'], obj['size']
+    if shape == 'cup':
+        return float(size[1]) / 2
     return float(size[-1] if shape in ('box', 'cylinder', 'cross') else size[0])
 
 
@@ -47,6 +48,15 @@ def object_geoms(key: str, obj: dict) -> list[dict]:
         a, w, h = obj['size']
         return [dict(name=f'{key}_geom', type='box', size=[a, w, h]),
                 dict(name=f'{key}_geom2', type='box', size=[w, a, h])]
+    if obj['shape'] == 'cup':            # open thin-walled cup (size: outer radius, height), body origin at mid-height
+        r, h = obj['size']
+        t = float(obj.get('wall', 0.004))
+        geoms = [dict(name=f'{key}_geom', type='cylinder', size=[r, t / 2], pos=[0, 0, -h / 2 + t / 2])]
+        for j in range(16):
+            a = 2 * np.pi * j / 16
+            geoms.append(dict(name=f'{key}_wall_{j}', type='box', size=[t / 2, np.pi * r / 16 * 1.1, h / 2],
+                              pos=[(r - t / 2) * np.cos(a), (r - t / 2) * np.sin(a), 0.0], euler=[0, 0, a]))
+        return geoms
     return [dict(name=f'{key}_geom', type=obj['shape'], size=obj['size'])]
 
 
@@ -59,6 +69,39 @@ def weld_name(body: str) -> str:
 
 def robot_weld_name(body: str) -> str:
     return f'robot_grasp_{body}'
+
+
+MARKER_RGBA = {'place': '0.20 0.45 0.90 1', 'hand': '0.95 0.55 0.10 1', 'support': '0.15 0.70 0.30 1',
+               'human_store': '0.55 0.55 0.55 1', 'slot': '0.10 0.10 0.10 1'}
+
+
+def load_layout(scene: dict) -> dict | None:
+    import yaml
+    return yaml.safe_load((ROOT / scene['layout']).read_text()) if scene.get('layout') else None
+
+
+def _add_zone_markers(world, layout: dict, top: float) -> None:
+    """Tape outlines for P/H/U zones and a small cross at each S slot (visual only, flush with the table); zones with
+    `marker: false` (U_cup, a part of U) have none."""
+    t, h = 0.008, 0.0006                       # tape width, half thickness
+    for name, z in layout['zones'].items():
+        if not z.get('marker', True):
+            continue
+        x, y = z['xy']
+        rgba = MARKER_RGBA[z['kind']]
+        if z['kind'] == 'slot':
+            for i, size in enumerate(([0.015, 0.003, h], [0.003, 0.015, h])):
+                _sub(world, 'geom', name=f'marker_{name}_{i}', type='box', size=size, pos=[x, y, top + h], rgba=rgba,
+                     contype='0', conaffinity='0')
+            continue
+        sx, sy = np.broadcast_to(z.get('size', layout['marker_size']), 2) / 2
+        for i, (dx, dy, hx, hy) in enumerate(((0, sy, sx, t / 2), (0, -sy, sx, t / 2), (sx, 0, t / 2, sy), (-sx, 0, t / 2, sy))):
+            _sub(world, 'geom', name=f'marker_{name}_{i}', type='box', size=[hx, hy, h], pos=[x + dx, y + dy, top + h],
+                 rgba=rgba, contype='0', conaffinity='0')
+
+
+def human_mesh_name(segment: str, variant: str | None = None) -> str:
+    return f'human_{segment}' + (f'_{variant}' if variant else '')
 
 
 def build_scene_xml(scene: dict) -> str:
@@ -92,7 +135,7 @@ def build_scene_xml(scene: dict) -> str:
 
     # Task objects: free bodies, physical, graspable. Pose set by the scenario at reset.
     for i, (key, obj) in enumerate(scene.get('objects', {}).items()):
-        body = _sub(world, 'body', name=key, pos=[0.1 * i, -0.4, top + object_half_height(obj) + 0.002])
+        body = _sub(world, 'body', name=key, pos=[0.1 * i, 0.45, top + object_half_height(obj) + 0.002])
         _sub(body, 'freejoint', name=f'{key}_free')
         geoms = object_geoms(key, obj)
         for g in geoms:
@@ -100,66 +143,50 @@ def build_scene_xml(scene: dict) -> str:
                  rgba=resolve_color(obj['color'], palette), contype='2', conaffinity='3',
                  friction=obj.get('friction', '2.0 0.01 0.001'), condim=str(obj.get('condim', 4)))
 
-    # Flat square target regions: visual only (no collision), moved per episode via mocap.
-    for key, region in scene.get('regions', {}).items():
-        body = _sub(world, 'body', name=key, mocap='true', pos=[0.4, 0, top])
-        h = float(region['half_size'])
-        _sub(body, 'geom', name=f'{key}_geom', type='box', size=[h, h, 0.0012], pos=[0, 0, 0.0012],
-             rgba=resolve_color(region['color'], palette), contype='0', conaffinity='0')
-
-    # Open bowls with a handle pointing to -X (towards the robot) so the top-down gripper,
-    # which closes along world Y, can grasp the handle.
-    for key, bowl in scene.get('bowls', {}).items():
-        r = float(bowl.get('radius', 0.05))
-        rgba = resolve_color(bowl['color'], palette)
-        body = _sub(world, 'body', name=key, pos=[0.3, 0, top + 0.005])
-        _sub(body, 'freejoint', name=f'{key}_free')
-        _sub(body, 'geom', name=f'{key}_bottom', type='cylinder', size=[r + 0.004, 0.004], mass='0.06', rgba=rgba,
-             contype='2', conaffinity='3', friction='1.5 0.01 0.001')
-        for j in range(16):
-            a = 2 * np.pi * j / 16
-            _sub(body, 'geom', name=f'{key}_wall_{j}', type='box', pos=[r * np.cos(a), r * np.sin(a), 0.022],
-                 size=[0.004, 0.011, 0.02], euler=[0, 0, a], mass='0.003', rgba=rgba, contype='2', conaffinity='3')
-        _sub(body, 'geom', name=f'{key}_handle', type='box', pos=[-(r + 0.03), 0, 0.02], size=[0.028, 0.012, 0.012],
-             mass='0.012', rgba=rgba, contype='2', conaffinity='3', friction='2.0 0.01 0.001', condim='4')
-
-    # Scripted human proxy. All human geoms are visual only; contact/safety are measured with
-    # exact geometric distances, so the mocap hand never pushes the robot physically.
+    # Human: the HY-Motion wooden mannequin as rigid, visual-only mocap segments (posed every tick by
+    # HumanBody) plus invisible capsule/sphere proxies for the human-robot distance and contact checks.
+    # Mocap bodies never push the robot physically.
     human = scene['human']
-    skin, shirt = '0.85 0.63 0.46 1', '0.25 0.36 0.52 1'
-    torso = _sub(world, 'body', name='human_torso', pos=human['torso_pos'])
-    _sub(torso, 'geom', name='human_torso_geom', type='box', size=[0.08, 0.18, 0.2], rgba=shirt, contype='0', conaffinity='0')
-    _sub(torso, 'geom', name='human_head', type='sphere', pos=[0, 0, 0.3], size='0.085', rgba=skin, contype='0', conaffinity='0')
-    hand = _sub(world, 'body', name='human_hand', mocap='true', pos=human['hand_rest'])
-    _sub(hand, 'geom', name='human_palm', type='sphere', size=_fmt(human['hand_geom_radius']), rgba=skin, contype='0', conaffinity='0')
-    forearm = _sub(world, 'body', name='human_forearm', mocap='true', pos=human['hand_rest'])
-    _sub(forearm, 'geom', name='human_forearm_geom', type='capsule', size=[0.024, human['forearm_length'] / 2],
-         rgba=skin, contype='0', conaffinity='0')
+    model = ROOT / human.get('model', 'assets/human/skeleton.json')
+    skel = json.loads(model.read_text())
+    asset = root.find('asset')
+    _sub(asset, 'texture', name='human_wood', type='2d', file=str(model.parent / skel['texture']))
+    _sub(asset, 'material', name='human_wood', texture='human_wood', specular='0.15', shininess='0.2')
+    for seg, info in skel['segments'].items():
+        # hands come in shape variants (relaxed / point / grasp); the scenario switches the geom's mesh at runtime
+        for variant, f in info.get('variants', {None: info['mesh']}).items():
+            _sub(asset, 'mesh', name=human_mesh_name(seg, variant), file=str(model.parent / f), inertia='shell')
+        default = next((k for k, f in info.get('variants', {}).items() if f == info['mesh']), None)
+        body = _sub(world, 'body', name=f'human_seg_{seg}', mocap='true', pos=[2.0, 0.0, 0.0])
+        _sub(body, 'geom', name=f'human_seg_{seg}_mesh', type='mesh', mesh=human_mesh_name(seg, default),
+             material='human_wood', contype='0', conaffinity='0')
+        if seg == 'head' and human.get('face_markers'):
+            # optional eyes + nose so the head orientation (gaze) reads in the images; the mannequin face is blank.
+            # Positions in the head segment frame (neck pivot, T-pose axes: face towards -X, left = -Y).
+            for name, gtype, size, pos, rgba in (('eye_l', 'sphere', [0.012], [-0.099, -0.032, 0.150], '0.08 0.05 0.03 1'),
+                                                 ('eye_r', 'sphere', [0.012], [-0.099, 0.032, 0.150], '0.08 0.05 0.03 1'),
+                                                 ('nose', 'sphere', [0.016], [-0.108, 0.0, 0.118], '0.62 0.42 0.28 1')):
+                _sub(body, 'geom', name=f'human_face_{name}', type=gtype, size=size, pos=pos, rgba=rgba,
+                     contype='0', conaffinity='0')
+    J, S = skel['joints'], human.get('active_arm', 'r').upper()
+    length = lambda a, b: float(np.linalg.norm(np.subtract(J[b], J[a])))
+    radius, hidden = human['proxy_radius'], '0 0 0 0'
+    for name, gtype, size in (('hand', 'sphere', [radius['palm']]),
+                              ('forearm', 'capsule', [radius['forearm'], length(f'{S}_Elbow', f'{S}_Wrist') / 2]),
+                              ('upperarm', 'capsule', [radius['upperarm'], length(f'{S}_Shoulder', f'{S}_Elbow') / 2]),
+                              ('torso', 'capsule', [radius['torso'], length('Spine1', 'Neck') / 2]),
+                              ('head', 'sphere', [radius['head']])):
+        body = _sub(world, 'body', name=f'human_{name}', mocap='true', pos=human['hand_rest'])
+        _sub(body, 'geom', name='human_palm' if name == 'hand' else f'human_{name}_geom', type=gtype, size=size,
+             rgba=hidden, contype='0', conaffinity='0')
     # Invisible anchor used to weld an object to the human hand (human grasp/hold).
     _sub(world, 'body', name='human_grasp_anchor', mocap='true', pos=human['hand_rest'])
-    for key in list(scene.get('objects', {})) + list(scene.get('bowls', {})):
+    for key in scene.get('objects', {}):
         _sub(equality, 'weld', name=weld_name(key), body1='human_grasp_anchor', body2=key, active='false',
              relpose='0 0 0 1 0 0 0', solref='0.01 1')
         # Assisted robot grasp (see ManipulationEnv): activated only on two-finger contact.
         _sub(equality, 'weld', name=robot_weld_name(key), body1=GRIPPER_BODY, body2=key, active='false',
              relpose='0 0 0 1 0 0 0', solref='0.005 1', solimp='0.95 0.99 0.001')
-
-    # Instruction board: the human's instruction is rendered as public, camera-visible geometry.
-    board = scene.get('instruction_board')
-    if board:
-        b = _sub(world, 'body', name='instruction_board', pos=board['pos'])
-        _sub(b, 'geom', name='board_panel', type='box', size=[0.15, 0.006, 0.11], rgba='0.95 0.95 0.95 1',
-             contype='0', conaffinity='0')
-        for shape, size in BOARD_SHAPES.items():
-            if shape == 'cross':    # drawn as a flat plus sign on the panel
-                for i, sz in enumerate(('0.044 0.006 0.013', '0.013 0.006 0.044')):
-                    _sub(b, 'geom', name=f'board_obj_cross{i}', type='box', size=sz, pos=[-0.065, -0.014, 0.0],
-                         rgba='0 0 0 0', contype='0', conaffinity='0')
-                continue
-            _sub(b, 'geom', name=f'board_obj_{shape}', type=shape, size=size, pos=[-0.065, -0.045, 0.0],
-                 rgba='0 0 0 0', contype='0', conaffinity='0')
-        _sub(b, 'geom', name='board_target', type='box', size=[0.048, 0.006, 0.048], pos=[0.07, -0.012, 0.0],
-             rgba='0 0 0 0', contype='0', conaffinity='0')
 
     for name, cam in scene['cameras'].items():
         old_parent = root.find(f".//camera[@name='{name}']/..")          # e.g. the asset's wrist camera
@@ -169,6 +196,30 @@ def build_scene_xml(scene: dict) -> str:
         parent = world if 'body' not in cam else root.find(f".//body[@name='{cam['body']}']")
         _sub(parent, 'camera', name=name, pos=cam['pos'],
              xyaxes=look_at_xyaxes(cam['pos'], cam['target'], cam.get('up', (0.0, 0.0, 1.0))), fovy=str(cam['fovy']))
-    _sub(world, 'light', name='fill', pos='0.5 -0.6 2.0', dir='0 0.3 -1', directional='true', diffuse='0.35 0.35 0.35')
+    # Lighting (config): soft lights without shadows, as in the LIBERO scenes used by LeRobot.
+    for light in world.findall('light'):
+        world.remove(light)
+    for name, light in scene.get('lights', {}).items():
+        _sub(world, 'light', name=name, **{k: str(v).lower() if isinstance(v, bool) else v for k, v in light.items()})
+    if 'headlight' in scene:
+        visual = root.find('visual') if root.find('visual') is not None else ET.SubElement(root, 'visual')
+        _sub(visual, 'headlight', **scene['headlight'])
+    # Table extents from the layout, floor at `floor_z` and visual-only table legs down to it.
+    floor_z = float(scene.get('floor_z', 0.0))
+    world.find("geom[@name='floor']").set('pos', _fmt([0.0, 0.0, floor_z]))
+    table = world.find("geom[@name='table']")
+    tpos, tsize = np.fromstring(table.get('pos'), sep=' '), np.fromstring(table.get('size'), sep=' ')
+    layout = load_layout(scene)
+    if layout:
+        (x0, x1), (y0, y1) = layout['table']['x'], layout['table']['y']
+        tpos[:2], tsize[:2] = [(x0 + x1) / 2, (y0 + y1) / 2], [(x1 - x0) / 2, (y1 - y0) / 2]
+        table.set('pos', _fmt(tpos))
+        table.set('size', _fmt(tsize))
+        _add_zone_markers(world, layout, top)
+    under = tpos[2] - tsize[2]
+    for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
+        _sub(world, 'geom', name=f'table_leg_{i}', type='box', size=[0.025, 0.025, (under - floor_z) / 2],
+             pos=[tpos[0] + sx * (tsize[0] - 0.05), tpos[1] + sy * (tsize[1] - 0.05), (under + floor_z) / 2],
+             rgba=table.get('rgba'), contype='0', conaffinity='0')
     ET.indent(tree, space='  ')
     return ET.tostring(root, encoding='unicode')

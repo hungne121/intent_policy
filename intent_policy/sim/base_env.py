@@ -204,11 +204,13 @@ class ManipulationEnv:
     def solve_ik(self, position: np.ndarray, quaternion: np.ndarray | None = None) -> np.ndarray:
         """Damped least-squares IK returns arm [6]; never changes live physics state.
 
-        Default orientation is the top-down grasp pose (fingers close along world Y).
+        Default orientation is the top-down grasp pose rotated by `tool_yaw_deg` (robot config) about world Z
+        (-90: fingers close along world Y, 0: along world X).
         """
         d = self.ik_data
         d.qpos[:] = self.data.qpos
-        target_rot = Rotation.from_euler('xyz', [np.pi, 0, -np.pi/2]).as_matrix() if quaternion is None else Rotation.from_quat(quaternion).as_matrix()
+        target_rot = Rotation.from_euler('xyz', [np.pi, 0, np.radians(self.cfg.get('tool_yaw_deg', -90.0))]).as_matrix() \
+            if quaternion is None else Rotation.from_quat(quaternion).as_matrix()
         jp, jr = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
         limits = self.arm_limits
         for _ in range(100):
@@ -228,7 +230,7 @@ class ManipulationEnv:
         self.last_ik_error = float(np.linalg.norm(np.asarray(position) - d.site_xpos[self.tcp]))
         return d.qpos[self.qids].copy()
 
-    def render(self, camera: str = 'front', width: int = 640, height: int = 480) -> np.ndarray:
+    def render(self, camera: str = 'high', width: int = 640, height: int = 480) -> np.ndarray:
         """Render uint8 RGB [height,width,3]; renderer allocated on first request."""
         if self.renderer is None or self.render_size != (width, height):
             if self.renderer is not None:

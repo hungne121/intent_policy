@@ -66,7 +66,7 @@ def main():
     obs = rec['observation']
     new = run_episode(sc, rebuild_agent(rec, args.checkpoint, args.device), rec['seed'], RestrictedActionConfig(**rec['controller']),
                       ObservationConfig(tuple(obs['cameras']), obs['width'], obs['height']),
-                      keep_trace=bool(rec.get('trace')), episode_id=rec['episode_id'])
+                      keep_trace=bool(rec.get('trace')), episode_id=rec['episode_id'], spec=rec.get('spec'))
     sc.close()
     problems = compare(rec, new)
     print(f"episode {rec['episode_id']} ({rec['scenario_id']}, seed {rec['seed']}): "

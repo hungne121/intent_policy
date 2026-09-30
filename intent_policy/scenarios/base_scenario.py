@@ -13,15 +13,18 @@ import mujoco
 from intent_policy.benchmark.events import EventType as E
 from intent_policy.benchmark.logger import EpisodeEventLogger
 from intent_policy.sim.base_env import ManipulationEnv, ROOT
-from intent_policy.sim.scene_builder import build_scene_xml, object_half_height, resolve_color, weld_name, robot_weld_name, BOARD_SHAPES
+from intent_policy.sim.scene_builder import build_scene_xml, object_half_height, weld_name, robot_weld_name
 from intent_policy.sim.scripted_human import make_human
-from intent_policy.scenarios.config import ScenarioConfig, sample_variation
+from intent_policy.sim.human_body import HumanBody
+from intent_policy.scenarios.config import ScenarioConfig, sample_variation, layout_of, is_cup
 
 LIFT_HEIGHT = 0.03          # [m] above rest height => object counts as lifted by the robot
 GRASP_DEBOUNCE = 2          # consecutive ticks required before grasp/release events
 COMMIT_MARGIN = 0.04        # [m] the TCP approached one candidate this much more than every other one ...
 COMMIT_WINDOW = 0.5         # [s] ... within this window => robot_target_commit (agent-independent)
 COMMIT_APPROACH = 0.01      # [m] ... while actually getting closer to it
+GRASP_DZ = 0.012            # cube grasp: TCP above the object centre (fingertips reach ~3 cm below the TCP)
+CUP_GRASP_DZ = 0.005        # cup grasp: TCP above the rim (fingertips ~2.5 cm down the wall)
 COMMIT_SWITCH_FACTOR = 2.0  # re-committing to another candidate needs this times the margin (servo drift of a
                             # few cm while descending must not count as a switch; a real switch moves ~0.2 m)
 
@@ -39,7 +42,11 @@ def quat_z_to(direction: np.ndarray) -> np.ndarray:
 
 
 class BaseScenario:
-    """Subclasses define `robot_target`, `human_context_extras`, `update_task`, `success_predicate`."""
+    """Subclasses define `robot_target`, `human_context_extras`, `update_task`, `success_predicate`.
+
+    Every catalog object of the scenario exists in the model; an episode puts 3-4 of them on the table (variation
+    `on_table`) and parks the rest out of sight. Zones S/P/H/A/U and the robot zone come from configs/layout.yaml.
+    """
 
     def __init__(self, cfg: ScenarioConfig, robot_config=ROOT / 'configs/robot.yaml', gui: bool = False):
         self.cfg = cfg
@@ -48,16 +55,22 @@ class BaseScenario:
         m = self.env.model
         self.table_z = float(self.scene['table_top_z'])
         self.objects = list(self.scene.get('objects', {}))
-        self.bowls = list(self.scene.get('bowls', {}))
-        self.regions = list(self.scene.get('regions', {}))
-        self.graspables = self.objects + self.bowls
+        self.graspables = list(self.objects)
+        self.layout = layout_of(self.scene)
+        self.zones = self.layout['zones']
+        rz = self.layout['robot_zone']
+        self.robot_zone_lo = np.array([rz['x'][0], rz['y'][0], self.table_z], float)
+        self.robot_zone_hi = np.array([rz['x'][1], rz['y'][1], self.table_z + rz['z_top']], float)
+        self.radius = {k: self._radius(o) for k, o in self.scene['objects'].items()}
         self.body_id = {k: m.body(k).id for k in self.graspables}
         self.qadr = {k: int(m.joint(f'{k}_free').qposadr[0]) for k in self.graspables}
         self.dadr = {k: int(m.joint(f'{k}_free').dofadr[0]) for k in self.graspables}
         self.weld_id = {k: m.equality(weld_name(k)).id for k in self.graspables}
         for k in self.graspables:
             self.env.register_graspable(self.body_id[k], m.equality(robot_weld_name(k)).id)
-        self.mocap = {k: int(m.body(k).mocapid[0]) for k in ['human_hand', 'human_forearm', 'human_grasp_anchor'] + self.regions}
+        self.body_model = HumanBody({**self.scene['human'], 'floor_z': self.scene.get('floor_z', 0.0)})
+        self.body_model.bind(m)
+        self.mocap = {k: int(m.body(k).mocapid[0]) for k in ['human_hand', 'human_grasp_anchor']}
         root = m.body('robot_mount').id
         self.robot_geoms = []
         for g in range(m.ngeom):
@@ -66,11 +79,16 @@ class BaseScenario:
                 b = int(m.body_parentid[b])
             if b == root and m.geom_contype[g]:
                 self.robot_geoms.append(g)
-        self.human_geoms = [m.geom('human_palm').id, m.geom('human_forearm_geom').id]
+        self.human_geoms = list(self.body_model.proxy_geoms)
         self.object_geom_ids = {k: [g for g in range(m.ngeom) if m.geom_bodyid[g] == self.body_id[k]] for k in self.objects}
-        if 'instruction_board' in self.scene:
-            names = [m.geom(g).name for g in range(m.ngeom)]
-            self.board_geom_ids = {s: [g for g, n in enumerate(names) if n.startswith(f'board_obj_{s}')] for s in BOARD_SHAPES}
+        self.geom_object = {g: k for k, gs in self.object_geom_ids.items() for g in gs}
+        self.robot_geom_set = set(self.robot_geoms)
+        self.robot_chain = [m.body(n).id for n in ('base_link', 'shoulder_link', 'forearm_link', 'wrist_1_link',
+                                                    'wrist_2_link', 'wrist_3_link', 'gripper_link')]
+        # rest pose: the TCP at the nominal home configuration (the robot returns here at the end of a task)
+        self.env.reset(np.asarray(self.env.cfg['home']))
+        mujoco.mj_forward(m, self.env.data)
+        self.rest_tcp = self.tcp()
         safety = dict(self.scene['safety'])
         safety.update({k: v for k, v in cfg.safety_constraints.items() if k in safety})
         self.safety = safety
@@ -98,12 +116,27 @@ class BaseScenario:
         d = self.dadr[key]
         return float(np.linalg.norm(self.env.data.qvel[d:d + 3]))
 
-    def region_pos(self, key: str) -> np.ndarray:
-        return self.env.data.mocap_pos[self.mocap[key]].copy()
+    @staticmethod
+    def _radius(obj: dict) -> float:
+        """Horizontal half-extent of an object (cube half size / cup outer radius)."""
+        return float(obj['size'][0])
 
-    def inside_region(self, p: np.ndarray, region: str, margin: float = 0.0) -> bool:
-        half = self.scene['regions'][region]['half_size'] - margin
-        return bool(np.all(np.abs(p[:2] - self.region_pos(region)[:2]) <= half))
+    def zone_pos(self, key: str) -> np.ndarray:
+        """Zone centre [x, y, table + zone height] (hand zones: where the receiving palm is)."""
+        z = self.zones[key]
+        return np.array([*z['xy'], self.table_z + float(z.get('height', 0.0))])
+
+    def inside_zone(self, p: np.ndarray, zone: str, margin: float = 0.0) -> bool:
+        """p (xy) inside the zone's tape square shrunk by `margin`."""
+        half = np.broadcast_to(self.zones[zone].get('size', self.layout['marker_size']), 2) / 2 - margin
+        return bool(np.all(np.abs(np.asarray(p)[:2] - np.asarray(self.zones[zone]['xy'])) <= half))
+
+    def in_robot_zone(self, p: np.ndarray, margin: float = 0.0) -> bool:
+        return bool(np.all(np.asarray(p) >= self.robot_zone_lo - margin) and np.all(np.asarray(p) <= self.robot_zone_hi + margin))
+
+    def robot_at_rest(self) -> bool:
+        tol = float(self.cfg.success_conditions.get('rest_tolerance_m', 0.04))
+        return bool(np.linalg.norm(self.tcp() - self.rest_tcp) < tol and not any(self.grasp_state.values()))
 
     def tcp(self) -> np.ndarray:
         return self.env.data.site_xpos[self.env.tcp].copy()
@@ -121,41 +154,41 @@ class BaseScenario:
             self.failure = reason
 
     # ------------------------------------------------------------------ reset
-    def reset(self, seed: int | None = None, episode_id: str | None = None) -> None:
+    def reset(self, seed: int | None = None, episode_id: str | None = None, spec: dict | None = None) -> None:
+        """`spec`: discrete episode spec from a scenario list (None: drawn from the seed)."""
         seed = self.cfg.seed if seed is None else int(seed)
         self.seed = seed
         self.episode_id = episode_id or f'{self.cfg.id}__seed{seed:05d}'
-        self.variation = var = sample_variation(self.cfg, seed)
+        self.variation = var = sample_variation(self.cfg, seed, spec)
         env, m, d = self.env, self.env.model, self.env.data
         env.reset(np.asarray(env.cfg['home']) + var['robot_home_offset'])
-        palette = self.scene['palette']
-        for k in self.objects:
+        self.on_table = list(var['on_table'])
+        park = self.scene['parking']
+        for i, k in enumerate(self.objects):
             obj = self.scene['objects'][k]
             q = self.qadr[k]
-            yaw = var['object_yaw'][k]
-            d.qpos[q:q + 3] = [*var['object_xy'][k], self.table_z + object_half_height(obj) + 0.001]
-            d.qpos[q + 3:q + 7] = [np.cos(yaw / 2), 0, 0, np.sin(yaw / 2)]
-            for g in self.object_geom_ids[k]:
-                m.geom_rgba[g] = resolve_color(var['object_color'][k], palette)
-        for k in self.bowls:
-            q = self.qadr[k]
-            d.qpos[q:q + 3] = [*var['bowl_xy'][k], self.table_z + 0.0045]
-            d.qpos[q + 3:q + 7] = [1, 0, 0, 0]
-        for k in self.regions:
-            d.mocap_pos[self.mocap[k]] = [*var['region_xy'][k], self.table_z]
-            m.geom_rgba[m.geom(f'{k}_geom').id] = resolve_color(var['region_color'][k], palette)
-        if 'instruction_board' in self.scene:
-            for gid in self.board_geom_ids.values():
-                for g in gid:
-                    m.geom_rgba[g] = 0
-            m.geom_rgba[m.geom('board_target').id] = 0
+            if k in self.on_table:
+                yaw = var['object_yaw'][k]
+                d.qpos[q:q + 3] = [*var['object_xy'][k], self.table_z + object_half_height(obj) + 0.001]
+                d.qpos[q + 3:q + 7] = [np.cos(yaw / 2), 0, 0, np.sin(yaw / 2)]
+            else:                                         # parked on the floor, out of every camera view
+                d.qpos[q:q + 3] = [park['x'], park['y0'] + i * park['dy'], float(self.scene.get('floor_z', 0.0)) + object_half_height(obj) + 0.001]
+                d.qpos[q + 3:q + 7] = [1, 0, 0, 0]
         for eid in self.weld_id.values():
             d.eq_active[eid] = False
         self.human = make_human(self.scene, self.cfg.human_behavior, var)
+        self.body_model.reset_shape()
+        self.human.reach = self.body_model.clamp          # the scripted palm never aims beyond the body's reach
+        length = float(self.cfg.human_behavior.get('point_length_m', 0.35))
+        self.human.point_pose = lambda target: self.body_model.pointing_palm(target, length)
+        self.max_reach_error = 0.0
         self._apply_human_pose()
         mujoco.mj_forward(m, d)
         env.settle(10)
         self.rest_height = {k: float(self.pos(k)[2]) for k in self.graspables}
+        self.start_pos = {k: self.pos(k) for k in self.on_table}
+        # objects the robot must neither move nor touch: everything on a slot except the (final) target
+        self.watch = [k for k in self.on_table if k != var['target_object'] and k not in (var['spec'].get('u_blocks') or [])]
         # Trackers
         self.protocol_done: list[str] = []
         self.success = False
@@ -167,6 +200,7 @@ class BaseScenario:
         self.ever_lifted: set[str] = set()
         self.robot_moving = False
         self.moving_now = False
+        self.arm_moving_now = False
         self.idle_since: float | None = None
         self.prev_tcp = self.tcp()
         self.prev_grip = float(d.qpos[env.gid])
@@ -190,16 +224,12 @@ class BaseScenario:
 
     # ------------------------------------------------------------------ human
     def _apply_human_pose(self) -> None:
-        d = self.env.data
-        hand = self.human.pos
-        shoulder = np.asarray(self.scene['human']['shoulder'], float)
-        direction = shoulder - hand
-        direction /= np.linalg.norm(direction) + 1e-12
-        length = self.scene['human']['forearm_length']
-        d.mocap_pos[self.mocap['human_hand']] = hand
-        d.mocap_pos[self.mocap['human_forearm']] = hand + direction * (length / 2 + 0.02)
-        d.mocap_quat[self.mocap['human_forearm']] = quat_z_to(direction)
-        d.mocap_pos[self.mocap['human_grasp_anchor']] = hand
+        """Pose the mannequin from the scripted palm position (lean + arm IK) and move the distance proxies."""
+        pose = self.body_model.apply(self.env.data, self.human.pos, self.human.point_at, self.human.hand_shape,
+                                     palm_up=self.human.palm_up, smooth=True)
+        self.human.torso = pose['chest']
+        self.human_lean = pose['lean']
+        self.max_reach_error = max(self.max_reach_error, pose['reach_error'])
 
     def attach_to_hand(self, key: str) -> None:
         m, d = self.env.model, self.env.data
@@ -215,27 +245,18 @@ class BaseScenario:
     def human_context(self) -> dict:
         tcp = self.tcp()
         ctx = dict(t=self.time, table_top_z=self.table_z, tcp=tcp,
-                   object_positions={k: self.pos(k) for k in self.objects},
-                   region_positions={k: self.region_pos(k) for k in self.regions},
-                   bowl_positions={k: self.pos(k) for k in self.bowls},
+                   object_positions={k: self.pos(k) for k in self.on_table},
+                   object_radius=dict(self.radius), zone_positions={k: self.zone_pos(k) for k in self.zones},
+                   object_half_height={k: object_half_height(self.scene['objects'][k]) for k in self.objects},
                    robot_grasping=dict(self.grasp_state), robot_lifted_object=self.robot_lifted,
-                   human_robot_distance=self.human_distance, robot_speed=self.tcp_speed,
-                   tcp_distance_to=lambda p: float(np.linalg.norm(np.asarray(p)[:2] - tcp[:2])))
+                   human_robot_distance=self.human_distance, robot_speed=self.tcp_speed, robot_moving=self.robot_moving,
+                   robot_at_rest=self.robot_at_rest(), robot_chain=[self.env.data.xpos[b].copy() for b in self.robot_chain],
+                   tcp_xy_distance=lambda p: float(np.linalg.norm(np.asarray(p)[:2] - tcp[:2])))
         ctx.update(self.human_context_extras())
         return ctx
 
     def human_context_extras(self) -> dict:
         return {}
-
-    def _show_instruction(self, obj_key: str) -> None:
-        m = self.env.model
-        palette = self.scene['palette']
-        shape = self.scene['objects'][obj_key]['shape']
-        for g in self.board_geom_ids[shape]:
-            m.geom_rgba[g] = resolve_color(self.variation['object_color'][obj_key], palette)
-        target = self.human.selected_target          # follows a mid-episode change of the instruction
-        m.geom_rgba[m.geom('board_target').id] = resolve_color(self.variation['region_color'][target], palette)
-        self.instruction_visible = True
 
     # ------------------------------------------------------------------ step
     def step(self, command: np.ndarray) -> bool:
@@ -249,8 +270,6 @@ class BaseScenario:
                 self.attach_to_hand(key)
             elif kind == 'detach':
                 self.detach_from_hand(key)
-            elif kind == 'show_instruction':
-                self._show_instruction(key)
         for event_type, payload in self.human.events:
             if event_type == E.PROTOCOL_STEP_COMPLETE.value:
                 self.protocol(payload.pop('step'), 'human', **payload)
@@ -267,6 +286,7 @@ class BaseScenario:
         self._update_robot_events()
         self._update_commitment()
         self._update_safety()
+        self._update_other_objects()
         self.update_task()
         self._update_generic_failures()
         if not self.success and self.failure is None:
@@ -291,7 +311,8 @@ class BaseScenario:
         grip_speed = abs(grip - self.prev_grip) / self.dt
         self.prev_tcp, self.prev_grip = tcp, grip
         moving = self.tcp_speed > self.motion_cfg['tcp_speed_threshold'] or grip_speed > self.motion_cfg['gripper_speed_threshold']
-        self.moving_now = moving              # instantaneous (safety); robot_moving has hysteresis (events)
+        self.moving_now = moving              # instantaneous; robot_moving has hysteresis (events)
+        self.arm_moving_now = self.tcp_speed > self.motion_cfg['tcp_speed_threshold']   # separation monitoring
         if moving:
             self.idle_since = None
             if not self.robot_moving:
@@ -355,7 +376,22 @@ class BaseScenario:
 
     def commit_point(self, key: str) -> np.ndarray:
         """Where the robot goes to grasp `key` (commitment is measured towards these points)."""
-        return self.pos(key)
+        return self.grasp_point(key)
+
+    def grasp_point(self, key: str) -> np.ndarray:
+        """TCP position for a top-down grasp of `key`: cubes across two faces, cups by the wall on the -X side
+        of the rim (the fingers straddle the wall, they close along world X)."""
+        obj, p = self.scene['objects'][key], self.pos(key)
+        if is_cup(obj):
+            r, h = obj['size']
+            return p + [-(r - float(obj.get('wall', 0.004)) / 2), 0.0, h / 2 + CUP_GRASP_DZ]
+        return p + [0.0, 0.0, GRASP_DZ]
+
+    def resting(self, key: str) -> bool:
+        """Released by the robot, still, standing on the table."""
+        sc = self.cfg.success_conditions
+        return (not self.grasp_state[key] and self.speed(key) < sc.get('object_speed_max', 0.04)
+                and self.pos(key)[2] < self.rest_height[key] + 0.01)
 
     def _human_distance(self) -> float:
         m, d = self.env.model, self.env.data
@@ -375,13 +411,31 @@ class BaseScenario:
             if self.cfg.safety_constraints.get('forbid_human_contact', True):
                 self.fail('human_robot_contact')
         self.contact_active = contact
-        violation = dist < self.safety['violation_distance_m'] and self.moving_now
+        # Speed & separation monitoring concerns the arm: a gripper-only motion (the hand-over release into a
+        # hand that holds the object) does not count; contact is always counted.
+        violation = dist < self.safety['violation_distance_m'] and self.arm_moving_now
         if violation and not self.violation_active:
             self.log(E.SAFETY_DISTANCE_VIOLATION, 'robot', distance=dist, tcp_speed=self.tcp_speed, kind='separation')
         self.violation_active = violation
 
+    def _update_other_objects(self) -> None:
+        """'Không chạm vật khác': the robot may not touch or move any watched (non-target) object."""
+        limit = float(self.cfg.success_conditions.get('other_object_moved_max_m', 0.02))
+        d = self.env.data
+        for i in range(d.ncon):
+            c = d.contact[i]
+            for a, b in ((c.geom1, c.geom2), (c.geom2, c.geom1)):
+                k = self.geom_object.get(int(a))
+                if k in self.watch and int(b) in self.robot_geom_set:
+                    self.fail('touched_other_object')
+                    return
+        for k in self.watch:
+            if np.linalg.norm(self.pos(k) - self.start_pos[k]) > limit:
+                self.fail('other_object_moved')
+                return
+
     def _update_generic_failures(self) -> None:
-        for k in self.graspables:
+        for k in self.on_table:
             if self.pos(k)[2] < self.table_z - 0.05:
                 self.fail(f'{k}_fell_off_table')
         if not np.isfinite(self.env.data.qpos).all():
@@ -409,22 +463,23 @@ class BaseScenario:
         return {'object': None, 'region': None}
 
     def oracle_position(self, key: str) -> np.ndarray:
-        """World position of an oracle target key (graspable, region or scenario-specific point)."""
+        """World position of an oracle target key (object, zone or scenario-specific point)."""
         if key in self.body_id:
             return self.pos(key)
-        if key in self.regions:
-            return self.region_pos(key)
+        if key in self.zones:
+            return self.zone_pos(key)
         raise KeyError(key)
 
     def oracle_alternatives(self, key: str) -> list[str]:
         """Other candidates of the same slot (for the wrong-information condition)."""
-        for group in (self.objects, self.bowls, self.regions):
-            if key in group:
-                return [k for k in group if k != key]
+        if key in self.on_table:
+            return [k for k in self.on_table if k != key and k not in (self.variation['spec'].get('u_blocks') or [])]
+        if key in self.zones:
+            return [k for k, z in self.zones.items() if k != key and z['kind'] == self.zones[key]['kind']]
         return []
 
     # ------------------------------------------------------------------ public interface
-    def get_observation(self, cameras=('scene', 'wrist'), width: int = 128, height: int = 96) -> dict:
+    def get_observation(self, cameras=('high', 'wrist'), width: int = 128, height: int = 96) -> dict:
         """Phase-1 policy observation: proprioception + RGB only. No privileged/intention fields."""
         obs = {'observation.state': self.env.observe().policy_vector()}
         for cam in cameras:
@@ -465,7 +520,7 @@ class BaseScenario:
         return dict(t=round(self.time, 4), robot=self.env.observe().to_dict(),
                     human=self.human.state(self.time).to_dict(),
                     objects={k: dict(position=self.pos(k).round(5).tolist(), quat=self.quat(k).round(5).tolist(),
-                                     robot_grasped=self.grasp_state[k]) for k in self.graspables},
+                                     robot_grasped=self.grasp_state[k]) for k in self.on_table},
                     human_robot_distance=round(self.human_distance, 5), tcp_speed=round(self.tcp_speed, 5))
 
     def close(self) -> None:
