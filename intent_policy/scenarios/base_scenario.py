@@ -227,6 +227,7 @@ class BaseScenario:
         """Pose the mannequin from the scripted palm position (lean + arm IK) and move the distance proxies."""
         pose = self.body_model.apply(self.env.data, self.human.pos, self.human.point_at, self.human.hand_shape,
                                      palm_up=self.human.palm_up, smooth=True)
+        self.human_pose = pose
         self.human.torso = pose['chest']
         self.human_lean = pose['lean']
         self.max_reach_error = max(self.max_reach_error, pose['reach_error'])
@@ -485,6 +486,11 @@ class BaseScenario:
         for cam in cameras:
             obs[f'observation.images.{cam}'] = self.env.render(cam, width, height)
         return obs
+
+    def human_keypoints(self, names) -> np.ndarray:
+        """World positions (J, 3) of the mannequin's keypoints as currently posed (= rendered); ground truth for
+        intent labels, never a policy observation."""
+        return self.body_model.keypoints(self.human_pose, names)
 
     def get_human_state(self):
         return self.human.state(self.time)

@@ -1,13 +1,17 @@
-"""LeRobot ACT policy with a selectable action head and optional intention fusion.
+"""LeRobot ACT policy with a selectable action head and optional intention input.
 
 The ACT network (`self.model`, class `lerobot...ACT`) is used unmodified. The policy latent
 h is the ACT decoder output (B, chunk, D) — exactly the tensor LeRobot feeds to its
-continuous `action_head`. A forward pre-hook on that head captures h (and, with `use_intent`,
+continuous `action_head`. A forward pre-hook on that head captures h (and, with intent fusion,
 replaces it by the fused latent h'), so both heads share one backbone and one forward pass:
 
     observation -> LeRobot ACT (backbone + transformer) -> h -> [IntentFusion(h, oracle branches)] -> h'
                                                                   h' -+-> action_head (continuous chunk)
                                                                       +-> restricted head (9 logits / step)
+
+With intent tokens (`intent_arch: tokens`, INTENT_ACT_GUIDE.md) the network is `IntentACT`, LeRobot's ACT with the
+intent tokens in its transformer / CVAE encoders (policies/intent_act.py); the batch carries the labels intent.obj,
+intent.act, intent.phase, intent.tte, intent.xi (raw xi, normalised here with the training-split statistics).
 """
 from collections import deque
 
@@ -19,8 +23,17 @@ from lerobot.policies.act.modeling_act import ACTPolicy, ACTTemporalEnsembler
 from lerobot.utils.constants import ACTION, OBS_IMAGES
 
 from intent_policy.policies.hri_act.configuration_hri_act import HRIACTConfig
+from intent_policy.policies.intent_act import IntentACT
 from intent_policy.policies.intent_fusion import IntentFusion
 from intent_policy.policies.restricted_action_head import RestrictedActionHead
+
+
+def _label(x: Tensor, n_cls: int, b: int, device) -> Tensor:
+    """Intent class labels: hard (B,) long, or soft probabilities (B, n_cls) float (e.g. from a predictor)."""
+    x = x.to(device)
+    if x.is_floating_point() and x.dim() == 2 and x.shape[-1] == n_cls > 1:
+        return x.float()
+    return x.reshape(b).long()
 
 
 class HRIACTPolicy(ACTPolicy):
@@ -29,10 +42,12 @@ class HRIACTPolicy(ACTPolicy):
 
     def __init__(self, config: HRIACTConfig, **kwargs):
         super().__init__(config, **kwargs)
+        if config.intent_token_cfg is not None:
+            self.model = IntentACT(config, config.intent_token_cfg)
         self.restricted_head = RestrictedActionHead(config.dim_model, config.num_restricted_actions,
                                                     config.restricted_head_hidden_dim)
         self.intent_fusion = IntentFusion(config.dim_model, dict(config.intent_branch_dims), config.intent_hidden_dim,
-                                          config.intent_embed_dim) if config.use_intent else None
+                                          config.intent_embed_dim) if config.use_intent and config.intent_arch == 'fusion' else None
         self._latent: Tensor | None = None
         self._intent_input: dict | None = None
         self.model.action_head.register_forward_pre_hook(self._capture_latent)
@@ -57,6 +72,28 @@ class HRIACTPolicy(ACTPolicy):
             self._intent_input = {k: torch.cat([batch[f].reshape(b, -1).float() for f in keys], dim=-1)
                                   for k, keys in self.config.intent_branches.items()}
 
+    @property
+    def intent_encoder(self):
+        return self.model.intent_encoder if isinstance(self.model, IntentACT) and self.model.use_intent else None
+
+    def _with_intent(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
+        """Intent tokens: batch['intent'] from the intent.* labels (unless given) and, in training mode, component
+        dropout batch['intent_keep'] (unless given)."""
+        enc = self.intent_encoder
+        if enc is None:
+            return batch
+        batch = dict(batch)
+        b, dev = batch['observation.state'].shape[0], batch['observation.state'].device
+        if 'intent' not in batch:
+            tau = torch.stack([batch['intent.phase'].reshape(b), batch['intent.tte'].reshape(b)], dim=-1).to(dev).float()
+            batch['intent'] = dict(obj=_label(batch['intent.obj'], enc.n_obj, b, dev),
+                                   act=_label(batch['intent.act'], enc.n_act, b, dev), tau=tau,
+                                   xi=enc.normalize_xi(batch['intent.xi'].to(dev).float()))
+        cfg = self.config
+        if self.training and batch.get('intent_keep') is None and (cfg.intent_p_drop > 0 or cfg.intent_p_drop_all > 0):
+            batch['intent_keep'] = enc.sample_keep(b, dev, cfg.intent_p_drop, cfg.intent_p_drop_all)
+        return batch
+
     def reset(self):
         super().reset()
         self._restricted_queue = deque([], maxlen=self.config.n_action_steps)
@@ -76,6 +113,7 @@ class HRIACTPolicy(ACTPolicy):
     def _run_act(self, batch: dict[str, Tensor]):
         """One LeRobot ACT forward. Returns continuous chunk, (mu, log_sigma_x2) and latent h (fused h')."""
         self._set_intent(batch)
+        batch = self._with_intent(batch)
         if self.config.image_features:
             batch = dict(batch)
             batch[OBS_IMAGES] = [batch[key] for key in self.config.image_features]
@@ -90,7 +128,7 @@ class HRIACTPolicy(ACTPolicy):
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, dict]:
         if self.config.action_mode == 'continuous':
             self._set_intent(batch)
-            return super().forward(batch)
+            return super().forward(self._with_intent(batch))
         actions_hat, (mu, log_sigma_x2), latent = self._run_act(batch)
         logits = self.restricted_head(latent)                                   # (B, S, 9)
         key = self.config.restricted_label_key
@@ -142,8 +180,9 @@ class HRIACTPolicy(ACTPolicy):
 
     @torch.no_grad()
     def predict_action_chunk(self, batch: dict[str, Tensor]) -> Tensor:
+        self.eval()
         self._set_intent(batch)
-        return super().predict_action_chunk(batch)
+        return super().predict_action_chunk(self._with_intent(batch))
 
     @torch.no_grad()
     def select_action(self, batch: dict[str, Tensor]) -> Tensor:

@@ -41,6 +41,9 @@ class PolicyAgent(Agent):
                  eval_seeds: list[int] | None = None, controller_cfg=None, temporal_ensemble_coeff: float | str | None = 'config'):
         self.checkpoint = Path(checkpoint)
         self.policy, self.pre, self.post = load_policy(self.checkpoint, device)
+        if self.policy.config.use_intent and self.policy.config.intent_arch == 'tokens':
+            raise NotImplementedError('closed-loop rollouts of intent-token policies need online intent labels; '
+                                      'INTENT_ACT_GUIDE.md M3 evaluates them offline (scripts/demo_intent.py)')
         if temporal_ensemble_coeff != 'config':          # inference-time setting of the evaluation protocol
             self.policy.set_temporal_ensemble(temporal_ensemble_coeff)
         self.action_mode = self.policy.config.action_mode
@@ -87,7 +90,7 @@ class PolicyAgent(Agent):
     def describe(self) -> dict:
         cfg = self.policy.config
         return dict(type='lerobot_act', policy_class='HRIACTPolicy', checkpoint=str(self.checkpoint), device=self.device,
-                    action_mode=cfg.action_mode, use_intent=cfg.use_intent, intent_mask=cfg.intent_mask,
+                    action_mode=cfg.action_mode, use_intent=cfg.use_intent, intent_arch=cfg.intent_arch, intent_mask=cfg.intent_mask,
                     intent_provider='oracle' if self.reads_oracle else 'none',
                     oracle_condition=self.corruption.describe() | {'lead_s': self.provider.lead_s} if self.reads_oracle else None,
                     oracle_spec=self.oracle_condition if self.reads_oracle else None,

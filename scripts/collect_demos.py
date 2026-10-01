@@ -9,7 +9,9 @@ Per frame (20 Hz, one control decision):
 With `intent.provider: oracle` (Phase 2) every frame also stores the oracle fields
 (`observation.oracle.*`, intent/representation.py: target identity/validity/position, current and
 future hand position/velocity; never an input of the No-Information policy) and `hri.seed`,
-`hri.scenario_index`, `hri.noise_injected`.
+`hri.scenario_index`, `hri.noise_injected`. With `intent.schema` (intent tokens, INTENT_ACT_GUIDE.md) every frame
+stores `human.keypoints` [J, 3] (world-frame ground truth of the schema's keypoints, as rendered); the intent labels
+`intent.*` are added afterwards by scripts/build_intent_labels.py.
 
 Only successful episodes are stored. Per-episode ground truth (scenario, seed, variation, expert and
 human stage segments, protocol-step times, evidence / commitment / intention-change events, metrics)
@@ -34,6 +36,7 @@ from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.datasets.utils import create_lerobot_dataset_card
 from intent_policy.benchmark.runner import run_episode, ExpertAgent, NoisyExpertAgent
 from intent_policy.sim.restricted_action import RestrictedAction
+from intent_policy.intent.labels import load_schema, motions_from_events
 from intent_policy.intent.oracle import OracleIntentProvider
 from intent_policy.intent.representation import dataset_features as oracle_features, features as oracle_values
 from intent_policy.scenarios.config import _deep_merge, load_scenario_list
@@ -46,7 +49,7 @@ ACTION_NAMES = [f'{j}.pos' for j in JOINTS] + ['gripper.pos']
 HRI_FIELDS = ('hri.seed', 'hri.scenario_index', 'hri.noise_injected')
 
 
-def features(obs_cfg, oracle_horizons: tuple | None = None) -> dict:
+def features(obs_cfg, oracle_horizons: tuple | None = None, keypoints: list[str] | None = None) -> dict:
     f = {'observation.state': {'dtype': 'float32', 'shape': (10,), 'names': STATE_NAMES},
          'action': {'dtype': 'float32', 'shape': (7,), 'names': ACTION_NAMES},
          'restricted_action': {'dtype': 'int64', 'shape': (1,), 'names': ['restricted_action_id']}}
@@ -56,6 +59,8 @@ def features(obs_cfg, oracle_horizons: tuple | None = None) -> dict:
     if oracle_horizons is not None:
         f.update(oracle_features(oracle_horizons))
         f.update({k: {'dtype': 'int64', 'shape': (1,), 'names': [k.removeprefix('hri.')]} for k in HRI_FIELDS})
+    if keypoints:
+        f['human.keypoints'] = {'dtype': 'float32', 'shape': (len(keypoints), 3), 'names': ['keypoint', 'xyz']}
     return f
 
 
@@ -77,7 +82,8 @@ def frame_of(t: float) -> int:
     return int(round(t * 20))
 
 
-def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index, spec=None) -> tuple[dict, list, dict]:
+def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index, spec=None,
+                   keypoints: list[str] | None = None) -> tuple[dict, list, dict]:
     frames, stages, humans, targets, actions, commits, noise = [], [], [], [], [], [], []
     gt = {}
 
@@ -92,6 +98,8 @@ def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index,
             fr.update(oracle_values(provider.record(scenario), scenario.tcp()))
             fr.update({'hri.seed': np.array([seed], np.int64), 'hri.scenario_index': np.array([scenario_index], np.int64),
                        'hri.noise_injected': np.array([int(noisy)], np.int64)})
+        if keypoints:
+            fr['human.keypoints'] = scenario.human_keypoints(keypoints).astype(np.float32)
         frames.append(fr)
         stages.append(decision.extras['expert_stage'])
         humans.append(scenario.human.stage)
@@ -122,6 +130,7 @@ def episode_meta(index, sid, split, seed, sc, rec, frames, info, entry=None) -> 
                 ground_truth_intention_at_start=info['gt'], ground_truth_intention_at_end=sc.get_ground_truth_intention_information(),
                 variation=rec['variation'], human_cue_onset_t=cue[0] if cue else None,
                 intention_changes=of('human_intention_change'), intention_evident=of('human_intention_evident'),
+                human_motions=motions_from_events(ev, 20),
                 robot_target_commits=of('robot_target_commit'), expert_commits=info['commits'],
                 noise_frames=info['noise_frames'], human_extras=sc.human.extras,
                 protocol_steps=protocol, expert_stages=segments(info['stages'], info['actions']),
@@ -178,8 +187,9 @@ def main():
     intent = exp.get('intent') or {}
     horizons = tuple(intent.get('horizons_s', (0.5, 1.0))) if intent.get('provider') == 'oracle' else None
     provider = OracleIntentProvider(horizons) if horizons is not None else None
+    keypoints = list(load_schema(intent['schema'])['keypoints']) if intent.get('schema') else None
     noise_cfg = data.get('noise') or {}
-    ds = LeRobotDataset.create(repo_id=data['repo_id'], fps=20, features=features(obs_cfg, horizons), root=root,
+    ds = LeRobotDataset.create(repo_id=data['repo_id'], fps=20, features=features(obs_cfg, horizons, keypoints), root=root,
                                robot_type='ur3e_susgrip', use_videos=True, image_writer_threads=4)
     scenario_ids = list(exp['benchmark']['scenarios'])
     entries = entries_of(exp, data, args)
@@ -194,7 +204,8 @@ def main():
         sc = cache[key]
         noisy = bool(noise_cfg) and np.random.default_rng(seed * 7 + 11).random() < float(noise_cfg['episode_fraction'])
         agent = NoisyExpertAgent(noise_cfg['burst_prob'], noise_cfg['burst_ticks']) if noisy else ExpertAgent()
-        rec, frames, info = record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid), e['spec'])
+        rec, frames, info = record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid), e['spec'],
+                                           keypoints)
         if rec['success']:
             for fr in frames:
                 ds.add_frame({**fr, 'task': sc.cfg.task})

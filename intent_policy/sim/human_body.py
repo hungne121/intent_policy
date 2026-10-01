@@ -149,6 +149,24 @@ class HumanBody:
         data.mocap_pos[self.anchor_mocap] = palm
         return pose
 
+    def keypoints(self, pose: dict, names) -> np.ndarray:
+        """World positions (len(names), 3) of named keypoints of a pose: `<s>_wrist` (hand segment pivot) and
+        `<s>_index_tip` (end of the HY-Motion index finger ray), s = r | l."""
+        out = []
+        for name in names:
+            s, part = name.split('_', 1)
+            wrist, R = pose['segments'][f'{s}_hand']
+            if part == 'wrist':
+                out.append(wrist)
+            elif part == 'index_tip':
+                if self.index_ray is None:
+                    raise ValueError('the skeleton has no index finger ray')
+                tip = self.index_ray[s][1] - self.J[f'{s.upper()}_Wrist']      # placed T-pose offset from the wrist
+                out.append(wrist + R @ self.R_yaw.T @ tip)                    # segment rotations act on T-pose axes
+            else:
+                raise KeyError(f'unknown keypoint {name!r}')
+        return np.asarray(out, float)
+
     # ------------------------------------------------------------------ pose
     def _lean_axis(self, palm) -> np.ndarray:
         dh = np.asarray(palm, float)[:2] - self.J['Spine1'][:2]

@@ -1,0 +1,36 @@
+# INTENT-ACT (docs/requirements/INTENT_ACT_GUIDE.md), episode set 1 = A / C: the expert responds once the human's
+# intention is clear (trigger cue_complete: after the full instruction / pointing / pick). The same episodes train
+#   A: no intent      ./run.sh -m scripts.train_policy --config <this> --output-dir outputs/train/intent_act/A
+#   C: intent tokens  ./run.sh -m scripts.train_policy --config <this> --use-intent --output-dir outputs/train/intent_act/C
+# after `scripts/build_intent_labels.py --dataset-root <data.root>` has added intent.* to the dataset.
+# Identical to intent_act_early.yaml except the expert trigger and the dataset (same list, seeds, ACT, budget).
+experiment: intent_act_late
+phase: intent_act
+seed: 0
+policy:
+  config: configs/policy/act_restricted.yaml   # --action-mode continuous for the original ACT head
+intent:
+  provider: labels                   # per-timestep intent labels intent.* (scripts/build_intent_labels.py)
+  schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
+benchmark:
+  scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
+observation:
+  cameras: [high, wrist, top]
+  width: 256
+  height: 192
+controller: configs/controller/restricted_action.yaml
+scenario_overrides:
+  all:
+    expert: {trigger: cue_complete}
+data:
+  repo_id: local/intent_act_late
+  root: outputs/datasets/intent_act_late
+  scenario_list: configs/scenario_lists/demo_v1.jsonl   # T1-T5 incl. T4-neg and the T5 changes of mind (280)
+training:
+  steps: 20000
+  batch_size: 32
+  num_workers: 4
+  log_every: 100
+  save_every: 2000
+  amp: false
+  output_dir: outputs/train/intent_act/late

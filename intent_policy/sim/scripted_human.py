@@ -109,17 +109,20 @@ class ScriptedHuman:
         """Evidence entries that are predictable at time t (scheduled, not cancelled, t_ev <= t)."""
         return [ev for ev in self.evidence if not ev['cancelled'] and ev['t'] <= t + 1e-9]
 
-    def move(self, t: float, target, duration: float, label: str, clearance: float | None = None) -> None:
+    def move(self, t: float, target, duration: float, label: str, clearance: float | None = None,
+             key: str | None = None) -> None:
         """Schedule a minimum-jerk hand motion; `duration` is scaled by the speed variant.
 
         With `clearance`, the motion is cautious: the hand stops where it is as soon as the
         robot is closer than `clearance` (the scripted human never pushes into the robot; a robot
-        that keeps moving into a stopped hand still causes contact).
+        that keeps moving into a stopped hand still causes contact). `key`: what the motion is aimed at (object,
+        zone or region key; logged as `target_key` for intent labels, never used by the behaviour).
         """
         self._cancel_pending_evidence(self.segment)
         target = np.asarray(target, float) if self.reach is None else self.reach(target)
         self.segment = Segment(t, max(duration / self.speed, 0.05), self.pos.copy(), target, label, clearance)
-        self.emit('human_motion_start', label=label, target=np.round(target, 4).tolist(), duration=self.segment.duration)
+        self.emit('human_motion_start', label=label, target=np.round(target, 4).tolist(), duration=self.segment.duration,
+                  target_key=key)
         if label in self.EVIDENCE_LABELS:
             self.add_evidence(t + self.evidence_fraction * self.segment.duration, self.EVIDENCE_LABELS[label],
                               self.segment, **self.evidence_payload(label))
@@ -211,11 +214,14 @@ class Gesture:
 
     kind: point (aim the index finger at `target(ctx)` from the pointing pose) | move (palm to `target(ctx)`) |
     wait (until `until(t, ctx)`) | sleep (`duration` s) | call (`fn(t, ctx)`, then continue at once).
-    point / move finish `dwell` s after the hand arrived (or stopped for clearance).
+    point / move finish `dwell` s after the hand arrived (or stopped for clearance). `key` (str or callable -> str):
+    the object / zone the motion is aimed at (logged only).
     """
     def __init__(self, kind: str, label: str = '', target=None, duration: float = 0.0, dwell: float = 0.0,
-                 until=None, fn=None, clearance: float | None = None, shape: str | None = None, palm_up: float = 0.0):
+                 until=None, fn=None, clearance: float | None = None, shape: str | None = None, palm_up: float = 0.0,
+                 key=None):
         self.kind, self.label, self.target, self.duration, self.dwell = kind, label, target, duration, dwell
+        self.key = key
         self.until, self.fn, self.clearance = until, fn, clearance
         self.shape, self.palm_up = shape, palm_up          # hand shape (None: derived) / palm up at the end of the motion
         self.t0 = self.arrived = None
@@ -248,11 +254,11 @@ class GestureHuman(ScriptedHuman):
     def G_point_object(self, key_fn, dwell) -> Gesture:
         """Point at the (current) selected object; key_fn() -> object key at the time the gesture starts."""
         return Gesture('point', 'point_object', target=lambda ctx: np.asarray(ctx['object_positions'][key_fn()], float),
-                       duration=self.params['point_s'], dwell=dwell)
+                       duration=self.params['point_s'], dwell=dwell, key=key_fn)
 
     def G_point_zone(self, zone, dwell) -> Gesture:
         return Gesture('point', 'point_place', target=lambda ctx: np.r_[np.asarray(ctx['zone_positions'][zone])[:2], ctx['table_top_z']],
-                       duration=self.params['point_s'], dwell=dwell)
+                       duration=self.params['point_s'], dwell=dwell, key=zone)
 
     def G_rest(self, label='return_rest', duration=None, pose=None, shape=None, palm_up=0.0) -> Gesture:
         pose = self.rest if pose is None else np.asarray(pose, float)
@@ -283,13 +289,14 @@ class GestureHuman(ScriptedHuman):
         self.goto(g.label, t)
         if g.kind in ('point', 'move'):
             self.palm_from, self.palm_to = self.palm_up, g.palm_up
+        key = g.key() if callable(g.key) else g.key
         if g.kind == 'point':
             aim = np.asarray(g.target(ctx), float)
             self.point_at, self.shape = aim, 'point'
-            self.move(t, self.point_pose(aim), g.duration, g.label, g.clearance)
+            self.move(t, self.point_pose(aim), g.duration, g.label, g.clearance, key)
         elif g.kind == 'move':
             self.point_at, self.shape = None, g.shape
-            self.move(t, g.target(ctx), g.duration, g.label, g.clearance)
+            self.move(t, g.target(ctx), g.duration, g.label, g.clearance, key)
 
     def _finished(self, g: Gesture, t: float, ctx: dict) -> bool:
         if g.kind == 'call':
@@ -430,7 +437,8 @@ class HandoverReceiver(GestureHuman):
 
     def receive_gestures(self) -> list[Gesture]:
         p, b = self.params, self.behavior
-        reach = Gesture('move', 'reach_out', target=self.palm_at_zone, duration=p['reach_out_s'], shape='offer', palm_up=1.0)
+        reach = Gesture('move', 'reach_out', target=self.palm_at_zone, duration=p['reach_out_s'], shape='offer', palm_up=1.0,
+                        key=lambda: self.selected_target)
         ready = self.G_call(lambda t, ctx: (self.emit('interaction_window_start', kind='handover', actor='human'),
                                             self.emit('protocol_step_complete', step='hand_ready')))
         if self.timing == 'early':
@@ -442,7 +450,7 @@ class HandoverReceiver(GestureHuman):
             pre = [self.G_rest(), Gesture('wait', 'wait_robot_lift', until=self._lifted),
                    Gesture('wait', 'wait_late', until=lambda t, ctx: t >= arrive(t) - 1e-9)]
         take = Gesture('move', 'take_object', target=self._under_object, duration=b['take_s'], clearance=b['hand_clearance_m'],
-                       shape='grasp', palm_up=1.0)
+                       shape='grasp', palm_up=1.0, key=lambda: self.selected_object)
         pull = Gesture('move', 'pulling', duration=b['pull_s'], shape='grasp', palm_up=1.0,
                        target=lambda ctx: self.pos + np.asarray(b['pull_offset'], float))
         return pre + [reach, ready, Gesture('wait', 'waiting_offer', until=self._offered), take,
@@ -509,7 +517,8 @@ class AssistRequester(GestureHuman):
 
     def G_reach(self, dwell) -> Gesture:
         return Gesture('move', 'reach_block', duration=self.params['u_reach_s'], dwell=dwell,
-                       target=lambda ctx: np.asarray(ctx['object_positions'][self.block], float) + [0.0, 0.0, 0.03])
+                       target=lambda ctx: np.asarray(ctx['object_positions'][self.block], float) + [0.0, 0.0, 0.03],
+                       key=lambda: self.block)
 
     def take(self) -> list[Gesture]:
         return [self.G_call(self._take_block), self.G_rest('lift_block', self.params['hold_s'], self.hold)]
@@ -548,7 +557,7 @@ class AssistRequester(GestureHuman):
         over = lambda ctx: np.r_[np.asarray(ctx['object_positions'][self.selected_object])[:2], ctx['table_top_z'] + b['drop_height_m']]
         return [self.G_call(lambda t, ctx: self.emit('interaction_window_start', kind='assist', actor='human')),
                 Gesture('wait', 'waiting_cup', until=self._robot_clear),
-                Gesture('move', 'move_over_cup', target=over, duration=p['drop_move_s']),
+                Gesture('move', 'move_over_cup', target=over, duration=p['drop_move_s'], key='U_cup'),
                 self.G_call(self._drop_block), Gesture('sleep', 'dropped', duration=0.6),
                 self.G_call(lambda t, ctx: self.emit('interaction_window_end', kind='assist', actor='human')),
                 self.G_rest('withdraw'), self.G_call(lambda t, ctx: self.goto('done', t))]
@@ -633,9 +642,10 @@ class Interrupter(GestureHuman):
                            negative=self.negative, intrusion_via=[w.round(4).tolist() for w in path[:-1]])
         label = 'reach_near' if self.negative else 'intrude'
         share = p['approach_s'] / len(path)
-        g = [Gesture('move', 'intrude_approach', target=lambda ctx, w=w: w, duration=share, clearance=b['hand_clearance_m'])
-             for w in path[:-1]]
-        g += [Gesture('move', label, target=lambda ctx: point, duration=share, clearance=b['hand_clearance_m']),
+        key = self.spec['neg_target'] if self.negative else 'robot_zone'
+        g = [Gesture('move', 'intrude_approach', target=lambda ctx, w=w: w, duration=share, clearance=b['hand_clearance_m'],
+                     key=key) for w in path[:-1]]
+        g += [Gesture('move', label, target=lambda ctx: point, duration=share, clearance=b['hand_clearance_m'], key=key),
               Gesture('sleep', 'dwelling', duration=self.hold_s)]
         g += [Gesture('move', 'withdraw', target=lambda ctx, w=w: w, duration=p['withdraw_s'] / len(path)) for w in path[-2::-1]]
         return g + [self.G_rest('withdraw', p['withdraw_s'] / len(path)),

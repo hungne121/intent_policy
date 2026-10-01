@@ -4,7 +4,13 @@ Uses LeRobot components end to end: LeRobotDataset (+ delta_timestamps for actio
 the ACT pre/post-processors (normalisation from dataset stats), ACTPolicy.get_optim_params
 and save_pretrained. The only project-specific pieces are carrying the restricted label
 (`restricted_action`, not an ACT input/output feature) around the preprocessor and, when the
-policy config sets `use_intent`, declaring the oracle intention features as extra inputs.
+policy config sets `use_intent`, declaring the oracle intention features as extra inputs (fusion) or carrying the
+intent labels `intent.*` around the preprocessor (intent tokens, docs/requirements/INTENT_ACT_GUIDE.md §2.7):
+  --use-intent             intent tokens from configs/intent_schema.yaml (default off: the dataset's intent.* are
+                           ignored, plain LeRobot ACT)
+  --intent-components      obj,act,tau,xi      --[no-]intent-in-cvae   --p-drop 0.2   --p-drop-all 0.1
+  --action-mode            continuous | discrete (= restricted 9-action head)   --intent-film
+xi is normalised with mean / std over the training episodes (std >= 1e-2), stored in the model.
 
 Checkpoints: <output>/checkpoints/<step>/{pretrained_model, training_state.pt}; the newest
 `--keep-last` are kept and the final model is also written to checkpoints/last. `--resume`
@@ -29,22 +35,43 @@ from lerobot.configs.types import FeatureType
 from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.utils.feature_utils import dataset_to_policy_features
 
+from intent_policy.intent.labels import SCHEMA_PATH, load_schema
 from intent_policy.policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
 from intent_policy.utils import load_yaml, resolve
 
+INTENT_LABEL_PREFIX = 'intent.'
+
 
 def intent_keys(policy_yaml: dict) -> list[str]:
-    """Oracle features the policy reads (none without intent or for the masked No-Information control)."""
-    if not policy_yaml.get('use_intent') or policy_yaml.get('intent_mask'):
+    """Oracle features the fusion policy reads (none without intent, for the masked No-Information control or for
+    intent tokens)."""
+    if not policy_yaml.get('use_intent') or policy_yaml.get('intent_mask') or policy_yaml.get('intent_arch') == 'tokens':
         return []
     return [k for keys in (policy_yaml.get('intent_branches') or {}).values() for k in keys]
+
+
+def uses_intent_tokens(policy_yaml: dict) -> bool:
+    return bool(policy_yaml.get('use_intent')) and policy_yaml.get('intent_arch') == 'tokens'
+
+
+def check_intent_dataset(schema: dict, meta: LeRobotDatasetMetadata) -> None:
+    """The dataset must carry intent labels built with the same vocabularies / waypoint layout."""
+    missing = [k for k in ('intent.obj', 'intent.act', 'intent.phase', 'intent.tte', 'intent.xi') if k not in meta.features]
+    if missing:
+        raise KeyError(f'intent labels missing from the dataset: {missing} (run scripts/build_intent_labels.py)')
+    built = json.loads((meta.root / 'meta/intent_schema.json').read_text())
+    for k in ('obj_vocab', 'act_vocab', 'n_waypoints', 'keypoints', 'keypoint_dim', 'fps', 'horizon_s', 'tte_max_s'):
+        if built.get(k) != schema.get(k):
+            raise ValueError(f'intent schema {k!r} differs from the one the labels were built with: {schema.get(k)} != {built.get(k)}')
 
 
 def build_config(policy_yaml: dict, meta: LeRobotDatasetMetadata, device: str, cameras: list[str]) -> HRIACTConfig:
     feats = dataset_to_policy_features(meta.features)
     image_keys = [f'observation.images.{c}' for c in cameras]
     kwargs = {k: v for k, v in policy_yaml.items() if k != 'type'}
-    if policy_yaml.get('use_intent'):
+    if uses_intent_tokens(policy_yaml):
+        check_intent_dataset(policy_yaml['intent_schema'], meta)
+    elif policy_yaml.get('use_intent'):
         branches = policy_yaml.get('intent_branches') or {}
         missing = {k for keys in branches.values() for k in keys} - set(meta.features)
         if missing:
@@ -80,9 +107,10 @@ class EpochSampler(torch.utils.data.Sampler):
 
 
 def run_batch(policy, preprocessor, batch, device, label_key, amp: bool = False):
-    label = batch.pop(label_key)                       # not an ACT feature: bypass the processor
+    # the restricted label and the intent labels are not ACT features: bypass the processor
+    extra = {k: batch.pop(k) for k in list(batch) if k == label_key or k.startswith(INTENT_LABEL_PREFIX)}
     batch = preprocessor(batch)
-    batch[label_key] = label.to(device)
+    batch.update({k: v.to(device) for k, v in extra.items()})
     with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=amp):
         return policy.forward(batch)
 
@@ -99,6 +127,28 @@ def evaluate(policy, preprocessor, loader, device, label_key, amp, max_batches=2
             acc.setdefault(k, []).append(v)
     policy.train()
     return {f'val_{k}': float(np.mean(v)) for k, v in acc.items()}
+
+
+def xi_stats(ds: LeRobotDataset) -> tuple[np.ndarray, np.ndarray]:
+    """Mean / std of raw xi over every frame of `ds` (the training episodes)."""
+    xi = np.asarray(ds.hf_dataset.with_format('numpy', columns=['intent.xi'])['intent.xi'], np.float64)
+    return xi.mean(0), xi.std(0)
+
+
+def guide_overrides(args) -> dict:
+    """INTENT_ACT_GUIDE.md §2.7 flags -> policy config fields (only the flags that were given)."""
+    out = {}
+    if args.use_intent:
+        out.update(use_intent=True, intent_arch='tokens', intent_schema=load_schema(args.intent_schema))
+    if args.intent_components is not None:
+        out['intent_components'] = [c.strip() for c in args.intent_components.split(',') if c.strip()]
+    for flag, key in (('intent_in_cvae', 'intent_in_cvae'), ('p_drop', 'intent_p_drop'), ('p_drop_all', 'intent_p_drop_all'),
+                      ('intent_film', 'intent_film')):
+        if getattr(args, flag) is not None:
+            out[key] = getattr(args, flag)
+    if args.action_mode is not None:
+        out['action_mode'] = 'restricted' if args.action_mode == 'discrete' else args.action_mode
+    return out
 
 
 def rng_state() -> dict:
@@ -139,6 +189,18 @@ def main():
     p.add_argument('--amp', action=argparse.BooleanOptionalAction, default=None, help='fp16 autocast (default: training.amp)')
     p.add_argument('--video-backend', help='LeRobot video backend (torchcodec | pyav)')
     p.add_argument('--resume', action='store_true', help='continue from the newest checkpoint in --output-dir')
+    g = p.add_argument_group('intent tokens (docs/requirements/INTENT_ACT_GUIDE.md §2.7)')
+    g.add_argument('--use-intent', '--use_intent', action='store_true', help='intent tokens (default: off)')
+    g.add_argument('--intent-schema', default=SCHEMA_PATH)
+    g.add_argument('--intent-components', '--intent_components', help='subset of obj,act,tau,xi (default: all)')
+    g.add_argument('--intent-in-cvae', '--intent_in_cvae', action=argparse.BooleanOptionalAction, default=None,
+                   help='intent tokens also in the CVAE encoder (default: on)')
+    g.add_argument('--p-drop', '--p_drop', type=float, help='per-component dropout probability (default 0.2)')
+    g.add_argument('--p-drop-all', '--p_drop_all', type=float, help='drop-all-intent probability (default 0.1)')
+    g.add_argument('--action-mode', '--action_mode', choices=['continuous', 'discrete', 'restricted'],
+                   help='override the policy action mode (discrete = restricted 9-action head)')
+    g.add_argument('--intent-film', '--intent_film', action=argparse.BooleanOptionalAction, default=None,
+                   help='FiLM fallback on the backbone features (default: off)')
     args = p.parse_args()
 
     if args.device == 'cuda' and not torch.cuda.is_available():
@@ -150,6 +212,9 @@ def main():
     for item in args.policy_set:
         key, value = item.split('=', 1)
         policy_yaml[key] = yaml.safe_load(value)
+    policy_yaml.update(guide_overrides(args))
+    if isinstance(policy_yaml.get('intent_schema'), str):
+        policy_yaml['intent_schema'] = load_schema(policy_yaml['intent_schema'])
     root = resolve(args.dataset_root or exp['data']['root'])
     repo_id = args.repo_id or exp['data']['repo_id']
     out = resolve(args.output_dir or tr['output_dir'])
@@ -180,6 +245,9 @@ def main():
                                              **loader_kw) if val_ds else None
 
     policy = HRIACTPolicy(cfg).to(args.device)
+    if policy.intent_encoder is not None:
+        mean, std = xi_stats(train_ds)
+        policy.intent_encoder.set_xi_stats(mean, std)
     preprocessor, postprocessor = make_hri_act_pre_post_processors(cfg, dataset_stats=meta.stats)
     optimizer = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
     scaler = torch.amp.GradScaler('cuda', enabled=amp)
@@ -198,7 +266,7 @@ def main():
         log_path.write_text('')
     gpu = torch.cuda.get_device_name(0) if args.device == 'cuda' else 'cpu'
     print(f'train episodes {len(train_eps)} ({len(train_ds)} frames), val episodes {len(val_eps)}; mode={cfg.action_mode}; '
-          f'intent={cfg.use_intent}; params={sum(p.numel() for p in policy.parameters()) / 1e6:.1f}M; steps={steps}; '
+          f'intent={cfg.use_intent and cfg.intent_arch}; params={sum(p.numel() for p in policy.parameters()) / 1e6:.1f}M; steps={steps}; '
           f'batch={batch_size}; amp={amp}; device={gpu}', flush=True)
 
     def metadata(tag_step: int, last_info: dict) -> dict:
@@ -212,7 +280,11 @@ def main():
                                   lerobot=getattr(lerobot, '__version__', 'unknown')),
                     hardware=dict(device=gpu, host=platform.node()),
                     intent_provider=exp['intent']['provider'], intent_features=intent_keys(policy_yaml),
-                    policy_overrides=list(args.policy_set))
+                    intent_tokens=dict(components=list(cfg.intent_components), in_cvae=cfg.intent_in_cvae,
+                                       p_drop=cfg.intent_p_drop, p_drop_all=cfg.intent_p_drop_all, film=cfg.intent_film)
+                    if uses_intent_tokens(policy_yaml) else None,
+                    policy_overrides=list(args.policy_set) + [f'{k}={v}' for k, v in guide_overrides(args).items()
+                                                              if k != 'intent_schema'])
 
     def save(ckpt_dir: Path, last_info: dict, with_state: bool) -> Path:
         model_dir = ckpt_dir / 'pretrained_model'

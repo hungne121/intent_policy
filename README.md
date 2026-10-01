@@ -258,6 +258,12 @@ MUJOCO_GL=glfw ./run.sh -m scripts.view_scene --list configs/scenario_lists/demo
 ./run.sh -m scripts.reproduce_episode outputs/eval/foundation_baseline/episodes/<scenario>/<episode>.json.gz
 ```
 
+INTENT-ACT ([docs/requirements/INTENT_ACT_GUIDE.md](docs/requirements/INTENT_ACT_GUIDE.md)): intent {obj, act, tau, xi}
+được đưa vào ACT dưới dạng token. Có hai bộ episode: late (`configs/experiments/intent_act_late.yaml`, A/C) và early
+(`intent_act_early.yaml`, B/D). Sau khi thu, `scripts.build_intent_labels` thêm cột `intent.*` vào chính dataset.
+`scripts.train_policy --use-intent` train C/D. `scripts.demo_intent` làm demo phản thực tế (swap/drop thành phần).
+Chi tiết và lệnh: [docs/reports/INTENT_ACT_IMPLEMENTATION.md](docs/reports/INTENT_ACT_IMPLEMENTATION.md).
+
 Phase 2 dùng expert `evidence` (`configs/experiments/phase2_oracle.yaml`, protocol
 `configs/benchmark/phase2_protocol_v1.yaml` = danh sách eval). Preview trước khi thu:
 `configs/experiments/phase2_scenario_preview.yaml` với `--per-task`.

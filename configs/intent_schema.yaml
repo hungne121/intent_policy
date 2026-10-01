@@ -1,0 +1,42 @@
+# Intent schema (docs/requirements/INTENT_ACT_GUIDE.md §1.2): four components per timestep
+#   obj  What-target: where the human is directed (int, class `none`)
+#   act  What-action: what the HUMAN intends to do (int, class `none`; never a robot action)
+#   tau  When: [phase in [0, 1], tte = time to the event in s]
+#   xi   How: future keypoint waypoints (M, J, D) relative to the current keypoints
+# `none` is a data label (no intention); the UNKNOWN token (component dropout) is added by the model at index N.
+#
+# TODO(user): confirm the vocabularies and the sim mapping below (defaults proposed from the T1-T5 scene).
+# obj is a LOCATION (configs/layout.yaml): identical objects (B1/B1', C1/C2) stand on randomised slots, so an
+# object identity alone would not say which one; U1/U2 = the T3 cube spots in U (layout `U.blocks` order).
+obj_vocab: [none, S1, S2, S3, S4, S5, S6, U1, U2, U, P1, P2, H1, H2, U_cup, robot_zone, zone_edge]
+act_vocab: [none, take, give_to_robot, receive_from_robot, place, point_command, pass_by, reach_into, approach]
+n_waypoints: 8                     # M
+horizon_s: 1.2                     # H for xi
+keypoints: [r_wrist, r_index_tip, l_wrist, l_index_tip]   # J (simulator ground truth, sim/human_body.py)
+keypoint_dim: 3                    # 3D world frame from the simulator (no depth lifting needed)
+tte_max_s: 3.0
+fps: 20                            # dataset / control rate (configs/robot.yaml control_hz)
+savgol: {window: 7, order: 2}      # keypoint smoothing before xi
+
+# Segments from simulator ground truth (scripts/build_intent_labels.py --segments auto). One segment per intent
+# gesture of the scripted human (motion label -> act; obj = location of the motion's target_key):
+#   t_onset  start of the gesture's hand motion
+#   t_clear  end of that motion: the gesture is fully formed (finger on the target, hand at the zone / object),
+#            so the intention is unambiguous to an observer (the project's evidence point, 40 % of the motion, lies
+#            between t_onset and t_clear; the early expert commits there)
+#   t_event  end of the gesture itself (motion + its own hold, e.g. the pointing hold, the reach until the grasp)
+#   t_end    labels obj/act stay on through the listed `hold` stages that follow (the human keeps the gesture while
+#            waiting for the robot); phase = 1, tte = 0 after t_event. Default t_end = t_event (guide §1.4).
+# Consecutive gestures with the same (act, obj) form one segment (e.g. intrude_approach + intrude).
+# Stages not listed (rest, withdraw, withdraw_change of T5, ...) are `none`.
+sim_segments:
+  point_object: {act: point_command}
+  point_place: {act: point_command}
+  reach_out: {act: receive_from_robot, hold: [waiting_offer, take_object, pulling]}
+  reach_block: {act: take, hold: [lift_block, waiting_cup]}
+  move_over_cup: {act: place}
+  intrude_approach: {act: reach_into}
+  intrude: {act: reach_into, hold: [dwelling]}
+  reach_near: {act: approach, hold: [dwelling]}
+# T4-neg target keys (configs/scenarios/t4_interrupt.yaml negative_points) -> obj
+neg_target_obj: {U: U, edge: zone_edge}
