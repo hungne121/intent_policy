@@ -40,6 +40,8 @@ def test_palm_turns_up_for_receiving(body):
     palm = [0.36, -0.15, 0.77]
     normal = lambda f: body.pose(palm, palm_up=f)['segments']['r_hand'][1] @ np.array([0.0, 0.0, -1.0])
     assert normal(0.0)[2] < -0.8 and normal(1.0)[2] > 0.8 and abs(normal(0.5)[2]) < 0.3
+    assert normal(1.0)[2] > 0.99                     # held out flat to receive an object into the palm
+    assert body.pose(palm, palm_up=1.0)['reach_error'] < 1e-6
 
 
 # zones of configs/layout.yaml for the side-standing human (H1, H2 at hand height, U cube, U_cup) and near P

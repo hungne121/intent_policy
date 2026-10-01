@@ -42,7 +42,7 @@ human_behavior:
   # rows), reached straight or via waypoints; the path that keeps farthest from the robot (its links and the way to
   # where it is heading) is used. Negative targets lie outside the zone: into U, next to the zone's edge.
   intrusion_paths:
-    - {point: [0.42, 0.12, 0.14]}   # right of the slots (the human's right hand side)
+    - {point: [0.42, 0.12, 0.14]}   # over the right end of the near row (the human's right hand side)
     - {point: [0.27, 0.12, 0.16]}   # over the near row
     - {point: [0.12, 0.14, 0.22]}   # next to the robot base, higher
   negative_points: {U: [0.41, -0.26, 0.05], edge: [0.44, 0.02, 0.14]}

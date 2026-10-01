@@ -399,8 +399,9 @@ class PickPlaceInstructor(GestureHuman):
 
 
 class HandoverReceiver(GestureHuman):
-    """T2: point at the target object, then reach out in the hand zone H (early / on time / late), take the object
-    when the robot presents it and holds still, pull it (the robot must release on the pull), withdraw with it."""
+    """T2: point at the target object, then hold the open hand out palm up in the hand zone H (early / on time /
+    late); once the robot has lowered the object into the palm and holds still, raise the palm under it and close
+    the fingers around it, pull it (the robot must release on the pull), withdraw with it."""
 
     def __init__(self, scene, behavior, variation):
         super().__init__(scene, behavior, variation)
@@ -412,7 +413,7 @@ class HandoverReceiver(GestureHuman):
         return np.asarray(ctx['zone_positions'][self.selected_target], float)
 
     def expected_object_pos(self, ctx) -> np.ndarray:
-        """Where the human expects the object: just above the upturned palm (config present_offset + half height)."""
+        """Where the human expects the object: resting in the upturned palm (config present_offset + half height)."""
         h = ctx['object_half_height'][self.selected_object]
         return self.palm_at_zone(ctx) + np.asarray(self.behavior['present_offset'], float) + [0.0, 0.0, h]
 
@@ -440,9 +441,8 @@ class HandoverReceiver(GestureHuman):
             arrive = lambda t: self.lift_t + p['late_wait_s'] - p['reach_out_s'] / self.speed
             pre = [self.G_rest(), Gesture('wait', 'wait_robot_lift', until=self._lifted),
                    Gesture('wait', 'wait_late', until=lambda t, ctx: t >= arrive(t) - 1e-9)]
-        take = Gesture('move', 'take_object', duration=b['take_s'], clearance=b['hand_clearance_m'], shape='offer', palm_up=1.0,
-                       target=lambda ctx: np.asarray(ctx['object_positions'][self.selected_object], float)
-                       - [0.0, 0.0, ctx['object_half_height'][self.selected_object] + b['take_gap_m']])
+        take = Gesture('move', 'take_object', target=self._under_object, duration=b['take_s'], clearance=b['hand_clearance_m'],
+                       shape='grasp', palm_up=1.0)
         pull = Gesture('move', 'pulling', duration=b['pull_s'], shape='grasp', palm_up=1.0,
                        target=lambda ctx: self.pos + np.asarray(b['pull_offset'], float))
         return pre + [reach, ready, Gesture('wait', 'waiting_offer', until=self._offered), take,
@@ -452,6 +452,12 @@ class HandoverReceiver(GestureHuman):
                                                   self.emit('interaction_window_end', kind='handover', actor='human'))),
                       Gesture('sleep', 'released_by_robot', duration=0.3),
                       self.G_rest('withdraw_with_object', 1.2, shape='grasp', palm_up=1.0), self.G_call(lambda t, ctx: self.goto('done', t))]
+
+    def _under_object(self, ctx) -> np.ndarray:
+        """The palm rises straight up under the object held out in it: its bottom take_gap_m above the palm surface."""
+        obj, b = self.selected_object, self.behavior
+        bottom = ctx['object_positions'][obj][2] - ctx['object_half_height'][obj]
+        return np.r_[self.pos[:2], bottom - b['take_gap_m'] - b['palm_surface_m']]
 
     def _offered(self, t, ctx) -> bool:
         obj = self.selected_object

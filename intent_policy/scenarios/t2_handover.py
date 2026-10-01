@@ -1,6 +1,7 @@
-"""T2 handover (collaborator): the human points at an object and reaches out in a hand zone H (early / on time /
-late); the robot must bring exactly that object to the waiting hand, hold still and release only when the human
-has taken it and pulls. T5 on T2: the human switches objects before the robot grasps (scence_construct.md §4.4)."""
+"""T2 handover (collaborator): the human points at an object and holds an open hand out, palm up, in a hand zone H
+(early / on time / late); the robot must put exactly that object into the waiting palm, hold still and release only
+when the human has closed the hand on it and pulls. T5 on T2: the human switches objects before the robot grasps
+(scence_construct.md §4.4)."""
 import numpy as np
 from intent_policy.scenarios.base_scenario import BaseScenario
 
@@ -13,7 +14,7 @@ class HandoverTask(BaseScenario):
         return self.human.selected_object
 
     def present_point(self) -> np.ndarray:
-        """Where the human expects the object (just above the upturned, waiting palm)."""
+        """Where the human expects the object (resting in the upturned, waiting palm)."""
         obj = self.robot_target()
         return self.zone_pos(self.hand_zone) + np.asarray(self.cfg.human_behavior['present_offset'], float) \
             + [0.0, 0.0, self.rest_height[obj] - self.table_z]

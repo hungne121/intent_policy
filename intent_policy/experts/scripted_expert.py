@@ -7,8 +7,8 @@ expert class handles all tasks through a per-task plan of generic steps; there i
   T1       grasp the cube -> (place zone known) -> place it in P -> rest
   T4       no instruction: from start_s grasp the single cube -> place it in P1 -> rest; hold while a hand is in the
            robot zone (every trigger behaves the same)
-  T2       grasp the object -> hold it at a staging point until a hand is out in a hand zone -> present it in front
-           of the palm, hold still -> release when the human has taken it and pulls -> rest
+  T2       grasp the object -> hold it at a staging point until a hand is out in a hand zone -> over the open palm,
+           down into it, hold still -> release when the human has closed the hand on it and pulls -> rest
   T3       grasp the cup paired with the cube the human picks up, by the rim -> stand it in U_cup -> rest
   T5       re-plan to the new target (before any grasp)
 
@@ -22,7 +22,7 @@ Scenario config `expert` block (teacher settings only):
                          is evidence too: the robot rises and waits.
            cue_onset     clairvoyant: the target is known at the cue onset and after a change at the change itself
   travel_dz: travel height above the table
-  T2 staging_offset: holding point w.r.t. the centre of the hand zones
+  T2 staging_offset: holding point (x, y) w.r.t. the centre of the hand zones, at handover height
   T4 yield_zone_margin_m / yield_prediction_horizon_s: hold while the (predicted) hand is in the robot zone
 Guarded moves (cue_onset / evidence) hold while the human hand occupies the destination or is next to the arm.
 """
@@ -42,6 +42,8 @@ SEPARATION_GEOM_M = 0.04  # ... or any human proxy this close to a robot link
 CONFIRM_S = 1.6         # evidence mode: touch the target only once its gesture has been held this long (a pointing
                         # that is withdrawn earlier, T5 early change, never leads to touching the old target)
 R_SAFE = 0.22           # moves across y = 0 go around the robot base at least this far out (near-singular above it)
+HANDOVER_DZ = 0.025     # T2: the object crosses the open fingers (up to 2.4 cm above the palm) this high above its
+                        # place in the palm, then goes straight down into it (H2 is at the edge of the arm's reach)
 TRIGGERS = ('cue_complete', 'cue_onset', 'evidence')
 CUE_COMPLETE_STEP = {'T1': 'instruction_given', 'T2': 'target_indicated', 'T3': 'block_picked'}
 FOREVER = 10 ** 6
@@ -192,17 +194,19 @@ class ScriptedExpert:
 
     def _handover_steps(self, obj):
         sc = self.sc
-        hands = [k for k, z in sc.zones.items() if z['kind'] == 'hand']
-        staging = np.mean([sc.zone_pos(k) for k in hands], axis=0) + np.asarray(sc.cfg.expert['staging_offset'], float)
-        above = np.asarray(sc.cfg.human_behavior['present_offset'], float) + [0.0, 0.0, sc.rest_height[obj] - sc.table_z]
-        present = lambda: sc.zone_pos(self.zone) + above + self.tcp_obj_offset     # just above the upturned palm
+        hands = np.mean([sc.zone_pos(k) for k, z in sc.zones.items() if z['kind'] == 'hand'], axis=0)
+        in_palm = np.asarray(sc.cfg.human_behavior['present_offset'], float) + [0.0, 0.0, sc.rest_height[obj] - sc.table_z]
+        present = lambda: sc.zone_pos(self.zone) + in_palm + self.tcp_obj_offset     # resting in the upturned palm
+        over_z = lambda: hands[2] + in_palm[2] + HANDOVER_DZ + self.tcp_obj_offset[2]  # the hand zones share one height
+        staging = lambda: np.r_[hands[:2] + np.asarray(sc.cfg.expert['staging_offset'], float) + self.tcp_obj_offset[:2], over_z()]
         human = sc.human
         return [
-            Step('goto', lambda: staging + self.tcp_obj_offset, name='to_staging', guard=True, skip=lambda: self.zone is not None),
+            # always via the staging point at handover height: the arm rises where it can (not next to the base or at
+            # the edge of its reach), then crosses over the open fingers, over the palm and straight down into it
+            Step('goto', staging, name='to_staging', guard=True),
             Step('wait', until=lambda: self.zone is not None, name='await_hand'),
-            # beside the palm on the robot side at travel height, up to presentation height, then over the upturned palm
-            Step('goto', lambda: np.r_[present()[:2] + [0.0, 0.08], self.travel], name='beside_hand'),
-            Step('goto', lambda: present() + [0.0, 0.08, 0.0], name='rise_to_present'),
+            Step('goto', lambda: np.r_[present()[:2], over_z()], name='over_hand'),
+            Step('settle', ticks=15, name='settle_over_hand'),
             Step('goto', present, name='to_handover'),
             Step('wait', until=lambda: human.holding == obj and human.stage in ('pulling', 'wait_release'), name='wait_pull'),
             Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
@@ -354,7 +358,7 @@ class ScriptedExpert:
             if step.kind == 'grip':
                 if (step.until is not None and step.until()) or self.counter >= step.ticks:
                     if step.name == 'release':
-                        away = [0.0, 0.08, 0.08] if self.code == 'T2' else [0.0, 0.0, 0.05]   # T2: up and away from the hand (+Y)
+                        away = [0.0, 0.06, 0.10] if self.code == 'T2' else [0.0, 0.0, 0.05]   # T2: up, then away from the hand (+Y)
                         self.retreat_point = self.mapper.setpoint + away
                     if step.name == 'close':
                         key = self._grasped_key()

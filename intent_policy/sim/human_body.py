@@ -8,7 +8,8 @@ position into a whole-body pose:
   - the torso leans at the waist towards the palm target just as far as the arm needs to reach it
     (continuous in the target, capped at `max_lean_deg`),
   - the active arm follows by analytic two-link IK (elbow down/out/back, palm facing down; `palm_up` turns the
-    forearm and hand palm up through the thumb-up position, for receiving an object),
+    forearm and hand palm up through the thumb-up position and bends the wrist so the upturned hand lies level,
+    for receiving an object into the palm),
   - a pointing hand aims its index finger ray (knuckle -> fingertip of the HY-Motion hand) at the target,
   - hand shapes change gradually through the blended meshes of the asset (`smooth=True`),
   - the idle arm hangs relaxed beside the body, the head tilts down towards the table.
@@ -186,12 +187,14 @@ class HumanBody:
             p = pose['palm']
         return p
 
-    def _arm(self, s: str, shoulder, target, palm_normal, fore_normal=None):
+    def _arm(self, s: str, shoulder, target, palm_normal, fore_normal=None, hand=None):
         """Two-link IK: elbow, wrist, reached palm and segment rotations of arm `s` towards `target` (`fore_normal`:
-        palm normal of the forearm and hand, default `palm_normal`)."""
+        palm normal of the forearm and hand, default `palm_normal`; `hand`: direction of the hand, default the
+        forearm's, the wrist is then placed so that the palm centre still reaches `target`)."""
         S, side = s.upper(), SIDE[s]
-        L1, L2 = self.L1[s], self.L2[s] + self.Lp[s]
-        v = np.asarray(target, float) - shoulder
+        L1, L2 = self.L1[s], self.L2[s] + (self.Lp[s] if hand is None else 0.0)
+        end = np.asarray(target, float) - (0.0 if hand is None else self.Lp[s] * np.asarray(hand, float))
+        v = end - shoulder
         D = float(np.clip(np.linalg.norm(v), abs(L1 - L2) + 1e-3, L1 + L2 - 1e-4))
         u = unit(v)
         a = np.arccos(np.clip((L1 ** 2 + D ** 2 - L2 ** 2) / (2 * L1 * D), -1.0, 1.0))
@@ -199,14 +202,29 @@ class HumanBody:
         w = hint - np.dot(hint, u) * u
         w = unit(w) if np.linalg.norm(w) > 1e-6 else np.array([0.0, 0.0, -1.0])
         elbow = shoulder + L1 * (np.cos(a) * u + np.sin(a) * w)
-        palm = shoulder + D * u
-        fore = unit(palm - elbow)
+        fore = unit(shoulder + D * u - elbow)
         wrist = elbow + self.L2[s] * fore
+        hand = fore if hand is None else np.asarray(hand, float)
         J = self.J
+        n = palm_normal if fore_normal is None else fore_normal
+        rest = frame(J[f'{S}_Wrist'] - J[f'{S}_Elbow'], PALM_DOWN).T @ self.R_yaw
         R_up = frame(elbow - shoulder, palm_normal) @ frame(J[f'{S}_Elbow'] - J[f'{S}_Shoulder'], PALM_DOWN).T @ self.R_yaw
-        R_fo = frame(fore, palm_normal if fore_normal is None else fore_normal) \
-            @ frame(J[f'{S}_Wrist'] - J[f'{S}_Elbow'], PALM_DOWN).T @ self.R_yaw
-        return dict(elbow=elbow, wrist=wrist, palm=palm, R_up=R_up, R_fo=R_fo)
+        return dict(elbow=elbow, wrist=wrist, palm=wrist + self.Lp[s] * hand, R_up=R_up, R_fo=frame(fore, n) @ rest,
+                    R_hand=frame(hand, n) @ rest)
+
+    def _level_hand(self, s: str, shoulder, target, palm_normal, fore_normal, arm: dict, palm_up: float) -> dict:
+        """Receiving: the wrist bends (at most MAX_WRIST_DEG) so that the upturned hand lies level, in proportion to
+        `palm_up`, like a hand held out flat for an object; the palm centre stays on `target` (the wrist moves)."""
+        for _ in range(3):                      # the level heading follows the re-solved forearm
+            fore = unit(arm['wrist'] - arm['elbow'])
+            flat = np.r_[fore[:2], 0.0]
+            if np.linalg.norm(flat) < 1e-6:
+                return arm
+            flat = unit(flat)
+            pitch = min(np.arccos(np.clip(np.dot(fore, flat), -1.0, 1.0)), np.radians(MAX_WRIST_DEG)) * palm_up
+            hand = rotation(np.cross(fore, flat), pitch) @ fore
+            arm = self._arm(s, shoulder, target, palm_normal, fore_normal, hand)
+        return arm
 
     def _aim_hand(self, arm: dict, target) -> np.ndarray:
         """Hand rotation that puts the index finger ray (knuckle -> tip) through `target`; the wrist bends at most
@@ -236,7 +254,8 @@ class HumanBody:
 
         With `point_at`, the active hand bends at the wrist so that its index finger ray points at that point (at
         most MAX_WRIST_DEG away from the forearm); otherwise it continues the forearm. `palm_up` in [0, 1] turns
-        the active forearm and hand from palm down (0) through thumb up to palm up (1).
+        the active forearm and hand from palm down (0) through thumb up to palm up (1), the hand levelling out as it
+        turns (the palm centre stays on the target).
         """
         palm = np.asarray(palm, float)
         J, spine = self.J, self.J['Spine1']
@@ -261,11 +280,13 @@ class HumanBody:
                 target = on_torso(J[f'{S}_Shoulder'] + self.R_yaw @ [-f, SIDE[s] * o, -dn])
                 normal = self.R_yaw @ np.array([0.0, -SIDE[s], 0.0])
             arm = self._arm(s, shoulder, target, normal, fore_normal)
+            if fore_normal is not None and point_at is None:
+                arm = self._level_hand(s, shoulder, target, normal, fore_normal, arm, palm_up)
             arm['shoulder'] = shoulder
             arms[s] = arm
             seg[f'{s}_upperarm'] = (shoulder, arm['R_up'])
             seg[f'{s}_forearm'] = (arm['elbow'], arm['R_fo'])
-            seg[f'{s}_hand'] = (arm['wrist'], arm['R_fo'])
+            seg[f'{s}_hand'] = (arm['wrist'], arm['R_hand'])
         a = arms[self.active]
         if point_at is not None:
             seg[f'{self.active}_hand'] = (a['wrist'], self._aim_hand(a, np.asarray(point_at, float)))

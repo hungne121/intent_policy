@@ -40,8 +40,11 @@ human:                              # HY-Motion 1.0 wooden mannequin (1.73 m), p
   max_lean_deg: 70                  # waist lean towards the palm target, only as far as the reach needs
   head_pitch_deg: 20                # head tilted down towards the table
   hand_rest: [0.49, -0.40, 0.66]    # forearm resting on the table edge in front of the right shoulder
-  hand_geom_radius: 0.045           # palm proxy radius (distance / safety queries)
-  proxy_radius: {palm: 0.045, forearm: 0.04, upperarm: 0.05, torso: 0.14, head: 0.10}
+  proxy_radius: {palm: 0.032, forearm: 0.04, upperarm: 0.05, torso: 0.14, head: 0.10}   # distance / safety proxies;
+                                    #   palm: sphere at the palm centre up to the palm surface (3.2 cm, measured on the
+                                    #   mesh), so it does not stick out of an upturned palm an object is put into (a
+                                    #   flat box / ellipsoid would fit better, but MuJoCo 3.3 box- and ellipsoid-mesh
+                                    #   distances glitch to 0)
   face_markers: true                # eyes + nose on the blank mannequin face so head orientation (gaze) reads in the images
 
 cameras:                            # look-at definitions; converted to MuJoCo xyaxes
