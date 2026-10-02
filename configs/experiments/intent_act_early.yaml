@@ -1,16 +1,17 @@
-# INTENT-ACT (docs/requirements/INTENT_ACT_GUIDE.md), episode set 2 = B / D: the expert responds early, before the
+# INTENT-ACT (docs/requirements/INTENT_ACT_GUIDE_v2.md), episode set 2 = B / D: the expert responds early, before the
 # gesture is complete (trigger evidence: target-agnostic staging from the cue onset, commit when the target becomes
 # predictable from the gesture, 40 % of the revealing motion; T4 also yields to the hand predicted 0.5 s ahead).
 # The same episodes train
 #   B: no intent      ./run.sh -m scripts.train_policy --config <this> --output-dir outputs/train/intent_act/B
-#   D: intent tokens  ./run.sh -m scripts.train_policy --config <this> --use-intent --output-dir outputs/train/intent_act/D
-# after `scripts/build_intent_labels.py --dataset-root <data.root>` has added intent.* to the dataset.
+#   D: intent tokens  ./run.sh -m scripts.train_policy --config <this> --use-intent --intent-source hindsight --output-dir outputs/train/intent_act/D
+# after `scripts/build_intent_labels.py --dataset-root <data.root> --sources hindsight perfect predicted`.
 # Identical to intent_act_late.yaml except the expert trigger and the dataset (same list, seeds, ACT, budget).
 experiment: intent_act_early
 phase: intent_act
 seed: 0
 policy:
-  config: configs/policy/act_restricted.yaml   # --action-mode continuous for the original ACT head
+  config: configs/policy/act_restricted.yaml   # restricted 9-action head, no CVAE (guide v2 §4.4)
+  use_task_token: true               # every model (A-D) gets the T1-T4 task token (guide v2 §5.1)
 intent:
   provider: labels                   # per-timestep intent labels intent.* (scripts/build_intent_labels.py)
   schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
@@ -35,6 +36,7 @@ training:
   batch_size: 32
   num_workers: 4
   log_every: 100
-  save_every: 2000
+  save_every: 10000                 # checkpoints 10k, 20k (guide v2 §5.2), all kept
   amp: false
+  keep_last: 0                      # keep every numbered checkpoint
   output_dir: outputs/train/intent_act/early

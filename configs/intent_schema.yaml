@@ -1,42 +1,76 @@
-# Intent schema (docs/requirements/INTENT_ACT_GUIDE.md §1.2): four components per timestep
-#   obj  What-target: where the human is directed (int, class `none`)
-#   act  What-action: what the HUMAN intends to do (int, class `none`; never a robot action)
-#   tau  When: [phase in [0, 1], tte = time to the event in s]
-#   xi   How: future keypoint waypoints (M, J, D) relative to the current keypoints
-# `none` is a data label (no intention); the UNKNOWN token (component dropout) is added by the model at index N.
-#
-# TODO(user): confirm the vocabularies and the sim mapping below (defaults proposed from the T1-T5 scene).
-# obj is a LOCATION (configs/layout.yaml): identical objects (B1/B1', C1/C2) stand on randomised slots, so an
-# object identity alone would not say which one; U1/U2 = the T3 cube spots in U (layout `U.blocks` order).
-obj_vocab: [none, S1, S2, S3, S4, S5, S6, U1, U2, U, P1, P2, H1, H2, U_cup, robot_zone, zone_edge]
-act_vocab: [none, take, give_to_robot, receive_from_robot, place, point_command, pass_by, reach_into, approach]
-n_waypoints: 8                     # M
-horizon_s: 1.2                     # H for xi
-keypoints: [r_wrist, r_index_tip, l_wrist, l_index_tip]   # J (simulator ground truth, sim/human_body.py)
-keypoint_dim: 3                    # 3D world frame from the simulator (no depth lifting needed)
+# Intent data contract v2 (docs/requirements/INTENT_ACT_GUIDE_v2.md §2 + §9). Every intent source (hindsight /
+# perfect / predicted, intent_policy/intent/sources.py) emits exactly these fields per frame; the policy never knows
+# which source produced them (intent_policy/intent/contract.py validates them).
+#   p_who (4) p_target (K) c_who (4) c_target (K) occupancy (7) tte (1) tte_std (1) phase (5) xi (M, J, 3)
+#   confidence (2) + task_id (T1-T4)
+# `none` (index 0 of targets / who) = "no intention"; no distribution is ever all-zero.
+version: 2
+# K = 17 target places (configs/layout.yaml). Identical objects stand on randomised slots, so the target is a place;
+# U1 / U2 = the T3 cube spots in U (layout `U.blocks` order).
+targets: [none, S1, S2, S3, S4, S5, S6, U1, U2, U, P1, P2, H1, H2, U_cup, robot_zone, zone_edge]
+target_kinds:                      # valid swaps stay within a kind (and, for objects, an occupied slot of the same kind)
+  object: [S1, S2, S3, S4, S5, S6, U1, U2]
+  place: [P1, P2, U_cup]
+  hand: [H1, H2]
+  region: [U, robot_zone, zone_edge]
+who: [none, robot, human, joint]
+phases: [rest, prepare, stroke, hold, retract]
+gestures: [rest, point, reach, palm_up, palm_forward]     # palm_forward reserved (no cancel gesture in the sim)
+tasks: [T1, T2, T3, T4]            # task_id: T5 counts as its base task, T4-neg as T4
+task_of_scenario: {t1_pick_place: T1, t2_handover: T2, t3_assist: T3, t4_interrupt: T4}
+n_waypoints: 8                     # M: xi at (m + 1) / M * horizon_s
+horizon_s: 1.2
+keypoints: [r_wrist, r_index_base, r_index_tip, l_wrist, l_index_base, l_index_tip]   # J = 6, sim ground truth
+keypoint_dim: 3
 tte_max_s: 3.0
-fps: 20                            # dataset / control rate (configs/robot.yaml control_hz)
-savgol: {window: 7, order: 2}      # keypoint smoothing before xi
+fps: 20
+savgol: {window: 7, order: 2}
+occupancy_margin_m: 0.05           # occupancy box = hand keypoints now + xi, grown by this margin
 
-# Segments from simulator ground truth (scripts/build_intent_labels.py --segments auto). One segment per intent
-# gesture of the scripted human (motion label -> act; obj = location of the motion's target_key):
-#   t_onset  start of the gesture's hand motion
-#   t_clear  end of that motion: the gesture is fully formed (finger on the target, hand at the zone / object),
-#            so the intention is unambiguous to an observer (the project's evidence point, 40 % of the motion, lies
-#            between t_onset and t_clear; the early expert commits there)
-#   t_event  end of the gesture itself (motion + its own hold, e.g. the pointing hold, the reach until the grasp)
-#   t_end    labels obj/act stay on through the listed `hold` stages that follow (the human keeps the gesture while
-#            waiting for the robot); phase = 1, tte = 0 after t_event. Default t_end = t_event (guide §1.4).
-# Consecutive gestures with the same (act, obj) form one segment (e.g. intrude_approach + intrude).
-# Stages not listed (rest, withdraw, withdraw_change of T5, ...) are `none`.
+# Ground-truth segments of simulated episodes (hindsight source; also the reference timeline of the demo):
+#   t_onset  start of the gesture's hand motion          t_clear  end of that motion (goal pose reached)
+#   t_event  end of the gesture itself (incl. its hold)  t_end    end of the following `hold` stages (waiting)
+# p_* follow the gesture over [t_onset, t_end]; phase: prepare [t_onset, evidence), stroke [evidence, t_clear),
+# hold [t_clear, t_end], retract during the `retract_labels` motion that follows, rest otherwise.
 sim_segments:
-  point_object: {act: point_command}
-  point_place: {act: point_command}
-  reach_out: {act: receive_from_robot, hold: [waiting_offer, take_object, pulling]}
-  reach_block: {act: take, hold: [lift_block, waiting_cup]}
-  move_over_cup: {act: place}
-  intrude_approach: {act: reach_into}
-  intrude: {act: reach_into, hold: [dwelling]}
-  reach_near: {act: approach, hold: [dwelling]}
-# T4-neg target keys (configs/scenarios/t4_interrupt.yaml negative_points) -> obj
+  point_object: {gesture: point, who: robot}
+  point_place: {gesture: point, who: robot}
+  reach_out: {gesture: palm_up, who: joint, hold: [waiting_offer, take_object, pulling]}
+  reach_block: {gesture: reach, who: human, hold: [lift_block, waiting_cup]}
+  move_over_cup: {gesture: reach, who: human}
+  intrude_approach: {gesture: reach, who: human}
+  intrude: {gesture: reach, who: human, hold: [dwelling]}
+  reach_near: {gesture: reach, who: human, hold: [dwelling]}
+retract_labels: [return_rest, withdraw, withdraw_change, withdraw_with_object]
+evidence_fraction: 0.4             # sim information-timing contract (ScriptedHuman.evidence_fraction)
 neg_target_obj: {U: U, edge: zone_edge}
+
+# IntentTracker (intent_policy/intent/tracker.py): committed intentions, kept until the robot completes them.
+tracker:
+  commit_thr: 0.8
+  hold_frames: 5
+  lift_m: 0.03                     # pick done: holding and TCP this much above where the grasp closed
+  place_radius_m: 0.08             # place done: gripper released with the TCP within this xy distance of the place
+  hand_radius_m: 0.10              # handover done: released with a human hand keypoint this close to the H zone
+
+# Holding flag from the measured gripper opening (RobotState.holding); calibrated against the sim grasp state by
+# scripts/calibrate_intent.py holding (precision / recall / latency in its report).
+holding: {open_min_m: 0.004, open_max_m: 0.060}
+
+# PerfectPerceptionSource (causal, clean keypoints). Values marked `measured` come from scripts/calibrate_intent.py.
+perfect:
+  cone_sigma_deg: 6.0              # measured: pointing-ray error (index base -> tip)
+  reach_tau_m: 0.05                # softmax temperature of the reach end point distance
+  switch_eps: 0.02
+  w_point: 1.0
+  w_reach: 1.0
+  onset_speed_m_s: 0.08            # gesture onset: active-hand speed above this (causal detector)
+  still_speed_m_s: 0.03            # below this the hand counts as still (hold / goal pose reached)
+  ramp_s: 1.1                      # measured: median (t_clear - t_onset) of the training episodes
+  p_max: 0.95                      # gesture-class probability reached after ramp_s
+
+# PredictedSource: same pipeline on noisy keypoints + a learned gesture classifier.
+predicted:
+  replicas: 3                      # noisy copies per episode (noise_scale drawn per replica)
+  noise_scale_range: [0.0, 0.0]    # TODO(user): measured noise not available yet -> 0 ("chưa hiệu chỉnh")
+  noise: {}                        # TODO(user): jitter_m, dropout_prob, latency_s, angle_deg from scripts/record_real.py

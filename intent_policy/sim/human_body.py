@@ -150,19 +150,19 @@ class HumanBody:
         return pose
 
     def keypoints(self, pose: dict, names) -> np.ndarray:
-        """World positions (len(names), 3) of named keypoints of a pose: `<s>_wrist` (hand segment pivot) and
-        `<s>_index_tip` (end of the HY-Motion index finger ray), s = r | l."""
+        """World positions (len(names), 3) of named keypoints of a pose: `<s>_wrist` (hand segment pivot),
+        `<s>_index_base` / `<s>_index_tip` (knuckle / end of the HY-Motion index finger ray), s = r | l."""
         out = []
         for name in names:
             s, part = name.split('_', 1)
             wrist, R = pose['segments'][f'{s}_hand']
             if part == 'wrist':
                 out.append(wrist)
-            elif part == 'index_tip':
+            elif part in ('index_base', 'index_tip'):
                 if self.index_ray is None:
                     raise ValueError('the skeleton has no index finger ray')
-                tip = self.index_ray[s][1] - self.J[f'{s.upper()}_Wrist']      # placed T-pose offset from the wrist
-                out.append(wrist + R @ self.R_yaw.T @ tip)                    # segment rotations act on T-pose axes
+                q = self.index_ray[s][0 if part == 'index_base' else 1] - self.J[f'{s.upper()}_Wrist']   # placed T-pose offset
+                out.append(wrist + R @ self.R_yaw.T @ q)                      # segment rotations act on T-pose axes
             else:
                 raise KeyError(f'unknown keypoint {name!r}')
         return np.asarray(out, float)

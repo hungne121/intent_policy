@@ -13,8 +13,9 @@ from lerobot.policies.act.configuration_act import ACTConfig
 ACTION_MODES = ('restricted', 'continuous')
 INTENT_PREFIX = 'observation.oracle.'
 INTENT_ARCHS = ('fusion', 'tokens')
-INTENT_COMPONENTS = ('obj', 'act', 'tau', 'xi')
-SCHEMA_KEYS = ('obj_vocab', 'act_vocab', 'n_waypoints', 'keypoints', 'keypoint_dim', 'tte_max_s')
+INTENT_GROUPS = ('semantic', 'spatial', 'memory', 'time', 'motion')
+INTENT_SOURCES = ('hindsight', 'perfect', 'predicted')
+SCHEMA_KEYS = ('targets', 'who', 'phases', 'tasks', 'n_waypoints', 'keypoints', 'keypoint_dim', 'tte_max_s')
 
 
 @PreTrainedConfig.register_subclass('hri_act')
@@ -32,8 +33,8 @@ class HRIACTConfig(ACTConfig):
     continuous_aux_weight: float = 0.0
     # Intention information. intent_arch 'fusion' (Phase 2+): numeric oracle features grouped into branches, each
     # with its own encoder; the branch embeddings are fused with the ACT latent h before the action heads.
-    # 'tokens' (INTENT_ACT_GUIDE.md): per-timestep intent labels (dataset keys intent.*) encoded as N extra tokens of
-    # the ACT transformer encoder and of the CVAE encoder (policies/intent_act.py).
+    # 'tokens' (INTENT_ACT_GUIDE_v2.md): the intent contract (dataset keys intent_<src>.*, read as intent.*) encoded as
+    # extra tokens of the ACT transformer encoder and of the CVAE encoder (policies/intent_act.py).
     use_intent: bool = False
     intent_arch: str = 'fusion'
     intent_branches: dict = field(default_factory=dict)      # branch name -> list of observation.oracle.* keys
@@ -42,14 +43,18 @@ class HRIACTConfig(ACTConfig):
     intent_hidden_dim: int = 128
     # Capacity-matched No-Information control: same encoders/fusion, intention inputs replaced by zeros.
     intent_mask: bool = False
-    # tokens: configs/intent_schema.yaml (vocabularies, waypoints, keypoints, tte_max_s), components fed to the
-    # model, intent tokens also in the CVAE encoder, component dropout (training only), FiLM fallback (§2.6).
+    # tokens: configs/intent_schema.yaml (contract sizes), the intent source the model was trained on (metadata: the
+    # model itself never knows the source), extra tokens also in the CVAE encoder, group dropout (training only),
+    # groups kept at evaluation (ablation by information type), FiLM fallback (§4.5).
     intent_schema: dict = field(default_factory=dict)
-    intent_components: list[str] = field(default_factory=lambda: list(INTENT_COMPONENTS))
+    intent_source: str = 'hindsight'
     intent_in_cvae: bool = True
-    intent_p_drop: float = 0.2
+    intent_p_drop_group: float = 0.15
     intent_p_drop_all: float = 0.1
+    intent_keep: list[str] = field(default_factory=lambda: list(INTENT_GROUPS))
     intent_film: bool = False
+    # Task token (T1-T4, §4.1): conditions every model on the task id when set (needs intent_schema['tasks']).
+    use_task_token: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -63,11 +68,15 @@ class HRIACTConfig(ACTConfig):
             missing = [k for k in SCHEMA_KEYS if k not in self.intent_schema]
             if missing:
                 raise ValueError(f'intent tokens need intent_schema fields {missing} (configs/intent_schema.yaml)')
-            if not self.intent_components or set(self.intent_components) - set(INTENT_COMPONENTS):
-                raise ValueError(f'intent_components must be a non-empty subset of {INTENT_COMPONENTS}')
+            if set(self.intent_keep) - set(INTENT_GROUPS):
+                raise ValueError(f'intent_keep must be a subset of {INTENT_GROUPS}')
+            if self.intent_source not in INTENT_SOURCES:
+                raise ValueError(f'intent_source must be one of {INTENT_SOURCES}')
             if self.intent_mask:
                 raise ValueError('intent_mask is a fusion control; not implemented for intent tokens')
-        elif self.use_intent:
+        if self.use_task_token and 'tasks' not in self.intent_schema:
+            raise ValueError('use_task_token needs intent_schema with the task list (configs/intent_schema.yaml)')
+        if self.use_intent and self.intent_arch == 'fusion':
             if not self.intent_branches or not all(self.intent_branches.values()):
                 raise ValueError('use_intent needs non-empty intent_branches')
             bad = [k for keys in self.intent_branches.values() for k in keys if not k.startswith(INTENT_PREFIX)]
@@ -89,6 +98,10 @@ class HRIACTConfig(ACTConfig):
         if not (self.use_intent and self.intent_arch == 'tokens'):
             return None
         s = self.intent_schema
-        return dict(n_obj=len(s['obj_vocab']), n_act=len(s['act_vocab']), n_waypoints=int(s['n_waypoints']),
-                    n_joints=len(s['keypoints']), kp_dim=int(s['keypoint_dim']), components=list(self.intent_components),
+        return dict(n_targets=len(s['targets']), n_who=len(s['who']), n_phases=len(s['phases']),
+                    n_waypoints=int(s['n_waypoints']), n_joints=len(s['keypoints']), kp_dim=int(s['keypoint_dim']),
                     in_cvae=self.intent_in_cvae, film=self.intent_film, tte_max=float(s['tte_max_s']))
+
+    @property
+    def n_tasks(self) -> int:
+        return len(self.intent_schema['tasks']) if self.use_task_token else 0

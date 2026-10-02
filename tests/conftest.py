@@ -45,7 +45,7 @@ def assert_monotonic(events):
 @pytest.fixture(scope='session')
 def labelled_dataset(tmp_path_factory, scenarios):
     """One T1 and one T2 expert episode recorded like scripts/collect_demos.py (keypoints, meta), then labelled by
-    scripts/build_intent_labels.py. Returns (root, segments, labels, episode meta)."""
+    scripts/build_intent_labels.py (all three sources). Returns (root, build result, episode meta)."""
     from intent_policy.benchmark.runner import ExpertAgent, ObservationConfig
     from intent_policy.intent.labels import load_schema
     from scripts.build_intent_labels import build_labels
@@ -68,5 +68,5 @@ def labelled_dataset(tmp_path_factory, scenarios):
         meta.append(episode_meta(len(meta), sid, 'test', seed, sc, rec, frames, info))
     ds.finalize()
     (root / 'meta/hri_episodes.jsonl').write_text('\n'.join(json.dumps(m, default=str) for m in meta) + '\n')
-    segments, labels, _ = build_labels(root)
-    return root, segments, labels, meta
+    res = build_labels(root, sources=('hindsight', 'perfect', 'predicted'))
+    return root, res, meta

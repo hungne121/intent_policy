@@ -41,9 +41,10 @@ class PolicyAgent(Agent):
                  eval_seeds: list[int] | None = None, controller_cfg=None, temporal_ensemble_coeff: float | str | None = 'config'):
         self.checkpoint = Path(checkpoint)
         self.policy, self.pre, self.post = load_policy(self.checkpoint, device)
-        if self.policy.config.use_intent and self.policy.config.intent_arch == 'tokens':
-            raise NotImplementedError('closed-loop rollouts of intent-token policies need online intent labels; '
-                                      'INTENT_ACT_GUIDE.md M3 evaluates them offline (scripts/demo_intent.py)')
+        cfg = self.policy.config
+        if (cfg.use_intent and cfg.intent_arch == 'tokens') or cfg.use_task_token:
+            raise NotImplementedError('closed-loop rollouts of task / intent-token policies need the task id and an online '
+                                      'intent source; INTENT_ACT_GUIDE_v2.md M5 evaluates them offline (scripts/demo_intent.py)')
         if temporal_ensemble_coeff != 'config':          # inference-time setting of the evaluation protocol
             self.policy.set_temporal_ensemble(temporal_ensemble_coeff)
         self.action_mode = self.policy.config.action_mode

@@ -10,8 +10,9 @@ With `intent.provider: oracle` (Phase 2) every frame also stores the oracle fiel
 (`observation.oracle.*`, intent/representation.py: target identity/validity/position, current and
 future hand position/velocity; never an input of the No-Information policy) and `hri.seed`,
 `hri.scenario_index`, `hri.noise_injected`. With `intent.schema` (intent tokens, INTENT_ACT_GUIDE.md) every frame
-stores `human.keypoints` [J, 3] (world-frame ground truth of the schema's keypoints, as rendered); the intent labels
-`intent.*` are added afterwards by scripts/build_intent_labels.py.
+stores `human.keypoints` [J, 3] (world-frame ground truth of the schema's keypoints, as rendered) and
+`hri.holding_gt` (the simulator's grasp state, only to evaluate the gripper-based holding detector); the intent
+fields are added afterwards by scripts/build_intent_labels.py.
 
 Only successful episodes are stored. Per-episode ground truth (scenario, seed, variation, expert and
 human stage segments, protocol-step times, evidence / commitment / intention-change events, metrics)
@@ -61,6 +62,7 @@ def features(obs_cfg, oracle_horizons: tuple | None = None, keypoints: list[str]
         f.update({k: {'dtype': 'int64', 'shape': (1,), 'names': [k.removeprefix('hri.')]} for k in HRI_FIELDS})
     if keypoints:
         f['human.keypoints'] = {'dtype': 'float32', 'shape': (len(keypoints), 3), 'names': ['keypoint', 'xyz']}
+        f['hri.holding_gt'] = {'dtype': 'int64', 'shape': (1,), 'names': ['holding_gt']}
     return f
 
 
@@ -100,6 +102,7 @@ def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index,
                        'hri.noise_injected': np.array([int(noisy)], np.int64)})
         if keypoints:
             fr['human.keypoints'] = scenario.human_keypoints(keypoints).astype(np.float32)
+            fr['hri.holding_gt'] = np.array([int(any(scenario.grasp_state.values()))], np.int64)
         frames.append(fr)
         stages.append(decision.extras['expert_stage'])
         humans.append(scenario.human.stage)

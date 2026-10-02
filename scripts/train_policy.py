@@ -5,12 +5,16 @@ the ACT pre/post-processors (normalisation from dataset stats), ACTPolicy.get_op
 and save_pretrained. The only project-specific pieces are carrying the restricted label
 (`restricted_action`, not an ACT input/output feature) around the preprocessor and, when the
 policy config sets `use_intent`, declaring the oracle intention features as extra inputs (fusion) or carrying the
-intent labels `intent.*` around the preprocessor (intent tokens, docs/requirements/INTENT_ACT_GUIDE.md §2.7):
-  --use-intent             intent tokens from configs/intent_schema.yaml (default off: the dataset's intent.* are
-                           ignored, plain LeRobot ACT)
-  --intent-components      obj,act,tau,xi      --[no-]intent-in-cvae   --p-drop 0.2   --p-drop-all 0.1
-  --action-mode            continuous | discrete (= restricted 9-action head)   --intent-film
-xi is normalised with mean / std over the training episodes (std >= 1e-2), stored in the model.
+intent contract around the preprocessor (intent tokens, docs/requirements/INTENT_ACT_GUIDE_v2.md §5.2):
+  --[no-]use-task-token    task token T1-T4 (default: experiment `policy.use_task_token`, else off)
+  --use-intent             intent tokens (default off: the dataset's intent_* columns are ignored)
+  --intent-source          hindsight | perfect | predicted (columns intent_hs / intent_pp / intent_pr<r>, read as intent.*)
+  --intent-source-mix      e.g. predicted:0.7,perfect:0.3 (source drawn per sample; predicted: replica drawn uniformly)
+  --noise-scale-range      must match the range the predicted replicas were built with (schema predicted.*)
+  --p-drop-group 0.15  --p-drop-all 0.1  --intent-keep semantic,spatial,memory,time,motion  --[no-]intent-in-cvae
+  --action-mode continuous | discrete (= restricted 9-action head)   --intent-film   --n-action-steps   --ckpt-rule last
+xi is normalised with mean / std over the training episodes (std >= 1e-2) of the (first) source, stored in the model.
+Metadata records the full config, seed, git commit and the checkpoint rule.
 
 Checkpoints: <output>/checkpoints/<step>/{pretrained_model, training_state.pt}; the newest
 `--keep-last` are kept and the final model is also written to checkpoints/last. `--resume`
@@ -19,6 +23,7 @@ also to extend a finished run with a larger `--steps`.
 """
 import argparse
 import json
+import subprocess
 import platform
 import random
 import shutil
@@ -39,7 +44,10 @@ from intent_policy.intent.labels import SCHEMA_PATH, load_schema
 from intent_policy.policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
 from intent_policy.utils import load_yaml, resolve
 
-INTENT_LABEL_PREFIX = 'intent.'
+INTENT_COLUMN_PREFIX = 'intent_'
+TASK_ID = 'hri.task_id'
+SOURCE_PREFIX = {'hindsight': ['intent_hs'], 'perfect': ['intent_pp'], 'predicted': None}    # predicted: intent_pr<r>
+CONTRACT_KEYS = ('targets', 'who', 'phases', 'tasks', 'n_waypoints', 'keypoints', 'keypoint_dim', 'fps', 'horizon_s', 'tte_max_s')
 
 
 def intent_keys(policy_yaml: dict) -> list[str]:
@@ -54,15 +62,79 @@ def uses_intent_tokens(policy_yaml: dict) -> bool:
     return bool(policy_yaml.get('use_intent')) and policy_yaml.get('intent_arch') == 'tokens'
 
 
-def check_intent_dataset(schema: dict, meta: LeRobotDatasetMetadata) -> None:
-    """The dataset must carry intent labels built with the same vocabularies / waypoint layout."""
-    missing = [k for k in ('intent.obj', 'intent.act', 'intent.phase', 'intent.tte', 'intent.xi') if k not in meta.features]
-    if missing:
-        raise KeyError(f'intent labels missing from the dataset: {missing} (run scripts/build_intent_labels.py)')
+def source_prefixes(source: str, meta: LeRobotDatasetMetadata) -> list[str]:
+    """Dataset column prefixes of an intent source (predicted: every replica present)."""
+    if source == 'predicted':
+        out = sorted({k.split('.')[0] for k in meta.features if k.startswith('intent_pr')})
+    else:
+        out = [p for p in SOURCE_PREFIX[source] if f'{p}.p_target' in meta.features]
+    if not out:
+        raise KeyError(f'intent source {source!r} missing from the dataset (run scripts/build_intent_labels.py --sources {source})')
+    return out
+
+
+def parse_mix(source: str, mix: str | None) -> dict[str, float]:
+    if not mix:
+        return {source: 1.0}
+    out = {}
+    for item in mix.split(','):
+        name, w = item.split(':')
+        if name.strip() not in SOURCE_PREFIX:
+            raise ValueError(f'unknown intent source {name!r} in --intent-source-mix')
+        out[name.strip()] = float(w)
+    return out
+
+
+def check_intent_dataset(schema: dict, meta: LeRobotDatasetMetadata, sources: list[str] = ('hindsight',)) -> None:
+    """The dataset must carry the contract of every requested source, built with the same schema sizes."""
+    for src in sources:
+        source_prefixes(src, meta)
+    if TASK_ID not in meta.features:
+        raise KeyError(f'{TASK_ID} missing from the dataset (run scripts/build_intent_labels.py)')
     built = json.loads((meta.root / 'meta/intent_schema.json').read_text())
-    for k in ('obj_vocab', 'act_vocab', 'n_waypoints', 'keypoints', 'keypoint_dim', 'fps', 'horizon_s', 'tte_max_s'):
+    for k in CONTRACT_KEYS:
         if built.get(k) != schema.get(k):
-            raise ValueError(f'intent schema {k!r} differs from the one the labels were built with: {schema.get(k)} != {built.get(k)}')
+            raise ValueError(f'intent schema {k!r} differs from the one the dataset was built with: {schema.get(k)} != {built.get(k)}')
+
+
+class IntentSelector:
+    """Picks, per sample, the intent source (weights of --intent-source-mix; predicted: a replica uniformly) and
+    exposes its columns as intent.<field>. Evaluation uses the first source (first replica) only."""
+
+    def __init__(self, mix: dict[str, list[str]], weights: dict[str, float], seed: int):
+        self.names = list(mix)
+        self.prefixes = mix
+        w = np.array([weights[n] for n in self.names], float)
+        self.p = torch.as_tensor(w / w.sum())
+        self.g = torch.Generator().manual_seed(seed + 17)
+
+    @property
+    def primary(self) -> str:
+        return self.prefixes[self.names[0]][0]
+
+    def select(self, cols: dict, train: bool) -> dict:
+        fields = sorted({k.split('.', 1)[1] for k in cols if k.startswith(self.primary + '.')})
+        b = cols[f'{self.primary}.p_target'].shape[0]
+        if not train or (len(self.names) == 1 and len(self.prefixes[self.names[0]]) == 1):
+            return {f'intent.{f}': cols[f'{self.primary}.{f}'] for f in fields}
+        choice = []
+        for src in torch.multinomial(self.p, b, replacement=True, generator=self.g).tolist():
+            reps = self.prefixes[self.names[src]]
+            choice.append(reps[int(torch.randint(len(reps), (1,), generator=self.g))])
+        out = {}
+        for f in fields:
+            stack = {p: cols[f'{p}.{f}'] for p in set(choice)}
+            out[f'intent.{f}'] = torch.stack([stack[p][i] for i, p in enumerate(choice)])
+        return out
+
+
+def git_commit() -> str:
+    try:
+        sha = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=resolve('.'), capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(['git', 'status', '--porcelain'], cwd=resolve('.'), capture_output=True, text=True).stdout.strip()
+        return sha + ('-dirty' if dirty else '')
+    except (OSError, subprocess.CalledProcessError):
+        return 'unknown'
 
 
 def build_config(policy_yaml: dict, meta: LeRobotDatasetMetadata, device: str, cameras: list[str]) -> HRIACTConfig:
@@ -70,8 +142,12 @@ def build_config(policy_yaml: dict, meta: LeRobotDatasetMetadata, device: str, c
     image_keys = [f'observation.images.{c}' for c in cameras]
     kwargs = {k: v for k, v in policy_yaml.items() if k != 'type'}
     if uses_intent_tokens(policy_yaml):
-        check_intent_dataset(policy_yaml['intent_schema'], meta)
-    elif policy_yaml.get('use_intent'):
+        check_intent_dataset(policy_yaml['intent_schema'], meta, list(parse_mix(policy_yaml.get('intent_source', 'hindsight'),
+                                                                                policy_yaml.pop('intent_source_mix', None))))
+        kwargs.pop('intent_source_mix', None)
+    elif policy_yaml.get('use_task_token') and TASK_ID not in meta.features:
+        raise KeyError(f'{TASK_ID} missing from the dataset (run scripts/build_intent_labels.py)')
+    if policy_yaml.get('use_intent') and policy_yaml.get('intent_arch', 'fusion') == 'fusion':
         branches = policy_yaml.get('intent_branches') or {}
         missing = {k for keys in branches.values() for k in keys} - set(meta.features)
         if missing:
@@ -106,44 +182,52 @@ class EpochSampler(torch.utils.data.Sampler):
         return self.n - self.start
 
 
-def run_batch(policy, preprocessor, batch, device, label_key, amp: bool = False):
-    # the restricted label and the intent labels are not ACT features: bypass the processor
-    extra = {k: batch.pop(k) for k in list(batch) if k == label_key or k.startswith(INTENT_LABEL_PREFIX)}
+def run_batch(policy, preprocessor, batch, device, label_key, amp: bool = False, selector: IntentSelector | None = None):
+    # the restricted label, the task id and the intent columns are not ACT features: bypass the processor
+    extra = {k: batch.pop(k) for k in list(batch) if k in (label_key, TASK_ID) or k.startswith(INTENT_COLUMN_PREFIX)}
     batch = preprocessor(batch)
-    batch.update({k: v.to(device) for k, v in extra.items()})
+    if selector is not None:
+        extra.update(selector.select(extra, policy.training))
+    batch.update({k: v.to(device) for k, v in extra.items() if not k.startswith(INTENT_COLUMN_PREFIX)})
     with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=amp):
         return policy.forward(batch)
 
 
 @torch.no_grad()
-def evaluate(policy, preprocessor, loader, device, label_key, amp, max_batches=20) -> dict:
+def evaluate(policy, preprocessor, loader, device, label_key, amp, max_batches=20, selector=None) -> dict:
     policy.eval()
     acc = {}
     for i, batch in enumerate(loader):
         if i >= max_batches:
             break
-        loss, info = run_batch(policy, preprocessor, batch, device, label_key, amp)
+        loss, info = run_batch(policy, preprocessor, batch, device, label_key, amp, selector)
         for k, v in {'loss': loss.item(), **info}.items():
             acc.setdefault(k, []).append(v)
     policy.train()
     return {f'val_{k}': float(np.mean(v)) for k, v in acc.items()}
 
 
-def xi_stats(ds: LeRobotDataset) -> tuple[np.ndarray, np.ndarray]:
-    """Mean / std of raw xi over every frame of `ds` (the training episodes)."""
-    xi = np.asarray(ds.hf_dataset.with_format('numpy', columns=['intent.xi'])['intent.xi'], np.float64)
+def xi_stats(ds: LeRobotDataset, prefix: str = 'intent_hs') -> tuple[np.ndarray, np.ndarray]:
+    """Mean / std of raw xi of one source over every frame of `ds` (the training episodes)."""
+    col = f'{prefix}.xi'
+    xi = np.asarray(ds.hf_dataset.with_format('numpy', columns=[col])[col], np.float64)
     return xi.mean(0), xi.std(0)
 
 
 def guide_overrides(args) -> dict:
-    """INTENT_ACT_GUIDE.md §2.7 flags -> policy config fields (only the flags that were given)."""
+    """INTENT_ACT_GUIDE_v2.md §5.2 flags -> policy config fields (only the flags that were given)."""
     out = {}
     if args.use_intent:
         out.update(use_intent=True, intent_arch='tokens', intent_schema=load_schema(args.intent_schema))
-    if args.intent_components is not None:
-        out['intent_components'] = [c.strip() for c in args.intent_components.split(',') if c.strip()]
-    for flag, key in (('intent_in_cvae', 'intent_in_cvae'), ('p_drop', 'intent_p_drop'), ('p_drop_all', 'intent_p_drop_all'),
-                      ('intent_film', 'intent_film')):
+    if args.use_task_token is not None:
+        out['use_task_token'] = args.use_task_token
+        if args.use_task_token and 'intent_schema' not in out:
+            out['intent_schema'] = load_schema(args.intent_schema)
+    if args.intent_keep is not None:
+        out['intent_keep'] = [g.strip() for g in args.intent_keep.split(',') if g.strip()]
+    for flag, key in (('intent_source', 'intent_source'), ('intent_source_mix', 'intent_source_mix'),
+                      ('intent_in_cvae', 'intent_in_cvae'), ('p_drop_group', 'intent_p_drop_group'),
+                      ('p_drop_all', 'intent_p_drop_all'), ('intent_film', 'intent_film'), ('n_action_steps', 'n_action_steps')):
         if getattr(args, flag) is not None:
             out[key] = getattr(args, flag)
     if args.action_mode is not None:
@@ -185,22 +269,32 @@ def main():
     p.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     p.add_argument('--val-every', type=int, default=10, help='every k-th episode is held out for validation')
     p.add_argument('--save-every', type=int, help='override training.save_every')
-    p.add_argument('--keep-last', type=int, default=2, help='numbered checkpoints to keep')
+    p.add_argument('--keep-last', type=int, help='numbered checkpoints to keep (0: all; default training.keep_last or 2)')
     p.add_argument('--amp', action=argparse.BooleanOptionalAction, default=None, help='fp16 autocast (default: training.amp)')
     p.add_argument('--video-backend', help='LeRobot video backend (torchcodec | pyav)')
     p.add_argument('--resume', action='store_true', help='continue from the newest checkpoint in --output-dir')
-    g = p.add_argument_group('intent tokens (docs/requirements/INTENT_ACT_GUIDE.md §2.7)')
+    g = p.add_argument_group('task / intent tokens (docs/requirements/INTENT_ACT_GUIDE_v2.md §5.2)')
+    g.add_argument('--use-task-token', '--use_task_token', action=argparse.BooleanOptionalAction, default=None,
+                   help='task token T1-T4 (default: experiment policy.use_task_token, else off)')
     g.add_argument('--use-intent', '--use_intent', action='store_true', help='intent tokens (default: off)')
     g.add_argument('--intent-schema', default=SCHEMA_PATH)
-    g.add_argument('--intent-components', '--intent_components', help='subset of obj,act,tau,xi (default: all)')
+    g.add_argument('--intent-source', '--intent_source', choices=['hindsight', 'perfect', 'predicted'],
+                   help='intent source (default: hindsight)')
+    g.add_argument('--intent-source-mix', '--intent_source_mix', help='e.g. predicted:0.7,perfect:0.3')
+    g.add_argument('--noise-scale-range', '--noise_scale_range',
+                   help='lo,hi: must equal the predicted replicas\' build range (meta/intent_schema.json)')
     g.add_argument('--intent-in-cvae', '--intent_in_cvae', action=argparse.BooleanOptionalAction, default=None,
-                   help='intent tokens also in the CVAE encoder (default: on)')
-    g.add_argument('--p-drop', '--p_drop', type=float, help='per-component dropout probability (default 0.2)')
+                   help='extra tokens also in the CVAE encoder (default: on; unused by the restricted head)')
+    g.add_argument('--p-drop-group', '--p_drop_group', type=float, help='per-group dropout probability (default 0.15)')
     g.add_argument('--p-drop-all', '--p_drop_all', type=float, help='drop-all-intent probability (default 0.1)')
+    g.add_argument('--intent-keep', '--intent_keep', help='groups kept at evaluation (default: all)')
     g.add_argument('--action-mode', '--action_mode', choices=['continuous', 'discrete', 'restricted'],
                    help='override the policy action mode (discrete = restricted 9-action head)')
     g.add_argument('--intent-film', '--intent_film', action=argparse.BooleanOptionalAction, default=None,
                    help='FiLM fallback on the backbone features (default: off)')
+    g.add_argument('--n-action-steps', '--n_action_steps', type=int, help='override the policy n_action_steps')
+    g.add_argument('--ckpt-rule', '--ckpt_rule', default='last', choices=['last'],
+                   help='checkpoint selection rule recorded in the metadata (never chosen on test results)')
     args = p.parse_args()
 
     if args.device == 'cuda' and not torch.cuda.is_available():
@@ -212,9 +306,12 @@ def main():
     for item in args.policy_set:
         key, value = item.split('=', 1)
         policy_yaml[key] = yaml.safe_load(value)
+    if args.use_task_token is None and exp['policy'].get('use_task_token') is not None:
+        args.use_task_token = bool(exp['policy']['use_task_token'])
     policy_yaml.update(guide_overrides(args))
     if isinstance(policy_yaml.get('intent_schema'), str):
         policy_yaml['intent_schema'] = load_schema(policy_yaml['intent_schema'])
+    mix_spec = policy_yaml.get('intent_source_mix')
     root = resolve(args.dataset_root or exp['data']['root'])
     repo_id = args.repo_id or exp['data']['repo_id']
     out = resolve(args.output_dir or tr['output_dir'])
@@ -222,6 +319,7 @@ def main():
     batch_size = args.batch_size or tr['batch_size']
     num_workers = tr['num_workers'] if args.num_workers is None else args.num_workers
     save_every = args.save_every or tr['save_every']
+    keep_last = args.keep_last if args.keep_last is not None else int(tr.get('keep_last', 2))
     amp = (tr.get('amp', False) if args.amp is None else args.amp) and args.device == 'cuda'
     seed = int(exp['seed'] if args.seed is None else args.seed)
     random.seed(seed), np.random.seed(seed), torch.manual_seed(seed)
@@ -245,8 +343,16 @@ def main():
                                              **loader_kw) if val_ds else None
 
     policy = HRIACTPolicy(cfg).to(args.device)
+    selector = None
     if policy.intent_encoder is not None:
-        mean, std = xi_stats(train_ds)
+        weights = parse_mix(cfg.intent_source, mix_spec)
+        selector = IntentSelector({s: source_prefixes(s, meta) for s in weights}, weights, seed)
+        if args.noise_scale_range and 'predicted' in weights:
+            built = json.loads((root / 'meta/intent_schema.json').read_text())['predicted']['noise_scale_range']
+            if [float(x) for x in args.noise_scale_range.split(',')] != [float(x) for x in built]:
+                raise SystemExit(f'--noise-scale-range {args.noise_scale_range} != the dataset build range {built}: rebuild '
+                                 'the predicted replicas (configs/intent_schema.yaml predicted.noise_scale_range)')
+        mean, std = xi_stats(train_ds, selector.primary)
         policy.intent_encoder.set_xi_stats(mean, std)
     preprocessor, postprocessor = make_hri_act_pre_post_processors(cfg, dataset_stats=meta.stats)
     optimizer = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
@@ -266,7 +372,8 @@ def main():
         log_path.write_text('')
     gpu = torch.cuda.get_device_name(0) if args.device == 'cuda' else 'cpu'
     print(f'train episodes {len(train_eps)} ({len(train_ds)} frames), val episodes {len(val_eps)}; mode={cfg.action_mode}; '
-          f'intent={cfg.use_intent and cfg.intent_arch}; params={sum(p.numel() for p in policy.parameters()) / 1e6:.1f}M; steps={steps}; '
+          f'intent={cfg.use_intent and cfg.intent_arch}{"/" + cfg.intent_source if selector else ""}; task_token={cfg.use_task_token}; '
+          f'cvae={"used" if cfg.use_vae else "unused (restricted head)"}; params={sum(p.numel() for p in policy.parameters()) / 1e6:.1f}M; steps={steps}; '
           f'batch={batch_size}; amp={amp}; device={gpu}', flush=True)
 
     def metadata(tag_step: int, last_info: dict) -> dict:
@@ -280,9 +387,13 @@ def main():
                                   lerobot=getattr(lerobot, '__version__', 'unknown')),
                     hardware=dict(device=gpu, host=platform.node()),
                     intent_provider=exp['intent']['provider'], intent_features=intent_keys(policy_yaml),
-                    intent_tokens=dict(components=list(cfg.intent_components), in_cvae=cfg.intent_in_cvae,
-                                       p_drop=cfg.intent_p_drop, p_drop_all=cfg.intent_p_drop_all, film=cfg.intent_film)
+                    intent_tokens=dict(source=cfg.intent_source, source_mix=mix_spec, columns=selector.prefixes if selector else None,
+                                       in_cvae=cfg.intent_in_cvae, cvae_used=bool(cfg.use_vae), p_drop_group=cfg.intent_p_drop_group,
+                                       p_drop_all=cfg.intent_p_drop_all, keep=list(cfg.intent_keep), film=cfg.intent_film,
+                                       calibrated=not (cfg.intent_source == 'predicted' or 'predicted' in str(mix_spec)) or
+                                       bool(cfg.intent_schema.get('predicted', {}).get('noise')))
                     if uses_intent_tokens(policy_yaml) else None,
+                    use_task_token=cfg.use_task_token, git_commit=git_commit(), ckpt_rule=args.ckpt_rule, keep_last=keep_last,
                     policy_overrides=list(args.policy_set) + [f'{k}={v}' for k, v in guide_overrides(args).items()
                                                               if k != 'intent_schema'])
 
@@ -297,7 +408,7 @@ def main():
                             rng=rng_state(), step=step, epoch=epoch, consumed=consumed,
                             elapsed_s=elapsed0 + time.time() - t0), ckpt_dir / 'training_state.pt')
             numbered = sorted(p for p in (out / 'checkpoints').glob('[0-9]*'))
-            for old in numbered[:-args.keep_last]:
+            for old in (numbered[:-keep_last] if keep_last else []):
                 shutil.rmtree(old)
         return model_dir
 
@@ -306,7 +417,7 @@ def main():
     while step < steps:
         sampler.set_position(epoch, consumed)
         for batch in train_loader:
-            loss, info = run_batch(policy, preprocessor, batch, args.device, label_key, amp)
+            loss, info = run_batch(policy, preprocessor, batch, args.device, label_key, amp, selector)
             optimizer.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
@@ -321,7 +432,7 @@ def main():
                 last = {k: float(np.mean(v)) for k, v in info_acc.items()}
                 info_acc = {}
                 if val_loader is not None and (step % (tr['log_every'] * 10) == 0 or step == steps):
-                    last.update(evaluate(policy, preprocessor, val_loader, args.device, label_key, amp))
+                    last.update(evaluate(policy, preprocessor, val_loader, args.device, label_key, amp, selector=selector))
                 elapsed = elapsed0 + time.time() - t0
                 last.update(step=step, epoch=epoch, elapsed_s=round(elapsed, 1), steps_per_s=round(step / max(elapsed, 1e-6), 2))
                 with open(log_path, 'a') as f:
