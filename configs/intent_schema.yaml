@@ -55,18 +55,18 @@ tracker:
 
 # Holding flag from the measured gripper opening (RobotState.holding); calibrated against the sim grasp state by
 # scripts/calibrate_intent.py holding (precision / recall / latency in its report).
-holding: {open_min_m: 0.004, open_max_m: 0.060}
+holding: {open_min_m: -0.005, open_max_m: 0.05, steady_m: 0.003, steady_frames: 1}
 
 # PerfectPerceptionSource (causal, clean keypoints). Values marked `measured` come from scripts/calibrate_intent.py.
 perfect:
-  cone_sigma_deg: 6.0              # measured: pointing-ray error (index base -> tip)
+  cone_sigma_deg: 4.61              # measured: pointing-ray error (index base -> tip), see intent_calibration
   reach_tau_m: 0.05                # softmax temperature of the reach end point distance
   switch_eps: 0.02
   w_point: 1.0
   w_reach: 1.0
   onset_speed_m_s: 0.08            # gesture onset: active-hand speed above this (causal detector)
   still_speed_m_s: 0.03            # below this the hand counts as still (hold / goal pose reached)
-  ramp_s: 1.1                      # measured: median (t_clear - t_onset) of the training episodes
+  ramp_s: 1.15                      # measured: median (t_clear - t_onset) of the training episodes
   p_max: 0.95                      # gesture-class probability reached after ramp_s
 
 # PredictedSource: same pipeline on noisy keypoints + a learned gesture classifier.

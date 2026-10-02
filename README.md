@@ -258,11 +258,23 @@ MUJOCO_GL=glfw ./run.sh -m scripts.view_scene --list configs/scenario_lists/demo
 ./run.sh -m scripts.reproduce_episode outputs/eval/foundation_baseline/episodes/<scenario>/<episode>.json.gz
 ```
 
-INTENT-ACT ([docs/requirements/INTENT_ACT_GUIDE.md](docs/requirements/INTENT_ACT_GUIDE.md)): intent {obj, act, tau, xi}
-được đưa vào ACT dưới dạng token. Có hai bộ episode: late (`configs/experiments/intent_act_late.yaml`, A/C) và early
-(`intent_act_early.yaml`, B/D). Sau khi thu, `scripts.build_intent_labels` thêm cột `intent.*` vào chính dataset.
-`scripts.train_policy --use-intent` train C/D. `scripts.demo_intent` làm demo phản thực tế (swap/drop thành phần).
-Chi tiết và lệnh: [docs/reports/INTENT_ACT_IMPLEMENTATION.md](docs/reports/INTENT_ACT_IMPLEMENTATION.md).
+INTENT-ACT v2 ([docs/requirements/INTENT_ACT_GUIDE_v2.md](docs/requirements/INTENT_ACT_GUIDE_v2.md)): ACT nhận thêm
+token nhiệm vụ (T1–T4) và token intent theo một hợp đồng dữ liệu cố định (`intent_policy/intent/contract.py`). Hợp đồng
+gồm `p_who`, `p_target`, `c_who`, `c_target`, `occupancy`, `tte`, `tte_std`, `phase`, `xi` và `confidence`, do ba nguồn
+sinh ra:
+- hindsight: ground truth của mô phỏng, biết tương lai, chỉ dùng làm trần;
+- perfect: nhân quả, keypoint sạch;
+- predicted: keypoint có nhiễu và bộ phân loại cử chỉ học được.
+
+Ba nguồn dùng chung `IntentTracker` (bộ nhớ mục tiêu đã chốt) và cờ cầm vật lấy từ độ mở gripper. Quy trình:
+1. Thu hai bộ episode: `configs/experiments/intent_act_late.yaml` (A/C) và `intent_act_early.yaml` (B/D).
+2. `scripts.build_intent_labels --sources hindsight perfect predicted` ghi các cột `intent_*` và `hri.task_id` vào
+   chính dataset.
+3. Đo các hằng số cảm nhận bằng `scripts.calibrate_intent`.
+4. Train C/D bằng `scripts.train_policy --use-intent --intent-source ...`.
+5. Demo swap/drop theo nhóm thông tin bằng `scripts.demo_intent`; kết quả ghi vào `metrics.json`.
+
+Để đo nhiễu keypoint thật (RGB-D + MediaPipe), dùng `scripts.record_real`.
 
 Phase 2 dùng expert `evidence` (`configs/experiments/phase2_oracle.yaml`, protocol
 `configs/benchmark/phase2_protocol_v1.yaml` = danh sách eval). Preview trước khi thu:

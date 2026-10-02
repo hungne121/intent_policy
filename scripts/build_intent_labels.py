@@ -20,6 +20,7 @@ from pathlib import Path
 
 import datasets
 import numpy as np
+import pyarrow as pa
 import pyarrow.parquet as pq
 from lerobot.datasets.feature_utils import get_hf_features_from_features
 
@@ -40,11 +41,37 @@ def data_files(root: Path) -> list[Path]:
     return files
 
 
-def write_parquet(columns: dict, path: Path, features: dict) -> None:
-    """Rewrite one data file with the dataset's (LeRobot) feature schema."""
-    hf = get_hf_features_from_features(features)
-    table = datasets.Dataset.from_dict({k: columns[k] for k in hf}, features=hf, split='train').with_format('arrow')[:]
-    pq.write_table(table, path, compression='snappy', use_dictionary=True)
+def column_numpy(table: pa.Table, name: str) -> np.ndarray:
+    """A (nested / extension) list column as a dense numpy array (N, *shape) without Python objects."""
+    arr = table.column(name).combine_chunks()
+    if isinstance(arr, pa.ExtensionArray):
+        arr = arr.storage
+    shape = []
+    while pa.types.is_list(arr.type) or pa.types.is_fixed_size_list(arr.type):
+        n = len(arr)
+        arr = arr.flatten()
+        shape.append(len(arr) // max(n, 1))
+    return arr.to_numpy(zero_copy_only=False).reshape((table.num_rows, *shape))
+
+
+def to_arrow(values: np.ndarray, pa_type: pa.DataType) -> pa.Array:
+    """(N, *shape) numpy -> Arrow array of the HF feature type (Value, fixed-size list or ArrayND extension)."""
+    if isinstance(pa_type, pa.ExtensionType):
+        arr = pa.array(values.reshape(-1))
+        for size in reversed(values.shape[1:]):
+            arr = pa.ListArray.from_arrays(pa.array(np.arange(0, len(arr) + 1, size, dtype=np.int32)), arr)
+        return pa.ExtensionArray.from_storage(pa_type, arr)
+    if pa.types.is_fixed_size_list(pa_type):
+        return pa.FixedSizeListArray.from_arrays(pa.array(values.reshape(-1), type=pa_type.value_type), pa_type.list_size)
+    return pa.array(values.reshape(-1), type=pa_type)
+
+
+def write_parquet(table: pa.Table, new: dict[str, np.ndarray], path: Path, features: dict) -> None:
+    """Rewrite one data file: the kept columns of `table` plus the `new` numpy columns, with the dataset's (LeRobot /
+    HF) feature schema."""
+    schema = datasets.Features(get_hf_features_from_features(features)).arrow_schema
+    arrays = [to_arrow(new[f.name], f.type) if f.name in new else table.column(f.name) for f in schema]
+    pq.write_table(pa.Table.from_arrays(arrays, schema=schema), path, compression='snappy', use_dictionary=True)
 
 
 def load_episodes(root: Path) -> dict[int, dict]:
@@ -54,7 +81,8 @@ def load_episodes(root: Path) -> dict[int, dict]:
     tables = [pq.read_table(f, columns=[c for c in cols if c in pq.read_schema(f).names]) for f in files]
     if not all('human.keypoints' in t.column_names for t in tables):
         raise SystemExit('the dataset has no human.keypoints (collect with an experiment config that sets intent.schema)')
-    cat = lambda c: np.concatenate([np.asarray(t.column(c).to_pylist()) for t in tables])
+    cat = lambda c: np.concatenate([column_numpy(t, c) if t.schema.field(c).type.num_fields or isinstance(t.schema.field(c).type, pa.ExtensionType)
+                                    else t.column(c).to_numpy() for t in tables])
     ep, fr = cat('episode_index'), cat('frame_index')
     kp, st = cat('human.keypoints').astype(np.float32), cat('observation.state').astype(np.float32)
     gt = cat('hri.holding_gt').reshape(-1) if all('hri.holding_gt' in t.column_names for t in tables) else None
@@ -127,12 +155,19 @@ def build_labels(root: Path, schema_path=SCHEMA_PATH, sources=('hindsight',), se
     features[TASK_ID] = {'dtype': 'int64', 'shape': (1,), 'names': ['task_id']}
     tuples = {k: {**v, 'shape': tuple(v['shape'])} for k, v in features.items()}
     for f in data_files(root):
-        cols = pq.read_table(f).to_pydict()
+        table = pq.read_table(f)
+        ep_col, fr_col = table.column('episode_index').to_numpy(), table.column('frame_index').to_numpy()
+        new = {TASK_ID: np.asarray([task_ids[int(e)] for e in ep_col], np.int64)}
         for prefix, per_ep in outputs.items():
             for field in FIELDS:
-                cols[f'{prefix}.{field}'] = [per_ep[int(e)][field][int(i)] for e, i in zip(cols['episode_index'], cols['frame_index'])]
-        cols[TASK_ID] = np.asarray([task_ids[int(e)] for e in cols['episode_index']], np.int64)
-        write_parquet(cols, f, tuples)
+                some = next(iter(per_ep.values()))[field]
+                col = np.zeros((len(ep_col),) + some.shape[1:], np.float32)
+                for e in np.unique(ep_col):
+                    rows = np.flatnonzero(ep_col == e)
+                    col[rows] = per_ep[int(e)][field][fr_col[rows]]
+                new[f'{prefix}.{field}'] = col
+        write_parquet(table, new, f, tuples)
+        del table, new
     info['features'] = {k: {**v, 'shape': list(v['shape'])} for k, v in features.items()}
     info_path.write_text(json.dumps(info, indent=4))
     (root / 'meta/intent_segments.json').write_text(json.dumps({str(k): v for k, v in segments.items()}, indent=1))

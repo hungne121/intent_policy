@@ -8,7 +8,10 @@ Pipeline per frame t, using keypoints <= t only:
                  after ramp_s (no ground-truth timing); predicted: a small MLP on a keypoint window (cross-fitted)
   p_point        pointing ray index base -> index tip, angle theta_k to every target, exp(-theta^2 / 2 sigma^2)
   p_reach        constant-velocity end point of the hand after horizon_s (shortened to the stopping distance
-                 v^2 / 2|a| while it decelerates), softmax(-distance / reach_tau)
+                 v^2 / 2|a| while it decelerates), softmax(-distance / reach_tau) over the places the hand is getting
+                 closer to (distance with the height down-weighted; regions: distance to their box); a still hand
+                 within at_place of a place is evidence for the places that close; a still hand away from every place
+                 or one moving away from all of them gives no reach evidence (the filter keeps its belief)
   p_target       Bayes filter: T(p_{t-1}) * likelihood, T keeps the target with 1 - switch_eps
   p_who          from p_gesture (point -> robot, reach -> human, palm_up -> joint, rest -> none)
   tte            time to the gesture's goal pose from kinematics; tte_std from target entropy and speed jitter
@@ -25,12 +28,16 @@ import torch
 from torch import nn
 from intent_policy.intent.contract import one_hot
 from intent_policy.intent.labels import hand_indices, waypoint_offsets
-from intent_policy.intent.places import target_matrix
+from intent_policy.intent.places import target_boxes, target_matrix
 from intent_policy.intent.sources import HumanObs, finish
 from intent_policy.intent.tracker import IntentTracker, RobotState
 
 WHO_OF_GESTURE = {'rest': 'none', 'point': 'robot', 'reach': 'human', 'palm_up': 'joint', 'palm_forward': 'robot'}
 WINDOW = 10                        # frames of keypoint history seen by the gesture classifier
+HEIGHT_WEIGHT = 0.3                # reach distances: vertical error weight (places differ mostly in x, y)
+APPROACH_M = 0.002                 # a place counts as approached when the hand got this much closer in 2 frames
+AT_PLACE_M = 0.08                  # a still wrist this close to a place (weighted distance) is at that place, and a
+                                   # moving one gives reach evidence only for places this close to its end point
 
 
 def gesture_labels(T: int, segments: list[dict], schema: dict) -> np.ndarray:
@@ -179,6 +186,8 @@ class PerfectPerceptionSource:
         self.cfg = dict(s['perfect'])
         self.fps = float(s['fps'])
         self.targets = target_matrix(s)                                           # (K, 3), row 0 NaN
+        boxes = target_boxes(s)
+        self.boxes = {s['targets'].index(k) - 1: b for k, b in boxes.items()}       # index into targets[1:]
         self.K, self.W, self.G, self.P = len(s['targets']), len(s['who']), len(s['gestures']), len(s['phases'])
         self.g_idx = {g: i for i, g in enumerate(s['gestures'])}
         self.who_of = np.array([one_hot(s['who'].index(WHO_OF_GESTURE[g]), self.W) for g in s['gestures']])
@@ -195,7 +204,7 @@ class PerfectPerceptionSource:
         self.hist: deque = deque(maxlen=6)
         self.rest = None
         self.prior = one_hot(0, self.K)
-        self.onset_t, self.still, self.speeds, self.class_since = None, True, deque(maxlen=5), 0
+        self.onset_t, self.still, self.speeds, self.class_since, self.ramp_start = None, True, deque(maxlen=5), 0, None
         self.tracker.reset()
 
     # ------------------------------------------------------------------ pieces
@@ -203,15 +212,18 @@ class PerfectPerceptionSource:
         if self.gesture_probs is not None:
             return self.gesture_probs[t].astype(np.float64)
         true = int(self.true_gesture[t])
-        if t == 0 or true != int(self.true_gesture[t - 1]):
+        if t == 0 or true != int(self.true_gesture[t - 1]):          # a new gesture: its ramp starts at its own onset
             self.class_since = t
+            self.ramp_start = self.onset_t if self.onset_t is not None and self.onset_t >= t - 2 else None
+        elif self.ramp_start is None and self.onset_t is not None and self.onset_t >= self.class_since:
+            self.ramp_start = self.onset_t                            # first onset detected after the class change
         u = np.full(self.G, 1.0 / self.G)
         if true == self.g_idx['rest']:
             ramp = 1.0
-        elif self.onset_t is None or self.onset_t < self.class_since - 2:     # no onset detected for this gesture yet
+        elif self.ramp_start is None:                                 # no onset detected for this gesture yet
             ramp = 0.0
         else:
-            ramp = min(1.0, (t - self.onset_t) / (self.cfg['ramp_s'] * self.fps))
+            ramp = min(1.0, (t - self.ramp_start) / (self.cfg['ramp_s'] * self.fps))
         p_true = 1.0 / self.G + ramp * (self.cfg['p_max'] - 1.0 / self.G)
         p = np.full(self.G, (1.0 - p_true) / (self.G - 1))
         p[true] = p_true
@@ -229,20 +241,36 @@ class PerfectPerceptionSource:
             p_point = np.exp(-0.5 * (th / self.cfg['cone_sigma_deg']) ** 2)
         else:
             p_point = np.ones(len(pts))
-        if g in (self.g_idx['reach'], self.g_idx['palm_up']):
-            speed = float(np.linalg.norm(vel))
+        p_reach = np.ones(len(pts))
+        speed = float(np.linalg.norm(vel))
+        reaching = g in (self.g_idx['reach'], self.g_idx['palm_up'])
+        wrist = names.index(f'{hand}_wrist')                     # the wrist marks the reached place best (calibration)
+        if reaching and speed <= self.cfg['still_speed_m_s']:
+            d = self._place_dist(kp[wrist])
+            if d.min() <= AT_PLACE_M:
+                p_reach = np.exp(-(d - d.min()) / self.cfg['reach_tau_m'])
+        elif reaching and len(self.hist) >= 3:
             reach = speed * self.schema['horizon_s']
             if accel_along < -1e-3:
                 reach = min(reach, speed ** 2 / (2.0 * -accel_along))
-            end = kp[idx].mean(0) + vel / (speed + 1e-9) * reach
-            d = np.linalg.norm(pts - end, axis=-1)
-            p_reach = np.exp(-(d - d.min()) / self.cfg['reach_tau_m'])
-        else:
-            p_reach = np.ones(len(pts))
+            end = kp[wrist] + vel / (speed + 1e-9) * reach
+            d = self._place_dist(end)
+            ok = (self._place_dist(kp[wrist]) < self._place_dist(self.hist[-3][wrist]) - APPROACH_M) & (d <= AT_PLACE_M)
+            if ok.any():
+                p_reach = np.where(ok, np.exp(-(d - d[ok].min()) / self.cfg['reach_tau_m']), 1e-3)
+        self.informative = bool(np.ptp(p_point) > 0 or np.ptp(p_reach) > 0)
         lik = p_point ** self.cfg['w_point'] * p_reach ** self.cfg['w_reach']
         lik = lik / lik.sum()
         active = 1.0 - p_g[self.g_idx['rest']]
         return np.r_[1.0 - active, active * lik] + 1e-9
+
+    def _place_dist(self, x: np.ndarray) -> np.ndarray:
+        """Distance from point x to every place (targets[1:]), height down-weighted; regions: to their box."""
+        w = np.array([1.0, 1.0, HEIGHT_WEIGHT])
+        d = np.linalg.norm((self.targets[1:] - x) * w, axis=-1)
+        for i, (lo, hi) in self.boxes.items():
+            d[i] = np.linalg.norm((x - np.clip(x, lo, hi)) * w)
+        return d
 
     def _phase(self, t, kp, hand, speed, accel_along, away: float) -> int:
         P = {p: i for i, p in enumerate(self.schema['phases'])}
@@ -270,13 +298,16 @@ class PerfectPerceptionSource:
         speed = float(np.linalg.norm(vel))
         accel_along = float(np.dot((vel - vel_prev) * self.fps, vel / (speed + 1e-9)))
         self.speeds.append(speed)
-        if speed > self.cfg['onset_speed_m_s'] and self.still:                     # causal onset detection
-            self.onset_t = t
-        self.still = speed < self.cfg['still_speed_m_s']
+        if speed < self.cfg['still_speed_m_s']:                                    # causal onset detection: armed
+            self.still = True                                                       # while still, fires when the
+        elif speed > self.cfg['onset_speed_m_s'] and self.still:                   # speed exceeds onset_speed
+            self.onset_t, self.still = t, False
         p_g = self._p_gesture(t)
         lik = self._likelihood(kp, hand, vel, p_g, accel_along)
-        eps = self.cfg['switch_eps']
+        eps = self.cfg['switch_eps'] if self.informative else 0.0         # no new place evidence: keep the belief
         prior = (1.0 - eps) * self.prior + eps / self.K
+        if self.prior[0] > 0.5 and lik[0] < 0.5:                           # leaving `none`: let the places compete again
+            prior = np.r_[prior[0], np.maximum(prior[1:], eps / self.K + 1e-6)]
         post = prior * lik
         post = post / post.sum()
         self.prior = post

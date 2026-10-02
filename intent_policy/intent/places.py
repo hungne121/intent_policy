@@ -40,3 +40,13 @@ def target_matrix(schema: dict) -> np.ndarray:
     """(K, 3) positions in `targets` order; row 0 (`none`) is NaN."""
     pos = target_positions(schema)
     return np.array([np.full(3, np.nan)] + [pos[k] for k in schema['targets'][1:]], float)
+
+
+def target_boxes(schema: dict) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Axis-aligned boxes (lo, hi) of the region places whose extent matters: the robot zone (reach likelihoods use
+    the distance to the box, 0 inside, instead of the distance to its centre). U is kept as a point: its box contains
+    U1, U2 and U_cup, which must stay distinguishable."""
+    scene = load_yaml('configs/scene/common.yaml')
+    rz = load_yaml(scene['layout'])['robot_zone']
+    z0 = float(scene['table_top_z'])
+    return {'robot_zone': (np.array([rz['x'][0], rz['y'][0], z0]), np.array([rz['x'][1], rz['y'][1], z0 + rz['z_top']]))}
