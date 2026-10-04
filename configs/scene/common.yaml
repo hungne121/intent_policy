@@ -24,6 +24,8 @@ objects_catalog:                    # scence_construct.md §3.1; scenario config
   B2:  {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: "B2 blue cube"}
   B3:  {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: "B3 yellow cube"}
   B1p: {shape: box, size: [0.02, 0.02, 0.02], color: red, label: "B1' red cube, identical to B1"}
+  B2p: {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: "B2' blue cube, identical to B2"}      # T1 twins of every
+  B3p: {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: "B3' yellow cube, identical to B3"}  # colour (plan v5)
   # cups (outer radius, height): a 4 cm cube fits inside (inner diameter 6.4 cm > cube diagonal 5.7 cm); the robot
   # grasps the rim on the -X side (fingers straddle the wall), the human takes the cup by its body
   C1:  {shape: cup, size: [0.036, 0.085], color: white, label: "C1 white cup"}
@@ -45,6 +47,14 @@ human:                              # HY-Motion 1.0 wooden mannequin (1.73 m), p
                                     #   mesh), so it does not stick out of an upturned palm an object is put into (a
                                     #   flat box / ellipsoid would fit better, but MuJoCo 3.3 box- and ellipsoid-mesh
                                     #   distances glitch to 0)
+  palm_support: {half_size: [0.04, 0.06, 0.01], pos: [0.0, 0.015, 0.021]}    # (2026-10-03) the waiting, upturned palm
+                                    #   holds an object let go into it (T2) instead of the visual-only hand letting it
+                                    #   fall through: a box under the palm and finger surface (offer mesh: top 3.1 cm
+                                    #   above the palm centre, from 4.5 cm behind to 7.5 cm ahead of it, fingers +y; 2 cm
+                                    #   thick, so an object falling into the palm cannot pass it within one tick).
+                                    #   Collides with task objects only (not the robot), and only while the hand is
+                                    #   held out waiting / closing on the object, while the object is above the palm or
+                                    #   let go (scenarios/t2_handover.py); not a distance proxy
   face_markers: true                # eyes + nose on the blank mannequin face so head orientation (gaze) reads in the images
 
 cameras:                            # look-at definitions; converted to MuJoCo xyaxes

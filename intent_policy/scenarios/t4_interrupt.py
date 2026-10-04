@@ -19,6 +19,7 @@ class InterruptTask(PickPlaceTask):
         self.zone_entry_t = None
         self.in_zone = False
         self.disrupted = self.disruption_over = False
+        self.ever_in_zone = False                       # the hand was inside the robot zone at some point (plan v5)
         self.yield_violations = 0
         self.recovering = self.recovered = False
         self.still_since = None
@@ -55,6 +56,10 @@ class InterruptTask(PickPlaceTask):
             if 'withdrawn_time' in self.human.extras and not self.in_zone:
                 self.disruption_over = True
                 self.log(E.DISRUPTION_END, 'human')
+        elif not self.disrupted and 'withdrawn_time' in self.human.extras and not self.disruption_over:
+            # (random intrusion timing) the hand stopped short of the zone, the arm being right there: nothing to yield to
+            self.disruption_over = True
+            self.protocol('disruption_handled', 'robot', entered_zone=False)
         if self.disruption_over and not self.recovering and self.robot_moving:
             self.recovering = True
             self.log(E.RECOVERY_START, 'robot')
@@ -80,6 +85,7 @@ class InterruptTask(PickPlaceTask):
 
     def update_task(self):
         t = self.time
+        self.ever_in_zone = self.ever_in_zone or bool(self.in_robot_zone(self.human.pos))
         if self.negative:
             self._update_negative(t)
         else:

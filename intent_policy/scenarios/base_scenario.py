@@ -181,14 +181,21 @@ class BaseScenario:
         self.human.reach = self.body_model.clamp          # the scripted palm never aims beyond the body's reach
         length = float(self.cfg.human_behavior.get('point_length_m', 0.35))
         self.human.point_pose = lambda target: self.body_model.pointing_palm(target, length)
+        self.human.shoulder = np.asarray(self.body_model.J[f'{self.body_model.active.upper()}_Shoulder'], float)
         self.max_reach_error = 0.0
         self._apply_human_pose()
         mujoco.mj_forward(m, d)
         env.settle(10)
         self.rest_height = {k: float(self.pos(k)[2]) for k in self.graspables}
         self.start_pos = {k: self.pos(k) for k in self.on_table}
-        # objects the robot must neither move nor touch: everything on a slot except the (final) target
-        self.watch = [k for k in self.on_table if k != var['target_object'] and k not in (var['spec'].get('u_blocks') or [])]
+        # objects the robot must neither move nor touch: everything on a slot except the (final) target and, with a
+        # change of mind, the old target (the robot may hold it when the human changes; it must then put it back,
+        # checked at the end: put_back_max_m)
+        self.change_old = (var.get('change') or {}).get('old')
+        self.watch = [k for k in self.on_table if k not in (var['target_object'], self.change_old)
+                      and k not in (var['spec'].get('u_blocks') or [])]
+        self.change_t: float | None = None
+        self.change_robot_state: str | None = None      # approach | grasp | holding | delivered (plan v5 metadata)
         # Trackers
         self.protocol_done: list[str] = []
         self.success = False
@@ -252,6 +259,8 @@ class BaseScenario:
                    robot_grasping=dict(self.grasp_state), robot_lifted_object=self.robot_lifted,
                    human_robot_distance=self.human_distance, robot_speed=self.tcp_speed, robot_moving=self.robot_moving,
                    robot_at_rest=self.robot_at_rest(), robot_chain=[self.env.data.xpos[b].copy() for b in self.robot_chain],
+                   robot_committed=self.committed,                  # candidate the TCP clearly heads for (any agent)
+                   protocol_done=tuple(self.protocol_done),
                    tcp_xy_distance=lambda p: float(np.linalg.norm(np.asarray(p)[:2] - tcp[:2])))
         ctx.update(self.human_context_extras())
         return ctx
@@ -277,6 +286,8 @@ class BaseScenario:
             else:
                 if event_type == E.HUMAN_INTENTION_CHANGE.value:
                     self.intention_changes.append(dict(t=t0, **payload))
+                    if self.change_t is None:
+                        self.change_t, self.change_robot_state = t0, self.robot_state_wrt(self.change_old)
                 elif event_type == E.HUMAN_INTENTION_EVIDENT.value:
                     self.evidence_events.append(dict(t=t0, **payload))
                 elif event_type == E.HUMAN_CUE_ONSET.value and self.cue_t is None:
@@ -291,7 +302,7 @@ class BaseScenario:
         self.update_task()
         self._update_generic_failures()
         if not self.success and self.failure is None:
-            self.stable = self.stable + 1 if self.success_predicate() else 0
+            self.stable = self.stable + 1 if self.success_predicate() and self.put_back_ok() else 0
             if self.stable * self.dt >= self.cfg.timing['stable_s']:
                 self.success = True
                 self.log(E.TASK_SUCCESS, 'scene', ct=self.time)
@@ -336,7 +347,9 @@ class BaseScenario:
         self.robot_lifted = lifted[0] if lifted else None
         if self.robot_lifted:
             self.ever_lifted.add(self.robot_lifted)
-        if self.robot_lifted is not None and self.robot_lifted != self.robot_target():
+        # the old target of a change of mind may be held (also picked before the robot could see the change); it must
+        # end up back where it stood (put_back_ok)
+        if self.robot_lifted is not None and self.robot_lifted not in (self.robot_target(), self.change_old):
             self.fail('wrong_object_manipulated')
 
     def commit_stage(self) -> tuple[str, dict, str] | None:
@@ -442,6 +455,30 @@ class BaseScenario:
         if not np.isfinite(self.env.data.qpos).all():
             self.fail('simulation_unstable')
 
+    def robot_state_wrt(self, key: str | None) -> str | None:
+        """Where the robot stands with respect to `key` (the old target at a change of mind), agent-independent:
+        holding it, delivered (moved > 2 cm from its spot, released), grasp (gripper within 4 cm horizontally and
+        lowered to < 6 cm above its grasp point) or approach."""
+        if key is None:
+            return None
+        if self.grasp_state.get(key, False):
+            return 'holding'
+        if np.linalg.norm(self.pos(key)[:2] - self.start_pos[key][:2]) > 0.02:
+            return 'delivered'
+        tcp, g = self.tcp(), self.grasp_point(key)
+        if np.linalg.norm(tcp[:2] - g[:2]) < 0.04 and tcp[2] < g[2] + 0.06:
+            return 'grasp'
+        return 'approach'
+
+    def put_back_ok(self) -> bool:
+        """After a change of mind the old target rests where it stood (also when the robot had to carry it back)."""
+        old = self.change_old
+        if old is None or not self.human.changed or old == self.robot_target():
+            return True
+        limit = float(self.cfg.success_conditions.get('put_back_max_m', 0.03))
+        return bool(not self.grasp_state.get(old, False) and self.resting(old)
+                    and np.linalg.norm(self.pos(old) - self.start_pos[old]) <= limit)
+
     # ------------------------------------------------------------------ subclass API
     def robot_target(self) -> str:
         """Graspable the robot is supposed to manipulate in this episode."""
@@ -480,9 +517,14 @@ class BaseScenario:
         return []
 
     # ------------------------------------------------------------------ public interface
-    def get_observation(self, cameras=('high', 'wrist'), width: int = 128, height: int = 96) -> dict:
-        """Phase-1 policy observation: proprioception + RGB only. No privileged/intention fields."""
-        obs = {'observation.state': self.env.observe().policy_vector()}
+    def get_observation(self, cameras=('high', 'wrist'), width: int = 128, height: int = 96, command=None) -> dict:
+        """Policy observation: proprioception + RGB only. No privileged/intention fields. `command` (the restricted-action
+        mapper): also the controller's own command, set-point xyz and gripper target, appended to observation.state
+        [10] -> [14]. The measured TCP lags the set-point by 1-4 cm while moving; the controller knows its command."""
+        state = self.env.observe().policy_vector()
+        if command is not None:
+            state = np.r_[state, command.setpoint, command.gripper_target].astype(np.float32)
+        obs = {'observation.state': state}
         for cam in cameras:
             obs[f'observation.images.{cam}'] = self.env.render(cam, width, height)
         return obs

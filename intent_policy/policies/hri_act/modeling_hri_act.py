@@ -43,7 +43,7 @@ class HRIACTPolicy(ACTPolicy):
     def __init__(self, config: HRIACTConfig, **kwargs):
         super().__init__(config, **kwargs)
         if config.intent_token_cfg is not None or config.use_task_token:
-            self.model = IntentACT(config, config.intent_token_cfg, config.n_tasks)
+            self.model = IntentACT(config, config.intent_token_cfg, config.n_tasks, config.instruction_sizes)
         self.restricted_head = RestrictedActionHead(config.dim_model, config.num_restricted_actions,
                                                     config.restricted_head_hidden_dim)
         self.intent_fusion = IntentFusion(config.dim_model, dict(config.intent_branch_dims), config.intent_hidden_dim,
@@ -87,6 +87,9 @@ class HRIACTPolicy(ACTPolicy):
         b, dev = batch['observation.state'].shape[0], batch['observation.state'].device
         if self.model.use_task and 'task_id' not in batch:
             batch['task_id'] = batch['hri.task_id'].to(dev).reshape(b).long()
+        if self.model.use_instruction and 'instr_object' not in batch:
+            batch['instr_object'] = batch['hri.instr_object'].to(dev).reshape(b).long()
+            batch['instr_dest'] = batch['hri.instr_dest'].to(dev).reshape(b).long()
         enc = self.intent_encoder
         if enc is None:
             return batch

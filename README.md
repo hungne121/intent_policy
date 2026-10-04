@@ -181,7 +181,8 @@ trong `data/*.parquet`, schema/thống kê trong `meta/` (`info.json`, `stats.js
 `meta/hri_experiment_config.json`. Ảnh camera không vẽ site debug (ví dụ điểm TCP).
 
 Xem dữ liệu bằng rerun: `lerobot-dataset-viz` (chuẩn LeRobot) hoặc `scripts/view_dataset.py`
-(thêm nhãn restricted, giai đoạn expert/người và timeline ground truth).
+(thêm nhãn restricted, giai đoạn expert/người và timeline ground truth). `scripts/view_dataset.py --mp4` xuất mp4
+của episode thẳng từ video trong dataset (không mô phỏng lại, vài giây mỗi episode).
 
 ## 7. Event và metric
 
@@ -213,7 +214,14 @@ Trigger/phản ứng của từng scenario được khai báo trong `metric_para
 
 ## 8. Lệnh sử dụng
 
-Chạy từ thư mục project (`run.sh` thiết lập PYTHONPATH, cache, backend EGL):
+Chạy từ thư mục project (`run.sh` thiết lập PYTHONPATH, cache, backend EGL).
+
+Mỗi lần thu, train, eval hoặc quay video có một thư mục riêng như LeRobot:
+`outputs/<collect|train|eval|videos>/<ngày>/<giờ>_<tên>/`, chứa `log.txt` (toàn bộ log), `command.txt` (lệnh đã chạy)
+và kết quả của lần chạy đó; `--output-dir` (thu: `--log-dir`) để tự chọn thư mục. Dataset vẫn nằm ở `data.root`.
+Eval ghi video **trong lúc chạy** vào `videos/<task>/` của thư mục eval: 2 episode đầu mỗi task và tối đa 3 ca lỗi
+mỗi task (`--videos`, `--failure-videos`; expert mặc định không quay ca lỗi), danh sách có link ở cuối `results.md`.
+`scripts/record_rollout.py` chỉ còn để quay lại vài episode chọn trước (`--indices`).
 
 ```bash
 cd /home/hungdao/ur_ws/src/intent_policy

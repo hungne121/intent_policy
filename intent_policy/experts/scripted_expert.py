@@ -13,7 +13,7 @@ expert class handles all tasks through a per-task plan of generic steps; there i
   T5       re-plan to the new target (before any grasp)
 
 Scenario config `expert` block (teacher settings only):
-  trigger: cue_complete  act once the human's cue is complete (instruction_given / target_indicated / block_picked;
+  trigger: cue_complete  act once the human's cue is complete (object_indicated, then place_indicated / target_indicated / block_picked;
                          after a change of mind: once the new target has been indicated)
            evidence      information-timing contract (Phase 2): from the cue onset only target-agnostic motion (open
                          the gripper, go to a staging point above the candidates); commit to a target only at
@@ -24,6 +24,9 @@ Scenario config `expert` block (teacher settings only):
   travel_dz: travel height above the table
   T2 staging_offset: holding point (x, y) w.r.t. the centre of the hand zones, at handover height
   T4 yield_zone_margin_m / yield_prediction_horizon_s: hold while the (predicted) hand is in the robot zone
+  T4 start_s: the robot starts by itself this long after the episode start (default 0.5)
+  grasp_settle_ticks: HOLD decisions after the gripper closed, before lifting (default 3). Fixed waits like this and
+                      start_s end on a timer the policy cannot observe (identical frames, different labels).
 Guarded moves (cue_onset / evidence) hold while the human hand occupies the destination or is next to the arm.
 """
 from __future__ import annotations
@@ -31,7 +34,8 @@ import numpy as np
 from intent_policy.benchmark.events import EventType as E
 from intent_policy.sim.restricted_action import RestrictedAction as A
 
-SETTLE_TOL = 0.004      # hold until the measured TCP is this close to the set-point before gripping
+SETTLE_TOL = 0.004      # hold until the measured TCP is this close to the set-point before gripping ...
+SETTLE_SPEED = 0.02     # ... and has (nearly) stopped: a fast lateral move near the base overshoots while it descends
 # guarded moves (horizontal distances; only while the hand is within GUARD_Z in height):
 GUARD_OCCUPIED_XY = 0.14    # the move's destination counts as occupied when the hand is this close to it ...
 GUARD_APPROACH_XY = 0.20    # ... then the robot stops once it is this close to the hand
@@ -45,7 +49,8 @@ R_SAFE = 0.22           # moves across y = 0 go around the robot base at least t
 HANDOVER_DZ = 0.025     # T2: the object crosses the open fingers (up to 2.4 cm above the palm) this high above its
                         # place in the palm, then goes straight down into it (H2 is at the edge of the arm's reach)
 TRIGGERS = ('cue_complete', 'cue_onset', 'evidence')
-CUE_COMPLETE_STEP = {'T1': 'instruction_given', 'T2': 'target_indicated', 'T3': 'block_picked'}
+# cue_complete: each sub-intention is acted on once its deictic gesture is complete (the pointing hand arrived)
+CUE_COMPLETE_STEP = {'T1': 'object_indicated', 'T2': 'target_indicated', 'T3': 'block_picked'}
 FOREVER = 10 ** 6
 
 
@@ -76,6 +81,7 @@ class ScriptedExpert:
         self.travel = self.z0 + float(ecfg.get('travel_dz', 0.13))
         self.yield_margin = float(ecfg.get('yield_zone_margin_m', 0.0))
         self.yield_horizon = float(ecfg.get('yield_prediction_horizon_s', 0.0))
+        self.grasp_settle = int(ecfg.get('grasp_settle_ticks', 3))
         self.obj: str | None = None
         self.zone: str | None = None
         self.n_changes = self.n_evidence = 0
@@ -85,6 +91,9 @@ class ScriptedExpert:
         self._new_commit: str | None = None
         self.tcp_obj_offset = np.zeros(3)
         self.retreat_point = None
+        # change of mind with free timing (2026-10-03): the human signals 'wait', then points at the new target
+        self.timed_change = 'change_delay_s' in sc.human.params
+        self.stop_seen = self.change_seen = False
         if self.code == 'T4':                   # no instruction: the robot starts the pick-and-place by itself
             start = float(ecfg.get('start_s', 0.5))
             self._set_plan([Step('wait', until=lambda: sc.time >= start - 1e-9, name='wait_start'),
@@ -108,7 +117,7 @@ class ScriptedExpert:
         if self.code in ('T3', 'T4') or self.trigger == 'cue_onset':
             return sc.variation['target_zone']
         if self.code == 'T1':
-            return sc.variation['target_zone'] if 'instruction_given' in sc.protocol_done else None
+            return sc.variation['target_zone'] if 'place_indicated' in sc.protocol_done else None
         return sc.variation['target_zone'] if 'hand_ready' in sc.protocol_done else None
 
     def _set_plan(self, plan) -> None:
@@ -170,7 +179,7 @@ class ScriptedExpert:
             Step('goto', lambda: sc.grasp_point(key), name='descend', guard=True),
             Step('settle', ticks=60, name='settle_before_grasp'),   # near the base the joints lag the set-point
             Step('grip', 'close', until=lambda: sc.grasp_state[key], ticks=30, name='close'),
-            Step('hold', ticks=3, name='settle_grasp'),
+            Step('hold', ticks=self.grasp_settle, name='settle_grasp'),
             Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='lift'),
         ]
 
@@ -225,14 +234,71 @@ class ScriptedExpert:
             if kind == 'target_zone':
                 self.zone = ev['zone']              # pending steps read the zone when they start
                 self.commit_log.append(dict(t=round(sc.time, 4), target=self.zone))
+            elif kind == 'stop' and self.obj is not None:
+                self._pause()                       # 'wait!' (evident from the hand moving out towards the robot)
+            elif kind == 'target_withdrawn' and grasping and self.timed_change and self.obj is not None:
+                self._pause()                       # T3: the cube goes back while the robot holds a cup
             elif kind == 'target_withdrawn' and not grasping and self.obj is not None:
                 self.obj = self.committed = None    # the pointing hand is withdrawn: rise and wait
                 self._set_plan([self._lift_step('withdrawn_lift'), Step('hold', ticks=FOREVER, name='await_evidence')])
+            elif kind == 'target_object' and grasping and self.timed_change and ev['object'] != self.obj:
+                self._redirect(ev['object'])        # changed while the old object is held: put it back first
             elif kind == 'target_object' and not grasping and ev['object'] != self.obj:
                 self.obj = ev['object']
                 if self.code == 'T3':
                     self.zone = sc.variation['target_zone']
                 self._commit(self.obj, [self._lift_step('commit_lift')] + self._task_steps())
+
+    def _follow_correction(self) -> None:
+        """cue_complete, free-timing change of mind: pause once the 'wait' signal is complete, re-target once the new
+        pointing has arrived (`change_indicated`), putting the old object back first if it is held."""
+        done = self.sc.protocol_done
+        if not self.stop_seen and 'stop_signaled' in done:
+            self.stop_seen = True
+            self._pause()
+        if not self.change_seen and 'change_indicated' in done:
+            self.change_seen = True
+            self._redirect(self.sc.human.selected_object)
+
+    def _pause(self) -> None:
+        """'Wait!': stop where the arm is (holding whatever it holds) until the new target is known."""
+        if self.obj is not None:
+            self._set_plan([Step('hold', ticks=FOREVER, name='await_correction')])
+
+    def _redirect(self, new: str) -> None:
+        """Re-target to `new`: a held (old) object is put back where it stood first."""
+        sc = self.sc
+        held = next((k for k, g in sc.grasp_state.items() if g), None)
+        if self.obj is None and held is None:
+            return                                  # not started yet: the plan reads the choice when it starts
+        old = sc.change_old
+        self.obj = new
+        if self.code == 'T3':
+            self.zone = sc.variation['target_zone']
+        if held is not None and held != new:
+            steps = self._put_back_steps(held)
+        elif old is not None and old != new and np.linalg.norm(sc.pos(old)[:2] - sc.start_pos[old][:2]) > 0.02:
+            # the old object was already delivered (late: before the change was clear): fetch it back first
+            steps = [self._lift_step('fetch_lift')] + self._grasp_steps(old) + self._put_back_steps(old)
+        else:
+            steps = []
+        self._commit(new, steps + [self._lift_step('replan_lift')] + self._task_steps())
+
+    def _put_back_steps(self, key: str) -> list[Step]:
+        """Carry `key` back to where it stood and release it there."""
+        sc = self.sc
+        cup = sc.scene['objects'][key]['shape'] == 'cup'
+        drop = 0.003 if cup else 0.012
+        off = {}                                # TCP - object, measured once held (the 'wait' may cut the close short)
+        spot = lambda: np.r_[sc.start_pos[key][:2], sc.rest_height[key] + drop] + off['v']
+        return [Step('call', target=lambda: off.update(v=sc.tcp() - sc.pos(key)), name='put_back_hold'),
+                self._lift_step('put_back_lift'),
+                Step('goto', lambda: np.r_[spot()[:2], self.travel], name='put_back_transport', guard=True),
+                Step('goto', spot, name='put_back_lower', guard=True),
+                Step('settle', ticks=15, name='settle_put_back'),
+                Step('grip', 'open', until=lambda: not sc.grasp_state[key] and sc.env.data.qpos[sc.env.gid] > 0.06,
+                     ticks=25, name='put_back_release'),
+                Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='put_back_retreat')]
 
     def _follow_intention_change(self) -> None:
         """cue_onset: switch at the change; cue_complete: stop, and switch once the new target has been pointed at."""
@@ -323,7 +389,10 @@ class ScriptedExpert:
         if self.trigger == 'evidence':
             self._follow_evidence()
         else:
-            self._follow_intention_change()
+            if self.trigger == 'cue_complete' and self.timed_change:
+                self._follow_correction()
+            else:
+                self._follow_intention_change()
             if self.zone is None and self.obj is not None:
                 self.zone = self._known_zone()
         if self._yield():
@@ -349,7 +418,7 @@ class ScriptedExpert:
                 self._advance()
                 continue
             if step.kind == 'settle':
-                close = np.linalg.norm(self.sc.tcp() - self.mapper.setpoint) < SETTLE_TOL
+                close = np.linalg.norm(self.sc.tcp() - self.mapper.setpoint) < SETTLE_TOL and self.sc.tcp_speed < SETTLE_SPEED
                 if close or self.counter >= step.ticks:
                     self._advance()
                     continue

@@ -93,8 +93,8 @@ class ScenarioConfig:
 
 # ---------------------------------------------------------------------------------------------- episode specs
 TASK_CODES = ('T1', 'T2', 'T3', 'T4')
-TWINS = (('B1', 'B1p'), ('C1', 'C2'))            # identical-looking pairs (scence_construct.md §3.1)
-CHANGE_TIMINGS = ('early', 'late')
+TWINS = (('B1', 'B1p'), ('B2', 'B2p'), ('B3', 'B3p'), ('C1', 'C2'))   # identical-looking pairs (§3.1; B2', B3': plan v5)
+CHANGE_TIMINGS = ('early', 'late', 'free')     # free: the delay comes from intention_change.delay_s / the spec's delay_range
 
 
 def twin_of(key: str) -> str | None:
@@ -171,8 +171,8 @@ def random_spec(cfg: ScenarioConfig, rng) -> dict:
             target = _pick(rng, [a, b])
             others = [a if target == b else b]
             candidates = [k for k in pool if k not in (a, b)]
-        else:                                        # no identical objects on the table: B1' / C2 unused
-            candidates = [k for k in pool if k not in ('B1p', 'C2')]
+        else:                                        # no identical objects on the table: the second twins unused
+            candidates = [k for k in pool if k not in {b for _, b in TWINS}]
             cup = code == 'T2' and rng.random() < float(sv.get('cup_target_probability', 0.0))
             target = _pick(rng, [k for k in candidates if is_cup(objs[k]) == cup])
             others = []
@@ -220,8 +220,8 @@ def validate_spec(cfg: ScenarioConfig, spec: dict) -> None:
     for field_, kind in need.items():
         if spec.get(field_) not in zones_of(scene, kind):
             raise ValueError(f'{field_} must be one of {zones_of(scene, kind)}')
-    if code == 'T2' and spec.get('timing') not in ('early', 'on_time', 'late'):
-        raise ValueError('T2 timing must be early | on_time | late')
+    if code == 'T2' and spec.get('timing') not in ('early', 'on_time', 'late', 'free'):
+        raise ValueError('T2 timing must be early | on_time | late | free')
     if code == 'T3':
         pairs = cfg.scene_variation['pairs']
         if sorted(spec.get('u_blocks') or []) != sorted(pairs) or sorted(layout) != sorted(pairs.values()):
@@ -290,6 +290,24 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
     # early change (T5): the first pointing gesture is held only briefly ("ngay sau ra hiệu đầu")
     human['early_dwell_s'] = _uniform(rng, ic.get('early_dwell_s', [0.5, 0.5]))
     human['change_pause_s'] = _uniform(rng, ic.get('pause_s', [0.0, 0.0]))     # pause at rest before the new target
+    # fixed (no draw, the variation of older lists is unchanged): a pointing is held, looking at the target, until the
+    # robot heads for it, at most point_hold_max_s (0: dwell only); T1 waits at most pick_wait_max_s for the pick
+    human['point_hold_max_s'] = float(hb.get('point_hold_max_s', 0.0))
+    human['pick_wait_max_s'] = float(hb.get('pick_wait_max_s', 1e9))
+    # (2026-10-03) free human timing, drawn last (the earlier draws of older lists are unchanged): T2 holds the hand
+    # out after a random delay (lowering the pointing hand first or not), T4 intrudes at a random moment for a random time
+    # Plan v5: a scenario-list spec may fix the stratum of a timing (uniform within it) and the T2 lowering choice.
+    if t == 't2_receiver' and 'reach_delay_s' in hb:
+        human['reach_delay_s'] = _uniform(rng, spec.get('reach_delay_range') or hb['reach_delay_s'])
+        lower = bool(rng.random() < float(hb.get('lower_first_prob', 0.5)))
+        human['lower_first'] = bool(spec['lower_first']) if 'lower_first' in spec else lower
+    if 'delay_s' in ic:                    # T5 (2026-10-03): the change of mind comes a random time after the first
+        human['change_delay_s'] = _uniform(rng, (spec.get('change') or {}).get('delay_range') or ic['delay_s'])
+        human['stop_s'] = _uniform(rng, ic['stop_s'])               # starting with a 'wait' signal (open hand, palm down,
+        human['stop_hold_s'] = _uniform(rng, ic['stop_hold_s'])     # held out towards the robot), then pointing again
+    if t == 't4_intruder' and 'intrusion_time_s' in hb:
+        human['intrusion_time_s'] = _uniform(rng, spec.get('intrusion_time_range') or hb['intrusion_time_s'])
+        human['intrusion_hold_s'] = _uniform(rng, spec.get('hold_range') or hb['intrusion_hold_s'])
     var['human'] = human
     return var
 

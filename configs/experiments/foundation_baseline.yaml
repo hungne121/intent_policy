@@ -28,4 +28,3 @@ training:
   log_every: 100
   save_every: 2000
   amp: false                       # fp16 autocast gave NaN losses with ACT on the GTX 1650 (fp32 ~2 steps/s at batch 32)
-  output_dir: outputs/train/foundation_baseline

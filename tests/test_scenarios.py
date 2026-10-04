@@ -56,7 +56,7 @@ def test_object_catalog_and_identical_pairs():
     assert set(objs) == {'B1', 'B2', 'B3', 'B1p', 'C1', 'C2', 'C3'}
     same = lambda a, b: (objs[a]['shape'], objs[a]['size'], objs[a]['color']) == (objs[b]['shape'], objs[b]['size'], objs[b]['color'])
     assert same('B1', 'B1p') and same('C1', 'C2') and not same('C1', 'C3') and not same('B1', 'B2')
-    assert twin_of('B1') == 'B1p' and twin_of('C2') == 'C1' and twin_of('B3') is None
+    assert twin_of('B1') == 'B1p' and twin_of('C2') == 'C1' and twin_of('B3') == 'B3p' and twin_of('C3') is None
     r, h = objs['C1']['size']
     assert 2 * (r - 0.004) > np.hypot(0.04, 0.04)          # a 4 cm cube fits into a cup (T3)
 
@@ -159,6 +159,40 @@ def test_wrong_place_zone_fails(scenarios):
         e._known_zone = lambda: next(z for z in sc.places if z != sc.place_zone)
     rec = run_episode(scenarios['t1_pick_place'], PatchedExpert(patch), OK_SEED, keep_trace=False)
     assert not rec['success'] and rec['failure'] == 'wrong_place_zone'
+
+
+def let_go_above_handover_point(dx: float, dz: float):
+    """Expert patch: stop dz above (dx beside) the handover point and open at once, before the human closes the hand."""
+    def patch(e, sc):
+        steps = e._handover_steps
+
+        def patched(obj):
+            out = steps(obj)
+            for s in out:
+                if s.name == 'to_handover':
+                    s.target = (lambda f: lambda: f() + [dx, 0.0, dz])(s.target)
+                elif s.name == 'wait_pull':
+                    s.until = lambda: True
+            return out
+        e._handover_steps = patched
+    return patch
+
+
+@pytest.mark.parametrize('dx, received', [(0.0, True), (0.12, False)])
+def test_object_let_go_into_the_waiting_palm_rests_on_it(scenarios, dx, received):
+    """Let go 3 cm above the waiting palm: the object lands on it and the human closes the hand on it (palm support);
+    let go beside the hand: it falls to the table."""
+    spec = {'task': 'T2', 'target': 'B1', 'layout': {'B1': 'S5', 'B1p': 'S2', 'B3': 'S3'}, 'pair': True, 'hand': 'H1',
+            'timing': 'early'}
+    rec = run_episode(scenarios['t2_handover'], PatchedExpert(let_go_above_handover_point(dx, 0.03)), OK_SEED,
+                      keep_trace=False, spec=spec)
+    if received:
+        assert rec['success'], rec['failure']
+        t = lambda kind, actor: next(e['timestamp'] for e in rec['events'] if e['event_type'] == kind
+                                     and e['entity_id'] == actor and e['payload'].get('object') == 'B1')
+        assert t('object_release', 'robot') < t('object_grasp', 'human')     # caught in the palm, not taken from the gripper
+    else:
+        assert not rec['success'] and rec['failure'] == 'object_dropped'
 
 
 def test_robot_that_does_not_yield_is_not_successful(scenarios):

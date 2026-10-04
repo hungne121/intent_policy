@@ -10,13 +10,15 @@ experiment: intent_act_early
 phase: intent_act
 seed: 0
 policy:
-  config: configs/policy/act_restricted.yaml   # restricted 9-action head, no CVAE (guide v2 §4.4)
+  config: configs/policy/act_continuous.yaml   # original continuous ACT head for A-D (user 2026-10-03)
   use_task_token: true               # every model (A-D) gets the T1-T4 task token (guide v2 §5.1)
+  use_instruction: true              # + the T1 / T2 command's object / destination kind, never which one (2026-10-03)
 intent:
   provider: labels                   # per-timestep intent labels intent.* (scripts/build_intent_labels.py)
   schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
 benchmark:
   scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
+  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/specs/EPISODE_PLAN_v5.md)
 observation:
   cameras: [high, wrist, top]
   width: 256
@@ -24,13 +26,17 @@ observation:
 controller: configs/controller/restricted_action.yaml
 scenario_overrides:
   all:
-    expert: {trigger: evidence}
+    expert: {trigger: evidence, grasp_settle_ticks: 0}       # same expert as intent_act_late.yaml except the timing
   t4_interrupt:
-    expert: {yield_prediction_horizon_s: 0.5}
+    expert: {start_s: 0.0, yield_prediction_horizon_s: 0.5}  # early: also yields to the hand predicted 0.5 s ahead
 data:
-  repo_id: local/intent_act_early
-  root: outputs/datasets/intent_act_early
-  scenario_list: configs/scenario_lists/demo_v1.jsonl   # T1-T5 incl. T4-neg and the T5 changes of mind (280)
+  repo_id: local/intent_act_early_v5
+  root: outputs/datasets/intent_act_early_v5
+  scenario_list: configs/episode_lists/v5/demo_list.jsonl   # 580 design cells, DART per cell, seeds valid for late + early (plan v5)
+  noise:                             # DART, as intent_act_late.yaml
+    episode_fraction: 0.5            # (plan v5 lists fix DART per cell: `dart`; this fraction is then unused)
+    burst_prob: 0.04
+    burst_ticks: [3, 8]
 training:
   steps: 20000
   batch_size: 32
@@ -39,4 +45,3 @@ training:
   save_every: 10000                 # checkpoints 10k, 20k (guide v2 §5.2), all kept
   amp: false
   keep_last: 0                      # keep every numbered checkpoint
-  output_dir: outputs/train/intent_act/early

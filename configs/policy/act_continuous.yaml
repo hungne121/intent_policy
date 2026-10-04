@@ -1,9 +1,13 @@
-# LeRobot ACT - original continuous action-chunk head (preserved for Phase 4).
+# LeRobot ACT - original continuous action-chunk head (A-D of INTENT_ACT, user 2026-10-03).
 type: hri_act
 action_mode: continuous
 use_intent: false
-chunk_size: 16                    # H=16, prefix=2 (phase_4.md): [B,16,7], execute 2 steps per inference
-n_action_steps: 2
+# Chunk ~2 s: the ACT ablation (Zhao et al. 2023) peaks at k=100 @ 50 Hz = 2 s (1 % at k=1 -> 44 % at k=100), i.e.
+# 40 steps @ 20 Hz; it covers one robot sub-motion (~1.5-2 s) and one human gesture (~1.15 s measured). Inference as
+# in the ACT paper: query every step, temporal ensembling (m = 0.01) for reactivity. phase_4.md had H=16, prefix=2.
+chunk_size: 40
+n_action_steps: 1
+temporal_ensemble_coeff: 0.01
 vision_backbone: resnet18
 pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
 dim_model: 256

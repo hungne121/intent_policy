@@ -7,6 +7,8 @@ and save_pretrained. The only project-specific pieces are carrying the restricte
 policy config sets `use_intent`, declaring the oracle intention features as extra inputs (fusion) or carrying the
 intent contract around the preprocessor (intent tokens, docs/requirements/INTENT_ACT_GUIDE_v2.md §5.2):
   --[no-]use-task-token    task token T1-T4 (default: experiment `policy.use_task_token`, else off)
+  --[no-]use-instruction   add the task instruction (object / destination kind) to the task token (default: experiment
+                           `policy.use_instruction`, else off; needs hri.instr_* from scripts/build_intent_labels.py)
   --use-intent             intent tokens (default off: the dataset's intent_* columns are ignored)
   --intent-source          hindsight | perfect | predicted (columns intent_hs / intent_pp / intent_pr<r>, read as intent.*)
   --intent-source-mix      e.g. predicted:0.7,perfect:0.3 (source drawn per sample; predicted: replica drawn uniformly)
@@ -16,10 +18,11 @@ intent contract around the preprocessor (intent tokens, docs/requirements/INTENT
 xi is normalised with mean / std over the training episodes (std >= 1e-2) of the (first) source, stored in the model.
 Metadata records the full config, seed, git commit and the checkpoint rule.
 
-Checkpoints: <output>/checkpoints/<step>/{pretrained_model, training_state.pt}; the newest
-`--keep-last` are kept and the final model is also written to checkpoints/last. `--resume`
-continues exactly (optimizer, AMP scaler, RNG states and the position inside the shuffled epoch),
-also to extend a finished run with a larger `--steps`.
+Run folder (as LeRobot lays out runs): `--output-dir`, else outputs/train/<date>/<time>_<job name> (`--job-name`,
+default the experiment name), holding train_log.jsonl, log.txt, command.txt and checkpoints/<step>/{pretrained_model,
+training_state.pt}; the newest `--keep-last` are kept and the final model is also written to checkpoints/last.
+`--resume --output-dir <run folder>` continues exactly (optimizer, AMP scaler, RNG states and the position inside the
+shuffled epoch), also to extend a finished run with a larger `--steps`.
 """
 import argparse
 import json
@@ -40,9 +43,10 @@ from lerobot.configs.types import FeatureType
 from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.utils.feature_utils import dataset_to_policy_features
 
+from intent_policy.intent.instruction import INSTR_DEST, INSTR_OBJECT
 from intent_policy.intent.labels import SCHEMA_PATH, load_schema
 from intent_policy.policies.hri_act import HRIACTConfig, HRIACTPolicy, make_hri_act_pre_post_processors
-from intent_policy.utils import load_yaml, resolve
+from intent_policy.utils import load_yaml, log_run, resolve, run_dir
 
 INTENT_COLUMN_PREFIX = 'intent_'
 TASK_ID = 'hri.task_id'
@@ -147,6 +151,8 @@ def build_config(policy_yaml: dict, meta: LeRobotDatasetMetadata, device: str, c
         kwargs.pop('intent_source_mix', None)
     elif policy_yaml.get('use_task_token') and TASK_ID not in meta.features:
         raise KeyError(f'{TASK_ID} missing from the dataset (run scripts/build_intent_labels.py)')
+    if policy_yaml.get('use_instruction') and not {INSTR_OBJECT, INSTR_DEST} <= set(meta.features):
+        raise KeyError(f'{INSTR_OBJECT} / {INSTR_DEST} missing from the dataset (run scripts/build_intent_labels.py)')
     if policy_yaml.get('use_intent') and policy_yaml.get('intent_arch', 'fusion') == 'fusion':
         branches = policy_yaml.get('intent_branches') or {}
         missing = {k for keys in branches.values() for k in keys} - set(meta.features)
@@ -184,7 +190,8 @@ class EpochSampler(torch.utils.data.Sampler):
 
 def run_batch(policy, preprocessor, batch, device, label_key, amp: bool = False, selector: IntentSelector | None = None):
     # the restricted label, the task id and the intent columns are not ACT features: bypass the processor
-    extra = {k: batch.pop(k) for k in list(batch) if k in (label_key, TASK_ID) or k.startswith(INTENT_COLUMN_PREFIX)}
+    extra = {k: batch.pop(k) for k in list(batch)
+             if k in (label_key, TASK_ID, INSTR_OBJECT, INSTR_DEST) or k.startswith(INTENT_COLUMN_PREFIX)}
     batch = preprocessor(batch)
     if selector is not None:
         extra.update(selector.select(extra, policy.training))
@@ -223,6 +230,8 @@ def guide_overrides(args) -> dict:
         out['use_task_token'] = args.use_task_token
         if args.use_task_token and 'intent_schema' not in out:
             out['intent_schema'] = load_schema(args.intent_schema)
+    if getattr(args, 'use_instruction', None) is not None:
+        out['use_instruction'] = args.use_instruction
     if args.intent_keep is not None:
         out['intent_keep'] = [g.strip() for g in args.intent_keep.split(',') if g.strip()]
     for flag, key in (('intent_source', 'intent_source'), ('intent_source_mix', 'intent_source_mix'),
@@ -261,13 +270,16 @@ def main():
                    help='override policy config fields (YAML values), e.g. intent_mask=true')
     p.add_argument('--dataset-root')
     p.add_argument('--repo-id')
-    p.add_argument('--output-dir')
+    p.add_argument('--output-dir', help='run folder (default: outputs/train/<date>/<time>_<job name>); required by --resume')
+    p.add_argument('--job-name', help='names the default run folder (default: the experiment name)')
     p.add_argument('--steps', type=int)
     p.add_argument('--batch-size', type=int)
     p.add_argument('--num-workers', type=int)
     p.add_argument('--seed', type=int, help='override experiment seed (training seed)')
     p.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     p.add_argument('--val-every', type=int, default=10, help='every k-th episode is held out for validation')
+    p.add_argument('--exclude-tasks', nargs='*', default=[],
+                   help='list tasks left out of training and validation, e.g. T5 (plan v5: optional_t5 episodes)')
     p.add_argument('--save-every', type=int, help='override training.save_every')
     p.add_argument('--keep-last', type=int, help='numbered checkpoints to keep (0: all; default training.keep_last or 2)')
     p.add_argument('--amp', action=argparse.BooleanOptionalAction, default=None, help='fp16 autocast (default: training.amp)')
@@ -276,6 +288,9 @@ def main():
     g = p.add_argument_group('task / intent tokens (docs/requirements/INTENT_ACT_GUIDE_v2.md §5.2)')
     g.add_argument('--use-task-token', '--use_task_token', action=argparse.BooleanOptionalAction, default=None,
                    help='task token T1-T4 (default: experiment policy.use_task_token, else off)')
+    g.add_argument('--use-instruction', '--use_instruction', action=argparse.BooleanOptionalAction, default=None,
+                   help='task instruction (object / destination kind) in the task token (default: experiment '
+                        'policy.use_instruction, else off)')
     g.add_argument('--use-intent', '--use_intent', action='store_true', help='intent tokens (default: off)')
     g.add_argument('--intent-schema', default=SCHEMA_PATH)
     g.add_argument('--intent-source', '--intent_source', choices=['hindsight', 'perfect', 'predicted'],
@@ -308,13 +323,18 @@ def main():
         policy_yaml[key] = yaml.safe_load(value)
     if args.use_task_token is None and exp['policy'].get('use_task_token') is not None:
         args.use_task_token = bool(exp['policy']['use_task_token'])
+    if args.use_instruction is None and exp['policy'].get('use_instruction') is not None:
+        args.use_instruction = bool(exp['policy']['use_instruction'])
     policy_yaml.update(guide_overrides(args))
     if isinstance(policy_yaml.get('intent_schema'), str):
         policy_yaml['intent_schema'] = load_schema(policy_yaml['intent_schema'])
     mix_spec = policy_yaml.get('intent_source_mix')
     root = resolve(args.dataset_root or exp['data']['root'])
     repo_id = args.repo_id or exp['data']['repo_id']
-    out = resolve(args.output_dir or tr['output_dir'])
+    if args.resume and not args.output_dir:
+        raise SystemExit('--resume continues a run: pass its folder as --output-dir')
+    out = run_dir('train', args.job_name or exp['experiment'], args.output_dir)
+    log_run(out, 'scripts.train_policy')
     steps = args.steps or tr['steps']
     batch_size = args.batch_size or tr['batch_size']
     num_workers = tr['num_workers'] if args.num_workers is None else args.num_workers
@@ -330,6 +350,11 @@ def main():
     label_key = cfg.restricted_label_key
     delta = {k: [i / meta.fps for i in range(cfg.chunk_size)] for k in ('action', label_key)}
     train_eps, val_eps = split_episodes(meta.total_episodes, args.val_every)
+    if args.exclude_tasks:
+        tasks = {m['episode_index']: m.get('list_task') for m in
+                 map(json.loads, (root / 'meta/hri_episodes.jsonl').read_text().splitlines())}
+        drop = set(args.exclude_tasks)
+        train_eps, val_eps = [e for e in train_eps if tasks.get(e) not in drop], [e for e in val_eps if tasks.get(e) not in drop]
     ds_kw = dict(root=root, delta_timestamps=delta, **({'video_backend': args.video_backend} if args.video_backend else {}))
     train_ds = LeRobotDataset(repo_id, episodes=train_eps, **ds_kw)
     val_ds = LeRobotDataset(repo_id, episodes=val_eps, **ds_kw) if val_eps else None
@@ -380,7 +405,7 @@ def main():
         return dict(experiment=exp, experiment_config_path=str(args.config), policy_config_path=str(policy_cfg_path),
                     policy_config=json.loads(json.dumps(asdict(cfg), default=str)), dataset_root=str(root),
                     dataset_repo_id=repo_id, dataset_episodes=meta.total_episodes, dataset_frames=meta.total_frames,
-                    train_episodes=train_eps, val_episodes=val_eps, seed=seed, step=tag_step, steps_total=steps,
+                    train_episodes=train_eps, val_episodes=val_eps, excluded_tasks=list(args.exclude_tasks), seed=seed, step=tag_step, steps_total=steps,
                     batch_size=batch_size, amp=amp, num_workers=num_workers, last_log=last_info,
                     created=datetime.now(timezone.utc).isoformat(),
                     versions=dict(python=platform.python_version(), torch=torch.__version__,

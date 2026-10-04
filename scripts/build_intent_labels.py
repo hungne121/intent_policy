@@ -25,6 +25,7 @@ import pyarrow.parquet as pq
 from lerobot.datasets.feature_utils import get_hf_features_from_features
 
 from intent_policy.intent.contract import FIELDS, dataset_features, validate_intent
+from intent_policy.intent.instruction import INSTR_DEST, INSTR_OBJECT, instruction_of
 from intent_policy.intent.labels import SCHEMA_PATH, load_schema, segments_from_sim
 from intent_policy.intent.sources import HindsightSource, HumanObs
 from intent_policy.intent.tracker import HoldingDetector, RobotState
@@ -148,16 +149,19 @@ def build_labels(root: Path, schema_path=SCHEMA_PATH, sources=('hindsight',), se
             validate_intent(out, schema, batched=True)
             outputs.setdefault(prefix, {})[e] = out
 
-    task_ids = {e: schema['tasks'].index(schema['task_of_scenario'][meta[e]['scenario_id']]) for e in episodes}
-    features = {k: v for k, v in info['features'].items() if not k.startswith('intent_') and k != TASK_ID}
+    instr = {e: instruction_of(meta[e]['spec'], meta[e]['scenario_id'], schema) for e in episodes}
+    features = {k: v for k, v in info['features'].items()
+                if not k.startswith('intent_') and k not in (TASK_ID, INSTR_OBJECT, INSTR_DEST)}
     for prefix in outputs:
         features.update(dataset_features(schema, prefix))
-    features[TASK_ID] = {'dtype': 'int64', 'shape': (1,), 'names': ['task_id']}
+    for k, name in ((TASK_ID, 'task_id'), (INSTR_OBJECT, 'instr_object'), (INSTR_DEST, 'instr_dest')):
+        features[k] = {'dtype': 'int64', 'shape': (1,), 'names': [name]}
     tuples = {k: {**v, 'shape': tuple(v['shape'])} for k, v in features.items()}
     for f in data_files(root):
         table = pq.read_table(f)
         ep_col, fr_col = table.column('episode_index').to_numpy(), table.column('frame_index').to_numpy()
-        new = {TASK_ID: np.asarray([task_ids[int(e)] for e in ep_col], np.int64)}
+        new = {k: np.asarray([instr[int(e)][j] for e in ep_col], np.int64)
+               for j, k in enumerate((TASK_ID, INSTR_OBJECT, INSTR_DEST))}
         for prefix, per_ep in outputs.items():
             for field in FIELDS:
                 some = next(iter(per_ep.values()))[field]

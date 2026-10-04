@@ -39,6 +39,12 @@ intention_change:
   withdraw_s: [1.0, 1.3]            # early change: the hand is pulled back before reaching for the other cube
   pause_s: [0.4, 0.7]               # pause before reaching for the other cube
   early_dwell_s: [0.7, 1.0]         # early change: the hand hovers this long above the first cube, then withdraws
+  # (2026-10-03) free timing, replaces early / late and late_trigger_m: the change of mind comes a random time after
+  # the first indication completed, whatever the robot is doing (heading for, lowering to, holding or carrying the old
+  # target); T1 / T2 first signal 'wait' (open hand, palm down, held out towards the robot), then point at the twin
+  delay_s: [0.3, 6.0]
+  stop_s: [0.4, 0.6]                # the 'wait' hand moves out ...
+  stop_hold_s: [0.4, 0.8]           # ... and is held this long
 expert:
   trigger: cue_complete
   travel_dz: 0.20

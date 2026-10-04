@@ -15,9 +15,19 @@ target_kinds:                      # valid swaps stay within a kind (and, for ob
   region: [U, robot_zone, zone_edge]
 who: [none, robot, human, joint]
 phases: [rest, prepare, stroke, hold, retract]
-gestures: [rest, point, reach, palm_up, palm_forward]     # palm_forward reserved (no cancel gesture in the sim)
+gestures: [rest, point, reach, palm_up, palm_forward]     # palm_forward: the 'wait' signal before a change of mind
 tasks: [T1, T2, T3, T4]            # task_id: T5 counts as its base task, T4-neg as T4
 task_of_scenario: {t1_pick_place: T1, t2_handover: T2, t3_assist: T3, t4_interrupt: T4}
+# Task instruction (user 2026-10-03): the simulated spoken command of T1 / T2, given from the episode start. It names
+# the KIND of object and destination but never WHICH one: the scene always holds an identical twin of the target, so
+# only the human's cues (pointing, the hand held out) tell the exact target. T3 / T4 have no command (task id only):
+# the robot anticipates the human's choice (T3) or the intrusion (T4) from the learned workflow.
+instruction:
+  objects: [none, red_cube, blue_cube, yellow_cube, white_cup, green_cup]
+  dests: [none, place, hand]
+  object_desc: {B1: red_cube, B1p: red_cube, B2: blue_cube, B2p: blue_cube, B3: yellow_cube, B3p: yellow_cube,
+                C1: white_cup, C2: white_cup, C3: green_cup}
+  dest_of_task: {T1: place, T2: hand}
 n_waypoints: 8                     # M: xi at (m + 1) / M * horizon_s
 horizon_s: 1.2
 keypoints: [r_wrist, r_index_base, r_index_tip, l_wrist, l_index_base, l_index_tip]   # J = 6, sim ground truth
@@ -41,6 +51,7 @@ sim_segments:
   intrude_approach: {gesture: reach, who: human}
   intrude: {gesture: reach, who: human, hold: [dwelling]}
   reach_near: {gesture: reach, who: human, hold: [dwelling]}
+  stop_signal: {gesture: palm_forward, who: robot}   # 'wait!' before a change of mind (2026-10-03)
 retract_labels: [return_rest, withdraw, withdraw_change, withdraw_with_object]
 evidence_fraction: 0.4             # sim information-timing contract (ScriptedHuman.evidence_fraction)
 neg_target_obj: {U: U, edge: zone_edge}

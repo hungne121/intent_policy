@@ -1,10 +1,11 @@
-"""T5 change of mind on T1-T3 (withdraw, then point at the new target; before the robot grasps), expert triggers
-(cue_complete / evidence / cue_onset), scenario overrides."""
+"""T5 change of mind on T1-T3 (2026-10-03: a random time after the first indication, whatever the robot does; T1 / T2
+signal 'wait', then point at the new target; a held old object is put back), expert triggers (cue_complete / evidence
+/ cue_onset), scenario overrides."""
 import numpy as np
 import pytest
 
 from intent_policy.benchmark.runner import ExpertAgent, run_episode
-from intent_policy.scenarios.config import ScenarioConfig, random_spec, sample_variation
+from intent_policy.scenarios.config import CHANGE_TIMINGS, ScenarioConfig, random_spec, sample_variation
 from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
 from scripts.reproduce_episode import compare
 
@@ -16,7 +17,8 @@ class IgnoreChangeExpert(ExpertAgent):
     """Keeps executing the original plan after the human changed their mind (failure probe)."""
     def reset(self, scenario, mapper):
         super().reset(scenario, mapper)
-        self.expert._follow_intention_change = lambda: None
+        self.expert._follow_intention_change = self.expert._follow_correction = lambda: None
+        self.expert._redirect = lambda new: None
 
 
 def change_spec(sid: str, timing: str, seed: int = 1) -> dict:
@@ -44,28 +46,36 @@ def test_change_is_off_by_default_and_part_of_the_spec(sid):
         v0, v1 = sample_variation(base, seed), sample_variation(changed, seed)
         assert v0['change'] is None and 'change' not in v0['spec']
         ch = v1['change']
-        assert ch['timing'] in ('early', 'late') and ch['old'] in v1['spec']['layout'] and ch['old'] != v1['target_object']
+        assert ch['timing'] in CHANGE_TIMINGS and ch['old'] in v1['spec']['layout'] and ch['old'] != v1['target_object']
     with pytest.raises(ValueError):
         sample_variation(ScenarioConfig.load('t4_interrupt'), 0, dict(random_spec(ScenarioConfig.load('t4_interrupt'),
                                                                                np.random.default_rng(0)), change={'timing': 'early', 'old': 'B2'}))
 
 
+DELAYS = {'heading': 0.6, 'holding': 4.5}     # change of mind while the robot heads for / already holds the old target
+
+
 @pytest.mark.parametrize('trigger', ['cue_complete', 'evidence'])
-@pytest.mark.parametrize('timing', ['early', 'late'])
+@pytest.mark.parametrize('when', list(DELAYS))
 @pytest.mark.parametrize('sid', BASES)
-def test_expert_follows_the_change_of_mind(sid, timing, trigger):
-    sc = make_scenario(sid, {'expert': {'trigger': trigger}})
+def test_expert_follows_the_change_of_mind(sid, when, trigger):
+    d = DELAYS[when]
+    sc = make_scenario(sid, {'expert': {'trigger': trigger}, 'intention_change': {'delay_s': [d, d]}})
     try:
-        spec = change_spec(sid, timing)
+        spec = change_spec(sid, 'late')
         rec = run_episode(sc, ExpertAgent(), 1, keep_trace=False, spec=spec)
         changes = [e for e in rec['events'] if e['event_type'] == 'human_intention_change']
-        assert rec['success'], rec['failure']
+        assert rec['success'], rec['failure']          # incl. the old object back where it stood (put_back_ok)
         assert len(changes) == 1 and changes[0]['payload']['previous'] == spec['change']['old']
         assert changes[0]['payload']['current'] == spec['target'] == sc.robot_target()
-        assert not any(e['event_type'] == 'object_grasp' and e['entity_id'] == 'robot' and e['payload']['object'] == spec['change']['old']
-                       for e in rec['events'])
+        old_grasped = any(e['event_type'] == 'object_grasp' and e['entity_id'] == 'robot'
+                          and e['payload']['object'] == spec['change']['old'] for e in rec['events'])
+        if when == 'holding':
+            assert old_grasped                         # carried back to its spot (success needs put_back_ok)
+        elif not (sid == 't3_assist' and trigger == 'cue_complete'):
+            assert not old_grasped                     # (late T3: switching cubes takes ~2-3 s, the cup is held by then)
         steps = rec['protocol_steps_completed']
-        assert 'change_indicated' in steps
+        assert 'change_indicated' in steps and ('stop_signaled' in steps) == (sid != 't3_assist')
         assert not any(e['event_type'] in ('human_robot_contact',) for e in rec['events'])
     finally:
         sc.close()
@@ -73,12 +83,12 @@ def test_expert_follows_the_change_of_mind(sid, timing, trigger):
 
 @pytest.mark.parametrize('sid', BASES)
 def test_ignoring_a_late_change_fails(sid):
-    sc = make_scenario(sid)
+    sc = make_scenario(sid, {'intention_change': {'delay_s': [1.0, 1.0]}})
     try:
         rec = run_episode(sc, IgnoreChangeExpert(), 1, keep_trace=False, spec=change_spec(sid, 'late'))
     finally:
         sc.close()
-    assert not rec['success'] and rec['failure'] in ('touched_other_object', 'wrong_object_manipulated')
+    assert not rec['success']
 
 
 def test_anticipating_triggers_start_earlier():
@@ -94,12 +104,13 @@ def test_anticipating_triggers_start_earlier():
         assert rec['success'], (trigger, rec['failure'])
         cue = next(e['timestamp'] for e in rec['events'] if e['event_type'] == 'human_cue_onset')
         lag[trigger] = next(e['timestamp'] for e in rec['events'] if e['event_type'] == 'robot_motion_start' and e['timestamp'] >= cue) - cue
-    assert lag['cue_onset'] < 0.3 < 2.0 < lag['cue_complete']
+    assert lag['cue_onset'] < 0.3 < 0.8 < lag['cue_complete']       # cue_complete: once the pointing arrived
     assert records['evidence']['metrics']['CT'] < records['cue_complete']['metrics']['CT']
 
 
 def test_predictive_yield_expert_succeeds_without_contact():
-    sc = make_scenario('t4_interrupt', {'expert': {'trigger': 'evidence', 'yield_prediction_horizon_s': 0.5}})
+    sc = make_scenario('t4_interrupt', {'expert': {'trigger': 'evidence', 'yield_prediction_horizon_s': 0.5},
+                                        'human_behavior': {'intrusion_time_s': [5.5, 5.5]}})
     try:
         rec = run_episode(sc, ExpertAgent(), 3, keep_trace=False)
     finally:

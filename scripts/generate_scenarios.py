@@ -9,8 +9,9 @@ continuous variation (position jitter, human timing). Rules (§5.2):
      T5 base task x change timing;
   2. the other objects are shuffled into the free slots (never a cup next to another object in a row: the open
      gripper would hit the cup wall);
-  3. T1 / T2 (and T5 on T1 / T2): exactly 1/3 of the episodes have an identical pair on the table and the target
-     is one of the pair;
+  3. T1 / T2 (and T5 on T1 / T2): exactly `pair_fraction` of the episodes (v1: 1/3, v2: all) have an identical pair
+     on the table and the target is one of the pair; v2 (`t5_change: twin`): the T5 change on T1 / T2 is between the
+     twins, so the instruction ("the red cube") stays true and only the pointing tells which one;
   4. no two consecutive episodes share the target slot;
   5. one human (no participant_id, user decision 2026-09-29);
   6. fixed, stored seeds (configs/scenario_lists/generator.yaml).
@@ -46,8 +47,8 @@ def flags(n: int, k: int, rng) -> list[bool]:
 
 
 class Builder:
-    def __init__(self, cfgs: dict, rng, pair_fraction: float):
-        self.cfgs, self.rng, self.pf = cfgs, rng, pair_fraction
+    def __init__(self, cfgs: dict, rng, pair_fraction: float, t5_change: str = 'any'):
+        self.cfgs, self.rng, self.pf, self.t5_change = cfgs, rng, pair_fraction, t5_change
         scene = cfgs['T1'].scene
         self.slots, self.places, self.hands = zones_of(scene, 'slot'), zones_of(scene, 'place'), zones_of(scene, 'hand')
 
@@ -136,7 +137,12 @@ class Builder:
             spec = made[base].pop(0)
             if base == 'T2':
                 spec['timing'] = 'on_time'
-            old = self.pick([k for k in spec['layout'] if k != spec['target']])
+            twin = next((b for a, b in PAIRS.values() if a == spec['target']), None) or \
+                next((a for a, b in PAIRS.values() if b == spec['target']), None)
+            if self.t5_change == 'twin' and base in ('T1', 'T2') and twin in spec['layout']:
+                old = twin
+            else:
+                old = self.pick([k for k in spec['layout'] if k != spec['target']])
             spec['change'] = dict(timing=timing, old=old)
             out.append((base, spec))
         return out
@@ -160,7 +166,7 @@ def no_repeat_slots(items: list, rng, tries: int = 2000) -> list:
 
 def build(split: str, gcfg: dict, cfgs: dict) -> list[dict]:
     rng = np.random.default_rng(int(gcfg['seeds'][split]))
-    b = Builder(cfgs, rng, float(gcfg['pair_fraction']))
+    b = Builder(cfgs, rng, float(gcfg['pair_fraction']), gcfg.get('t5_change', 'any'))
     holdout = set(gcfg.get('holdout') or []) if split == 'demo' else set()
     counts = gcfg['counts'][split]
     blocks = [('T1', [('T1', s) for s in b.t1(counts['T1'], holdout)]),

@@ -25,7 +25,8 @@ task, scenario, seed, discrete spec; docs/requirements/scence_construct.md §5) 
 (e.g. a preview). Experiment configs may set `scenario_overrides` (deep-merged into the scenario YAMLs) and
 `data.noise` (DART-style perturbation of a fraction of the episodes; the recorded labels stay the expert's clean
 actions). A list entry whose expert episode fails is not stored (reported, with its reason, in
-meta/hri_rejected.jsonl).
+meta/hri_rejected.jsonl). The run's console output and command line go to log.txt / command.txt in `--log-dir`, else
+outputs/collect/<date>/<time>_<dataset name> (the dataset itself stays at `data.root`, as LeRobot keeps it).
 """
 import argparse
 import json
@@ -42,16 +43,18 @@ from intent_policy.intent.oracle import OracleIntentProvider
 from intent_policy.intent.representation import dataset_features as oracle_features, features as oracle_values
 from intent_policy.scenarios.config import _deep_merge, load_scenario_list
 from intent_policy.scenarios.scenario_registry import make_scenario, scenario_overrides
-from intent_policy.utils import load_yaml, resolve, observation_config, controller_config
+from intent_policy.utils import controller_config, load_yaml, log_run, observation_config, resolve, run_dir
 
 JOINTS = ['shoulder_pan', 'shoulder_lift', 'elbow', 'wrist_1', 'wrist_2', 'wrist_3']
 STATE_NAMES = [f'{j}.pos' for j in JOINTS] + ['gripper.pos', 'tcp.x', 'tcp.y', 'tcp.z']
 ACTION_NAMES = [f'{j}.pos' for j in JOINTS] + ['gripper.pos']
+COMMAND_NAMES = ['cmd.x', 'cmd.y', 'cmd.z', 'cmd.gripper']          # observation.command_state
 HRI_FIELDS = ('hri.seed', 'hri.scenario_index', 'hri.noise_injected')
 
 
 def features(obs_cfg, oracle_horizons: tuple | None = None, keypoints: list[str] | None = None) -> dict:
-    f = {'observation.state': {'dtype': 'float32', 'shape': (10,), 'names': STATE_NAMES},
+    names = STATE_NAMES + (COMMAND_NAMES if getattr(obs_cfg, 'command_state', False) else [])
+    f = {'observation.state': {'dtype': 'float32', 'shape': (len(names),), 'names': names},
          'action': {'dtype': 'float32', 'shape': (7,), 'names': ACTION_NAMES},
          'restricted_action': {'dtype': 'int64', 'shape': (1,), 'names': ['restricted_action_id']}}
     for cam in obs_cfg.cameras:
@@ -139,7 +142,38 @@ def episode_meta(index, sid, split, seed, sc, rec, frames, info, entry=None) -> 
                 protocol_steps=protocol, expert_stages=segments(info['stages'], info['actions']),
                 human_stages=segments(info['humans']), human_target_stages=segments(info['targets']),
                 action_counts=dict(Counter(RestrictedAction(a).name for a in info['actions'])),
-                min_human_robot_distance=round(rec['min_human_robot_distance'], 4), metrics=rec['metrics'])
+                min_human_robot_distance=round(rec['min_human_robot_distance'], 4), metrics=rec['metrics'],
+                **plan_metadata(sc, rec, info['stages'], entry))
+
+
+def plan_metadata(sc, rec, stages: list[str] | None = None, entry: dict | None = None) -> dict:
+    """Plan v5 per-episode metadata: design cell, DART, T2 hand-over timing, T4 intrusion, T5 change of mind."""
+    entry = entry or {}
+    ev = rec['events']
+    step_t = lambda s: next((round(e['timestamp'], 3) for e in ev if e['event_type'] == 'protocol_step_complete'
+                             and e['payload'].get('step') == s), None)
+    out = dict(cell_id=entry.get('cell_id'), dart=entry.get('dart'), optional_t5=entry.get('optional_t5', False))
+    target = sc.variation['target_object']
+    if sc.cfg.task_code == 'T2':
+        leave = None
+        if stages:
+            leave = next((round(i / 20, 3) for i, s in enumerate(stages) if s == 'over_hand'), None)
+        out.update(t_hand_ready=step_t('hand_ready'), t_robot_at_handover=step_t('robot_at_handover'),
+                   t_object_in_palm=step_t('robot_at_handover'), t_robot_leave_wait=leave,
+                   t_grasp_done=next((round(e['timestamp'], 3) for e in ev if e['event_type'] == 'object_grasp'
+                                      and e['entity_id'] == 'robot' and e['payload'].get('object') == target), None),
+                   hand_lowered_first=sc.variation['human'].get('lower_first'),
+                   reach_delay_s=round(sc.variation['human'].get('reach_delay_s', float('nan')), 3))
+    if sc.cfg.task_code == 'T4':
+        x = sc.human.extras
+        out.update(phase_at_intrusion=x.get('phase'), entered_zone=bool(getattr(sc, 'ever_in_zone', False)),
+                   intrusion_time_s=round(sc.variation['human'].get('intrusion_time_s', float('nan')), 3),
+                   intrusion_hold_s=round(sc.variation['human'].get('intrusion_hold_s', float('nan')), 3))
+    if sc.variation.get('change'):
+        out.update(robot_state_at_change=sc.change_robot_state, change_t=sc.change_t,
+                   change_cancelled='change_dropped' in sc.human.extras,
+                   change_delay_s=round(sc.variation['human'].get('change_delay_s', float('nan')), 3))
+    return out
 
 
 def entries_of(exp: dict, data: dict, args) -> list[dict]:
@@ -176,12 +210,14 @@ def main():
     p.add_argument('--per-task', type=int, help='first N list entries per task (without a list: episodes per scenario)')
     p.add_argument('--scenarios', nargs='*', help='without a list: subset of benchmark.scenarios')
     p.add_argument('--overwrite', action='store_true')
+    p.add_argument('--log-dir', help='default: outputs/collect/<date>/<time>_<dataset name>')
     args = p.parse_args()
     exp = load_yaml(args.config)
     data = exp['data']
     data.update({k: v for k, v in dict(root=args.root, repo_id=args.repo_id, scenario_list=args.scenario_list).items()
                  if v is not None})
     root = resolve(data['root'])
+    log_run(run_dir('collect', root.name, args.log_dir), 'scripts.collect_demos')
     if root.exists():
         if not args.overwrite:
             raise SystemExit(f'{root} exists; pass --overwrite to replace it')
@@ -205,7 +241,10 @@ def main():
             cache[key] = make_scenario(sid, _deep_merge(scenario_overrides(exp, sid),
                                                         scenario_overrides({'scenario_overrides': e.get('overrides')}, sid)))
         sc = cache[key]
-        noisy = bool(noise_cfg) and np.random.default_rng(seed * 7 + 11).random() < float(noise_cfg['episode_fraction'])
+        if 'dart' in e:                          # plan v5: the list fixes DART per design cell
+            noisy = bool(e['dart'])
+        else:
+            noisy = bool(noise_cfg) and np.random.default_rng(seed * 7 + 11).random() < float(noise_cfg['episode_fraction'])
         agent = NoisyExpertAgent(noise_cfg['burst_prob'], noise_cfg['burst_ticks']) if noisy else ExpertAgent()
         rec, frames, info = record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid), e['spec'],
                                            keypoints)

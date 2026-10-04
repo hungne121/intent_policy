@@ -34,6 +34,9 @@ human_behavior:
   speed_scale: [0.8, 1.25]
   approach_trigger_m: 0.25          # phase approach: robot heading for the cube, TCP within this horizontal distance
   trigger_delay_s: [0.2, 0.5]       # phase carry: this long after the robot lifted the cube
+  intrusion_time_s: [0.5, 8.0]      # (2026-10-03) replaces the phase triggers: the hand starts moving in at a random
+                                    #   moment of the robot's work (pick-and-place takes ~11 s), whatever it is doing
+  intrusion_hold_s: [0.5, 4.0]      # (2026-10-03) replaces the list's hold_s (1 / 2 / 4 s): random hold in the zone
   place_trigger_m: 0.12             # phase place: carrying, TCP within this horizontal distance of the place zone
   approach_s: [1.6, 2.2]            # the hand moves in slowly (peak speed <= ~0.8 m/s; a fast hand stopped for
                                     #   clearance far from the zone); it stops if the robot is closer than hand_clearance_m

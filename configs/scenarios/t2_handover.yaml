@@ -24,13 +24,17 @@ human_behavior:
   type: t2_receiver
   cue_onset_s: [0.4, 1.2]
   point_s: [1.0, 1.3]
-  point_dwell_s: [1.8, 2.5]
+  point_dwell_s: [0.3, 0.6]         # minimum hold after the pointing arrived (2026-10-03, was 1.8-2.5) ...
   rest_s: [0.9, 1.2]
+  point_hold_max_s: 6.0             # ... then kept until the robot's hand is above the target, at most this (user 2026-10-03)
   point_length_m: 0.50
   speed_scale: [0.8, 1.25]
   reach_out_s: [1.0, 1.4]           # the open hand moves to the hand zone (palm centre at the zone's height above the
                                     #   table), palm up and level
   late_wait_s: [2.0, 5.0]           # late: the hand arrives this long after the robot has lifted the object
+  reach_delay_s: [0.0, 6.0]         # (2026-10-03) free timing, replaces early / on_time / late: the hand is held out
+                                    #   this long after the pointing ends, whatever the robot is doing ...
+  lower_first_prob: 0.5             # ... after lowering the pointing hand to rest first (else straight from pointing)
   palm_surface_m: 0.032             # palm surface above the palm centre (level, upturned hand; measured on the mesh)
   present_offset: [0.0, 0.015, 0.045] # the robot lowers the object into the palm and holds it still here (w.r.t. the
                                     #   palm centre, + half height): 1.5 cm towards the fingers (away from the wrist),
@@ -49,6 +53,12 @@ intention_change:
   withdraw_s: [1.0, 1.3]
   pause_s: [0.4, 0.7]               # pause at rest before pointing at the new target
   early_dwell_s: [0.7, 1.0]         # early change: the first pointing is held this long, then withdrawn
+  # (2026-10-03) free timing, replaces early / late and late_trigger_m: the change of mind comes a random time after
+  # the first indication completed, whatever the robot is doing (heading for, lowering to, holding or carrying the old
+  # target); T1 / T2 first signal 'wait' (open hand, palm down, held out towards the robot), then point at the twin
+  delay_s: [0.3, 6.0]
+  stop_s: [0.4, 0.6]                # the 'wait' hand moves out ...
+  stop_hold_s: [0.4, 0.8]           # ... and is held this long
 expert:
   trigger: cue_complete
   travel_dz: 0.20                   # cups are carried by the rim: travel high enough to clear the other cups

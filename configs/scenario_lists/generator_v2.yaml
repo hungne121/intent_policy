@@ -1,0 +1,13 @@
+# Scenario lists v2 (user 2026-10-03): every T1 / T2 target has an identical twin on the table, so the spoken
+# instruction ("the red cube", "the white cup"; configs/intent_schema.yaml `instruction`) never tells which one; the T5
+# change of mind on T1 / T2 is between the twins. Otherwise as generator.yaml (v1, unchanged).
+#   ./run.sh -m scripts.generate_scenarios --config configs/scenario_lists/generator_v2.yaml
+version: 2
+seeds: {demo: 20261003, eval: 20261004}
+episode_seed_start: {demo: 0, eval: 100000}
+counts:
+  demo: {T1: 60, T2: 50, T3: 60, T4: 40, T4neg: 10, T5: 60}
+  eval: {T1: 20, T2: 20, T3: 20, T4: 20, T4neg: 20, T5: 20}
+pair_fraction: 1.0
+t5_change: twin
+holdout: []

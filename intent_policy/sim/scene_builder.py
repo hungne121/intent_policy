@@ -179,6 +179,10 @@ def build_scene_xml(scene: dict) -> str:
         body = _sub(world, 'body', name=f'human_{name}', mocap='true', pos=human['hand_rest'])
         _sub(body, 'geom', name='human_palm' if name == 'hand' else f'human_{name}_geom', type=gtype, size=size,
              rgba=hidden, contype='0', conaffinity='0')
+        if name == 'hand' and human.get('palm_support'):
+            # off at build time; the handover scenario sets conaffinity to the objects' contype (2) while the palm waits
+            _sub(body, 'geom', name='human_palm_support', type='box', size=human['palm_support']['half_size'],
+                 pos=human['palm_support']['pos'], rgba=hidden, contype='0', conaffinity='0', friction='1.0 0.01 0.001')
     # Invisible anchor used to weld an object to the human hand (human grasp/hold).
     _sub(world, 'body', name='human_grasp_anchor', mocap='true', pos=human['hand_rest'])
     for key in scene.get('objects', {}):

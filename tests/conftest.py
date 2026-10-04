@@ -1,9 +1,18 @@
 """Shared fixtures. Run with:  ./run.sh -m pytest tests -q"""
+import atexit
 import json
+import os
+import shutil
+import tempfile
 
-import numpy as np
-import pytest
-from lerobot.datasets.lerobot_dataset import LeRobotDataset
+# LeRobotDataset reads parquet through HF `datasets`, which keeps an Arrow copy of every dataset it loads in its cache;
+# the test datasets are new on every run, so the session gets a throw-away cache (set before `datasets` is imported)
+os.environ['HF_DATASETS_CACHE'] = _HF_DATASETS_CACHE = tempfile.mkdtemp(prefix='hf_datasets_tests_')
+atexit.register(shutil.rmtree, _HF_DATASETS_CACHE, ignore_errors=True)
+
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+from lerobot.datasets.lerobot_dataset import LeRobotDataset  # noqa: E402
 
 from intent_policy.scenarios.scenario_registry import make_scenario, TASK_SCENARIOS
 
@@ -11,7 +20,10 @@ from intent_policy.scenarios.scenario_registry import make_scenario, TASK_SCENAR
 @pytest.fixture(scope='session')
 def scenarios():
     """One instance per task scenario T1-T4 (MuJoCo model built once per session)."""
-    made = {sid: make_scenario(sid) for sid in TASK_SCENARIOS}
+    # T4: the intrusion moment is random (2026-10-03); the tests fix it while the robot carries the cube (seed 3),
+    # so the hand enters the robot zone and the disruption / recovery events are exercised
+    fixed = {'t4_interrupt': {'human_behavior': {'intrusion_time_s': [5.5, 5.5]}}}
+    made = {sid: make_scenario(sid, fixed.get(sid)) for sid in TASK_SCENARIOS}
     yield made
     for sc in made.values():
         sc.close()

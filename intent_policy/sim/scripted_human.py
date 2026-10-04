@@ -214,14 +214,16 @@ class Gesture:
 
     kind: point (aim the index finger at `target(ctx)` from the pointing pose) | move (palm to `target(ctx)`) |
     wait (until `until(t, ctx)`) | sleep (`duration` s) | call (`fn(t, ctx)`, then continue at once).
-    point / move finish `dwell` s after the hand arrived (or stopped for clearance). `key` (str or callable -> str):
-    the object / zone the motion is aimed at (logged only).
+    point / move finish `dwell` s after the hand arrived (or stopped for clearance); with `hold` (t, ctx) -> bool they
+    are kept until it holds as well, at most `hold_max` s after the arrival. `on_arrive(t, ctx)` runs once on arrival.
+    `key` (str or callable -> str): the object / zone the motion is aimed at (logged only).
     """
     def __init__(self, kind: str, label: str = '', target=None, duration: float = 0.0, dwell: float = 0.0,
                  until=None, fn=None, clearance: float | None = None, shape: str | None = None, palm_up: float = 0.0,
-                 key=None):
+                 key=None, hold=None, hold_max: float = 0.0, on_arrive=None):
         self.kind, self.label, self.target, self.duration, self.dwell = kind, label, target, duration, dwell
         self.key = key
+        self.hold, self.hold_max, self.on_arrive = hold, hold_max, on_arrive
         self.until, self.fn, self.clearance = until, fn, clearance
         self.shape, self.palm_up = shape, palm_up          # hand shape (None: derived) / palm up at the end of the motion
         self.t0 = self.arrived = None
@@ -231,7 +233,7 @@ class GestureHuman(ScriptedHuman):
     """Behaviour = queue of gestures; `stage` is the current gesture's label ('idle' before the cue)."""
 
     EVIDENCE_LABELS = {'point_object': 'target_object', 'point_place': 'target_zone', 'reach_out': 'target_zone',
-                       'intrude': 'intrusion', 'withdraw_change': 'target_withdrawn'}
+                       'intrude': 'intrusion', 'withdraw_change': 'target_withdrawn', 'stop_signal': 'stop'}
 
     def __init__(self, scene, behavior, variation):
         super().__init__(scene, behavior, variation)
@@ -244,6 +246,7 @@ class GestureHuman(ScriptedHuman):
         self.changed = False
         self.started = False
         self._old_d = None
+        self.first_indicated_t: float | None = None     # the first indication completed (the T5 change delay starts)
 
     def reset(self) -> None:
         super().reset()
@@ -251,14 +254,43 @@ class GestureHuman(ScriptedHuman):
         self.current: Gesture | None = None
 
     # -- gestures ---------------------------------------------------------------------------
-    def G_point_object(self, key_fn, dwell) -> Gesture:
-        """Point at the (current) selected object; key_fn() -> object key at the time the gesture starts."""
-        return Gesture('point', 'point_object', target=lambda ctx: np.asarray(ctx['object_positions'][key_fn()], float),
-                       duration=self.params['point_s'], dwell=dwell, key=key_fn)
+    ABOVE_MARGIN_M = 0.02                       # the gripper counts as above an object within its radius + this ...
+    ABOVE_ZONE_M = 0.04                         # ... and above a zone (12 x 12 cm tape) within this of its centre
 
-    def G_point_zone(self, zone, dwell) -> Gesture:
+    def until_robot_above(self, key_fn, zone: bool = False):
+        """Hold condition (user 2026-10-03): the pointing is held until the robot's hand is above the indicated
+        object / zone (horizontal distance of the TCP), not longer."""
+        def cond(t, ctx):
+            k = key_fn()
+            p = (ctx['zone_positions'] if zone else ctx['object_positions']).get(k)
+            if p is None:
+                return True
+            r = self.ABOVE_ZONE_M if zone else ctx['object_radius'].get(k, 0.02) + self.ABOVE_MARGIN_M
+            return ctx['tcp_xy_distance'](p) <= r
+        return cond
+
+    def arrive_steps(self, *steps, **payload):
+        """on_arrive: protocol steps completed when the pointing hand reaches its goal pose (the deictic stroke)."""
+        def fn(t, ctx):
+            if self.first_indicated_t is None:
+                self.first_indicated_t = t
+            for s in steps:
+                self.emit('protocol_step_complete', step=s, **payload)
+        return fn
+
+    def G_point_object(self, key_fn, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
+        """Point at the (current) selected object; key_fn() -> object key at the time the gesture starts. `hold`: keep
+        pointing (looking at the target) until the robot's hand is above it, at most point_hold_max_s."""
+        return Gesture('point', 'point_object', target=lambda ctx: np.asarray(ctx['object_positions'][key_fn()], float),
+                       duration=self.params['point_s'], dwell=dwell, key=key_fn,
+                       hold=self.until_robot_above(key_fn) if hold else None, hold_max=self.params.get('point_hold_max_s', 0.0),
+                       on_arrive=self.arrive_steps(*steps) if steps else None)
+
+    def G_point_zone(self, zone, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
         return Gesture('point', 'point_place', target=lambda ctx: np.r_[np.asarray(ctx['zone_positions'][zone])[:2], ctx['table_top_z']],
-                       duration=self.params['point_s'], dwell=dwell, key=zone)
+                       duration=self.params['point_s'], dwell=dwell, key=zone,
+                       hold=self.until_robot_above(lambda: zone, zone=True) if hold else None, hold_max=self.params.get('point_hold_max_s', 0.0),
+                       on_arrive=self.arrive_steps(*steps) if steps else None)
 
     def G_rest(self, label='return_rest', duration=None, pose=None, shape=None, palm_up=0.0) -> Gesture:
         pose = self.rest if pose is None else np.asarray(pose, float)
@@ -307,8 +339,13 @@ class GestureHuman(ScriptedHuman):
             return t - g.t0 >= g.duration - 1e-9
         if self.moving:
             return False
-        g.arrived = t if g.arrived is None else g.arrived
-        return t - g.arrived >= g.dwell - 1e-9
+        if g.arrived is None:
+            g.arrived = t
+            if g.on_arrive is not None:
+                g.on_arrive(t, ctx)
+        if t - g.arrived < g.dwell - 1e-9:
+            return False
+        return g.hold is None or bool(g.hold(t, ctx)) or t - g.arrived >= g.hold_max - 1e-9
 
     def run_queue(self, t: float, ctx: dict) -> None:
         while True:
@@ -334,14 +371,53 @@ class GestureHuman(ScriptedHuman):
         self.emit('human_intention_change', kind='target_object', previous=previous, current=self.target,
                   timing=self.change['timing'])
 
-    def G_change(self, rest_pose=None) -> list[Gesture]:
+    def G_change(self, rest_pose=None, steps: tuple = ()) -> list[Gesture]:
         """Withdraw the pointing hand all the way to rest (no dedicated cancel gesture; the hand keeps its pointing
-        shape), pause, then point at the new target."""
+        shape), pause, then point at the new target: `change_indicated` (+ `steps`) when the pointing arrives, held
+        until the robot heads for the new target."""
         return [self.G_call(lambda t, ctx: self._switch_target(t)),
                 self.G_rest('withdraw_change', self.params['withdraw_change_s'], rest_pose, shape='point'),
                 Gesture('sleep', 'change_pause', duration=self.params.get('change_pause_s', 0.0)),
-                self.G_point_object(lambda: self.selected_object, self.params['point_dwell_s'][2]),
-                self.G_protocol('change_indicated', object=self.target)]
+                self.G_point_object(lambda: self.selected_object, self.params['point_dwell_s'][2], hold=True,
+                                    steps=('change_indicated',) + tuple(steps))]
+
+    # -- change of mind, free timing (2026-10-03) ----------------------------------------------------------------
+    DELIVERED = ('object_placed', 'robot_at_handover', 'object_transferred', 'cup_at_support')
+
+    def timed_change_due(self, t: float, ctx: dict) -> bool:
+        """The change of mind is due `change_delay_s` after the first indication completed, whatever the robot is
+        doing (heading for the old target, lowering, holding or carrying it). Dropped (logged) once the robot has
+        already delivered the old object."""
+        ch = self.change
+        if not ch or 'change_delay_s' not in self.params or self.changed or self.first_indicated_t is None:
+            return False
+        if t < self.first_indicated_t + self.params['change_delay_s'] - 1e-9:
+            return False
+        if any(s in ctx.get('protocol_done', ()) for s in self.DELIVERED):
+            self.changed = True                     # too late: the episode stays with the old target
+            self.extras.update(change_dropped=round(t, 4))
+            return False
+        return True
+
+    def stop_pose(self, ctx) -> np.ndarray:
+        """The 'wait' signal: the open hand, palm down, held out from the shoulder towards the robot at chest height."""
+        base = np.asarray(ctx['robot_chain'][0], float)
+        sh = self.shoulder
+        d = np.r_[base[:2] - sh[:2], 0.0]
+        return sh + self.behavior.get('stop_reach_m', 0.42) * d / max(np.linalg.norm(d), 1e-6) + [0.0, 0.0, -0.12]
+
+    def G_stop(self) -> Gesture:
+        """'Wait!' (`stop_signaled` when the hand is out), held stop_hold_s."""
+        p = self.params
+        return Gesture('move', 'stop_signal', target=self.stop_pose, duration=p['stop_s'], dwell=p['stop_hold_s'],
+                       shape='offer', palm_up=0.0, on_arrive=self.arrive_steps('stop_signaled'))
+
+    def G_correction(self, steps: tuple = ()) -> list[Gesture]:
+        """Change of mind: switch, 'wait' signal, point at the new target (`change_indicated` + `steps` on arrival),
+        held until the robot heads for it."""
+        return [self.G_call(lambda t, ctx: self._switch_target(t)), self.G_stop(),
+                self.G_point_object(lambda: self.selected_object, self.params['point_dwell_s'][2], hold=True,
+                                    steps=('change_indicated',) + tuple(steps))]
 
     def first_dwell(self) -> float:
         """Hold of the first pointing gesture (short before an early change of mind)."""
@@ -366,7 +442,10 @@ class GestureHuman(ScriptedHuman):
 
 
 class PickPlaceInstructor(GestureHuman):
-    """T1: point at the target cube, then at the place zone P, back to rest. T5: see GestureHuman.G_change."""
+    """T1, turn by turn: point at the target cube (`object_indicated` when the pointing arrives) and keep pointing,
+    looking at it, until the robot heads for it; back to rest while the robot picks it; once it is lifted, point at the
+    place zone P (`place_indicated` on arrival), held until the robot heads for P; back to rest. T5: see
+    GestureHuman.G_change."""
 
     def __init__(self, scene, behavior, variation):
         super().__init__(scene, behavior, variation)
@@ -377,14 +456,20 @@ class PickPlaceInstructor(GestureHuman):
 
     def place_gestures(self) -> list[Gesture]:
         p = self.params
-        return [self.G_point_zone(self.selected_target, p['point_dwell_s'][1]), self.G_call(self._mark_place),
-                self.G_rest(), self.G_protocol('instruction_given'), self.G_call(lambda t, ctx: self.goto('observing', t))]
+        picked = Gesture('wait', 'wait_robot_pick', until=lambda t, ctx: ctx['robot_lifted_object'] == self.selected_object
+                         or t - self.wait_t0 >= p.get('pick_wait_max_s', 1e9) - 1e-9)
+        return [self.G_rest(), self.G_call(lambda t, ctx: setattr(self, 'wait_t0', t)), picked,
+                self.G_point_zone(self.selected_target, p['point_dwell_s'][1], hold=True, steps=('place_indicated',)),
+                self.G_call(self._mark_place), self.G_rest(), self.G_protocol('instruction_given'),
+                self.G_call(lambda t, ctx: self.goto('observing', t))]
 
     def instruction(self) -> list[Gesture]:
-        g = [self.G_point_object(lambda: self.selected_object, self.first_dwell()),
+        early = self.change and self.change['timing'] == 'early' and 'change_delay_s' not in self.params
+        g = [self.G_point_object(lambda: self.selected_object, self.first_dwell(), hold=not early,
+                                 steps=() if early else ('object_indicated',)),
              self.G_call(self.after_object_indicated)]
-        if self.change and self.change['timing'] == 'early':
-            g += self.G_change()
+        if early:
+            g += self.G_change(steps=('object_indicated',))
         return g + self.place_gestures()
 
     def after_object_indicated(self, t, ctx) -> None:
@@ -398,7 +483,10 @@ class PickPlaceInstructor(GestureHuman):
     def behave(self, t, ctx):
         if not self.started and t >= self.params['cue_onset_s']:
             self.cue(t, ctx)
-        if self.late_change_due(ctx):
+        if self.timed_change_due(t, ctx):          # 'wait', point at the twin; the place zone again once it is lifted
+            self.place_indicated = False
+            self.replace_queue(self.G_correction() + self.place_gestures())
+        elif 'change_delay_s' not in self.params and self.late_change_due(ctx):
             rest = self.place_gestures() if not self.place_indicated else \
                 [self.G_rest(), self.G_protocol('instruction_given'), self.G_call(lambda t, ctx: self.goto('observing', t))]
             self.replace_queue(self.G_change() + rest)
@@ -415,6 +503,7 @@ class HandoverReceiver(GestureHuman):
         self.timing = self.spec['timing']
         self.lift_t = None
         self.still_since = None
+        self.rest_pos = self.rest_since = None
 
     def palm_at_zone(self, ctx) -> np.ndarray:
         return np.asarray(ctx['zone_positions'][self.selected_target], float)
@@ -425,10 +514,12 @@ class HandoverReceiver(GestureHuman):
         return self.palm_at_zone(ctx) + np.asarray(self.behavior['present_offset'], float) + [0.0, 0.0, h]
 
     def indication(self) -> list[Gesture]:
-        g = [self.G_point_object(lambda: self.selected_object, self.first_dwell())]
-        if self.change and self.change['timing'] == 'early':
-            g += self.G_change()
-        return g + [self.G_protocol('target_indicated', object_by='pointing')] + self.receive_gestures()
+        """Point at the object (`target_indicated` when the pointing arrives), held until the robot heads for it."""
+        if self.change and self.change['timing'] == 'early' and 'change_delay_s' not in self.params:
+            g = [self.G_point_object(lambda: self.selected_object, self.first_dwell())] + self.G_change(steps=('target_indicated',))
+        else:
+            g = [self.G_point_object(lambda: self.selected_object, self.first_dwell(), hold=True, steps=('target_indicated',))]
+        return g + self.receive_gestures()
 
     def _lifted(self, t, ctx) -> bool:
         if self.lift_t is None and ctx['robot_lifted_object'] == self.selected_object:
@@ -441,7 +532,10 @@ class HandoverReceiver(GestureHuman):
                         key=lambda: self.selected_target)
         ready = self.G_call(lambda t, ctx: (self.emit('interaction_window_start', kind='handover', actor='human'),
                                             self.emit('protocol_step_complete', step='hand_ready')))
-        if self.timing == 'early':
+        if 'reach_delay_s' in p:               # (2026-10-03) free timing, independent of the robot: optionally lower the
+            #                                      pointing hand first, then hold the hand out after a random delay
+            pre = ([self.G_rest()] if p['lower_first'] else []) + [Gesture('sleep', 'wait_to_offer', duration=p['reach_delay_s'])]
+        elif self.timing == 'early':
             pre = []
         elif self.timing == 'on_time':
             pre = [self.G_rest(), Gesture('wait', 'wait_robot_grasp', until=lambda t, ctx: ctx['robot_grasping'].get(self.selected_object, False))]
@@ -453,7 +547,7 @@ class HandoverReceiver(GestureHuman):
                        shape='grasp', palm_up=1.0, key=lambda: self.selected_object)
         pull = Gesture('move', 'pulling', duration=b['pull_s'], shape='grasp', palm_up=1.0,
                        target=lambda ctx: self.pos + np.asarray(b['pull_offset'], float))
-        return pre + [reach, ready, Gesture('wait', 'waiting_offer', until=self._offered), take,
+        return pre + [reach, ready, Gesture('wait', 'waiting_offer', until=lambda t, ctx: self._offered(t, ctx) or self._caught(t, ctx)), take,
                       self.G_call(self._hold_object), pull,
                       Gesture('wait', 'wait_release', until=lambda t, ctx: not ctx['robot_grasping'].get(self.selected_object, False)),
                       self.G_call(lambda t, ctx: (self.emit('protocol_step_complete', step='object_transferred'),
@@ -474,6 +568,23 @@ class HandoverReceiver(GestureHuman):
         self.still_since = (self.still_since if self.still_since is not None else t) if near and ctx['robot_speed'] < 0.02 else None
         return self.still_since is not None and t - self.still_since >= self.behavior['accept_still_s'] - 1e-9
 
+    def _caught(self, t, ctx) -> bool:
+        """The robot let go of the object above the waiting palm and it came to rest on it (scene human.palm_support):
+        the human then closes the hand on it as on an object held out (take, hold, pull)."""
+        obj, support = self.selected_object, self.scene_human.get('palm_support')
+        if support is None or ctx['robot_grasping'].get(obj, False) or obj not in ctx['object_positions']:
+            self.rest_pos = self.rest_since = None
+            return False
+        p = np.asarray(ctx['object_positions'][obj], float)
+        rel = p - self.pos - np.asarray(support['pos'], float)
+        top = support['half_size'][2]
+        on = (abs(rel[0]) <= support['half_size'][0] + 0.01 and abs(rel[1]) <= support['half_size'][1] + 0.01
+              and abs(rel[2] - ctx['object_half_height'][obj] - top) <= 0.01)       # its bottom on the support top
+        still = self.rest_pos is not None and np.linalg.norm(p - self.rest_pos) < 0.002
+        self.rest_pos = p
+        self.rest_since = (self.rest_since if self.rest_since is not None else t) if on and still else None
+        return self.rest_since is not None and t - self.rest_since >= 0.1 - 1e-9
+
     def _hold_object(self, t, ctx) -> None:
         self.requests.append(('attach', self.selected_object))
         self.holding = self.selected_object
@@ -484,7 +595,9 @@ class HandoverReceiver(GestureHuman):
             self.started = True
             self.emit('human_cue_onset', modality='pointing', selected_object=self.selected_object)
             self.queue = self.indication()
-        if self.late_change_due(ctx):
+        if self.timed_change_due(t, ctx):          # 'wait', point at the twin, then hold the hand out again (free timing)
+            self.replace_queue(self.G_correction() + self.receive_gestures())
+        elif 'change_delay_s' not in self.params and self.late_change_due(ctx):
             self.replace_queue(self.G_change() + [self.G_protocol('target_indicated', object_by='pointing')] + self.receive_gestures())
         self._lifted(t, ctx)
         self.run_queue(t, ctx)
@@ -542,7 +655,7 @@ class AssistRequester(GestureHuman):
 
     def request(self) -> list[Gesture]:
         g = [self.G_reach(self.first_dwell())]
-        if self.change and self.change['timing'] == 'early':
+        if self.change and self.change['timing'] == 'early' and 'change_delay_s' not in self.params:
             return g + self.switch_while_reaching() + self.after_pick()
         return g + self.take() + self.after_pick()
 
@@ -563,6 +676,8 @@ class AssistRequester(GestureHuman):
                 self.G_rest('withdraw'), self.G_call(lambda t, ctx: self.goto('done', t))]
 
     def _take_block(self, t, ctx):
+        if self.first_indicated_t is None:       # T3's indication: the cube is taken (block_picked)
+            self.first_indicated_t = t
         self.take_pose[self.block] = self.pos.copy()
         self.requests.append(('attach', self.block))
         self.holding = self.block
@@ -582,7 +697,10 @@ class AssistRequester(GestureHuman):
             self.started = True
             self.emit('human_cue_onset', modality='human_pick', block=self.block)
             self.queue = self.request()
-        if self.late_change_due(ctx):
+        if self.timed_change_due(t, ctx):          # the act itself is the signal: put the cube back, take the other
+            switch = self.switch_holding() if self.holding else self.switch_while_reaching()
+            self.replace_queue(switch + self.after_pick())
+        elif 'change_delay_s' not in self.params and self.late_change_due(ctx):
             switch = self.switch_holding() if self.holding else self.switch_while_reaching()
             self.replace_queue(switch + self.after_pick())
         self.run_queue(t, ctx)
@@ -596,13 +714,20 @@ class Interrupter(GestureHuman):
 
     def __init__(self, scene, behavior, variation):
         super().__init__(scene, behavior, variation)
-        self.phase, self.hold_s = self.spec['phase'], float(self.spec['hold_s'])
+        self.phase, self.hold_s = self.spec['phase'], float(self.params.get('intrusion_hold_s', self.spec['hold_s']))
         self.negative = bool(self.spec.get('negative'))
         self.intruded = False
         self.lift_t = None
 
     def triggered(self, t, ctx) -> bool:
         b, obj = self.behavior, self.target
+        if 'intrusion_time_s' in self.params:  # (2026-10-03) a random moment of the robot's work, whatever it is doing;
+            if t < self.params['intrusion_time_s'] - 1e-9:   # the phase is recorded from the robot's state
+                return False
+            lifted = ctx['robot_lifted_object'] == obj
+            self.phase = 'approach' if not lifted else \
+                'place' if ctx['tcp_xy_distance'](ctx['zone_positions'][self.selected_target]) <= b['place_trigger_m'] else 'carry'
+            return True
         if self.phase == 'approach':
             return (not any(ctx['robot_grasping'].values()) and ctx['robot_moving']
                     and ctx['tcp_xy_distance'](ctx['object_positions'][obj]) <= b['approach_trigger_m'])

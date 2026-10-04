@@ -26,9 +26,10 @@ class ObservationConfig:
     cameras: tuple = ('high', 'wrist')
     width: int = 128
     height: int = 96
+    command_state: bool = False        # append the controller command (set-point xyz, gripper target) to the state
 
     def to_dict(self):
-        return dict(cameras=list(self.cameras), width=self.width, height=self.height)
+        return dict(cameras=list(self.cameras), width=self.width, height=self.height, command_state=self.command_state)
 
 
 @dataclass
@@ -121,7 +122,8 @@ def run_episode(scenario, agent: Agent, seed: int, controller_cfg: RestrictedAct
     trace, previous, done, step = [], None, False, 0
     while not done:
         state = scenario.snapshot() if keep_trace else None
-        obs = scenario.get_observation(obs_cfg.cameras, obs_cfg.width, obs_cfg.height) if need_obs else None
+        obs = scenario.get_observation(obs_cfg.cameras, obs_cfg.width, obs_cfg.height,
+                                       mapper if obs_cfg.command_state else None) if need_obs else None
         decision = agent.act(obs)
         if agent.action_mode == 'restricted':
             command = mapper.map(decision.action_id)

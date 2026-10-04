@@ -64,8 +64,8 @@ class ManipulationEnv:
         self.attach_opening = 0.0                  # finger gap when the attachment was made
         self.viewer = None
         self.viewer_thread = None
-        self.renderer = None
-        self.render_size = None
+        self.renderers: dict[tuple[int, int], mujoco.Renderer] = {}   # one per image size (policy cameras, videos)
+        self.render_option = None
         self.reset()
         if gui:
             self.viewer, self.viewer_thread = launch_viewer(self.model, self.data)
@@ -231,18 +231,18 @@ class ManipulationEnv:
         return d.qpos[self.qids].copy()
 
     def render(self, camera: str = 'high', width: int = 640, height: int = 480) -> np.ndarray:
-        """Render uint8 RGB [height,width,3]; renderer allocated on first request."""
-        if self.renderer is None or self.render_size != (width, height):
-            if self.renderer is not None:
-                self.renderer.close()
+        """Render uint8 RGB [height,width,3]; one renderer per image size, allocated on first request (re-creating
+        one per call when sizes alternate, e.g. the policy cameras and a video frame, costs ~0.2 s each)."""
+        renderer = self.renderers.get((width, height))
+        if renderer is None:
             self.model.vis.global_.offwidth = max(width, self.model.vis.global_.offwidth)
             self.model.vis.global_.offheight = max(height, self.model.vis.global_.offheight)
-            self.renderer = mujoco.Renderer(self.model, height=height, width=width)
-            self.render_size = (width, height)
-            self.render_option = mujoco.MjvOption()
-            self.render_option.sitegroup[:] = 0          # camera images: no debug sites (e.g. the red TCP marker)
-        self.renderer.update_scene(self.data, camera=camera, scene_option=self.render_option)
-        return self.renderer.render().copy()
+            renderer = self.renderers[(width, height)] = mujoco.Renderer(self.model, height=height, width=width)
+            if self.render_option is None:
+                self.render_option = mujoco.MjvOption()
+                self.render_option.sitegroup[:] = 0      # camera images: no debug sites (e.g. the red TCP marker)
+        renderer.update_scene(self.data, camera=camera, scene_option=self.render_option)
+        return renderer.render().copy()
 
     def close(self) -> None:
         """Release viewer and offscreen GL resources."""
@@ -250,9 +250,9 @@ class ManipulationEnv:
             close_viewer(self.viewer, self.viewer_thread)
             self.viewer = None
             self.viewer_thread = None
-        if self.renderer:
-            self.renderer.close()
-            self.renderer = None
+        for renderer in self.renderers.values():
+            renderer.close()
+        self.renderers = {}
 
     def __enter__(self):
         return self

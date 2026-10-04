@@ -4,9 +4,15 @@ Same content as LeRobot's `lerobot-dataset-viz` (camera streams, `action`, `obse
 plus the HRI labels it does not show: the restricted-action id per frame, the current
 expert/human stage, and the episode's ground-truth timeline from meta/hri_episodes.jsonl.
 
-  ./run.sh -m scripts.view_dataset --root outputs/datasets/hri_phase1_preview --episode-index 0
+`--mp4` writes one mp4 per episode instead, cut from the dataset's own videos (no re-simulation; the evaluation
+video layout of intent_policy/benchmark/video.py: `high` large, the other cameras beside it, the robot and human
+stages on top, the protocol steps so far at the bottom), into `--save`, else outputs/videos/<date>/<time>_<dataset>.
+
+  ./run.sh -m scripts.view_dataset --root outputs/datasets/intent_act_late_v5 --episode-index 0
+  ./run.sh -m scripts.view_dataset --root outputs/datasets/intent_act_late_v5 --episode-index 0 5 --mp4
   ./run.sh -m scripts.view_dataset --root outputs/datasets/hri_phase1_preview --save outputs/viz/hri_phase1_preview --jpeg-quality 95
   ./run.sh -m rerun outputs/viz/hri_phase1_preview/*.rrd
+(LeRobot's own viewer works on these datasets too: lerobot-dataset-viz --repo-id local/<name> --root <root> --episode-index 0)
 """
 import argparse
 import json
@@ -17,7 +23,8 @@ from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.scripts.lerobot_dataset_viz import get_feature_names, to_hwc_uint8_numpy
 from intent_policy.sim.restricted_action import RestrictedAction
 from intent_policy.intent.representation import OBJECT_VOCAB, PREFIX, REGION_VOCAB
-from intent_policy.utils import resolve
+from intent_policy.benchmark.video import FPS, MAIN_CAMERA, VideoWriter, compose
+from intent_policy.utils import resolve, run_dir
 
 LABEL_TEXT = ', '.join(f'{a.value} {a.name}' for a in RestrictedAction)
 
@@ -125,18 +132,57 @@ def log_episode(ds: LeRobotDataset, m: dict, rec: rr.RecordingStream, jpeg_quali
             i += 1
 
 
+def stages_per_frame(m: dict) -> dict[str, list[str]]:
+    kinds = [('expert', m['expert_stages']), ('human', m['human_stages'])]
+    return {kind: [s['name'] for s in segs for _ in range(s['end'] - s['start'] + 1)] for kind, segs in kinds}
+
+
+def export_mp4(ds: LeRobotDataset, m: dict, path) -> None:
+    """The episode as an mp4 from the dataset's own frames, in the evaluation video layout."""
+    marks = sorted([(p['frame'], f"{p['t']:5.2f}s {p['step']} (by {p['by']})") for p in m['protocol_steps']]
+                   + [(c['frame'], f"{c['t']:5.2f}s INTENTION CHANGE {c['kind']}: {c['previous']} -> {c['current']}")
+                      for c in m.get('intention_changes') or []])
+    stage = stages_per_frame(m)
+    main_key = f'observation.images.{MAIN_CAMERA}'
+    side_keys = [k for k in ds.meta.camera_keys if k != main_key]
+    names = [k.removeprefix('observation.images.') for k in side_keys]
+    writer, frame, i = VideoWriter(path), None, 0
+    for batch in torch.utils.data.DataLoader(ds, batch_size=32, num_workers=0):
+        for j in range(len(batch['index'])):
+            at = lambda kind: stage[kind][min(i, len(stage[kind]) - 1)] if stage[kind] else '-'
+            header = (f"ep {m['episode_index']} seed {m['seed']}  t={float(batch['timestamp'][j]):5.2f}s  "
+                      f"robot: {at('expert')}  human: {at('human')}")
+            frame = (to_hwc_uint8_numpy(batch[main_key][j]), [to_hwc_uint8_numpy(batch[k][j]) for k in side_keys],
+                     header, [text for f, text in marks if f <= i])
+            writer.add(compose(*frame, side_names=names))
+            i += 1
+    for _ in range(FPS):
+        writer.add(compose(*frame, 'SUCCESS (stored demonstration)', side_names=names))
+    writer.close()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--root', default='outputs/datasets/hri_phase1_preview')
     p.add_argument('--repo-id', help='default: local/<root folder name>')
     p.add_argument('--episode-index', type=int, nargs='*', help='default: all episodes')
-    p.add_argument('--save', help='write one .rrd per episode into this directory instead of opening the viewer')
+    p.add_argument('--save', help='write one .rrd (or with --mp4 one .mp4) per episode into this directory instead of opening the viewer')
+    p.add_argument('--mp4', action='store_true', help='write mp4 videos (default folder: outputs/videos/<date>/<time>_<dataset>)')
     p.add_argument('--jpeg-quality', type=int, help='JPEG-compress logged frames (smaller .rrd files), e.g. 95')
     args = p.parse_args()
     root = resolve(args.root)
     repo_id = args.repo_id or f'local/{root.name}'
     metas = [json.loads(line) for line in (root / 'meta/hri_episodes.jsonl').read_text().splitlines()]
     episodes = args.episode_index if args.episode_index else [m['episode_index'] for m in metas]
+    if args.mp4:
+        out = run_dir('videos', f'dataset_{root.name}', args.save)
+        out.mkdir(parents=True, exist_ok=True)
+        for ep in episodes:
+            m = metas[ep]
+            path = out / f"episode_{ep:03d}_{m.get('list_task', m['scenario_id'])}_seed{m['seed']}.mp4"
+            export_mp4(LeRobotDataset(repo_id, root=root, episodes=[ep]), m, path)
+            print(f"episode {ep} ({m['scenario_id']}, {m['n_frames']} frames) -> {path}", flush=True)
+        return
     for ep in episodes:
         m = metas[ep]
         ds = LeRobotDataset(repo_id, root=root, episodes=[ep])

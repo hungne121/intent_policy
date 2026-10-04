@@ -8,25 +8,36 @@ experiment: intent_act_late
 phase: intent_act
 seed: 0
 policy:
-  config: configs/policy/act_restricted.yaml   # restricted 9-action head, no CVAE (guide v2 §4.4)
+  config: configs/policy/act_continuous.yaml   # A first with the original ACT head: absolute joint + gripper targets
+                                               # (user 2026-10-03); act_restricted.yaml = the 9-action head
   use_task_token: true               # every model (A-D) gets the T1-T4 task token (guide v2 §5.1)
+  use_instruction: true              # + the T1 / T2 command's object / destination kind, never which one (2026-10-03)
 intent:
   provider: labels                   # per-timestep intent labels intent.* (scripts/build_intent_labels.py)
   schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
 benchmark:
   scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
+  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/specs/EPISODE_PLAN_v5.md)
 observation:
   cameras: [high, wrist, top]
   width: 256
   height: 192
+  command_state: false              # true: state [14] also holds the controller set-point (only needed by the
+                                     # relative 9-action head; the continuous head outputs absolute targets)
 controller: configs/controller/restricted_action.yaml
 scenario_overrides:
   all:
-    expert: {trigger: cue_complete}
+    expert: {trigger: cue_complete, grasp_settle_ticks: 0}   # no timer-only HOLD after the grasp (unobservable)
+  t4_interrupt:
+    expert: {start_s: 0.0}           # T4 starts at once: a 0.5 s timer wait at rest is indistinguishable frame to frame
 data:
-  repo_id: local/intent_act_late
-  root: outputs/datasets/intent_act_late
-  scenario_list: configs/scenario_lists/demo_v1.jsonl   # T1-T5 incl. T4-neg and the T5 changes of mind (280)
+  repo_id: local/intent_act_late_v5
+  root: outputs/datasets/intent_act_late_v5
+  scenario_list: configs/episode_lists/v5/demo_list.jsonl   # 580 design cells, DART per cell, seeds valid for late + early (plan v5)
+  noise:                             # DART (Laskey et al. 2017): random translation bursts, labels stay the expert's
+    episode_fraction: 0.5            # clean action (plan v5 lists fix DART per cell: `dart`; this fraction is then unused)
+    burst_prob: 0.04
+    burst_ticks: [3, 8]              # 3-8 cm off course, the size of the closed-loop errors seen with A/B v1
 training:
   steps: 20000
   batch_size: 32
@@ -35,4 +46,3 @@ training:
   save_every: 10000                 # checkpoints 10k, 20k (guide v2 §5.2), all kept
   amp: false
   keep_last: 0                      # keep every numbered checkpoint
-  output_dir: outputs/train/intent_act/late

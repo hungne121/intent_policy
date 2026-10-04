@@ -23,7 +23,7 @@ import torchvision
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from intent_policy.utils import resolve
 
-CUE_COMPLETE = {'t1_pick_place': 'instruction_given', 't2_handover': 'target_indicated', 't3_assist': 'block_picked'}
+CUE_COMPLETE = {'t1_pick_place': 'object_indicated', 't2_handover': 'target_indicated', 't3_assist': 'block_picked'}
 # (T4 has no cue: the robot starts by itself)
 POST_EVIDENCE_FRAMES = 10          # 0.5 s after the target became predictable
 PRE_CUE_FRAMES = 2

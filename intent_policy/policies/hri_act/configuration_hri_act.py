@@ -55,6 +55,9 @@ class HRIACTConfig(ACTConfig):
     intent_film: bool = False
     # Task token (T1-T4, §4.1): conditions every model on the task id when set (needs intent_schema['tasks']).
     use_task_token: bool = False
+    # Task instruction (intent/instruction.py): the object / destination kind of the spoken command, added to the task
+    # token (needs use_task_token and intent_schema['instruction']).
+    use_instruction: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -76,6 +79,8 @@ class HRIACTConfig(ACTConfig):
                 raise ValueError('intent_mask is a fusion control; not implemented for intent tokens')
         if self.use_task_token and 'tasks' not in self.intent_schema:
             raise ValueError('use_task_token needs intent_schema with the task list (configs/intent_schema.yaml)')
+        if self.use_instruction and not (self.use_task_token and 'instruction' in self.intent_schema):
+            raise ValueError('use_instruction needs use_task_token and intent_schema["instruction"]')
         if self.use_intent and self.intent_arch == 'fusion':
             if not self.intent_branches or not all(self.intent_branches.values()):
                 raise ValueError('use_intent needs non-empty intent_branches')
@@ -105,3 +110,11 @@ class HRIACTConfig(ACTConfig):
     @property
     def n_tasks(self) -> int:
         return len(self.intent_schema['tasks']) if self.use_task_token else 0
+
+    @property
+    def instruction_sizes(self) -> tuple[int, int] | None:
+        """(object kinds, destination kinds) of the task instruction, None without it."""
+        if not self.use_instruction:
+            return None
+        ins = self.intent_schema['instruction']
+        return len(ins['objects']), len(ins['dests'])

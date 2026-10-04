@@ -22,7 +22,7 @@ from intent_policy.policies.intent_encoder import IntentEncoder, IntentFiLM
 
 
 class IntentACT(ACT):
-    def __init__(self, config, intent_cfg: dict | None = None, n_tasks: int = 0):
+    def __init__(self, config, intent_cfg: dict | None = None, n_tasks: int = 0, instruction: tuple[int, int] | None = None):
         super().__init__(config)
         self.use_intent = intent_cfg is not None
         self.use_task = n_tasks > 0
@@ -33,6 +33,9 @@ class IntentACT(ACT):
         if self.use_task:
             self.task_emb = nn.Embedding(n_tasks, d)
             self.n_extra += 1
+        self.use_instruction = self.use_task and instruction is not None
+        if self.use_instruction:              # object / destination kind of the command, summed into the task token
+            self.instr_object_emb, self.instr_dest_emb = nn.Embedding(instruction[0], d), nn.Embedding(instruction[1], d)
         cfg = intent_cfg or {}
         if self.use_intent:
             self.intent_encoder = IntentEncoder(d, cfg['n_targets'], cfg['n_who'], cfg['n_phases'], cfg['n_waypoints'],
@@ -54,7 +57,11 @@ class IntentACT(ACT):
         if self.use_task:
             if 'task_id' not in batch:
                 raise KeyError("task tokens are enabled but batch['task_id'] is missing")
-            parts.append(self.task_emb(batch['task_id'].long().reshape(-1))[:, None])
+            task = self.task_emb(batch['task_id'].long().reshape(-1))
+            if self.use_instruction:
+                task = task + self.instr_object_emb(batch['instr_object'].long().reshape(-1)) \
+                    + self.instr_dest_emb(batch['instr_dest'].long().reshape(-1))
+            parts.append(task[:, None])
         if self.use_intent:
             if 'intent' not in batch:
                 raise KeyError("intent tokens are enabled but batch['intent'] is missing")
