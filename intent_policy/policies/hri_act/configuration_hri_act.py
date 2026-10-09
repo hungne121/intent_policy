@@ -14,7 +14,9 @@ ACTION_MODES = ('restricted', 'continuous')
 INTENT_PREFIX = 'observation.oracle.'
 INTENT_ARCHS = ('fusion', 'tokens')
 INTENT_GROUPS = ('semantic', 'spatial', 'memory', 'time', 'motion')
-INTENT_SOURCES = ('hindsight', 'perfect', 'predicted')
+INTENT_SOURCES = ('hindsight', 'perfect', 'predicted', 'belief')
+INTENT_VERSIONS = ('v2', 'v32')
+TOKENS_V32 = ('human', 'sem', 'target', 'c_target', 'time', 'motion')     # = policies/intent_encoder_v32.TOKENS_V32
 SCHEMA_KEYS = ('targets', 'who', 'phases', 'tasks', 'n_waypoints', 'keypoints', 'keypoint_dim', 'tte_max_s')
 
 
@@ -53,6 +55,9 @@ class HRIACTConfig(ACTConfig):
     intent_p_drop_all: float = 0.1
     intent_keep: list[str] = field(default_factory=lambda: list(INTENT_GROUPS))
     intent_film: bool = False
+    # Contract / token layout: 'v2' (13 tokens, INTENT_ACT_GUIDE_v2.md) or 'v32' (6 tokens + key padding mask,
+    # INTENT_ACT_v3.2.md §5; source `belief`). v32: intent_p_drop_group drops single tokens, intent_keep lists tokens.
+    intent_version: str = 'v2'
     # Task token (T1-T4, §4.1): conditions every model on the task id when set (needs intent_schema['tasks']).
     use_task_token: bool = False
     # Task instruction (intent/instruction.py): the object / destination kind of the spoken command, added to the task
@@ -71,8 +76,15 @@ class HRIACTConfig(ACTConfig):
             missing = [k for k in SCHEMA_KEYS if k not in self.intent_schema]
             if missing:
                 raise ValueError(f'intent tokens need intent_schema fields {missing} (configs/intent_schema.yaml)')
-            if set(self.intent_keep) - set(INTENT_GROUPS):
-                raise ValueError(f'intent_keep must be a subset of {INTENT_GROUPS}')
+            if self.intent_version not in INTENT_VERSIONS:
+                raise ValueError(f'intent_version must be one of {INTENT_VERSIONS}')
+            if self.intent_version == 'v32' and list(self.intent_keep) == list(INTENT_GROUPS):
+                self.intent_keep = list(TOKENS_V32)             # the default (all groups) -> all v3.2 tokens
+            groups = TOKENS_V32 if self.intent_version == 'v32' else INTENT_GROUPS
+            if set(self.intent_keep) - set(groups):
+                raise ValueError(f'intent_keep must be a subset of {groups}')
+            if self.intent_version == 'v32' and self.intent_film:
+                raise ValueError('intent_film is not implemented for intent v3.2')
             if self.intent_source not in INTENT_SOURCES:
                 raise ValueError(f'intent_source must be one of {INTENT_SOURCES}')
             if self.intent_mask:
@@ -103,9 +115,14 @@ class HRIACTConfig(ACTConfig):
         if not (self.use_intent and self.intent_arch == 'tokens'):
             return None
         s = self.intent_schema
-        return dict(n_targets=len(s['targets']), n_who=len(s['who']), n_phases=len(s['phases']),
-                    n_waypoints=int(s['n_waypoints']), n_joints=len(s['keypoints']), kp_dim=int(s['keypoint_dim']),
-                    in_cvae=self.intent_in_cvae, film=self.intent_film, tte_max=float(s['tte_max_s']))
+        out = dict(n_targets=len(s['targets']), n_who=len(s['who']), n_phases=len(s['phases']),
+                   n_waypoints=int(s['n_waypoints']), n_joints=len(s['keypoints']), kp_dim=int(s['keypoint_dim']),
+                   in_cvae=self.intent_in_cvae, film=self.intent_film, tte_max=float(s['tte_max_s']),
+                   version=self.intent_version)
+        if self.intent_version == 'v32':
+            from intent_policy.intent.contract import HAND_HIST
+            out.update(n_gestures=len(s['gestures']) + 1, hand_hist=HAND_HIST)
+        return out
 
     @property
     def n_tasks(self) -> int:

@@ -142,16 +142,16 @@ Chi tiết code, lệnh chạy và kết quả từng bước: [`docs/reports/IN
 | Trường | Shape | Ý nghĩa |
 |---|---|---|
 | `p_who` | 4 | ai làm: none / robot / human / joint |
-| `p_target` | 17 | belief trên các đích của schema (b_t mở rộng ra 17, phần nghỉ ở `none`) |
+| `p_target` | 17 | belief trên các đích của schema. T1: belief chỉ tay chung (vật + P1/P2); T2: ½ belief vật + ½ belief tay H; T3: cốc → ô của nó; T4: `none` |
 | `c_who`, `c_target` | 4, 17 | việc đã giao mà chưa xong (IntentTracker) |
 | `phase` | 5 | rest / prepare / stroke / hold / retract |
-| `p_gesture` | 5 | rest / point / reach / palm_up / palm_forward (gồm p_point) |
+| `p_gesture` | 6 | rest / point / reach / palm_up / palm_forward / withdraw (gồm p_point) |
 | `point_dir` | 3 + 3 | `d̂` và gốc tia (định dạng DeePoint) |
 | `occupancy` | 7 | tay đang ở vùng nào |
-| `min_dist` | 1 | khoảng cách nhỏ nhất tay–robot |
+| `min_dist` | 1 | khoảng cách nhỏ nhất keypoint tay – TCP robot (xấp xỉ, chưa tính các khâu khác của robot) |
 | `tte`, `tte_std` | 1, 1 | thời gian còn lại tới khi cử chỉ tới đích (≈ TTC của Ego4D), chuẩn hóa 3 s |
 | `xi` | M×6×3 | điểm tương lai dự báo bằng CVM |
-| `hand_hist` | 10×6×3 | 10 frame quá khứ của 6 keypoint |
+| `hand_hist` | 10×6×3 | 10 frame quá khứ của 6 keypoint, trừ keypoint hiện tại |
 | `human_present` | 1 | mask: nguồn còn thấy tay |
 
 ### 5.2 Token và so sánh
@@ -227,8 +227,8 @@ Bản cũ ("TCP tiến rõ về một ứng viên") ghi nhầm hedging là commi
 - **M0:** tài liệu này. *Xong 2026-10-09.*
 - **M1:** `intent_policy/intent/belief.py`, gồm thư viện reach và test. *Xong 2026-10-09.*
 - **M2:** expert `trigger: belief`, expert check, quét b*, preview. **DỪNG, chờ duyệt demo.** *Xong 2026-10-09: demo list 552/559 (98.7%), 0 commit sai; preview 12 episode.*
-- **M3:** thu `intent_act_early_v5`, build nhãn, leak test.
-- **M4:** encoder v3.2.
+- **M3:** thu `intent_act_early_v5`, build nhãn, leak test. *Đang chạy từ 2026-10-10 00:48 (cùng chuỗi: train B).*
+- **M4:** encoder v3.2. *Code xong 2026-10-10; leak test trên dữ liệu đầy đủ chờ nhãn.*
 - **M5:** chốt một cách inference chung.
 - **M6:** train B, C, D, D_pr.
 - **M7:** eval + phân tích 2×2.

@@ -6,6 +6,9 @@ Changes to LeRobot's `ACT` (the original ACT's detr_vae.py / transformer.py chan
   * CVAE encoder input         [cls, robot_state, extra tokens, action_sequence] when `in_cvae` and the VAE is used
     (the restricted head trains without the VAE: the CVAE part is then unused, logged by train_policy),
   * optional FiLM of every camera's backbone feature map by the intent tokens (`film`).
+  * intent v3.2 (`intent_cfg['version'] == 'v32'`, docs/requirements/INTENT_ACT_v3.2.md §5): 6 tokens from
+    IntentEncoderV32 with a key padding mask applied in the encoder self-attention and in the decoder cross-attention
+    (`decode_masked`, LeRobot's ACTDecoder with the mask); never in the CVAE encoder.
 With neither task nor intent tokens the module is exactly LeRobot's ACT (same modules, initialisation, RNG use) and
 `forward` is LeRobot's own `ACT.forward`.
 
@@ -19,6 +22,40 @@ from lerobot.policies.act.modeling_act import ACT, create_sinusoidal_pos_embeddi
 from lerobot.utils.constants import ACTION, OBS_ENV_STATE, OBS_IMAGES, OBS_STATE
 
 from intent_policy.policies.intent_encoder import IntentEncoder, IntentFiLM
+from intent_policy.policies.intent_encoder_v32 import IntentEncoderV32
+
+
+def decode_masked(decoder, x: Tensor, encoder_out: Tensor, decoder_pos_embed: Tensor, encoder_pos_embed: Tensor,
+                  memory_mask: Tensor | None) -> Tensor:
+    """LeRobot's ACTDecoder.forward with a key padding mask (B, S) on the encoder output in the cross-attention."""
+    for layer in decoder.layers:
+        skip = x
+        if layer.pre_norm:
+            x = layer.norm1(x)
+        q = k = layer.maybe_add_pos_embed(x, decoder_pos_embed)
+        x = layer.self_attn(q, k, value=x)[0]
+        x = skip + layer.dropout1(x)
+        if layer.pre_norm:
+            skip = x
+            x = layer.norm2(x)
+        else:
+            x = layer.norm1(x)
+            skip = x
+        x = layer.multihead_attn(query=layer.maybe_add_pos_embed(x, decoder_pos_embed),
+                                 key=layer.maybe_add_pos_embed(encoder_out, encoder_pos_embed), value=encoder_out,
+                                 key_padding_mask=memory_mask)[0]
+        x = skip + layer.dropout2(x)
+        if layer.pre_norm:
+            skip = x
+            x = layer.norm3(x)
+        else:
+            x = layer.norm2(x)
+            skip = x
+        x = layer.linear2(layer.dropout(layer.activation(layer.linear1(x))))
+        x = skip + layer.dropout3(x)
+        if not layer.pre_norm:
+            x = layer.norm3(x)
+    return decoder.norm(x) if decoder.norm is not None else x
 
 
 class IntentACT(ACT):
@@ -37,12 +74,19 @@ class IntentACT(ACT):
         if self.use_instruction:              # object / destination kind of the command, summed into the task token
             self.instr_object_emb, self.instr_dest_emb = nn.Embedding(instruction[0], d), nn.Embedding(instruction[1], d)
         cfg = intent_cfg or {}
-        if self.use_intent:
+        self.intent_v32 = self.use_intent and cfg.get('version', 'v2') == 'v32'
+        if self.intent_v32:
+            self.intent_encoder = IntentEncoderV32(d, cfg['n_targets'], cfg['n_who'], cfg['n_phases'], cfg['n_gestures'],
+                                                   cfg['n_waypoints'], cfg['n_joints'], cfg['hand_hist'], cfg.get('kp_dim', 3),
+                                                   n_fourier=cfg.get('n_fourier', 6), tte_max=cfg.get('tte_max', 3.0))
+            self.n_extra += self.intent_encoder.n_tokens
+        elif self.use_intent:
             self.intent_encoder = IntentEncoder(d, cfg['n_targets'], cfg['n_who'], cfg['n_phases'], cfg['n_waypoints'],
                                                 cfg['n_joints'], cfg.get('kp_dim', 3), n_fourier=cfg.get('n_fourier', 6),
                                                 tte_max=cfg.get('tte_max', 3.0))
             self.n_extra += self.intent_encoder.n_tokens
-        self.intent_in_cvae = bool(cfg.get('in_cvae', True)) and config.use_vae
+        # v3.2: intent never enters the CVAE encoder (the latent keeps the motion style, intent goes through the tokens)
+        self.intent_in_cvae = bool(cfg.get('in_cvae', True)) and config.use_vae and not self.intent_v32
         n_1d = 1 + bool(config.robot_state_feature) + bool(config.env_state_feature)
         self.encoder_1d_feature_pos_embed = nn.Embedding(n_1d + self.n_extra, d)          # LeRobot: Embedding(n_1d, d)
         if self.intent_in_cvae:
@@ -51,9 +95,10 @@ class IntentACT(ACT):
         self.intent_film = IntentFiLM(d, self.encoder_img_feat_input_proj.in_channels) \
             if self.use_intent and cfg.get('film') and config.image_features else None
 
-    def extra_tokens(self, batch: dict) -> tuple[Tensor, Tensor | None]:
-        """(B, n_extra, D) task + intent tokens, and the intent tokens alone (for FiLM)."""
-        parts, intent_tok = [], None
+    def extra_tokens(self, batch: dict) -> tuple[Tensor, Tensor | None, Tensor | None]:
+        """(B, n_extra, D) task + intent tokens, the intent tokens alone (for FiLM) and, for intent v3.2, the key
+        padding mask of the extra tokens (B, n_extra), True = ignored (the task token never is)."""
+        parts, intent_tok, masks = [], None, []
         if self.use_task:
             if 'task_id' not in batch:
                 raise KeyError("task tokens are enabled but batch['task_id'] is missing")
@@ -62,12 +107,18 @@ class IntentACT(ACT):
                 task = task + self.instr_object_emb(batch['instr_object'].long().reshape(-1)) \
                     + self.instr_dest_emb(batch['instr_dest'].long().reshape(-1))
             parts.append(task[:, None])
+            masks.append(torch.zeros(task.shape[0], 1, dtype=torch.bool, device=task.device))
         if self.use_intent:
             if 'intent' not in batch:
                 raise KeyError("intent tokens are enabled but batch['intent'] is missing")
-            intent_tok = self.intent_encoder(batch['intent'], batch.get('intent_keep'))
+            if self.intent_v32:
+                intent_tok, imask = self.intent_encoder(batch['intent'], batch.get('intent_keep'))
+                masks.append(imask)
+            else:
+                intent_tok = self.intent_encoder(batch['intent'], batch.get('intent_keep'))
             parts.append(intent_tok)
-        return torch.cat(parts, dim=1), intent_tok
+        mask = torch.cat(masks, dim=1) if self.intent_v32 else None
+        return torch.cat(parts, dim=1), intent_tok, mask
 
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, tuple[Tensor, Tensor] | tuple[None, None]]:
         if not (self.use_intent or self.use_task):
@@ -76,7 +127,7 @@ class IntentACT(ACT):
             assert ACTION in batch, 'actions must be provided when using the variational objective in training mode.'
 
         batch_size = batch[OBS_IMAGES][0].shape[0] if OBS_IMAGES in batch else batch[OBS_ENV_STATE].shape[0]
-        extra_tok, intent_tok = self.extra_tokens(batch)                                      # (B, N, D)
+        extra_tok, intent_tok, extra_mask = self.extra_tokens(batch)                          # (B, N, D)
 
         if self.config.use_vae and ACTION in batch and self.training:
             cls_embed = einops.repeat(self.vae_encoder_cls_embed.weight, '1 d -> b 1 d', b=batch_size)
@@ -123,11 +174,20 @@ class IntentACT(ACT):
 
         encoder_in_tokens = torch.stack(encoder_in_tokens, axis=0)
         encoder_in_pos_embed = torch.stack(encoder_in_pos_embed, axis=0)
-        encoder_out = self.encoder(encoder_in_tokens, pos_embed=encoder_in_pos_embed)
         decoder_in = torch.zeros((self.config.chunk_size, batch_size, self.config.dim_model),
                                  dtype=encoder_in_pos_embed.dtype, device=encoder_in_pos_embed.device)
-        decoder_out = self.decoder(decoder_in, encoder_out, encoder_pos_embed=encoder_in_pos_embed,
-                                   decoder_pos_embed=self.decoder_pos_embed.weight.unsqueeze(1))
+        if extra_mask is None:
+            encoder_out = self.encoder(encoder_in_tokens, pos_embed=encoder_in_pos_embed)
+            decoder_out = self.decoder(decoder_in, encoder_out, encoder_pos_embed=encoder_in_pos_embed,
+                                       decoder_pos_embed=self.decoder_pos_embed.weight.unsqueeze(1))
+        else:                                    # v3.2: [latent, state, (env), extra..., images], only extras masked
+            n_1d = 1 + bool(self.config.robot_state_feature) + bool(self.config.env_state_feature)
+            n_img = encoder_in_tokens.shape[0] - n_1d - extra_mask.shape[1]
+            kpm = torch.cat([torch.zeros(batch_size, n_1d, dtype=torch.bool, device=extra_mask.device), extra_mask,
+                             torch.zeros(batch_size, n_img, dtype=torch.bool, device=extra_mask.device)], dim=1)
+            encoder_out = self.encoder(encoder_in_tokens, pos_embed=encoder_in_pos_embed, key_padding_mask=kpm)
+            decoder_out = decode_masked(self.decoder, decoder_in, encoder_out, self.decoder_pos_embed.weight.unsqueeze(1),
+                                        encoder_in_pos_embed, kpm)
         decoder_out = decoder_out.transpose(0, 1)
         actions = self.action_head(decoder_out)
         return actions, (mu, log_sigma_x2)

@@ -478,7 +478,7 @@ class OnlineBelief:
     # -- per frame
     def step(self) -> None:
         sc, t = self.sc, self.t
-        kp = sc.human_keypoints(self.names)
+        kp = self.kp = np.asarray(sc.human_keypoints(self.names), np.float64)
         self.kin.step(t, kp)
         self.onset_seen = self.onset_seen or self.kin.onset_t is not None
         stage = sc.human.stage
@@ -524,6 +524,19 @@ class OnlineBelief:
             return {}
         b = self.point.b
         return {k: b[k] for k in self.zone_keys}
+
+    def distribution(self) -> dict[str, float]:
+        """One distribution (sum 1) over every candidate of the episode: T1 the joint pointing belief over objects and
+        place zones; T2 half the object belief, half the hand-zone belief; T3 the cups; T4 none (empty)."""
+        if self.code == 'T1' and self.point is not None:
+            return self.point.b
+        parts = [d for d in (self.objects(), self.zones()) if d]
+        out: dict[str, float] = {}
+        for d in parts:
+            tot = sum(d.values()) or 1.0
+            for k, v in d.items():
+                out[k] = out.get(k, 0.0) + v / tot / len(parts)
+        return out
 
     @property
     def p_stop(self) -> float:

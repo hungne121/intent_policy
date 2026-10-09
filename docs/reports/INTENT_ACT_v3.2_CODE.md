@@ -9,9 +9,9 @@
 |---|---|---|
 | M0 | tài liệu lý thuyết v3.2 | xong (2026-10-09) |
 | M1 | `intent/belief.py`, thư viện vươn tay, test | xong (2026-10-09) |
-| M2 | expert `trigger: belief`, expert check, quét b*, preview | **xong, chờ bạn duyệt preview** (2026-10-09): demo list 552/559, 0 commit sai |
-| M3 | thu `intent_act_early_v5`, nhãn, leak test | chưa |
-| M4 | encoder v3.2 | chưa |
+| M2 | expert `trigger: belief`, expert check, quét b*, preview | xong (2026-10-09): demo list 552/559, 0 commit sai; preview đã duyệt |
+| M3 | thu `intent_act_early_v5`, nhãn, leak test | **đang chạy** (2026-10-10 00:48): thu → nhãn early → train B; nhãn late chạy song song |
+| M4 | contract + nguồn nhãn + encoder v3.2, mask, train/eval online | **code xong** (2026-10-10): test qua, smoke train CPU qua, eval online qua; leak test trên dữ liệu đầy đủ chờ nhãn |
 | M5 | inference chung | chưa |
 | M6 | train B, C, D, D_pr | chưa |
 | M7 | eval + phân tích 2×2 | chưa |
@@ -31,6 +31,22 @@
 | `configs/intent_schema.yaml` | khối `belief:` | sửa |
 | `configs/experiments/intent_act_early.yaml` | `trigger: belief` | sửa |
 | `tests/test_belief.py` | 7 test | mới |
+
+### 1.1 File mới / sửa ở M4 (intent v3.2)
+
+| File | Vai trò |
+|---|---|
+| `intent_policy/intent/contract.py` | `FIELDS_V32`, `field_shapes_v32`, `dataset_features_v32`, `validate_intent_v32` (v2 giữ nguyên) |
+| `intent_policy/intent/source_v32.py` (mới) | `ReplayScenario` (phát lại một episode đã ghi), `IntentV32` (một frame contract v3.2 từ scenario sống hoặc phát lại), `label_episode` |
+| `intent_policy/intent/belief.py` | `OnlineBelief.kp` (keypoint frame hiện tại), `distribution()` (phân bố chung trên mọi ứng viên) |
+| `intent_policy/policies/intent_encoder_v32.py` (mới) | `IntentEncoderV32`: 6 token + key padding mask, chuẩn hóa `xi` / `hand_hist` bên trong |
+| `intent_policy/policies/intent_act.py` | nhánh v3.2: encoder mới, mask ở self-attention của encoder, `decode_masked` (decoder LeRobot + mask ở cross-attention), không đưa intent vào CVAE |
+| `intent_policy/policies/hri_act/configuration_hri_act.py`, `modeling_hri_act.py` | `intent_version` ('v2' / 'v32'), `TOKENS_V32`, `_with_intent_v32` (dựng `batch['intent']`, dropout theo token) |
+| `scripts/train_policy.py` | `--intent-source belief` = v3.2 (cột `intent_pb`), mặc định dropout token 0.1 / toàn bộ 0.2, không vào CVAE; thống kê chuẩn hóa `xi` và `hand_hist` |
+| `intent_policy/policies/policy_agent.py` | eval closed-loop: `IntentV32` chạy trên scenario sống (cùng code với nhãn) |
+| `scripts/build_intent_labels.py` | `--sources ... belief` → cột `intent_pb.*` (contract v3.2) |
+| `scripts/intent_leak_test.py` (mới) | leak test trước khi train C/D |
+| `tests/test_intent_v32.py` (mới) | 4 test (xem 2.5) |
 
 ## 2. `intent_policy/intent/belief.py`
 
@@ -98,6 +114,63 @@ Thư viện dùng fold `fold_of(seed)`, nên không bao giờ thấy chính epis
    - T2 zones lấy từ belief vươn tay.
 
    `p_stop` = p(`palm_forward`).
+
+### 2.4 Intent v3.2: nguồn nhãn và encoder (M4)
+**`IntentV32.step(state)`**: một frame, gọi đúng một lần mỗi frame 20 Hz.
+
+| Trường | Cách tính |
+|---|---|
+| `p_target` (17) | `OnlineBelief.distribution()` đổi sang tên đích của schema (vật → ô S của nó). T1: belief chỉ tay chung trên vật + P1/P2; T2: ½ belief vật + ½ belief tay H; T3: cốc; T4: `none` = 1 |
+| `p_gesture` (6) | lớp cử chỉ của belief = 5 lớp schema + `withdraw` |
+| `p_who` (4) | `p_gesture` × bảng ai-làm (point → robot, reach → human, palm_up → joint, palm_forward → robot, withdraw → human) |
+| `c_who`, `c_target` | `IntentTracker` (bộ nhớ việc đã giao) trên `p_target`, `p_who`, 5 lớp schema (withdraw cộng vào rest) |
+| `phase`, `tte`, `tte_std` | luật động học của tay hoạt động (như nguồn perfect v2), không dùng tương lai |
+| `xi` (8×6×3) | dự báo vận tốc không đổi (CVM) |
+| `occupancy` (7) | hộp quanh tay hiện tại + `xi` |
+| `point_dir` (6) | tia đơn vị gốc → đầu ngón trỏ + gốc tia (đầu ngón), định dạng DeePoint |
+| `min_dist` (1) | khoảng cách nhỏ nhất keypoint tay – TCP robot (xấp xỉ: không tính các khâu khác của robot) |
+| `hand_hist` (10×6×3) | keypoint 10 frame trước trừ keypoint hiện tại |
+| `human_present` (1) | 1 (tay mô phỏng luôn được theo dõi) |
+
+**`ReplayScenario`** dựng lại từ một episode đã ghi những gì `OnlineBelief` cần đọc:
+- `variation`, `seed`, `task_code`;
+- vùng (`layout`), vị trí vật lúc bắt đầu (`object_xy` + nửa chiều cao vật);
+- keypoint từng frame;
+- stage của người từng frame (`human_stages`).
+
+Đối chiếu trên 12 episode preview: belief phát lại khớp với `expert_belief` mà expert ghi lúc chạy, sai khác lớn nhất 0.002. Phần lớn sai khác do giá trị ghi bị làm tròn 3 chữ số; phần còn lại do độ cao vật được ước lượng.
+
+**`IntentEncoderV32`** dựng 6 token và mask:
+
+| Token | Đầu vào |
+|---|---|
+| HUMAN | MLP(`hand_hist` chuẩn hóa ⊕ `occupancy` ⊕ `min_dist` ⊕ `point_dir`) |
+| SEM | Linear(`p_who` ⊕ `c_who` ⊕ `phase` ⊕ `p_gesture`) |
+| TARGET | `p_target` @ E_target + Linear(entropy chuẩn hóa, max) |
+| C_TARGET | `c_target` @ E_target + embedding "đã giao" |
+| TIME | MLP(Fourier(`tte`) ⊕ `tte_std`) |
+| MOTION | Linear(`xi` chuẩn hóa) |
+
+- **Mask** (True = bị bỏ qua) được dùng ở cả self-attention của encoder lẫn cross-attention của decoder:
+  - `human_present` = 0 thì che HUMAN và MOTION;
+  - khi train: bỏ từng token với xác suất 0.1, bỏ cả 6 với xác suất 0.2;
+  - khi eval: `intent_keep` chọn token nào được giữ (dùng cho ablation).
+- Token task không bao giờ bị che.
+- `decode_masked` chính là decoder của LeRobot, chỉ thêm `key_padding_mask` ở cross-attention. Test xác nhận: khi không che gì, kết quả trùng decoder gốc (sai khác < 1e-6).
+
+### 2.5 Kiểm tra M4
+- `tests/test_intent_v32.py` (4 test):
+  - nhãn tính offline bằng belief mà expert dùng trên một episode T1 chạy thật (sai khác < 0.01);
+  - mask của encoder;
+  - decoder có mask = decoder gốc;
+  - che hết token intent thì hành động không phụ thuộc giá trị intent.
+- Toàn bộ test belief / intent / IntentACT cũ: 29 test qua.
+- Smoke train trên CPU (bản sao preview có nhãn, 20 bước): loss và val chạy, lưu checkpoint, model 19.0M tham số (A: 18.7M).
+- Eval online: nạp checkpoint smoke vào `PolicyAgent`, chạy được một episode T1; mỗi bước đều có intent v3.2 tính trên scenario sống.
+- `scripts/intent_leak_test.py`:
+  - (a) phần p_target dồn vào đích thật (trong nhóm ứng viên) trước khi người bắt đầu cử chỉ chọn;
+  - (b) probe hồi quy logistic trên mọi trường intent ở các frame đó, kiểm chéo theo episode, phải ở mức ngẫu nhiên.
+  - Trên preview: pb, hs, pp đều ok (mẫu nhỏ). Chạy lại trên dataset đầy đủ ở M3.
 
 ## 3. Expert `trigger: belief` (`scripted_expert.py`)
 
@@ -267,6 +340,11 @@ Phân tích lỗi và cách xử lý:
 # hoặc xem trong rerun / LeRobot:
 ./run.sh -m scripts.view_dataset --root outputs/datasets/intent_act_early_v5_preview --episode-index 0
 ```
+
+### 6.8 M3 (2026-10-10, đang chạy)
+- 00:48: bắt đầu thu `intent_act_early_v5` (559 cell, ~6.5 s mỗi episode).
+- `collect_demos` không ghi `hri.task_id` / `hri.instr_*` (do `build_intent_labels` ghi), nên chuỗi được sửa thành: thu → `build_intent_labels --sources hindsight perfect belief` → train B (`--steps 15000 --save-every 2500`, `outputs/train/intent_act/B`).
+- Nhãn của dataset late (cho C) được build song song: `--sources hindsight perfect belief`. Các cột `intent_pr*` (predicted v2, nhiễu = 0, không dùng ở v3.2) bị bỏ, vì builder chỉ giữ các nguồn được liệt kê; muốn có lại thì build lại với `predicted`.
 
 ## 7. Lệch so với plan đã duyệt (có lý do)
 1. **Hedging dùng trung bình có trọng số** thay cho trung vị hình học. Với 2 ứng viên, trung vị hình học nằm đúng tại vật nặng hơn, nên robot giật qua lại khi b ≈ 0.5.

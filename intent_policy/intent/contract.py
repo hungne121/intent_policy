@@ -70,3 +70,61 @@ def validate_intent(d: dict, schema: dict, batched: bool = False) -> None:
     conf = np.asarray(d['confidence'])
     if (conf < -1e-6).any() or (conf > 1 + 1e-6).any():
         raise ValueError('confidence outside [0, 1]')
+
+
+# ---------------------------------------------------------------------------------------------- contract v3.2
+# docs/requirements/INTENT_ACT_v3.2.md §5: the causal belief of the expert (intent/belief.py) + causal kinematics.
+#   p_who (W) p_target (K) c_who (W) c_target (K) phase (P) p_gesture (G + 1: the schema gestures + `withdraw`)
+#   point_dir (6: unit pointing direction index base -> tip, then its origin = the index tip)  occupancy (7)
+#   min_dist (1: hand keypoints - robot TCP [m])  tte, tte_std (1 each, [0, tte_max_s])  xi (M, J, 3: constant-velocity
+#   forecast)  hand_hist (H, J, 3: keypoints of the last H frames minus the current ones)  human_present (1: 0 / 1)
+FIELDS_V32 = ('p_who', 'p_target', 'c_who', 'c_target', 'phase', 'p_gesture', 'point_dir', 'occupancy', 'min_dist',
+              'tte', 'tte_std', 'xi', 'hand_hist', 'human_present')
+DISTRIBUTIONS_V32 = ('p_who', 'p_target', 'c_who', 'c_target', 'phase', 'p_gesture')
+HAND_HIST = 10
+
+
+def field_shapes_v32(schema: dict) -> dict[str, tuple]:
+    K, W, P = len(schema['targets']), len(schema['who']), len(schema['phases'])
+    G = len(schema['gestures']) + 1
+    M, J, D = schema['n_waypoints'], len(schema['keypoints']), schema['keypoint_dim']
+    return {'p_who': (W,), 'p_target': (K,), 'c_who': (W,), 'c_target': (K,), 'phase': (P,), 'p_gesture': (G,),
+            'point_dir': (6,), 'occupancy': (7,), 'min_dist': (1,), 'tte': (1,), 'tte_std': (1,), 'xi': (M, J, D),
+            'hand_hist': (HAND_HIST, J, D), 'human_present': (1,)}
+
+
+def dataset_features_v32(schema: dict, prefix: str) -> dict:
+    return {f'{prefix}.{k}': {'dtype': 'float32', 'shape': shape, 'names': None} for k, shape in field_shapes_v32(schema).items()}
+
+
+def validate_intent_v32(d: dict, schema: dict, batched: bool = False) -> None:
+    """As validate_intent, for the v3.2 contract."""
+    shapes, tmax = field_shapes_v32(schema), float(schema['tte_max_s'])
+    missing = [k for k in FIELDS_V32 if k not in d]
+    if missing:
+        raise ValueError(f'intent fields missing: {missing}')
+    for k, shape in shapes.items():
+        v = np.asarray(d[k])
+        got = v.shape[1:] if batched else v.shape
+        if tuple(got) != tuple(shape):
+            raise ValueError(f'{k}: shape {v.shape}, expected {"(N, " if batched else "("}{", ".join(map(str, shape))})')
+        if v.dtype != np.float32:
+            raise ValueError(f'{k}: dtype {v.dtype}, expected float32')
+        if not np.isfinite(v).all():
+            raise ValueError(f'{k}: NaN / inf')
+    for k in DISTRIBUTIONS_V32:
+        v = np.asarray(d[k])
+        if (v < -DIST_TOL).any() or (np.abs(v.sum(-1) - 1.0) > DIST_TOL).any():
+            raise ValueError(f'{k}: not a distribution (min {v.min():.4g}, sums {np.unique(v.sum(-1).round(5))[:5]})')
+    for k in ('tte', 'tte_std'):
+        v = np.asarray(d[k])
+        if (v < 0).any() or (v > tmax + 1e-6).any():
+            raise ValueError(f'{k} outside [0, {tmax}]')
+    if (np.asarray(d['min_dist']) < 0).any():
+        raise ValueError('min_dist < 0')
+    hp = np.asarray(d['human_present'])
+    if not np.isin(hp, (0.0, 1.0)).all():
+        raise ValueError('human_present must be 0 or 1')
+    n = np.linalg.norm(np.asarray(d['point_dir'])[..., :3], axis=-1)
+    if (np.abs(n - 1.0) > 1e-3).any():
+        raise ValueError('point_dir[:3] must be a unit vector')

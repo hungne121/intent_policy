@@ -46,7 +46,8 @@ class PolicyAgent(Agent):
         cfg = self.policy.config
         self.tokens = cfg.use_intent and cfg.intent_arch == 'tokens'
         self.online_intent = None
-        if self.tokens:
+        self.intent_v32 = self.tokens and cfg.intent_version == 'v32'
+        if self.tokens and not self.intent_v32:
             if cfg.intent_source != 'hindsight':
                 raise NotImplementedError(f'closed-loop intent source {cfg.intent_source!r}: only hindsight (online '
                                           'from the simulator plan, intent/online.py) is implemented')
@@ -74,7 +75,13 @@ class PolicyAgent(Agent):
         self.step_index = 0
         if self.reads_oracle:
             self.corruption.reset(scenario, scenario.seed)
-        if self.online_intent is not None:
+        if self.intent_v32:                     # contract v3.2: the belief source on the live scenario (intent/source_v32)
+            from intent_policy.intent.source_v32 import IntentV32
+            from intent_policy.utils import resolve
+            S = self.policy.config.intent_schema
+            self.online_intent = IntentV32(scenario, S, S['belief'], resolve(S['belief']['reach']['library']))
+            self.online_intent.reset()
+        elif self.online_intent is not None:
             self.online_intent.reset()
 
     def act(self, obs: dict) -> Decision:
@@ -86,7 +93,10 @@ class PolicyAgent(Agent):
             extras = {'oracle_given': given.compact(), 'oracle_true': self.reference.record(self.scenario).compact()}
         intent = None
         if self.online_intent is not None:
-            intent = self.online_intent.observe(self.scenario, self.step_index, float(np.asarray(obs['observation.state'])[6]))
+            if self.intent_v32:
+                intent = self.online_intent.step(np.asarray(obs['observation.state'], np.float64))
+            else:
+                intent = self.online_intent.observe(self.scenario, self.step_index, float(np.asarray(obs['observation.state'])[6]))
             extras['intent'] = dict(p_target=int(intent['p_target'].argmax()), c_target=int(intent['c_target'].argmax()),
                                     p_who=int(intent['p_who'].argmax()), phase=int(intent['phase'].argmax()),
                                     tte=round(float(intent['tte'][0]), 3))

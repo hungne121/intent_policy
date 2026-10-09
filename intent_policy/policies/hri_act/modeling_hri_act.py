@@ -22,7 +22,7 @@ from torch import Tensor
 from lerobot.policies.act.modeling_act import ACTPolicy, ACTTemporalEnsembler
 from lerobot.utils.constants import ACTION, OBS_IMAGES
 
-from intent_policy.policies.hri_act.configuration_hri_act import INTENT_GROUPS, HRIACTConfig
+from intent_policy.policies.hri_act.configuration_hri_act import INTENT_GROUPS, TOKENS_V32, HRIACTConfig
 from intent_policy.policies.intent_act import IntentACT
 from intent_policy.policies.intent_fusion import IntentFusion
 from intent_policy.policies.restricted_action_head import RestrictedActionHead
@@ -93,6 +93,8 @@ class HRIACTPolicy(ACTPolicy):
         enc = self.intent_encoder
         if enc is None:
             return batch
+        if cfg.intent_version == 'v32':
+            return self._with_intent_v32(batch, b, dev)
         if 'intent' not in batch:
             g = lambda k, n: batch[f'intent.{k}'].to(dev).float().reshape(b, n)
             S = cfg.intent_schema
@@ -109,12 +111,28 @@ class HRIACTPolicy(ACTPolicy):
                                         for gr in INTENT_GROUPS}
         return batch
 
+    def _with_intent_v32(self, batch: dict, b: int, dev) -> dict:
+        """Contract v3.2 fields intent.* -> batch['intent'] (raw: IntentEncoderV32 normalises xi / hand_hist) and
+        batch['intent_keep']: token dropout in training, the configured `intent_keep` tokens in evaluation."""
+        from intent_policy.intent.contract import field_shapes_v32
+        cfg, enc = self.config, self.intent_encoder
+        if 'intent' not in batch:
+            batch['intent'] = {k: batch[f'intent.{k}'].to(dev).float().reshape((b,) + tuple(shape))
+                               for k, shape in field_shapes_v32(cfg.intent_schema).items()}
+        if batch.get('intent_keep') is None:
+            if self.training and (cfg.intent_p_drop_group > 0 or cfg.intent_p_drop_all > 0):
+                batch['intent_keep'] = enc.sample_keep(b, dev, cfg.intent_p_drop_group, cfg.intent_p_drop_all)
+            elif not self.training and set(cfg.intent_keep) != set(TOKENS_V32):
+                batch['intent_keep'] = {t: torch.full((b,), t in cfg.intent_keep, dtype=torch.bool, device=dev)
+                                        for t in TOKENS_V32}
+        return batch
+
     def _maybe_reset_ensembler(self, batch: dict) -> None:
         """§4.3: with temporal ensembling, clear the chunk buffer when the committed target or who changes, or when
         the target confidence first exceeds 0.8 after having been below it."""
         intent = batch.get('intent')
         ens = self._restricted_ensembler if self.config.action_mode == 'restricted' else getattr(self, 'temporal_ensembler', None)
-        if intent is None or self.config.temporal_ensemble_coeff is None or ens is None:
+        if intent is None or self.config.temporal_ensemble_coeff is None or ens is None or 'confidence' not in intent:
             return
         key = (int(intent['c_target'][0].argmax()), int(intent['c_who'][0].argmax()))
         conf = float(intent['confidence'][0, 0])

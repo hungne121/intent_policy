@@ -11,6 +11,8 @@ intent contract around the preprocessor (intent tokens, docs/requirements/INTENT
                            `policy.use_instruction`, else off; needs hri.instr_* from scripts/build_intent_labels.py)
   --use-intent             intent tokens (default off: the dataset's intent_* columns are ignored)
   --intent-source          hindsight | perfect | predicted (columns intent_hs / intent_pp / intent_pr<r>, read as intent.*)
+                           | belief (contract v3.2, columns intent_pb, 6 tokens + mask; docs/requirements/INTENT_ACT_v3.2.md;
+                           its defaults: --p-drop-group 0.1 (one token) --p-drop-all 0.2, never in the CVAE)
   --intent-source-mix      e.g. predicted:0.7,perfect:0.3 (source drawn per sample; predicted: replica drawn uniformly)
   --noise-scale-range      must match the range the predicted replicas were built with (schema predicted.*)
   --p-drop-group 0.15  --p-drop-all 0.1  --intent-keep semantic,spatial,memory,time,motion  --[no-]intent-in-cvae
@@ -50,7 +52,8 @@ from intent_policy.utils import load_yaml, log_run, resolve, run_dir
 
 INTENT_COLUMN_PREFIX = 'intent_'
 TASK_ID = 'hri.task_id'
-SOURCE_PREFIX = {'hindsight': ['intent_hs'], 'perfect': ['intent_pp'], 'predicted': None}    # predicted: intent_pr<r>
+SOURCE_PREFIX = {'hindsight': ['intent_hs'], 'perfect': ['intent_pp'], 'predicted': None,     # predicted: intent_pr<r>
+                 'belief': ['intent_pb']}                                                   # contract v3.2
 CONTRACT_KEYS = ('targets', 'who', 'phases', 'tasks', 'n_waypoints', 'keypoints', 'keypoint_dim', 'fps', 'horizon_s', 'tte_max_s')
 
 
@@ -214,9 +217,10 @@ def evaluate(policy, preprocessor, loader, device, label_key, amp, max_batches=2
     return {f'val_{k}': float(np.mean(v)) for k, v in acc.items()}
 
 
-def xi_stats(ds: LeRobotDataset, prefix: str = 'intent_hs') -> tuple[np.ndarray, np.ndarray]:
-    """Mean / std of raw xi of one source over every frame of `ds` (the training episodes)."""
-    col = f'{prefix}.xi'
+def xi_stats(ds: LeRobotDataset, prefix: str = 'intent_hs', field: str = 'xi') -> tuple[np.ndarray, np.ndarray]:
+    """Mean / std of a raw field (xi; v3.2 also hand_hist) of one source over every frame of `ds` (the training
+    episodes)."""
+    col = f'{prefix}.{field}'
     xi = np.asarray(ds.hf_dataset.with_format('numpy', columns=[col])[col], np.float64)
     return xi.mean(0), xi.std(0)
 
@@ -226,6 +230,8 @@ def guide_overrides(args) -> dict:
     out = {}
     if args.use_intent:
         out.update(use_intent=True, intent_arch='tokens', intent_schema=load_schema(args.intent_schema))
+        if args.intent_source == 'belief':                       # contract v3.2 and its defaults (INTENT_ACT_v3.2.md)
+            out.update(intent_version='v32', intent_in_cvae=False, intent_p_drop_group=0.1, intent_p_drop_all=0.2)
     if args.use_task_token is not None:
         out['use_task_token'] = args.use_task_token
         if args.use_task_token and 'intent_schema' not in out:
@@ -293,7 +299,7 @@ def main():
                         'policy.use_instruction, else off)')
     g.add_argument('--use-intent', '--use_intent', action='store_true', help='intent tokens (default: off)')
     g.add_argument('--intent-schema', default=SCHEMA_PATH)
-    g.add_argument('--intent-source', '--intent_source', choices=['hindsight', 'perfect', 'predicted'],
+    g.add_argument('--intent-source', '--intent_source', choices=['hindsight', 'perfect', 'predicted', 'belief'],
                    help='intent source (default: hindsight)')
     g.add_argument('--intent-source-mix', '--intent_source_mix', help='e.g. predicted:0.7,perfect:0.3')
     g.add_argument('--noise-scale-range', '--noise_scale_range',
@@ -378,7 +384,10 @@ def main():
                 raise SystemExit(f'--noise-scale-range {args.noise_scale_range} != the dataset build range {built}: rebuild '
                                  'the predicted replicas (configs/intent_schema.yaml predicted.noise_scale_range)')
         mean, std = xi_stats(train_ds, selector.primary)
-        policy.intent_encoder.set_xi_stats(mean, std)
+        if cfg.intent_version == 'v32':
+            policy.intent_encoder.set_stats(mean, std, *xi_stats(train_ds, selector.primary, 'hand_hist'))
+        else:
+            policy.intent_encoder.set_xi_stats(mean, std)
     preprocessor, postprocessor = make_hri_act_pre_post_processors(cfg, dataset_stats=meta.stats)
     optimizer = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
     scaler = torch.amp.GradScaler('cuda', enabled=amp)
