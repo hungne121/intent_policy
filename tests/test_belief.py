@@ -2,8 +2,9 @@
 import numpy as np
 import pytest
 
-from intent_policy.intent.belief import (GestureRamp, HandKinematics, OnlineDTW, PointingBelief, ReachBelief,
-                                         ReachLibrary, load_library, pointing_likelihood, save_libraries)
+from intent_policy.intent.belief import (GestureRamp, GoalInference, HandKinematics, OnlineDTW, PointingBelief,
+                                         ReachBelief, ReachLibrary, ReachPredictor, load_library, pointing_likelihood,
+                                         save_libraries)
 from intent_policy.intent.labels import load_schema
 
 S = load_schema()
@@ -93,3 +94,39 @@ def test_gesture_ramp_rises_after_the_detected_onset():
         if t == 5:
             assert kin.onset_t == 5 and p[i] == pytest.approx(1.0 / len(S['gestures']))
     assert p[i] == pytest.approx(B['p_max'])                                      # ramp_s (23 frames) is over
+
+
+def test_goal_inference_follows_a_straight_reach_from_any_start():
+    goals = {'A': np.array([0.3, 0.0, 0.0]), 'B': np.array([0.3, 0.1, 0.0])}
+    for start in (np.zeros(3), np.array([0.0, 0.3, 0.0])):                       # two different starts
+        gi = GoalInference(goals, ['A', 'B'], beta=0.003)
+        path = [start + u * (goals['B'] - start) for u in np.linspace(0.0, 1.0, 20)]
+        post = [gi.step(q) for q in path]
+        assert post[0][1] == pytest.approx(0.5)
+        assert post[-1][1] > 0.99
+
+
+def test_reach_predictor_uses_ioc_when_no_start_cluster_covers_the_candidates():
+    a, b = np.array([0.3, 0.0, 0.0]), np.array([0.0, 0.3, 0.0])
+    lib = ReachLibrary.fit({'A': [_line(a)] * 3, 'B': [_line(b)] * 3}, 20, 0.01, families=[['A', 'B']], radius=0.06,
+                           min_demos=2, ends={'A': [a], 'B': [b]})
+    rp = ReachPredictor(lib, ['A', 'B'], 'library_then_ioc')
+    rp.step(np.zeros(6), np.zeros(3))
+    assert rp.mode == 'library'
+    rp = ReachPredictor(lib, ['A', 'B'], 'library_then_ioc')
+    rp.step(np.full(6, 0.5), np.full(3, 0.5))                                   # a start no cluster has
+    assert rp.mode == 'ioc'
+    assert ReachPredictor(lib, ['A', 'B'], 'ioc').step(np.zeros(6), np.zeros(3)) is not None
+
+
+def test_gesture_ramp_starts_on_a_slow_motion_below_the_onset_speed():
+    kin = HandKinematics(S, B['onset_speed_m_s'], B['still_speed_m_s'])
+    ramp = GestureRamp(S['gestures'], B['ramp_s'], B['p_max'], S['fps'])
+    kp = np.zeros((6, 3))
+    for t in range(12):
+        moved = kp.copy()
+        if t >= 5:                                                               # 0.25 cm per frame = 0.05 m/s
+            moved[:3] += [0.0025 * (t - 4), 0.0, 0.0]
+        kin.step(t, moved)
+        ramp.step(t, 'reach' if t >= 4 else 'rest', kin)
+    assert kin.onset_t is None and ramp.active_since == 5

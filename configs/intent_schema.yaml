@@ -95,6 +95,10 @@ belief:
                                     # a moment, a missed one a wrong grasp, so the threshold is low (same cost rule)
   reach:                            # Pérez-D'Arpino & Shah (ICRA 2015) library, scripts/fit_reach_library.py
     library: assets/intent/reach_library_v5.npz
+    method: ioc                     # MaxEnt IOC goal inference (user 2026-10-09, after the expert check: 89/90 vs 88/90 for
+                                    # library_then_ioc, 0 wrong commits); library_then_ioc | library kept for comparison
+    ioc_beta_min_m: 0.003           # IOC temperature floor: the NLL optimum degenerates (-> 0) because the sim's minimum-jerk
+                                    # reaches are perfectly straight; 3 mm makes the fallback commit no earlier than the library
     n_steps: 40                     # normalised time steps per demonstration
     var_floor_m: 0.01               # minimum std per axis [m]
     start_radius_m: 0.06            # motion class = (start cluster, target): wrist starts within this share a cluster

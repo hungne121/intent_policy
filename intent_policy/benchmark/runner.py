@@ -61,7 +61,10 @@ class ExpertAgent(Agent):
 
     def act(self, obs):
         action = self.expert.act()
-        return Decision(action_id=action, extras={'expert_stage': self.expert.stage, 'expert_commit': self.expert.pop_commit()})
+        extras = {'expert_stage': self.expert.stage, 'expert_commit': self.expert.pop_commit()}
+        if self.expert.belief is not None:              # belief trigger: the belief it acted on (preview overlay)
+            extras['expert_belief'] = self.expert.belief.snapshot()
+        return Decision(action_id=action, extras=extras)
 
     def describe(self):
         return dict(type='scripted_expert', action_mode='restricted', privileged=True)

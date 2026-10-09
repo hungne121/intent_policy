@@ -1,6 +1,7 @@
 """T1 pick and place (instructor): the human points at a cube and at a place zone P; the robot must put exactly that
 cube into that zone without touching the other objects and return to rest. T5 on T1: the human switches cubes
 before the robot grasps (scence_construct.md §4.4)."""
+import numpy as np
 from intent_policy.scenarios.base_scenario import BaseScenario
 
 
@@ -26,8 +27,9 @@ class PickPlaceTask(BaseScenario):
 
     def commit_stage(self):
         target = self.robot_target()
-        if self.robot_lifted == target:
-            return 'region', {z: self.zone_pos(z) for z in self.places}, self.place_zone
+        if self.robot_lifted == target:            # commit points: the object's resting place in each zone
+            up = np.array([0.0, 0.0, self.rest_height[target] - self.table_z])
+            return 'region', {z: np.r_[self.zone_pos(z)[:2], self.table_z] + up for z in self.places}, self.place_zone
         return self._pre_grasp_stage('object', [k for k in self.on_table], target)
 
     def placed(self) -> bool:

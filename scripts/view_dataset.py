@@ -137,11 +137,23 @@ def stages_per_frame(m: dict) -> dict[str, list[str]]:
     return {kind: [s['name'] for s in segs for _ in range(s['end'] - s['start'] + 1)] for kind, segs in kinds}
 
 
+def belief_line(b: dict | None) -> str:
+    """The belief the expert acted on at this frame (belief trigger, INTENT_ACT_v3.2.md §4)."""
+    if not b:
+        return ''
+    parts = [f'{k} {v:.2f}' for k, v in {**b['objects'], **b['zones']}.items()]
+    return 'belief: ' + '  '.join(parts) + f"  | wait {b['p_stop']:.2f}" + (f" withdraw {b['p_withdraw']:.2f}" if 'p_withdraw' in b else '')
+
+
 def export_mp4(ds: LeRobotDataset, m: dict, path) -> None:
-    """The episode as an mp4 from the dataset's own frames, in the evaluation video layout."""
+    """The episode as an mp4 from the dataset's own frames, in the evaluation video layout (belief trigger: the
+    expert's belief on the last line, its commits among the events)."""
     marks = sorted([(p['frame'], f"{p['t']:5.2f}s {p['step']} (by {p['by']})") for p in m['protocol_steps']]
                    + [(c['frame'], f"{c['t']:5.2f}s INTENTION CHANGE {c['kind']}: {c['previous']} -> {c['current']}")
-                      for c in m.get('intention_changes') or []])
+                      for c in m.get('intention_changes') or []]
+                   + ([(c['frame'], f"{c['t']:5.2f}s EXPERT COMMIT {c['target']}") for c in m.get('expert_commits') or []]
+                      if m.get('expert_belief') else []))
+    beliefs = m.get('expert_belief') or []
     stage = stages_per_frame(m)
     main_key = f'observation.images.{MAIN_CAMERA}'
     side_keys = [k for k in ds.meta.camera_keys if k != main_key]
@@ -152,8 +164,11 @@ def export_mp4(ds: LeRobotDataset, m: dict, path) -> None:
             at = lambda kind: stage[kind][min(i, len(stage[kind]) - 1)] if stage[kind] else '-'
             header = (f"ep {m['episode_index']} seed {m['seed']}  t={float(batch['timestamp'][j]):5.2f}s  "
                       f"robot: {at('expert')}  human: {at('human')}")
+            shown = [text for f, text in marks if f <= i]
+            if beliefs:
+                shown = shown[-5:] + [belief_line(beliefs[min(i, len(beliefs) - 1)])]
             frame = (to_hwc_uint8_numpy(batch[main_key][j]), [to_hwc_uint8_numpy(batch[k][j]) for k in side_keys],
-                     header, [text for f, text in marks if f <= i])
+                     header, shown)
             writer.add(compose(*frame, side_names=names))
             i += 1
     for _ in range(FPS):

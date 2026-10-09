@@ -9,7 +9,7 @@
 |---|---|---|
 | M0 | tài liệu lý thuyết v3.2 | xong (2026-10-09) |
 | M1 | `intent/belief.py`, thư viện vươn tay, test | xong (2026-10-09) |
-| M2 | expert `trigger: belief`, expert check, quét b*, preview | **đang làm, tạm dừng chờ hướng đi** (mục 8): T1/T3/T4 ổn; T2 chọn tay và T5 còn lỗi; preview chưa |
+| M2 | expert `trigger: belief`, expert check, quét b*, preview | **xong, chờ bạn duyệt preview** (2026-10-09): demo list 552/559, 0 commit sai |
 | M3 | thu `intent_act_early_v5`, nhãn, leak test | chưa |
 | M4 | encoder v3.2 | chưa |
 | M5 | inference chung | chưa |
@@ -25,7 +25,9 @@
 | `scripts/fit_reach_library.py` | học thư viện vươn tay từ dataset late, out-of-fold, hiệu chỉnh nhiệt độ, báo cáo đường cong độ đúng | mới |
 | `assets/intent/reach_library_v5.npz` (+ `.json`) | thư viện đã học (5 fold), commit vào git | mới |
 | `intent_policy/experts/scripted_expert.py` | thêm `trigger: belief` | sửa |
-| `scripts/check_expert.py` | `--config`, `--belief`, DART theo cell, commit sai, lead | sửa |
+| `scripts/check_expert.py` | `--config`, `--belief` (khoá lồng nhau `reach.method=ioc`), DART theo cell, commit sai (expert / bộ phát hiện), lead | sửa |
+| `intent_policy/scenarios/base_scenario.py`, `t1_pick_place.py` | `robot_target_commit` = bắt đầu hạ xuống vật hoặc vào vùng (`COMMIT_RADIUS` 5 cm, `COMMIT_DZ` 6 cm); điểm commit của vùng đặt = chỗ vật sẽ nằm | sửa |
+| `intent_policy/benchmark/runner.py`, `scripts/collect_demos.py`, `scripts/view_dataset.py` | ghi belief của expert theo frame vào meta (`expert_belief`), video preview hiện belief và commit | sửa |
 | `configs/intent_schema.yaml` | khối `belief:` | sửa |
 | `configs/experiments/intent_act_early.yaml` | `trigger: belief` | sửa |
 | `tests/test_belief.py` | 7 test | mới |
@@ -42,6 +44,7 @@
 
   Đây là "nhận dạng lớp cử chỉ hoàn hảo", giống nguồn perfect cũ. Độ trễ được mô phỏng bằng ramp.
 - `REACH_LABELS = ('reach_block', 'reach_out')`: các chuyển động đưa vào thư viện vươn tay.
+- `EXTRA_CLASSES = ['withdraw']`: các lớp cử chỉ của belief = 5 lớp của schema + `withdraw` (`withdraw_change`: rút tay hoặc trả khối sau khi đổi ý).
 - `SELECTION_HOLD`: các đoạn giữ ngay sau một lần vươn tay chọn đích: `waiting_offer` (chìa tay chờ) → `palm_up`; `lift_block`, `waiting_cup` → `reach`. Trong đoạn giữ, lớp cử chỉ vẫn tiếp tục (xác suất tiếp tục tăng), còn posterior vươn tay đóng băng ở giá trị lúc chuyển động kết thúc.
 
 ### 2.2 Các lớp / hàm
@@ -49,7 +52,7 @@
 | Tên | Vào → ra | Ghi chú |
 |---|---|---|
 | `HandKinematics(schema, onset_speed, still_speed)` | `step(t, kp)` | Tay hoạt động = tay xa vị trí frame đầu nhất. `speed` = tốc độ trung bình keypoint của tay đó. `onset_t` bắn khi tốc độ vượt 0.08 m/s sau khi đã < 0.03 m/s. `moving` = đang vượt ngưỡng onset |
-| `GestureRamp(classes, ramp_s, p_max, fps)` | `step(t, cls, kin)` → p (5,) | Lớp đúng tăng tuyến tính từ 1/5 tới p_max = 0.95 trong ramp_s = 1.15 s, tính từ onset. Lớp đổi khi tay đang chạy thì ramp bắt đầu ngay. `rest` luôn bằng p_max |
+| `GestureRamp(classes, ramp_s, p_max, fps)` | `step(t, cls, kin)` → p (6,) | Lớp đúng tăng tuyến tính từ 1/G tới p_max = 0.95 trong ramp_s = 1.15 s, tính từ onset. Lớp đổi khi tay đang chạy thì ramp bắt đầu ngay; tay nhúc nhích > 0.03 m/s trong lớp mới cũng làm ramp bắt đầu (cử chỉ chậm, ngắn). `rest` luôn bằng p_max |
 | `pointing_likelihood(base, tip, positions, p_point, sigma_deg)` | → L (N,) | `L = p·exp(−θ²/2σ²) + (1−p)`; θ đo từ đầu ngón, hướng gốc → đầu ngón trỏ |
 | `reach_features(kp, rest, idx, names)` | → (…, 6) | cổ tay và đầu ngón trỏ của tay hoạt động, trừ vị trí ở frame đầu |
 | `time_normalise(x, n)` | (T, D) → (n, D) | nội suy tuyến tính theo thời gian chuẩn hóa |
@@ -58,11 +61,14 @@
 | `ReachLibrary.keys_for(classes, x0)` | → key | Chọn cụm xuất phát gần x0 nhất (trong 2·radius) có đủ mọi đích; không có thì dùng thư viện chung |
 | `ReachLibrary.nll(key, x)` | → (n,) | −log N(x; μ_j, σ²_j) ở mọi bước j |
 | `OnlineDTW(library, classes, temperature)` | `step(x)` → posterior | DTW online với bước 0/+1/+2; prefix bắt đầu ở bước 0–2. score = min_j D[j] / k; posterior = softmax(−score / T). `logits` giữ bản chưa hiệu chỉnh |
+| `GoalInference(goals, classes, beta)` | `step(wrist)` → posterior | MaxEnt IOC: logit_g = −(quãng đã đi + \|Q−g\| − \|S−g\|), chia β; `goals` = tư thế cuối của cổ tay theo đích (`ReachLibrary.goal`) |
+| `ReachPredictor(library, classes, method)` | `step(x, wrist)` → posterior; `mode` | `library_then_ioc`: thư viện nếu `cluster_for` có cụm phủ đủ ứng viên, không thì IOC; hoặc `ioc` / `library` |
+| `ReachLibrary.cluster_for(classes, x0)` | → cụm hoặc None | cụm xuất phát gần nhất có đủ mọi đích |
 | `fold_of(seed, folds)` | → int | `(seed // 10) % folds`, chia theo cell của danh sách |
-| `save_libraries` / `load_library(path, fold)` / `n_folds` | npz | key `f{fold}/{g}/{mean,var,start}`, `r{fold}` (radius), `T{fold}/{họ}` (nhiệt độ) |
+| `save_libraries` / `load_library(path, fold)` / `n_folds` | npz | key `f{fold}/{g}/{mean,var,start,goal}`, `r{fold}` (radius), `T{fold}/{họ}` (nhiệt độ), `T{fold}/ioc:{họ}` (β) |
 | `PointingBelief(keys, lam)` | `update(L)`; `.b` | `log b = λ·log b + log L`, chuẩn hóa |
 | `ReachBelief(keys, lam)` | `update(post, p_g, new_reach)`; `.b` | trong một lần vươn: `b = p_g·post + (1−p_g)·b_start`, không đệ quy, vì posterior đã tích lũy cả đoạn; ngoài lúc vươn: quên dần `norm(b^λ)` |
-| `OnlineBelief(scenario, schema, cfg, library_path)` | `reset()`, `step()`, `objects()`, `zones()`, `p_stop`, `snapshot()` | belief của một scenario đang chạy, xem 2.3 |
+| `OnlineBelief(scenario, schema, cfg, library_path)` | `reset()`, `step()`, `objects()`, `zones()`, `p_stop`, `p_withdraw`, `snapshot()` | belief của một scenario đang chạy, xem 2.3 |
 
 ### 2.3 `OnlineBelief`: tập ứng viên và luồng mỗi frame
 **`reset()`** dựng tập ứng viên chỉ từ những gì policy cũng thấy được (task, loại vật trong lệnh, layout):
@@ -102,7 +108,7 @@ Thư viện dùng fold `fold_of(seed)`, nên không bao giờ thấy chính epis
 | `_weighted_mean(probs, points)` | Σ b·điểm: điểm tối thiểu hóa bình phương quãng đường kỳ vọng |
 | `_hedge_objects()` / `_hedge_zones()` | điểm trên vật ứng viên / trên vùng (T1, khi đang mang vật) ở độ cao di chuyển |
 | bước `track` | kiểu Step mới: đi về một điểm di động, tới nơi thì HOLD, không bao giờ tự xong (hết khi bị skip hoặc lập kế hoạch lại); vẫn có guard tay người |
-| `_follow_belief()` | `belief.step()`; rồi `p_stop ≥ stop_star` trong `n_hold` frame → `stop`; `_decide('object')`; `_decide('zone')`; mỗi quyết định thành một "evidence" cho `_on_evidence` |
+| `_follow_belief()` | `belief.step()`; rồi `p_stop ≥ stop_star` trong `n_hold` frame → `stop`; `p_withdraw ≥ stop_star` → `_pause()` (giữ mục tiêu cũ); `_decide('object')`; `_decide('zone')`; mỗi quyết định thành một "evidence" cho `_on_evidence` |
 | `_decide(name, probs, current)` | ứng viên khác `current` có b ≥ b* đúng `n_hold` frame liên tiếp (bắn một lần) |
 | `_on_evidence(ev, grasping)` | tách từ `_follow_evidence` cũ, dùng chung cho chế độ `evidence` và `belief` |
 | `_redirect` (belief) | (1) kẹp đang khép dở trên vật cũ: mở trước khi nhấc; (2) đổi mục tiêu khi vật cũ đã giao (T3: cốc đã ở U_cup): lấy vật cũ về chỗ cũ trước |
@@ -125,8 +131,8 @@ belief:
   b_star: 0.9            # ngưỡng commit
   n_hold: 3              # frame liên tiếp
   stop_star: 0.5         # ngưỡng dừng khi thấy cử chỉ "chờ"
-  reach: {library: assets/intent/reach_library_v5.npz, n_steps: 40, var_floor_m: 0.01,
-          start_radius_m: 0.06, min_demos: 3, folds: 5}
+  reach: {library: assets/intent/reach_library_v5.npz, method: ioc, ioc_beta_min_m: 0.003,
+          n_steps: 40, var_floor_m: 0.01, start_radius_m: 0.06, min_demos: 3, folds: 5}
 ```
 
 `configs/experiments/intent_act_early.yaml`:
@@ -197,7 +203,70 @@ Phân tích lỗi và cách xử lý:
 | T5-485 (T3) | đổ cốc | nhận ra đổi khối chậm 3.1 s, robot mang cốc cũ gần tới U_cup rồi mới quay lại trả | chưa |
 | T5-475 (T1) | timeout | trả khối cũ lệch 3.9 cm (> 3 cm của `put_back_ok`), có DART | chưa (độ chính xác khi đặt lại, không phải belief) |
 
-Kết quả 30 episode trên code hiện tại: xem `outputs/expert_check/belief_p30_v2.md` (điền khi chạy xong).
+**Kết quả 30 episode trên code hiện tại** (`outputs/expert_check/belief_p30_v2.md`, b* = 0.9):
+
+| Task | Thành công | Commit sai (expert) | Commit sai (bộ phát hiện) | Commit sớm hơn mốc late [s] | CT [s] |
+|---|---|---|---|---|---|
+| T2 | 29/30 | 1 (138: nhầm tay H1, rồi timeout) | 13 | 0.64 ± 0.19 | 13.1 |
+| T3 | 30/30 | 0 | 7 | 0.30 ± 0.16 | 15.7 |
+| T5 | 26/30 (475, 476, 479 timeout; 485 đổ cốc) | 0 | 10 | 0.53 ± 0.23 | 22.1 |
+
+- T3 sớm hơn mốc late ít hơn trước (0.82 → 0.30 s): belief vươn tay giờ chỉ đạt 0.9 khi xác suất lớp cử chỉ ≥ 0.8, tức khoảng 0.9 s sau onset.
+- Đổi lại, không còn commit sai.
+- So sánh: expert late trên eval list v5 đạt 100% mọi task.
+
+### 6.4 Thư viện + IOC (sau quyết định 2026-10-09; số trên dữ liệu late, out-of-fold, b* = 0.9)
+
+| Phương pháp | U: tự tin đúng ở 50% / 70% | H: tự tin đúng ở 50% / 70% | Tự tin mà sai |
+|---|---|---|---|
+| thư viện | 1.00 / 1.00 | 0.45 / 0.96 | H ≤ 0.01 |
+| IOC (β = 3 mm, đích = tư thế cuối cổ tay) | 0.37 / 1.00 | 0.99 / 0.99 | 0 |
+| thư viện → IOC (mặc định) | 1.00 / 1.00 | 0.45 / 0.96 | H ≤ 0.01 |
+| IOC trên 28 ca U không có cụm | 1.00 từ 30% | — | 0 |
+
+### 6.5 Expert check 30 episode × T2/T3/T5: `library_then_ioc` so với `ioc`
+
+| Cách | T2 | T3 | T5 | Commit sai (expert) | Commit sai (bộ phát hiện mới) |
+|---|---|---|---|---|---|
+| thư viện → IOC | 29/30 | 30/30 | 27/30 | 1 | T5: 3 |
+| chỉ IOC | 30/30 | 30/30 | 28/30 | 0 | T5: 3 |
+
+- Sau khi sửa ramp cho cử chỉ chậm (T5-479 qua): thư viện → IOC 88/90, chỉ IOC 89/90.
+- Ca còn lại (475) là trả vật lệch 3.9 cm khi có DART, không phải lỗi belief.
+- **Bạn chọn chỉ IOC** (`reach.method: ioc`).
+- Commit sớm hơn mốc late: T2 0.61 s, T3 0.30 s, T5 0.49 s.
+- Bộ phát hiện mới ghi commit sai ở T5 vì robot đang hạ xuống vật cũ khi người vừa đổi ý; điều này hợp lý.
+
+### 6.6 Expert check toàn bộ demo list v5 (559 cell; `reach.method: ioc`, b* = 0.9)
+`outputs/expert_check/belief_demo_full_a.md` (T1, T2, T4, T4neg) và `belief_demo_full_b.md` (T3, T5).
+
+| Task | Thành công | Commit sai (expert) | Commit sớm hơn mốc late [s] | CT [s] |
+|---|---|---|---|---|
+| T1 | 120/120 | 0 | 0.51 ± 0.16 | 11.6 |
+| T2 | 140/141 | 0 | 0.62 ± 0.19 | 13.5 |
+| T3 | 82/83 | 0 | 0.36 ± 0.19 | 15.7 |
+| T4 | 72/72 | 0 | — | 14.0 |
+| T4neg | 46/46 | 0 | — | 11.7 |
+| T5 | 92/97 | 0 | 0.49 ± 0.24 | 21.8 |
+| **Tổng** | **552/559 (98.7%)** | **0** | | |
+
+- 7 cell hỏng: T2-170 (timeout), T3-337 (đổ cốc), T5-475 (trả vật lệch), T5-481 (timeout), T5-523 và 528 (chạm người), T5-543 (chạm vật khác).
+- 6/7 cell có DART. Ca 528 không DART: robot đã chọn tay H1 cho vật cũ rồi người mới đổi ý, và robot chạm người. Đây là vấn đề an toàn của expert ở T5, chưa sửa.
+- Tỷ lệ hỏng 1.25% < 3% (ngưỡng của plan): các cell này sẽ không có trong dataset early (`collect_demos` tự loại episode hỏng); A và dữ liệu late giữ nguyên.
+- **Quét b*:** không cần nữa, vì ở b* = 0.9 đã không còn commit sai nào trên 559 cell.
+
+### 6.7 Preview (chờ bạn duyệt)
+- Dataset LeRobot: `outputs/datasets/intent_act_early_v5_preview` (12 episode = 2 mỗi task, 3475 frame; `meta/hri_episodes.jsonl` có `expert_belief` theo frame).
+- Video: `outputs/videos/intent_act_early_v5_preview/episode_*.mp4`. Dòng cuối là belief của expert (vật/vùng và xác suất, p "chờ", p "rút tay"); các sự kiện gồm `EXPERT COMMIT`, bước giao thức, đổi ý.
+
+```bash
+./run.sh -m scripts.collect_demos --config configs/experiments/intent_act_early.yaml \
+    --root outputs/datasets/intent_act_early_v5_preview --repo-id local/intent_act_early_v5_preview --per-task 2
+./run.sh -m scripts.view_dataset --root outputs/datasets/intent_act_early_v5_preview --episode-index 0 1 2 3 4 5 6 7 8 9 10 11 \
+    --mp4 --save outputs/videos/intent_act_early_v5_preview
+# hoặc xem trong rerun / LeRobot:
+./run.sh -m scripts.view_dataset --root outputs/datasets/intent_act_early_v5_preview --episode-index 0
+```
 
 ## 7. Lệch so với plan đã duyệt (có lý do)
 1. **Hedging dùng trung bình có trọng số** thay cho trung vị hình học. Với 2 ứng viên, trung vị hình học nằm đúng tại vật nặng hơn, nên robot giật qua lại khi b ≈ 0.5.
@@ -207,13 +276,12 @@ Kết quả 30 episode trên code hiện tại: xem `outputs/expert_check/belief
 5. **Ngưỡng dừng riêng `stop_star = 0.5`.** Cử chỉ "chờ" ngắn hơn ramp 1.15 s, nên với b* = 0.9 robot không bao giờ dừng (T5-467 gắp nhầm và timeout). Dừng nhầm rẻ, bỏ lỡ thì đắt, nên ngưỡng thấp.
 6. **`_redirect` ở chế độ belief:** mở kẹp trước khi nhấc khi kẹp đang khép dở; đổi mục tiêu sau khi vật cũ đã giao thì lấy vật cũ về trước (T5-464 làm đổ cốc vì thiếu bước này).
 7. **`ReachBelief` không đệ quy trong một lần vươn tay**, và lớp cử chỉ giữ nguyên trong đoạn giữ (`SELECTION_HOLD`). Bản đầu đếm lại bằng chứng, khiến 5/30 ca T3 commit sai.
+8. **Quyết định của bạn (2026-10-09):** IOC làm dự phòng, đích = tư thế cuối cổ tay, sàn β 3 mm; tín hiệu `withdraw`; commit = hành động không đảo ngược.
 
 ## 8. Vấn đề mở
-- **Bộ phát hiện commit của scenario** (`base_scenario._update_commitment`) coi "TCP tiến rõ về một ứng viên" là commit.
-  - Hedging về điểm giữa hai twin, hoặc đường từ S6 sang P1 đi ngang P2 (T4, không hedging), bị ghi là commit sai.
-  - WCR/AM của các model B/D sẽ bị đội lên vì hedging.
-  - Cần bạn quyết: (a) giữ định nghĩa hiện tại và báo kèm; (b) đổi WCR sang hành động không đảo ngược (hạ xuống dưới độ cao di chuyển gần một vật / đặt / đưa vào tay) như "false commitment" của Learning to Assist.
-- **Bộ phân loại vươn tay chưa tổng quát cho điểm xuất phát lạ** (T2 chìa tay từ tư thế đang chỉ; T3 đổi khối từ U1 sang U2). Thư viện D'Arpino cần có demo cho từng cặp (điểm xuất phát, đích). Hướng có thể làm: khi không có thư viện cụm phù hợp, dùng suy luận đích kiểu MaxEnt IOC với chi phí khoảng cách (Dragan & Srinivasa 2013; Javdani 2015). Công thức P(g | S→Q) ∝ exp(−(|ξ| + |Q−g| − |S−g|)/β) không cần thư viện và dùng được cho mọi điểm xuất phát.
-- **T3 đổi ý:** belief chưa có tín hiệu "người trả khối", nên nhận ra chậm. Expert `evidence` cũ dừng ngay khi người rút tay về.
+- ~~Bộ phát hiện commit ghi nhầm hedging~~ → đã đổi sang hành động không đảo ngược. Expert late trên 6 episode mỗi task với định nghĩa mới: T1–T3 không còn commit sai. T5 có 2 ca; điều này hợp lý, vì expert late cứ tiếp tục với vật cũ cho tới khi người chỉ xong vật mới. T4 có 1 ca do DART đẩy TCP xuống trên P2.
+- ~~Bộ phân loại vươn tay chưa tổng quát~~ → đã thêm IOC dự phòng (mục 6.4).
+- ~~T3 đổi ý nhận ra chậm~~ → đã thêm tín hiệu `withdraw`.
 - **T5-475:** trả vật lệch hơn 3 cm khi có DART.
-- Preview demo (LeRobot) với lớp phủ belief: code đã sẵn (`expert_belief` trong meta, `view_dataset --mp4` hiện belief và commit), chưa thu.
+- T5-528: robot chạm người khi người đổi ý sau lúc robot đã chọn tay nhận (không DART). Cell này bị loại khỏi dataset early; nếu cần expert an toàn hơn ở T5 thì sửa sau.
+- 4 test cũ hỏng từ trước, không do v3.2: 3 test trong `test_episode_list_v5` (demo list có T4neg 46, T3 83, T2 141 thay vì đúng con số của plan) và `test_oracle_intent::test_commitment_events_follow_the_robot` (hỏng cả trên HEAD sạch; giờ định nghĩa commit đã đổi nên test này cần viết lại).

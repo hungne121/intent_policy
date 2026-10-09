@@ -89,7 +89,7 @@ def frame_of(t: float) -> int:
 
 def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index, spec=None,
                    keypoints: list[str] | None = None) -> tuple[dict, list, dict]:
-    frames, stages, humans, targets, actions, commits, noise = [], [], [], [], [], [], []
+    frames, stages, humans, targets, actions, commits, noise, beliefs = [], [], [], [], [], [], [], []
     gt = {}
 
     def on_frame(obs, decision, target, scenario):
@@ -113,12 +113,13 @@ def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index,
         targets.append(' -> '.join(str(x) for x in (hs.selected_object, hs.selected_target) if x is not None) or 'none')
         actions.append(label)
         noise.append(noisy)
+        beliefs.append(decision.extras.get('expert_belief'))
         if decision.extras.get('expert_commit'):
             commits.append(dict(t=round(scenario.time, 3), frame=len(frames) - 1, target=decision.extras['expert_commit']))
 
     rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, on_frame=on_frame, keep_trace=False, spec=spec)
     info = dict(gt=gt, stages=stages, humans=humans, targets=targets, actions=actions, commits=commits,
-                noise_frames=int(sum(noise)))
+                noise_frames=int(sum(noise)), beliefs=beliefs if any(b is not None for b in beliefs) else None)
     return rec, frames, info
 
 
@@ -138,6 +139,7 @@ def episode_meta(index, sid, split, seed, sc, rec, frames, info, entry=None) -> 
                 intention_changes=of('human_intention_change'), intention_evident=of('human_intention_evident'),
                 human_motions=motions_from_events(ev, 20),
                 robot_target_commits=of('robot_target_commit'), expert_commits=info['commits'],
+                expert_belief=info.get('beliefs'),
                 noise_frames=info['noise_frames'], human_extras=sc.human.extras,
                 protocol_steps=protocol, expert_stages=segments(info['stages'], info['actions']),
                 human_stages=segments(info['humans']), human_target_stages=segments(info['targets']),

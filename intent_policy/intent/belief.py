@@ -10,6 +10,11 @@ class, with the onset latency ramp of the perfect source) and the scene layout. 
                    tip; L(g) = p_point * exp(-theta_g^2 / 2 sigma^2) + (1 - p_point)
   ReachLibrary     Pérez-D'Arpino & Shah (ICRA 2015): per target a library of reach motions, one diagonal Gaussian per
                    normalised time step; OnlineDTW aligns the observed prefix to it and scores the mean log-likelihood
+  GoalInference    MaxEnt IOC goal inference with a Euclidean cost (Dragan & Srinivasa 2013; Javdani et al. 2015):
+                   P(g | S -> Q) ∝ exp(-(path(S -> Q) + |Q - g| - |S - g|) / beta) on the wrist; the goal of g is the
+                   wrist's end pose when reaching g (mean over the demonstrations), works from any start
+  ReachPredictor   method library_then_ioc: the library when one of its start clusters covers the candidates, else
+                   GoalInference; or ioc / library only
   PointingBelief   log b_t = lam * log b_{t-1} + log L_t (forgetting Bayes filter), uniform prior
   ReachBelief      during a reach: b_t = p_g * posterior_t + (1 - p_g) * b_start (b_start: the belief when this reach
                    began; the posterior already integrates the whole prefix, so it is not filtered again); otherwise
@@ -26,7 +31,10 @@ from intent_policy.intent.perception import angles_deg
 # The human motion that selects a target -> its gesture class (perfect class recognition). Holds after a reach
 # (lift_block, waiting_cup, take_object, ...) and other motions (move_over_cup, withdrawals) select nothing: `rest`.
 SELECTION_CLASS = {'point_object': 'point', 'point_place': 'point', 'reach_out': 'palm_up', 'reach_block': 'reach',
-                   'stop_signal': 'palm_forward'}
+                   'stop_signal': 'palm_forward', 'withdraw_change': 'withdraw'}
+# `withdraw`: the hand going back after a change of mind (T3: the cube carried back to its spot; a pointing hand pulled
+# back). Not one of the schema's token gestures: the belief's gesture classes are schema gestures + this one.
+EXTRA_CLASSES = ['withdraw']
 REACH_LABELS = ('reach_block', 'reach_out')       # motions in the reach library (their target = the segment target)
 # Holds that follow a selecting reach (schema sim_segments `hold`): the gesture class goes on (its probability keeps
 # rising), the reach posterior stays at its value when the motion ended (the hand held out / the cube taken).
@@ -74,7 +82,8 @@ class HandKinematics:
 class GestureRamp:
     """Probability of the current gesture class: uniform at the detected onset of the motion, the true class rising
     linearly to p_max after ramp_s (PerfectPerceptionSource._p_gesture, online). A class change while the hand is
-    already moving starts the ramp at once (no new onset can be detected then)."""
+    already moving starts the ramp at once (no new onset can be detected then); so does any motion above still_speed
+    within the new class (slow, short gestures never reach onset_speed)."""
 
     def __init__(self, classes: list[str], ramp_s: float, p_max: float, fps: float):
         self.classes, self.G = list(classes), len(classes)
@@ -94,6 +103,8 @@ class GestureRamp:
             self.ramp_start = onset if onset is not None and onset >= t - 2 else (t if kin.moving else None)
         elif self.ramp_start is None and kin.onset_t is not None and kin.onset_t >= self.class_since:
             self.ramp_start = kin.onset_t
+        elif self.ramp_start is None and kin.speed > kin.still_speed:
+            self.ramp_start = t                 # a small, slow gesture (a 6 cm reach) may never exceed onset_speed
         if cls == 'rest':
             ramp = 1.0
         elif self.ramp_start is None:
@@ -163,14 +174,17 @@ class ReachLibrary:
     cluster's wrist start (3,)."""
 
     def __init__(self, mean: dict[str, np.ndarray], var: dict[str, np.ndarray], start: dict[str, np.ndarray] | None = None,
-                 radius: float = 0.06, temperature: dict[str, float] | None = None):
+                 radius: float = 0.06, temperature: dict[str, float] | None = None, goal: dict[str, np.ndarray] | None = None):
         self.mean, self.var, self.start, self.radius = mean, var, dict(start or {}), float(radius)
-        self.temperature = dict(temperature or {})          # '+'.join(sorted(classes)) -> T (calibration, OOF)
+        self.temperature = dict(temperature or {})          # '+'.join(sorted(classes)) -> T; 'ioc:<same>' -> beta [m]
+        self.goal = dict(goal or {})                        # target -> mean world wrist position at the reach's end
 
     @classmethod
     def fit(cls, demos: dict[str, list[np.ndarray]], n_steps: int, var_floor_m: float, families: list[list[str]] = (),
-            radius: float = 0.06, min_demos: int = 3) -> 'ReachLibrary':
+            radius: float = 0.06, min_demos: int = 3, ends: dict[str, list[np.ndarray]] | None = None) -> 'ReachLibrary':
+        """demos: target -> feature trajectories; ends: target -> world wrist positions at the reaches' ends."""
         mean, var, start = {}, {}, {}
+        goal = {g: np.mean(np.asarray(e, float), 0) for g, e in (ends or {}).items() if len(e)}
         for g, xs in demos.items():
             mean[g], var[g] = _fit_one(xs, n_steps, var_floor_m)
         for fam in families:
@@ -185,15 +199,14 @@ class ReachLibrary:
                         key = f'{g}@{c}'
                         mean[key], var[key] = _fit_one(xs, n_steps, var_floor_m)
                         start[key] = centre
-        return cls(mean, var, start, radius)
+        return cls(mean, var, start, radius, goal=goal)
 
     @property
     def classes(self) -> list[str]:
         return sorted(k for k in self.mean if '@' not in k)
 
-    def keys_for(self, classes: list[str], x0: np.ndarray) -> list[str]:
-        """Library keys to score `classes` with, for a reach starting at x0 (features, wrist first): the nearest start
-        cluster (within 2 radius) that has every class, else the all-starts libraries."""
+    def cluster_for(self, classes: list[str], x0: np.ndarray) -> str | None:
+        """The nearest start cluster (within 2 radius of x0, features with the wrist first) that has every class."""
         best, best_d = None, 2.0 * self.radius
         clusters = {k.split('@')[1] for k in self.start}
         for c in clusters:
@@ -201,6 +214,11 @@ class ReachLibrary:
                 d = float(np.linalg.norm(np.asarray(x0)[:3] - self.start[f'{classes[0]}@{c}']))
                 if d < best_d:
                     best, best_d = c, d
+        return best
+
+    def keys_for(self, classes: list[str], x0: np.ndarray) -> list[str]:
+        """Library keys to score `classes` with: the matching start cluster's, else the all-starts libraries."""
+        best = self.cluster_for(classes, x0)
         return [g if best is None else f'{g}@{best}' for g in classes]
 
     def nll(self, key: str, x: np.ndarray) -> np.ndarray:
@@ -248,6 +266,61 @@ class OnlineDTW:
         return z / z.sum()
 
 
+class GoalInference:
+    """MaxEnt IOC goal inference with a Euclidean cost (Dragan & Srinivasa 2013 'Legibility and predictability of
+    robot motion'; Javdani et al. 2015): a human moving from S to Q is taken to be noisily optimal towards the goal g,
+    P(g | S -> Q) ∝ exp(-(C(S -> Q) + C*(Q -> g) - C*(S -> g)) / beta), C = path length travelled (wrist), C* = straight
+    line. `beta`: calibrated temperature (metres). Works for any start; needs no demonstrations."""
+
+    def __init__(self, targets: dict[str, np.ndarray], classes: list[str], beta: float):
+        self.G = np.asarray([targets[g] for g in classes], float)
+        self.beta = float(beta)
+        self.reset()
+
+    def reset(self) -> None:
+        self.S = self.prev = None
+        self.path = 0.0
+
+    def step(self, q: np.ndarray) -> np.ndarray:
+        q = np.asarray(q, float)
+        if self.S is None:
+            self.S = self.prev = q
+        self.path += float(np.linalg.norm(q - self.prev))
+        self.prev = q
+        self.logits = -(self.path + np.linalg.norm(self.G - q, axis=1) - np.linalg.norm(self.G - self.S, axis=1))
+        z = self.logits / self.beta
+        z = np.exp(z - z.max())
+        return z / z.sum()
+
+
+class ReachPredictor:
+    """Posterior over the candidate targets of one reach: the library (Pérez-D'Arpino & Shah) when one of its start
+    clusters covers every candidate from where this reach began, else MaxEnt IOC goal inference. `mode`: which one."""
+
+    METHODS = ('library_then_ioc', 'ioc', 'library')
+
+    def __init__(self, library: ReachLibrary, classes: list[str], method: str = 'library_then_ioc'):
+        if method not in self.METHODS:
+            raise ValueError(f'reach method must be one of {self.METHODS}, got {method!r}')
+        self.lib, self.classes, self.method = library, list(classes), method
+        key = '+'.join(sorted(classes))
+        self.ioc = GoalInference(library.goal, classes, library.temperature.get(f'ioc:{key}', 0.001))
+        self.dtw = OnlineDTW(library, classes)
+        self.reset()
+
+    def reset(self) -> None:
+        self.mode: str | None = None
+        self.dtw.reset()
+        self.ioc.reset()
+
+    def step(self, x: np.ndarray, wrist: np.ndarray) -> np.ndarray:
+        """x: reach_features (6,); wrist: world position of the active wrist (3,)."""
+        if self.mode is None:
+            covered = self.lib.cluster_for(self.classes, x) is not None
+            self.mode = 'ioc' if self.method == 'ioc' or (self.method == 'library_then_ioc' and not covered) else 'library'
+        return self.dtw.step(x) if self.mode == 'library' else self.ioc.step(wrist)
+
+
 def fold_of(seed: int, folds: int) -> int:
     """Cross-fitting fold of an episode: by its list cell (seeds are cell base + attempt, the bases are multiples of
     10; the late and the early episode of a cell share the seed, hence the fold)."""
@@ -261,6 +334,8 @@ def save_libraries(path: str | Path, folds: dict[int, ReachLibrary], meta: dict)
             arrays[f'f{f}/{g}/mean'], arrays[f'f{f}/{g}/var'] = lib.mean[g], lib.var[g]
             if g in lib.start:
                 arrays[f'f{f}/{g}/start'] = lib.start[g]
+            if g in lib.goal:
+                arrays[f'f{f}/{g}/goal'] = lib.goal[g]
         arrays[f'r{f}'] = np.array(lib.radius)
         for k, T in lib.temperature.items():
             arrays[f'T{f}/{k}'] = np.array(T)
@@ -270,7 +345,7 @@ def save_libraries(path: str | Path, folds: dict[int, ReachLibrary], meta: dict)
 
 def load_library(path: str | Path, fold: int) -> ReachLibrary:
     z = np.load(path)
-    parts: dict[str, dict] = {'mean': {}, 'var': {}, 'start': {}}
+    parts: dict[str, dict] = {'mean': {}, 'var': {}, 'start': {}, 'goal': {}}
     temperature = {}
     for key in z.files:
         if key.startswith(f'f{fold}/'):
@@ -280,7 +355,7 @@ def load_library(path: str | Path, fold: int) -> ReachLibrary:
             temperature[key.split('/', 1)[1]] = float(z[key])
     if not parts['mean']:
         raise KeyError(f'fold {fold} not in {path}')
-    return ReachLibrary(parts['mean'], parts['var'], parts['start'], float(z[f'r{fold}']), temperature)
+    return ReachLibrary(parts['mean'], parts['var'], parts['start'], float(z[f'r{fold}']), temperature, parts['goal'])
 
 
 def n_folds(path: str | Path) -> int:
@@ -349,7 +424,8 @@ class OnlineBelief:
         self.names = list(schema['keypoints'])
         self.fps = float(schema['fps'])
         self.kin = HandKinematics(schema, self.cfg['onset_speed_m_s'], self.cfg['still_speed_m_s'])
-        self.ramp = GestureRamp(schema['gestures'], self.cfg['ramp_s'], self.cfg['p_max'], self.fps)
+        self.classes = list(schema['gestures']) + EXTRA_CLASSES
+        self.ramp = GestureRamp(self.classes, self.cfg['ramp_s'], self.cfg['p_max'], self.fps)
         self.library_path = library_path
         self.code = scenario.cfg.task_code
 
@@ -361,7 +437,7 @@ class OnlineBelief:
         self.ramp.reset()
         self.t = 0
         self.onset_seen = False
-        self.p_gesture = np.full(len(self.schema['gestures']), 1.0 / len(self.schema['gestures']))
+        self.p_gesture = np.full(len(self.classes), 1.0 / len(self.classes))
         self.point = self.reach = self.dtw = None
         self.object_keys: list[str] = []
         self.zone_keys: list[str] = []
@@ -389,7 +465,7 @@ class OnlineBelief:
             self.library = load_library(self.library_path, fold)
             self.reach_classes = list(self.reach_map)
             self.reach = ReachBelief(self.reach_classes, lam)
-            self.dtw = OnlineDTW(self.library, self.reach_classes)
+            self.dtw = ReachPredictor(self.library, self.reach_classes, self.cfg['reach'].get('method', 'library_then_ioc'))
             self.dtw_start: int | None = None
             self.last_post: np.ndarray | None = None
 
@@ -408,7 +484,7 @@ class OnlineBelief:
         stage = sc.human.stage
         cls = SELECTION_CLASS.get(stage) or SELECTION_HOLD.get(stage, 'rest')
         self.p_gesture = self.ramp.step(t, cls, self.kin)
-        G = self.schema['gestures']
+        G = self.classes
         idx = self.kin.hands[self.kin.hand]
         if self.point is not None:
             base = kp[self.names.index(f'{self.kin.hand}_index_base')]
@@ -424,8 +500,9 @@ class OnlineBelief:
                     self.dtw_start, new = self.ramp.active_since, True
                     self.dtw.reset()
                     self.last_post = None
-                if stage in REACH_LABELS:                       # the reach motion itself: align the next sample
-                    self.last_post = self.dtw.step(reach_features(kp, self.kin.rest, idx, self.names))
+                if stage in REACH_LABELS:                       # the reach motion itself: the next sample
+                    wrist = kp[self.names.index(f'{self.kin.hand}_wrist')]
+                    self.last_post = self.dtw.step(reach_features(kp, self.kin.rest, idx, self.names), wrist)
                 post = self.last_post                           # its hold: the posterior at the motion's end
                 running = post is not None
             self.reach.update(post, float(self.p_gesture[G.index(reach_cls)]) if running else 0.0, new)
@@ -450,10 +527,16 @@ class OnlineBelief:
 
     @property
     def p_stop(self) -> float:
-        return float(self.p_gesture[self.schema['gestures'].index('palm_forward')])
+        return float(self.p_gesture[self.classes.index('palm_forward')])
+
+    @property
+    def p_withdraw(self) -> float:
+        return float(self.p_gesture[self.classes.index('withdraw')])
 
     def snapshot(self) -> dict:
         """Compact per-frame record (expert stage overlay, analysis)."""
         r = lambda d: {k: round(v, 3) for k, v in d.items()}
         return dict(objects=r(self.objects()), zones=r(self.zones()), p_stop=round(self.p_stop, 3),
-                    p_gesture=np.round(self.p_gesture, 3).tolist())
+                    p_withdraw=round(self.p_withdraw, 3),
+                    p_gesture=np.round(self.p_gesture, 3).tolist(),
+                    reach_mode=None if self.dtw is None else self.dtw.mode)

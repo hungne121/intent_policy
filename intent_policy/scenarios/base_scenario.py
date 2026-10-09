@@ -20,13 +20,15 @@ from intent_policy.scenarios.config import ScenarioConfig, sample_variation, lay
 
 LIFT_HEIGHT = 0.03          # [m] above rest height => object counts as lifted by the robot
 GRASP_DEBOUNCE = 2          # consecutive ticks required before grasp/release events
-COMMIT_MARGIN = 0.04        # [m] the TCP approached one candidate this much more than every other one ...
-COMMIT_WINDOW = 0.5         # [s] ... within this window => robot_target_commit (agent-independent)
-COMMIT_APPROACH = 0.01      # [m] ... while actually getting closer to it
+# robot_target_commit (agent-independent; docs/requirements/INTENT_ACT_v3.2.md §7, user decision 2026-10-09): the
+# irreversible part of acting on a target has begun: the TCP is within COMMIT_RADIUS (horizontally) of a candidate's
+# commit point (where the TCP grasps / places) and at most COMMIT_DZ above it, i.e. it is descending onto that object /
+# into that zone. Moving at travel height (hedging between candidates, passing over one) is not a commit.
+COMMIT_RADIUS = 0.05        # [m] slots are 12 cm apart, place zones 12 x 12 cm
+COMMIT_DZ = 0.06            # [m] cubes: travel height is ~10 cm above the grasp point, so the TCP must descend;
+                            # cups (grasped at the rim, 4 cm below travel height): hovering right above one counts
 GRASP_DZ = 0.012            # cube grasp: TCP above the object centre (fingertips reach ~3 cm below the TCP)
 CUP_GRASP_DZ = 0.005        # cup grasp: TCP above the rim (fingertips ~2.5 cm down the wall)
-COMMIT_SWITCH_FACTOR = 2.0  # re-committing to another candidate needs this times the margin (servo drift of a
-                            # few cm while descending must not count as a switch; a real switch moves ~0.2 m)
 
 
 def quat_z_to(direction: np.ndarray) -> np.ndarray:
@@ -219,7 +221,6 @@ class BaseScenario:
         self.intention_changes: list[dict] = []     # payloads of human_intention_change events (with time t)
         self.evidence_events: list[dict] = []       # payloads of human_intention_evident events (with time t)
         self.cue_t: float | None = None
-        self.commit_hist: deque = deque()
         self.commit_stage_name: str | None = None
         self.committed: str | None = None
         self.done = False
@@ -357,27 +358,18 @@ class BaseScenario:
         return None
 
     def _update_commitment(self) -> None:
-        """Log robot_target_commit when the TCP clearly heads for one candidate (whatever the agent is)."""
+        """Log robot_target_commit when the TCP starts descending onto one candidate (whatever the agent is)."""
         stage = self.commit_stage()
         if stage is None or len(stage[1]) < 2:
-            self.commit_hist.clear()
             self.commit_stage_name = None
             return
         name, candidates, correct = stage
         if name != self.commit_stage_name:
             self.commit_stage_name, self.committed = name, None
-            self.commit_hist.clear()
-        tcp = self.tcp()[:2]
-        d = {k: float(np.linalg.norm(tcp - np.asarray(p)[:2])) for k, p in candidates.items()}
-        self.commit_hist.append((self.time, d))
-        while self.time - self.commit_hist[0][0] > COMMIT_WINDOW + 1e-9:
-            self.commit_hist.popleft()
-        d_old = self.commit_hist[0][1]
-        for k in d:
-            gain = min((d[o] - d[k]) - (d_old[o] - d_old[k]) for o in d if o != k)
-            approached = d_old[k] - d[k] >= COMMIT_APPROACH
-            margin = COMMIT_MARGIN if self.committed is None else COMMIT_SWITCH_FACTOR * COMMIT_MARGIN
-            if gain >= margin and approached and k != self.committed:
+        tcp = self.tcp()
+        for k, p in candidates.items():
+            p = np.asarray(p, float)
+            if k != self.committed and np.linalg.norm(tcp[:2] - p[:2]) <= COMMIT_RADIUS and tcp[2] <= p[2] + COMMIT_DZ:
                 self.committed = k
                 self.log(E.ROBOT_TARGET_COMMIT, 'robot', target=k, correct=k == correct, stage=name)
                 break

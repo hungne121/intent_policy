@@ -89,7 +89,16 @@ Chi tiết code, lệnh chạy và kết quả từng bước: [`docs/reports/IN
   - Cụm nào không đủ mọi đích thì dùng thư viện chung.
   - **Hiệu chỉnh nhiệt độ:** posterior = softmax(−score / T), với T chọn để NLL trên dự đoán out-of-fold là nhỏ nhất. Gaussian đường chéo cộng sàn phương sai làm posterior thô không đúng nghĩa xác suất: U quá rụt rè (T = 0.25), H quá tự tin (T = 1.77; trước hiệu chỉnh 3/12 episode T2 commit nhầm tay). Có hiệu chỉnh thì "b ≥ 0.9" mới có nghĩa là đúng khoảng 90%.
   - **Out-of-fold theo cell:** fold = (seed // 10) mod 5. Late và early cùng cell dùng chung seed, nên thư viện dùng cho một episode early không bao giờ học từ chính episode late của nó.
+- **Điểm xuất phát lạ → MaxEnt IOC (quyết định 2026-10-09):** khi không có cụm xuất phát nào của thư viện phủ đủ các ứng viên, dùng suy luận đích MaxEnt IOC với chi phí khoảng cách (Dragan & Srinivasa 2013; Javdani 2015):
+  `P(g | S→Q) ∝ exp(−(quãng_đã_đi(S→Q) + |Q − g| − |S − g|) / β)`.
+  - S là vị trí cổ tay lúc bắt đầu vươn, Q là vị trí hiện tại.
+  - Ý nghĩa: người được coi là đi gần tối ưu về đích. Mọi đoạn đi lệch khỏi đường thẳng tới g đều làm g kém khả năng hơn.
+  - **Đích của g = tư thế cuối của cổ tay khi vươn tới g** (trung bình từ demo, out-of-fold), không phải vị trí vật. Đây đúng là "goal configuration" trong công thức gốc. Dùng vị trí vật thì sai ở cuối quỹ đạo (U: 0.49), vì cổ tay dừng cách vật vài cm.
+  - **β ≥ 3 mm.** Tối ưu NLL suy biến về 0, vì người mô phỏng đi đường thẳng tuyệt đối (min-jerk), nên vài mm đầu đã lộ đích. Người thật không như vậy. Sàn 3 mm làm phương án dự phòng commit không sớm hơn thư viện trên cùng dữ liệu (U: tự tin đúng ở 70%; H: 50%), và không lần nào tự tin mà sai.
+  - Đo trên dữ liệu late, IOC dùng một mình còn tốt hơn thư viện (H ở 50%: tự tin đúng 0.99 so với 0.45). Expert check 90 episode (T2/T3/T5): chỉ IOC 89/90 với 0 commit sai; thư viện → IOC 88/90 với 1 commit sai.
+  - **Quyết định (2026-10-09): chỉ dùng IOC** (`reach.method: ioc`). Thư viện D'Arpino giữ lại làm baseline so sánh (đường cong độ đúng theo % quỹ đạo).
 - **Tín hiệu "chờ":** xác suất lớp `palm_forward`, với ngưỡng riêng `stop_star` (xem 4.2).
+- **Tín hiệu rút tay / trả khối (quyết định 2026-10-09):** thêm lớp cử chỉ `withdraw` (tay rút về sau khi đổi ý; T3: mang khối về chỗ cũ), cùng ramp. Khi `p_withdraw ≥ stop_star`, robot dừng chờ nhưng **giữ mục tiêu cũ**, để khi belief lật thì `_redirect` hoàn tác được (trả hoặc lấy lại vật cũ).
 
 ### 4.2 Thuật toán mỗi frame (20 Hz)
 1. **Hedging (trước commit):**
@@ -115,7 +124,9 @@ Chi tiết code, lệnh chạy và kết quả từng bước: [`docs/reports/IN
 | `b_star` | 0.9 | ngưỡng commit; quét {0.9, 0.95} ở expert check |
 | `n_hold` | 3 | số frame liên tiếp trên ngưỡng (0.15 s) |
 | `stop_star` | 0.5 | ngưỡng dừng khi thấy cử chỉ "chờ" |
-| `ramp_s`, `p_max` | 1.15 s, 0.95 | xác suất lớp cử chỉ: từ đều lúc onset tới p_max sau ramp_s |
+| `ramp_s`, `p_max` | 1.15 s, 0.95 | xác suất lớp cử chỉ: từ đều lúc onset tới p_max sau ramp_s. Ramp bắt đầu ở onset (> 0.08 m/s), hoặc ngay khi tay nhúc nhích (> 0.03 m/s) trong một cử chỉ mới: một lần vươn ngắn 6 cm (T3 đổi khối) không bao giờ vượt 0.08 m/s |
+| `reach.method` | ioc | suy luận đích vươn tay: `ioc` (mặc định) \| `library_then_ioc` \| `library` |
+| `reach.ioc_beta_min_m` | 0.003 | sàn β của IOC |
 | `reach.n_steps` | 40 | số bước thời gian của thư viện D'Arpino |
 | `reach.var_floor_m` | 0.01 | độ lệch chuẩn tối thiểu mỗi trục (m) |
 | `reach.folds` | 5 | thư viện out-of-fold theo cell: `(seed // 10) % folds` (late và early cùng cell dùng chung seed) |
@@ -204,17 +215,18 @@ Chi tiết code, lệnh chạy và kết quả từng bước: [`docs/reports/IN
 
 **Metric:** CSR, CT, WCR, AM, false-start rate (TCP đi về hoặc hạ xuống một đích khi b_perfect < b*), T4 DSR/CFR, CGR.
 
-**Lưu ý đo WCR/AM (phát hiện ở M2, chờ quyết định):**
-- Bộ phát hiện commit của scenario coi "TCP tiến rõ về một ứng viên" là commit. Vì vậy chuyển động hedging về điểm giữa hai twin, hoặc một đường đi ngang qua vật/vùng khác, bị ghi là commit sai.
-  - Ví dụ: ở 12 episode T2, quyết định của expert sai 1 lần nhưng bộ phát hiện ghi 6. T4 không hedging cũng bị ghi 3/12.
-- Hai lựa chọn:
-  - (a) giữ định nghĩa và báo kèm;
-  - (b) định nghĩa commit là **hành động không đảo ngược**: hạ xuống dưới độ cao di chuyển gần một vật, đặt, hay đưa vào tay. Đây là "false commitment" của Learning to Assist.
+**Định nghĩa commit (quyết định 2026-10-09):** `robot_target_commit` = **phần không đảo ngược đã bắt đầu**:
+- TCP nằm trong 5 cm (theo phương ngang) của điểm commit của một ứng viên (điểm gắp; với vùng đặt là chỗ vật sẽ nằm), **và** không cao hơn điểm đó quá 6 cm, tức đang hạ xuống vật hoặc vào vùng.
+- Không phụ thuộc agent; dùng chung cho A–D và expert.
+- Bay ngang ở độ cao di chuyển (hedging, đi ngang qua vật khác) không tính.
+- Với cốc (gắp ở miệng cốc, chỉ thấp hơn độ cao di chuyển 4 cm), đứng ngay trên cốc đã tính là commit.
+
+Bản cũ ("TCP tiến rõ về một ứng viên") ghi nhầm hedging là commit sai: ở 30 episode T2, quyết định của expert sai 1 lần nhưng bộ cũ ghi 13. **Model A phải được eval lại** với định nghĩa mới (M7). Trong expert check có DART, một cú đẩy ngẫu nhiên vẫn có thể kéo TCP xuống trên vật khác. Eval list không có DART.
 
 ## 8. Milestone
 - **M0:** tài liệu này. *Xong 2026-10-09.*
 - **M1:** `intent_policy/intent/belief.py`, gồm thư viện reach và test. *Xong 2026-10-09.*
-- **M2:** expert `trigger: belief`, expert check, quét b*, preview. **DỪNG, chờ duyệt demo.** *Đang làm.*
+- **M2:** expert `trigger: belief`, expert check, quét b*, preview. **DỪNG, chờ duyệt demo.** *Xong 2026-10-09: demo list 552/559 (98.7%), 0 commit sai; preview 12 episode.*
 - **M3:** thu `intent_act_early_v5`, build nhãn, leak test.
 - **M4:** encoder v3.2.
 - **M5:** chốt một cách inference chung.
