@@ -10,10 +10,10 @@
 | M0 | tài liệu lý thuyết v3.2 | xong (2026-10-09) |
 | M1 | `intent/belief.py`, thư viện vươn tay, test | xong (2026-10-09) |
 | M2 | expert `trigger: belief`, expert check, quét b*, preview | xong (2026-10-09): demo list 552/559, 0 commit sai; preview đã duyệt |
-| M3 | thu `intent_act_early_v5`, nhãn, leak test | **đang chạy** (2026-10-10 00:48): thu → nhãn early → train B; nhãn late chạy song song |
-| M4 | contract + nguồn nhãn + encoder v3.2, mask, train/eval online | **code xong** (2026-10-10): test qua, smoke train CPU qua, eval online qua; leak test trên dữ liệu đầy đủ chờ nhãn |
+| M3 | thu `intent_act_early_v5`, nhãn, leak test | xong (2026-10-10): 552/559 episode, nhãn hs / pp / pb cho early và late, leak test qua với pb |
+| M4 | contract + nguồn nhãn + encoder v3.2, mask, train/eval online | xong (2026-10-10, commit 70b9b20) |
 | M5 | inference chung | chưa |
-| M6 | train B, C, D, D_pr | chưa |
+| M6 | train B, C, D, D_pr | **B xong** (2026-10-10 08:04, 15k bước, val_loss 0.151); C, D, D_pr chưa (bạn yêu cầu dừng sau B) |
 | M7 | eval + phân tích 2×2 | chưa |
 | M8 | DeePoint trên video thật | chưa |
 
@@ -46,6 +46,7 @@
 | `intent_policy/policies/policy_agent.py` | eval closed-loop: `IntentV32` chạy trên scenario sống (cùng code với nhãn) |
 | `scripts/build_intent_labels.py` | `--sources ... belief` → cột `intent_pb.*` (contract v3.2) |
 | `scripts/intent_leak_test.py` (mới) | leak test trước khi train C/D |
+| `scripts/analyze_2x2.py` (mới) | bảng 2×2 cho M7: trung bình từng model, hiệu của intent khi late (C − A) và early (D − B), tương tác (D − B) − (C − A) kèm bootstrap ghép cặp theo episode; EWC = commit sai trước khi người chọn xong |
 | `tests/test_intent_v32.py` (mới) | 4 test (xem 2.5) |
 
 ## 2. `intent_policy/intent/belief.py`
@@ -224,6 +225,22 @@ belief:
 ./run.sh -m scripts.check_expert ... --belief b_star=0.95
 # test
 ./run.sh -m pytest tests/test_belief.py -q
+
+# M3-M6: nhãn v3.2, leak test, train (laptop GTX 1650: ~0.71 bước/giây, 15k bước ≈ 6 giờ)
+./run.sh -m scripts.build_intent_labels --dataset-root outputs/datasets/intent_act_early_v5 --sources hindsight perfect belief
+./run.sh -m scripts.intent_leak_test --dataset-root outputs/datasets/intent_act_early_v5 --sources pb hs pp
+./run.sh -m scripts.train_policy --config configs/experiments/intent_act_early.yaml --output-dir outputs/train/intent_act/B \
+    --steps 15000 --save-every 2500                                                             # B: early, không intent
+./run.sh -m scripts.train_policy --config configs/experiments/intent_act_late.yaml --use-intent --intent-source belief \
+    --output-dir outputs/train/intent_act/C --steps 15000 --save-every 2500                     # C: late + intent v3.2
+./run.sh -m scripts.train_policy --config configs/experiments/intent_act_early.yaml --use-intent --intent-source belief \
+    --output-dir outputs/train/intent_act/D --steps 15000 --save-every 2500                     # D: early + intent v3.2
+# M5: chọn cách inference trên val list (A@15k)
+./run.sh -m scripts.evaluate --config configs/experiments/intent_act_late.yaml \
+    --checkpoint outputs/train/intent_act/A/checkpoints/015000/pretrained_model \
+    --list configs/episode_lists/v5/val_list.jsonl --temporal-ensemble-coeff=0.01 --workers 2 --videos 0 --no-traces
+# M7: bảng 2×2 từ 4 lần eval trên cùng eval list
+./run.sh -m scripts.analyze_2x2 --runs A=<eval A> B=<eval B> C=<eval C> D=<eval D> --output docs/reports/intent_2x2.md
 ```
 
 ## 6. Kết quả
@@ -341,10 +358,29 @@ Phân tích lỗi và cách xử lý:
 ./run.sh -m scripts.view_dataset --root outputs/datasets/intent_act_early_v5_preview --episode-index 0
 ```
 
-### 6.8 M3 (2026-10-10, đang chạy)
+### 6.8 M3 và train B (2026-10-10)
 - 00:48: bắt đầu thu `intent_act_early_v5` (559 cell, ~6.5 s mỗi episode).
 - `collect_demos` không ghi `hri.task_id` / `hri.instr_*` (do `build_intent_labels` ghi), nên chuỗi được sửa thành: thu → `build_intent_labels --sources hindsight perfect belief` → train B (`--steps 15000 --save-every 2500`, `outputs/train/intent_act/B`).
 - Nhãn của dataset late (cho C) được build song song: `--sources hindsight perfect belief`. Các cột `intent_pr*` (predicted v2, nhiễu = 0, không dùng ở v3.2) bị bỏ, vì builder chỉ giữ các nguồn được liệt kê; muốn có lại thì build lại với `predicted`.
+- Kết quả thu: `intent_act_early_v5` có 552 episode (162,608 frame). 7 cell expert hỏng bị loại, đúng như expert check. Thời gian 02:09 − 00:48 = 81 phút.
+- **Train B** (`outputs/train/intent_act/B`):
+  - 02:12 → 08:04 (5.9 giờ), 0.71 bước/giây trên GTX 1650 (A: 0.55);
+  - 497 episode train, 55 val;
+  - loss 5.1 → 0.106; val_loss 0.21 (1k), 0.17 (4k), 0.15–0.16 (5k–15k), 0.151 ở 15k;
+  - checkpoint 2.5k, 5k, 7.5k, 10k, 12.5k, 15k.
+- **Leak test** (frame trước cử chỉ chọn đầu tiên; probe logistic kiểm chéo theo episode):
+
+  | Dataset | Nguồn | Frame / episode | Thiên lệch p_target | Probe | Mức ngẫu nhiên (+2 SE) | Kết luận |
+  |---|---|---|---|---|---|---|
+  | early | **pb (v3.2)** | 7690 / 434 | +0.000 | 0.486 | 0.520 (0.568) | ok |
+  | early | hs (clairvoyant) | 7690 / 434 | +0.000 | **0.668** | 0.520 (0.568) | **LEAK** |
+  | early | pp (perfect v2) | 7690 / 434 | +0.000 | 0.520 | 0.520 (0.568) | ok |
+  | late | **pb (v3.2)** | 7807 / 441 | +0.000 | 0.446 | 0.522 (0.569) | ok |
+  | late | hs | 7807 / 441 | +0.000 | **0.665** | 0.522 (0.569) | **LEAK** |
+  | late | pp | 7807 / 441 | +0.000 | 0.522 | 0.522 (0.569) | ok |
+
+  Nguồn hindsight (v2) rò rỉ đáp án qua các trường "tương lai", tức `xi` thật và `tte` chính xác, dù p_target vẫn đều. Đây là bằng chứng định lượng cho lý do bỏ hindsight trong v3.2. Nguồn belief v3.2 không rò rỉ.
+- **Theo yêu cầu "train B xong thì dừng"**, chuỗi dừng ngay sau leak test: eval M5 vừa bắt đầu đã bị ngắt; C, D chưa chạy. Lệnh để chạy tiếp khi bạn muốn: xem mục 5 (train C/D với `--intent-source belief`, `--steps 15000 --save-every 2500`).
 
 ## 7. Lệch so với plan đã duyệt (có lý do)
 1. **Hedging dùng trung bình có trọng số** thay cho trung vị hình học. Với 2 ứng viên, trung vị hình học nằm đúng tại vật nặng hơn, nên robot giật qua lại khi b ≈ 0.5.
