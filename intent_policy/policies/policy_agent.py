@@ -75,11 +75,10 @@ class PolicyAgent(Agent):
         self.step_index = 0
         if self.reads_oracle:
             self.corruption.reset(scenario, scenario.seed)
-        if self.intent_v32:                     # contract v3.2: the belief source on the live scenario (intent/source_v32)
-            from intent_policy.intent.source_v32 import IntentV32
-            from intent_policy.utils import resolve
+        if self.intent_v32:                     # contract v3.2: the measuring device on the live scenario, with the
+            from intent_policy.intent.source_v32 import IntentV32       # settings the training labels were measured with
             S = self.policy.config.intent_schema
-            self.online_intent = IntentV32(scenario, S, S['belief'], resolve(S['belief']['reach']['library']))
+            self.online_intent = IntentV32(scenario, S, device_cfg=S['device'])
             self.online_intent.reset()
         elif self.online_intent is not None:
             self.online_intent.reset()

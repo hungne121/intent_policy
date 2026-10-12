@@ -9,12 +9,13 @@ the robot took to head for the new target.
       --triggers cue_complete evidence --output outputs/expert_check/demo_v1
 
 With `--config` (an experiment yaml) the episodes run as they are collected: the experiment's scenario overrides,
-controller and DART per list entry; T5 entries also need the change to have happened (plan v5 seed rule). The belief
-trigger (docs/requirements/INTENT_ACT_v3.2.md §4) is reported with its commits: wrong commits (robot_target_commit
-events with correct = false) and the lead of the first object commit over the late trigger's cue-complete step.
+controller and DART per list entry; T5 entries also need the change to have happened (plan v5 seed rule). The device
+trigger (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g) is reported with its commits: wrong commits (robot_target_commit
+events with correct = false) and the lead of the first object commit over the late trigger's cue-complete step; each
+episode also keeps its HRIBench-style metrics (CT, Rsp, AM, WCR, WCD, CRsp).
 
-  ./run.sh -m scripts.check_expert --list configs/episode_lists/v5/demo_list.jsonl \
-      --config configs/experiments/intent_act_early.yaml --triggers belief --belief b_star=0.9 --output outputs/expert_check/belief_demo
+  ./run.sh -m scripts.check_expert --list outputs/expert_check_fold0_list.jsonl --per-task 6 \
+      --config configs/experiments/intent_act_device_late.yaml --triggers device --output outputs/expert_check/device_late_f0
 """
 import argparse
 import json
@@ -96,6 +97,7 @@ def run_entry(sc, e, ctrl=None, noise=None) -> dict:
                 sdv=kinds['safety_distance_violation'], change=change_response(rec),
                 wrong_commits=expert_wrong_commits(rec, agent.expert, sc),
                 detector_wrong=sum(not c.get('correct', True) for c in commits),
+                metrics={k: rec['metrics'].get(k) for k in ('CT', 'Rsp', 'AM', 'WCR', 'WCD', 'CRsp')},   # HRIBench-style
                 lead_s=commit_lead(rec, agent.expert), expert_commits=list(agent.expert.commit_log))
 
 
@@ -146,7 +148,6 @@ def main():
     p.add_argument('--per-task', type=int, help='first N entries of each task')
     p.add_argument('--triggers', nargs='*', default=['cue_complete'], help='expert triggers to check')
     p.add_argument('--config', help='experiment yaml: scenario overrides, controller and DART as in collection')
-    p.add_argument('--belief', nargs='*', default=[], help='belief overrides KEY=VALUE (e.g. b_star=0.8 n_hold=3)')
     p.add_argument('--output', help='write <output>.md and <output>.json')
     args = p.parse_args()
     by_task = defaultdict(list)
@@ -156,22 +157,10 @@ def main():
     exp = load_yaml(args.config) if args.config else {}
     ctrl = controller_config(exp) if exp else None
     noise = (exp.get('data') or {}).get('noise') or None
-    belief: dict = {}
-    for a in args.belief:                      # KEY=VALUE, nested keys with dots (reach.method=ioc)
-        key, value = a.split('=', 1)
-        try:
-            value = int(value) if value.lstrip('-').isdigit() else float(value)
-        except ValueError:
-            pass
-        node = belief
-        *path, last = key.split('.')
-        for k in path:
-            node = node.setdefault(k, {})
-        node[last] = value
     results = []
     for trigger in args.triggers:
         cache = {}
-        extra = {'expert': {'trigger': trigger, **({'belief': belief} if belief else {})}}
+        extra = {'expert': {'trigger': trigger}}
         for task in [t for t in TASKS if t in by_task]:
             rows = []
             for e in by_task[task]:
@@ -189,7 +178,7 @@ def main():
     if args.output:
         out = resolve(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
-        named = lambda ext: out.parent / f'{out.name}{ext}'       # not with_suffix: names like belief_b0.9
+        named = lambda ext: out.parent / f'{out.name}{ext}'       # not with_suffix: names like device_late_f0.5
         named('.md').write_text(f'# Expert check — {args.list}\n\n' + md)
         named('.json').write_text(json.dumps(results, indent=2, default=str))
 

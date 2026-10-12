@@ -47,6 +47,7 @@ def main():
     p.add_argument('--seeds', type=int, nargs='+')
     p.add_argument('--output-dir', help='default: outputs/videos/<date>/<time>_<experiment>_<agent>')
     p.add_argument('--device', default='cuda')
+    p.add_argument('--no-temporal-ensemble', action='store_true', help='as scripts/evaluate.py --no-temporal-ensemble')
     args = p.parse_args()
 
     torch.backends.cudnn.deterministic, torch.backends.cudnn.benchmark = True, False
@@ -58,6 +59,8 @@ def main():
         ensemble = protocol.get('inference', {}).get('temporal_ensemble_coeff', 'config')
     else:                                       # as scripts/evaluate.py without a protocol
         split, condition, ensemble = {}, {'condition': 'correct'}, 'config'
+    if args.no_temporal_ensemble:
+        ensemble = None
     obs_cfg, ctrl_cfg = observation_config(exp), controller_config(exp)
     if args.list:
         per = Counter()

@@ -1,13 +1,8 @@
-# INTENT-ACT, episode set 2 = B / D (docs/requirements/INTENT_ACT_v3.2.md): the belief-space early expert
-# (trigger belief, intent_policy/intent/belief.py). It hedges towards the belief-weighted mean of the candidates from the
-# human's first hand motion and commits once a candidate's causal belief stays >= b* (DeePoint-format pointing,
-# Pérez-D'Arpino reach library); T4 also yields to the hand extrapolated 0.5 s at constant velocity.
-# (Before 2026-10-09: trigger evidence = the sim's 40 % mark + CONFIRM_S, superseded.)
-# The same episodes train
-#   B: no intent      ./run.sh -m scripts.train_policy --config <this> --output-dir outputs/train/intent_act/B
-#   D: intent tokens  (v3.2 encoder, M4 of INTENT_ACT_v3.2.md)
-# Identical to intent_act_late.yaml except the expert trigger and the dataset (same list, seeds, ACT, budget).
-experiment: intent_act_early
+# INTENT-ACT with the measuring device in the loop (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g): the belief
+# expert driven by the multi-gesture DeePoint on the sensor camera (intent/device.py, the 5 fold models of
+# device.folds_file), early rule: commit once a candidate's belief >= 0.7, no motion before. Pair:
+# intent_act_device_late.yaml (identical except the rule). T4: the constant-velocity yield (no belief).
+experiment: intent_act_device_early
 phase: intent_act
 seed: 0
 policy:
@@ -27,12 +22,13 @@ observation:
 controller: configs/controller/restricted_action.yaml
 scenario_overrides:
   all:
-    expert: {trigger: belief, grasp_settle_ticks: 0}         # same expert as intent_act_late.yaml except the timing
+    expert: {trigger: device, device: {rule: early}, grasp_settle_ticks: 0}   # device-driven expert, early rule
+    scene: {cameras: {sensor_side: {pos: [2.30, -0.48, 1.25], target: [0.30, -0.48, 0.85], fovy: 50}}}   # the device's camera (render_sensor_view 'side')
   t4_interrupt:
     expert: {start_s: 0.0, yield_prediction_horizon_s: 0.5}  # early: also yields to the hand extrapolated 0.5 s ahead
 data:
-  repo_id: local/intent_act_early_v5
-  root: outputs/datasets/intent_act_early_v5
+  repo_id: local/intent_act_device_early
+  root: outputs/datasets/intent_act_device_early
   scenario_list: configs/episode_lists/v5/demo_list.jsonl   # 580 design cells, DART per cell, seeds valid for late + early (plan v5)
   noise:                             # DART, as intent_act_late.yaml
     episode_fraction: 0.5            # (plan v5 lists fix DART per cell: `dart`; this fraction is then unused)

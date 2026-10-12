@@ -80,30 +80,27 @@ perfect:
   ramp_s: 1.15                      # measured: median (t_clear - t_onset) of the training episodes
   p_max: 0.95                      # gesture-class probability reached after ramp_s
 
-# Belief over the human's target (intent_policy/intent/belief.py, docs/requirements/INTENT_ACT_v3.2.md §4): the
-# decision variable of the belief-space early expert (`expert.trigger: belief`).
-belief:
-  lambda: 0.9                       # forgetting per frame: log b_t = lambda * log b_{t-1} + log L_t (memory ~0.5 s)
-  cone_sigma_deg: 4.61              # pointing-ray angular std (= perfect.cone_sigma_deg, measured)
-  onset_speed_m_s: 0.08             # = perfect: causal onset detector
-  still_speed_m_s: 0.03
-  ramp_s: 1.15                      # = perfect: gesture-class probability ramp after the onset
-  p_max: 0.95
-  b_star: 0.9                       # commit threshold b* = C_wrong / (C_wrong + delta_save) (swept in the expert check)
-  n_hold: 3                         # frames above b* before a commit (0.15 s)
-  stop_star: 0.5                    # pause on the 'wait' gesture once p(palm_forward) >= this: a needless pause costs
-                                    # a moment, a missed one a wrong grasp, so the threshold is low (same cost rule)
-  reach:                            # Pérez-D'Arpino & Shah (ICRA 2015) library, scripts/fit_reach_library.py
-    library: assets/intent/reach_library_v5.npz
-    method: ioc                     # MaxEnt IOC goal inference (user 2026-10-09, after the expert check: 89/90 vs 88/90 for
-                                    # library_then_ioc, 0 wrong commits); library_then_ioc | library kept for comparison
-    ioc_beta_min_m: 0.003           # IOC temperature floor: the NLL optimum degenerates (-> 0) because the sim's minimum-jerk
-                                    # reaches are perfectly straight; 3 mm makes the fallback commit no earlier than the library
-    n_steps: 40                     # normalised time steps per demonstration
-    var_floor_m: 0.01               # minimum std per axis [m]
-    start_radius_m: 0.06            # motion class = (start cluster, target): wrist starts within this share a cluster
-    min_demos: 3                    # a (start cluster, target) library needs this many demonstrations
-    folds: 5                        # out-of-fold by seed % folds (late / early datasets share seeds)
+# Measuring device in the loop (intent_policy/intent/device.py, `expert.trigger: device`; INTENT_ACT_v3.2.md §4.2e): the
+# multi-gesture DeePoint (scripts/deepoint_finetune.py --classes multi) on the sensor camera, its belief over the task's
+# candidates L = p_c exp(-theta^2 / 2 sigma_c^2) + (1 - p_c). The camera is added by the experiment config
+# (scenario_overrides: scene.cameras.sensor_side = the `side` view of scripts/render_sensor_view.py).
+device:
+  folds_file: outputs/device/current/device_folds.json   # the 5 fold models + their calibration, written by
+                                    #   workstation/job1_device.sh (model k: test fold k, validation fold k + 1, trained
+                                    #   on the other 3; an episode is measured by the model of its fold, intent/folds.py):
+                                    #   checkpoint, sigma_deg / sigma_deg_by_frames (Rayleigh MLE vs device frames since
+                                    #   the detection), hold_frames {late, early} (smallest hold with <= 5 % false-trigger
+                                    #   episodes), pause_timeout_s (95th percentile of 'wait' onset -> next pointing onset)
+                                    #   (scripts/calibrate_device_rules.py, on each model's validation fold)
+  classes: [none, point, reach, palm_up, palm_forward, withdraw]
+  camera: sensor_side
+  width: 1280
+  height: 720
+  rule: late                        # late: commit once a belief >= late_star; early: once >= early_star (§4.2c-g)
+  late_star: 0.95                   # the user's late level (posterior >= 1 - alpha, alpha = 5 %)
+  early_star: 0.7                   # the user's early level (2026-10-12; before: the device's first detection)
+  preroll_frames: 14                # the sensor runs before the episode: 14 frames of the resting human fill the 15-frame
+                                    #   window, so the first output is at t = 0 (else 0.95 s, after most cue onsets)
 
 # PredictedSource: same pipeline on noisy keypoints + a learned gesture classifier.
 predicted:

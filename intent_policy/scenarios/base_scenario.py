@@ -233,7 +233,11 @@ class BaseScenario:
     # ------------------------------------------------------------------ human
     def _apply_human_pose(self) -> None:
         """Pose the mannequin from the scripted palm position (lean + arm IK) and move the distance proxies."""
-        pose = self.body_model.apply(self.env.data, self.human.pos, self.human.point_at, self.human.hand_shape,
+        aim = self.human.point_at
+        progress = getattr(self.human, 'gesture_progress', 1.0)     # a pointing hand forms with the arm motion
+        pose = self.body_model.apply(self.env.data, self.human.pos, aim, self.human.hand_shape,
+                                     aim_blend=progress, shape_from=getattr(self.human, 'shape_from', None),
+                                     shape_progress=getattr(self.human, 'shape_progress', None),
                                      palm_up=self.human.palm_up, smooth=True)
         self.human_pose = pose
         self.human.torso = pose['chest']

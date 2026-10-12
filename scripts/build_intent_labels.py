@@ -4,8 +4,9 @@ Per frame and per source (columns `intent_<src>.<field>`, validated by intent/co
   hs   HindsightSource           ground truth + true future (ceiling)
   pp   PerfectPerceptionSource   causal, clean keypoints
   pr0 .. pr<R-1>  PredictedSource R noisy replicas (noise_scale drawn per replica; 0 until measured: "chưa hiệu chỉnh")
-  pb   belief (contract v3.2, docs/requirements/INTENT_ACT_v3.2.md §5; intent/source_v32.py): the causal belief of the
-       early expert replayed on the recorded keypoints + kinematic fields (validated by validate_intent_v32)
+  pd   device (contract v3.2, docs/requirements/INTENT_ACT_v3.2.md §5; intent/source_v32.py): the measuring device's
+       belief the expert acted on + kinematic fields, recorded during the collection (meta/intent_pd/, trigger device;
+       validated by validate_intent_v32); its device settings go to meta/intent_schema.json `device`
 plus `hri.task_id` (T1-T4), meta/intent_segments.json (ground-truth segments) and meta/intent_schema.json.
 The robot state of every source comes from the recorded observation (TCP, measured gripper opening -> holding);
 `hri.holding_gt` (simulator grasp state) is only used to report the holding detector's quality.
@@ -15,7 +16,7 @@ stages, scripts/collect_demos.py); `--segments <file.json>` reads {episode_index
 
 Example:
   ./run.sh -m scripts.build_intent_labels --dataset-root outputs/datasets/intent_act_early --sources hindsight perfect predicted
-  ./run.sh -m scripts.build_intent_labels --dataset-root outputs/datasets/intent_act_early_v5 --sources hindsight perfect belief
+  ./run.sh -m scripts.build_intent_labels --dataset-root outputs/datasets/intent_act_device_early --sources hindsight device
 (every listed source is (re)written; intent columns of sources not listed are dropped)
 """
 import argparse
@@ -36,8 +37,8 @@ from intent_policy.intent.sources import HindsightSource, HumanObs
 from intent_policy.intent.tracker import HoldingDetector, RobotState
 from intent_policy.utils import resolve
 
-SOURCE_NAMES = ('hindsight', 'perfect', 'predicted', 'belief')
-V32_PREFIXES = ('intent_pb',)
+SOURCE_NAMES = ('hindsight', 'perfect', 'predicted', 'device')
+V32_PREFIXES = ('intent_pd',)
 TASK_ID = 'hri.task_id'
 
 
@@ -117,8 +118,8 @@ def make_sources(names: list[str], schema: dict, episodes: dict, segments: dict,
     """{column prefix: (source factory per episode)}; perfect / predicted are calibrated on the training episodes."""
     out = {}
     for name in names:
-        if name == 'belief':
-            continue                              # contract v3.2: build_labels runs intent/source_v32.label_episode
+        if name == 'device':
+            continue                              # contract v3.2: recorded during the collection (build_labels)
         if name == 'hindsight':
             out['intent_hs'] = lambda e: HindsightSource(schema)
         elif name in ('perfect', 'predicted'):
@@ -156,13 +157,18 @@ def build_labels(root: Path, schema_path=SCHEMA_PATH, sources=('hindsight',), se
             out = run_source(factory(e), m, ep, robots[e])
             validate_intent(out, schema, batched=True)
             outputs.setdefault(prefix, {})[e] = out
-    if 'belief' in sources:
-        from intent_policy.intent.source_v32 import label_episode
-        lib = resolve(schema['belief']['reach']['library'])
+    device_cfg = None
+    if 'device' in sources:
+        rec = root / 'meta/intent_pd'
+        if not (rec / 'device.json').exists():
+            raise SystemExit(f'{rec}: no device frames (collect with expert.trigger device and an intent schema)')
+        device_cfg = json.loads((rec / 'device.json').read_text())
         for e, ep in episodes.items():
-            out = label_episode(meta[e], ep['keypoints'], ep['state'], schema, schema['belief'], lib)
+            out = dict(np.load(rec / f'episode_{e:06d}.npz'))
+            if len(next(iter(out.values()))) != len(ep['state']):
+                raise SystemExit(f'episode {e}: {len(next(iter(out.values())))} device frames, {len(ep["state"])} frames')
             validate_intent_v32(out, schema, batched=True)
-            outputs.setdefault('intent_pb', {})[e] = out
+            outputs.setdefault('intent_pd', {})[e] = out
 
     instr = {e: instruction_of(meta[e]['spec'], meta[e]['scenario_id'], schema) for e in episodes}
     features = {k: v for k, v in info['features'].items()
@@ -190,8 +196,10 @@ def build_labels(root: Path, schema_path=SCHEMA_PATH, sources=('hindsight',), se
     info['features'] = {k: {**v, 'shape': list(v['shape'])} for k, v in features.items()}
     info_path.write_text(json.dumps(info, indent=4))
     (root / 'meta/intent_segments.json').write_text(json.dumps({str(k): v for k, v in segments.items()}, indent=1))
-    (root / 'meta/intent_schema.json').write_text(json.dumps(dict(schema, source=str(schema_path), segments=segments_arg,
-                                                                  sources=list(outputs), train_episodes=train), indent=2))
+    snap = dict(schema, source=str(schema_path), segments=segments_arg, sources=list(outputs), train_episodes=train)
+    if device_cfg is not None:
+        snap['device'] = device_cfg              # the settings the device labels were measured with (rule, fold models)
+    (root / 'meta/intent_schema.json').write_text(json.dumps(snap, indent=2))
     return dict(segments=segments, outputs=outputs, robots=robots, episodes=episodes, schema=schema, meta=meta)
 
 

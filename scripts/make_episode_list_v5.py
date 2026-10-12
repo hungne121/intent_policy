@@ -44,7 +44,7 @@ HOLD_STRATA = [[0.5, 2.25], [2.25, 4.0]]
 HOLD_FULL = [0.5, 4.0]
 CHANGE_STRATA = [[0.3, 2.2], [2.2, 4.1], [4.1, 6.0]]
 SID = {'T1': 't1_pick_place', 'T2': 't2_handover', 'T3': 't3_assist', 'T4': 't4_interrupt'}
-SEED_BASE = {'demo': 1_000_000, 'eval': 2_000_000}
+SEED_BASE = {'demo': 1_000_000, 'eval': 2_000_000, 'val': 3_000_000}   # val: checkpoint / step-count choice, never reported
 ATTEMPTS = 3
 
 
@@ -475,7 +475,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--out', default=OUT)
     p.add_argument('--workers', type=int, default=3)
-    p.add_argument('--splits', nargs='*', default=['demo', 'eval'])
+    p.add_argument('--splits', nargs='*', default=['demo', 'eval'], help='demo | eval | val')
+    p.add_argument('--val-per-task', type=int, default=10,
+                   help="val: eval-design cells spread evenly over each task's cells (T4neg half), new seeds")
     p.add_argument('--cells-only', action='store_true', help='write the design cells (no seed selection)')
     p.add_argument('--limit-per-task', type=int, help='first N cells per task (trial runs)')
     p.add_argument('--reorder-only', action='store_true',
@@ -493,6 +495,14 @@ def main():
         return
     for split in args.splits:
         cells = build_cells(split, cfgs)
+        if split == 'val':                      # a small held-out set on the eval design, its own seed range
+            by_task = {}
+            for c in cells:
+                by_task.setdefault(c['task'], []).append(c)
+            cells = []
+            for task, cs in by_task.items():
+                k = args.val_per_task // 2 if task == 'T4neg' else args.val_per_task
+                cells += [cs[int(i)] for i in np.unique(np.linspace(0, len(cs) - 1, k).round())]
         if args.limit_per_task:
             per = Counter()
             cells = [c for c in cells if (per.update([c['task']]) or per[c['task']] <= args.limit_per_task)]
@@ -536,7 +546,8 @@ def main():
         report.append(summary(split, rows, failed, pilot))
         print(report[-1], flush=True)
     if report:
-        (out_dir / 'summary.md').write_text('# Episode lists v5 (docs/specs/EPISODE_PLAN_v5.md)\n\n' + '\n'.join(report) + '\n')
+        name = 'summary.md' if set(args.splits) <= {'demo', 'eval'} else f"{'_'.join(args.splits)}_summary.md"
+        (out_dir / name).write_text('# Episode lists v5 (docs/specs/EPISODE_PLAN_v5.md)\n\n' + '\n'.join(report) + '\n')
 
 
 if __name__ == '__main__':

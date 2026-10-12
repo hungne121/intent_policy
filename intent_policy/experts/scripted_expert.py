@@ -21,19 +21,20 @@ Scenario config `expert` block (teacher settings only):
                          observable gesture, and touch it only CONFIRM_S after that. A withdrawn pointing hand (T5)
                          is evidence too: the robot rises and waits.
            cue_onset     clairvoyant: the target is known at the cue onset and after a change at the change itself
-           belief        belief-space early expert (docs/requirements/INTENT_ACT_v3.2.md §4): a causal belief over the
-                         candidates (intent/belief.py: DeePoint-format pointing, Pérez-D'Arpino reach library) drives
-                         it. Before a commit the arm hedges towards the belief-weighted mean of the candidates; it
-                         commits once one candidate's belief stays >= b_star for n_hold frames, re-targets when another
-                         one does, pauses on a 'wait' gesture. No CONFIRM_S, no ground truth of the human's choice.
-                         T4: yields to the hand extrapolated at constant velocity (causal).
+           device        belief-space expert on the measuring device (intent/device.py, INTENT_ACT_v3.2.md §4.2e-g):
+                         the multi-gesture DeePoint on the sensor camera gives a belief over the candidates;
+                         `device.rule` late commits once a candidate's belief >= 0.95, early once it is >= 0.7, and
+                         neither moves before its first commit ("no blind moves", 2026-10-12). It re-targets when
+                         another candidate reaches the threshold, pauses on a confirmed 'wait' / withdraw. No
+                         CONFIRM_S, no ground truth of the human's choice. T4: yields to the hand extrapolated at
+                         constant velocity (causal).
   travel_dz: travel height above the table
   T2 staging_offset: holding point (x, y) w.r.t. the centre of the hand zones, at handover height
   T4 yield_zone_margin_m / yield_prediction_horizon_s: hold while the (predicted) hand is in the robot zone
   T4 start_s: the robot starts by itself this long after the episode start (default 0.5)
   grasp_settle_ticks: HOLD decisions after the gripper closed, before lifting (default 3). Fixed waits like this and
                       start_s end on a timer the policy cannot observe (identical frames, different labels).
-  belief: overrides of configs/intent_schema.yaml `belief` (b_star, n_hold, lambda, ...) for the belief trigger
+  device: overrides of configs/intent_schema.yaml `device` (rule early | late, folds_file, camera, ...)
 Guarded moves (cue_onset / evidence) hold while the human hand occupies the destination or is next to the arm.
 """
 from __future__ import annotations
@@ -55,7 +56,8 @@ CONFIRM_S = 1.6         # evidence mode: touch the target only once its gesture 
 R_SAFE = 0.22           # moves across y = 0 go around the robot base at least this far out (near-singular above it)
 HANDOVER_DZ = 0.025     # T2: the object crosses the open fingers (up to 2.4 cm above the palm) this high above its
                         # place in the palm, then goes straight down into it (H2 is at the edge of the arm's reach)
-TRIGGERS = ('cue_complete', 'cue_onset', 'evidence', 'belief')
+TRIGGERS = ('cue_complete', 'cue_onset', 'evidence', 'device')
+BELIEF_TRIGGERS = ('device',)            # the belief expert on the measuring device (intent/device.py)
 # cue_complete: each sub-intention is acted on once its deictic gesture is complete (the pointing hand arrived)
 CUE_COMPLETE_STEP = {'T1': 'object_indicated', 'T2': 'target_indicated', 'T3': 'block_picked'}
 FOREVER = 10 ** 6
@@ -83,7 +85,7 @@ class ScriptedExpert:
         self.trigger = ecfg.get('trigger', 'cue_complete')
         if self.trigger not in TRIGGERS:
             raise ValueError(f'expert.trigger must be one of {TRIGGERS}, got {self.trigger!r}')
-        self.anticipate = self.trigger in ('cue_onset', 'evidence', 'belief')
+        self.anticipate = self.trigger in ('cue_onset', 'evidence') + BELIEF_TRIGGERS
         self.code = sc.cfg.task_code
         self.travel = self.z0 + float(ecfg.get('travel_dz', 0.13))
         self.yield_margin = float(ecfg.get('yield_zone_margin_m', 0.0))
@@ -102,27 +104,28 @@ class ScriptedExpert:
         self.timed_change = 'change_delay_s' in sc.human.params
         self.stop_seen = self.change_seen = False
         self.belief = None
-        if self.trigger == 'belief':
-            # imported here: intent_policy.utils imports the benchmark runner, which imports this module
-            from intent_policy.intent.belief import OnlineBelief
+        if self.trigger == 'device':
+            # the multi-gesture DeePoint on the sensor camera (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g): the belief
+            # expert, its thresholds from the device rule (late: belief >= 0.95; early: belief >= 0.7)
+            from intent_policy.intent.device import DeviceBelief
             from intent_policy.intent.labels import load_schema
-            from intent_policy.utils import resolve
-            schema = load_schema()
             from intent_policy.scenarios.config import _deep_merge
-            bcfg = _deep_merge(schema['belief'], ecfg.get('belief') or {})
-            self.b_star, self.n_hold = float(bcfg['b_star']), int(bcfg['n_hold'])
-            self.stop_star = float(bcfg['stop_star'])
-            self.belief = OnlineBelief(sc, schema, bcfg, resolve(bcfg['reach']['library']))
+            schema = load_schema()
+            dcfg = _deep_merge(schema['device'], ecfg.get('device') or {})
+            self.belief = DeviceBelief(sc, schema, dcfg)
             self.belief.reset()
-            self._runs: dict[str, tuple] = {}
+            self.b_star, self.n_hold, self.stop_star = self.belief.thresholds()
+            self.pause_timeout = self.belief.pause_timeout_s      # calibrated with the episode's fold model
+            self._runs = {}
+        self.pause_t: float | None = None
         if self.code == 'T4':                   # no instruction: the robot starts the pick-and-place by itself
             start = float(ecfg.get('start_s', 0.5))
             self._set_plan([Step('wait', until=lambda: sc.time >= start - 1e-9, name='wait_start'),
                             Step('call', target=self._start_known, name='start')])
         elif self.trigger == 'evidence':
             self._set_plan(self._precommit_plan())
-        elif self.trigger == 'belief':
-            self._set_plan(self._hedge_plan())
+        elif self.trigger in BELIEF_TRIGGERS:
+            self._set_plan([Step('hold', ticks=FOREVER, name='await_commit')])   # no motion before the first commit
         else:
             cue = (lambda: sc.logger.count(E.HUMAN_CUE_ONSET) > 0) if self.trigger == 'cue_onset' \
                 else (lambda: CUE_COMPLETE_STEP[self.code] in sc.protocol_done)
@@ -165,35 +168,6 @@ class ScriptedExpert:
                 Step('goto', self._staging_point, name='staging', guard=True),
                 Step('hold', ticks=FOREVER, name='await_evidence')]
 
-    def _hedge_plan(self):
-        """Belief trigger, before the first commit: from the human's first (causally detected) hand motion, open the
-        gripper and keep moving towards the belief-weighted mean of the candidates' grasp points."""
-        sc = self.sc
-        return [Step('wait', until=lambda: self.belief.onset_seen, name='wait_motion_onset'),
-                Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25, name='open'),
-                Step('track', self._hedge_objects, name='hedge', guard=True)]
-
-    @staticmethod
-    def _weighted_mean(probs: dict, points: dict) -> np.ndarray:
-        """Belief-weighted mean of the candidates' points: the point minimising the expected squared distance to the
-        (unknown) target (QMDP with a quadratic cost-to-go; with 2 candidates the linear-cost optimum, the weighted
-        geometric median, jumps to the likelier one at b > 0.5)."""
-        keys = list(points)
-        w = np.array([probs.get(k, 0.0) for k in keys], float)
-        w = w / w.sum() if w.sum() > 1e-9 else np.full(len(keys), 1.0 / len(keys))
-        return w @ np.asarray([points[k] for k in keys], float)
-
-    def _hedge_objects(self) -> np.ndarray:
-        probs = self.belief.objects()
-        xy = self._weighted_mean(probs, {k: self.sc.grasp_point(k)[:2] for k in probs})
-        return np.r_[xy, self.travel]
-
-    def _hedge_zones(self) -> np.ndarray:
-        """T1, carrying the object before the place zone is known: towards the belief-weighted mean of the zones."""
-        probs = self.belief.zones()
-        xy = self._weighted_mean(probs, {k: self.sc.zone_pos(k)[:2] for k in probs})
-        return np.r_[xy + self.tcp_obj_offset[:2], self.travel]
-
     def _commit(self, target: str, plan) -> None:
         self.commit_t = self.sc.time
         self.committed = self._new_commit = target
@@ -212,8 +186,7 @@ class ScriptedExpert:
         obj = self.obj
         grasp = self._grasp_steps(obj)
         if self.code in ('T1', 'T4'):
-            await_zone = Step('track', self._hedge_zones, name='hedge_zone', guard=True, skip=lambda: self.zone is not None) \
-                if self.trigger == 'belief' and self.code == 'T1' else Step('wait', until=lambda: self.zone is not None, name='await_zone')
+            await_zone = Step('wait', until=lambda: self.zone is not None, name='await_zone')
             return grasp + [await_zone] + self._place_steps(obj) + self._home_steps()
         if self.code == 'T2':
             return grasp + self._handover_steps(obj)
@@ -302,7 +275,7 @@ class ScriptedExpert:
             self._set_plan([self._lift_step('withdrawn_lift'), Step('hold', ticks=FOREVER, name='await_evidence')])
         elif kind == 'target_object' and grasping and self.timed_change and ev['object'] != self.obj:
             self._redirect(ev['object'])        # changed while the old object is held: put it back first
-        elif kind == 'target_object' and self.trigger == 'belief' and self.timed_change and self.obj is not None \
+        elif kind == 'target_object' and self.trigger in BELIEF_TRIGGERS and self.timed_change and self.obj is not None \
                 and ev['object'] != self.obj:
             self._redirect(ev['object'])        # belief: no 'withdrawn' pause, the old object may be delivered already
                                                 # (T3: the cup stands in U_cup): _redirect fetches it back first
@@ -331,6 +304,10 @@ class ScriptedExpert:
         bel = self.belief
         bel.step()
         grasping = any(self.sc.grasp_state.values())
+        if self.trigger == 'device' and self.stage == 'await_correction' and self.pause_t is not None \
+                and self.pause_timeout > 0 and self.sc.time - self.pause_t >= self.pause_timeout \
+                and (bel.last_point_t is None or bel.last_point_t < self.pause_t):
+            self._resume()                      # no new pointing within the measured 'wait' -> pointing interval
         if self._run_length('stop', True if bel.p_stop >= self.stop_star else None) == self.n_hold:
             self._on_evidence(dict(kind='stop'), grasping)
         if self._run_length('withdraw', True if bel.p_withdraw >= self.stop_star else None) == self.n_hold \
@@ -358,7 +335,19 @@ class ScriptedExpert:
     def _pause(self) -> None:
         """'Wait!': stop where the arm is (holding whatever it holds) until the new target is known."""
         if self.obj is not None:
+            self.pause_t = self.sc.time
             self._set_plan([Step('hold', ticks=FOREVER, name='await_correction')])
+
+    def _resume(self) -> None:
+        """Device trigger: a 'wait' that no new pointing followed (a false alarm of the device, or a change of mind
+        not carried out): continue the task for the committed object, without re-grasping a held one."""
+        sc = self.sc
+        held = next((k for k, g in sc.grasp_state.items() if g), None)
+        steps = self._task_steps()
+        if held == self.obj:
+            steps = steps[len(self._grasp_steps(self.obj)):]
+        self.pause_t = None
+        self._set_plan([self._lift_step('resume_lift')] + steps)
 
     def _redirect(self, new: str) -> None:
         """Re-target to `new`: a held (old) object is put back where it stood first."""
@@ -372,7 +361,7 @@ class ScriptedExpert:
             self.zone = sc.variation['target_zone']
         if held is not None and held != new:
             steps = self._put_back_steps(held)
-        elif self.trigger == 'belief' and held is None and sc.env.data.qpos[sc.env.gid] < 0.075:
+        elif self.trigger in BELIEF_TRIGGERS and held is None and sc.env.data.qpos[sc.env.gid] < 0.075:
             # the gripper was closing on the old object (not held yet): open before rising, never drag it along
             steps = [Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25, name='redirect_open')]
             if old is not None and old != new and np.linalg.norm(sc.pos(old)[:2] - sc.start_pos[old][:2]) > 0.02:
@@ -468,7 +457,7 @@ class ScriptedExpert:
             return True
         if self.yield_horizon <= 0:
             return False
-        if self.trigger == 'belief':                # causal: the observed hand at constant velocity
+        if self.trigger in BELIEF_TRIGGERS:                # causal: the observed hand at constant velocity
             future = sc.human.pos + sc.human.vel * self.yield_horizon
         elif self.trigger == 'evidence':
             future = sc.human.predicted_hand_position(self.yield_horizon)
@@ -492,7 +481,7 @@ class ScriptedExpert:
         moved_from, self._moved_from = self._moved_from, None
         if self.trigger == 'evidence':
             self._follow_evidence()
-        elif self.trigger == 'belief':
+        elif self.trigger in BELIEF_TRIGGERS:
             self._follow_belief()
         else:
             if self.trigger == 'cue_complete' and self.timed_change:

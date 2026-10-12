@@ -11,8 +11,9 @@ intent contract around the preprocessor (intent tokens, docs/requirements/INTENT
                            `policy.use_instruction`, else off; needs hri.instr_* from scripts/build_intent_labels.py)
   --use-intent             intent tokens (default off: the dataset's intent_* columns are ignored)
   --intent-source          hindsight | perfect | predicted (columns intent_hs / intent_pp / intent_pr<r>, read as intent.*)
-                           | belief (contract v3.2, columns intent_pb, 6 tokens + mask; docs/requirements/INTENT_ACT_v3.2.md;
-                           its defaults: --p-drop-group 0.1 (one token) --p-drop-all 0.2, never in the CVAE)
+                           | device (contract v3.2 from the measuring device, columns intent_pd, 6 tokens + mask;
+                           docs/requirements/INTENT_ACT_v3.2.md; its defaults: --p-drop-group 0.1 (one token)
+                           --p-drop-all 0.2, never in the CVAE; the dataset's device settings go into the model config)
   --intent-source-mix      e.g. predicted:0.7,perfect:0.3 (source drawn per sample; predicted: replica drawn uniformly)
   --noise-scale-range      must match the range the predicted replicas were built with (schema predicted.*)
   --p-drop-group 0.15  --p-drop-all 0.1  --intent-keep semantic,spatial,memory,time,motion  --[no-]intent-in-cvae
@@ -53,7 +54,7 @@ from intent_policy.utils import load_yaml, log_run, resolve, run_dir
 INTENT_COLUMN_PREFIX = 'intent_'
 TASK_ID = 'hri.task_id'
 SOURCE_PREFIX = {'hindsight': ['intent_hs'], 'perfect': ['intent_pp'], 'predicted': None,     # predicted: intent_pr<r>
-                 'belief': ['intent_pb']}                                                   # contract v3.2
+                 'device': ['intent_pd']}                                                   # contract v3.2
 CONTRACT_KEYS = ('targets', 'who', 'phases', 'tasks', 'n_waypoints', 'keypoints', 'keypoint_dim', 'fps', 'horizon_s', 'tte_max_s')
 
 
@@ -152,6 +153,9 @@ def build_config(policy_yaml: dict, meta: LeRobotDatasetMetadata, device: str, c
         check_intent_dataset(policy_yaml['intent_schema'], meta, list(parse_mix(policy_yaml.get('intent_source', 'hindsight'),
                                                                                 policy_yaml.pop('intent_source_mix', None))))
         kwargs.pop('intent_source_mix', None)
+        if policy_yaml.get('intent_source') == 'device':     # evaluation runs the device as the labels were measured
+            built = json.loads((meta.root / 'meta/intent_schema.json').read_text())
+            kwargs['intent_schema'] = {**policy_yaml['intent_schema'], 'device': built['device']}
     elif policy_yaml.get('use_task_token') and TASK_ID not in meta.features:
         raise KeyError(f'{TASK_ID} missing from the dataset (run scripts/build_intent_labels.py)')
     if policy_yaml.get('use_instruction') and not {INSTR_OBJECT, INSTR_DEST} <= set(meta.features):
@@ -230,7 +234,7 @@ def guide_overrides(args) -> dict:
     out = {}
     if args.use_intent:
         out.update(use_intent=True, intent_arch='tokens', intent_schema=load_schema(args.intent_schema))
-        if args.intent_source == 'belief':                       # contract v3.2 and its defaults (INTENT_ACT_v3.2.md)
+        if args.intent_source == 'device':                       # contract v3.2 and its defaults (INTENT_ACT_v3.2.md)
             out.update(intent_version='v32', intent_in_cvae=False, intent_p_drop_group=0.1, intent_p_drop_all=0.2)
     if args.use_task_token is not None:
         out['use_task_token'] = args.use_task_token
@@ -299,7 +303,7 @@ def main():
                         'policy.use_instruction, else off)')
     g.add_argument('--use-intent', '--use_intent', action='store_true', help='intent tokens (default: off)')
     g.add_argument('--intent-schema', default=SCHEMA_PATH)
-    g.add_argument('--intent-source', '--intent_source', choices=['hindsight', 'perfect', 'predicted', 'belief'],
+    g.add_argument('--intent-source', '--intent_source', choices=['hindsight', 'perfect', 'predicted', 'device'],
                    help='intent source (default: hindsight)')
     g.add_argument('--intent-source-mix', '--intent_source_mix', help='e.g. predicted:0.7,perfect:0.3')
     g.add_argument('--noise-scale-range', '--noise_scale_range',

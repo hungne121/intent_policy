@@ -110,8 +110,22 @@ class HumanBody:
     def reset_shape(self) -> None:
         self.shape_state = None
 
-    def _shape_variant(self, target: str, smooth: bool) -> str:
-        """Hand mesh variant: `target` at once, or (smooth) one 25 % blend step per call towards it."""
+    def _shape_variant(self, target: str, smooth: bool, shape_from: str | None = None,
+                       progress: float | None = None) -> str:
+        """Hand mesh variant: `target` at once, or (smooth) one 25 % blend step per call towards it; with `progress`
+        (0..1, the gesture's own motion progress) the blend shape_from -> target at that fraction (25 % steps), so the
+        hand forms with the arm motion instead of at its first frame."""
+        if progress is not None and shape_from is not None and shape_from != target \
+                and shape_from in self.shape_order and target in self.shape_order:
+            pct = int(round(float(np.clip(progress, 0.0, 1.0)) * 4)) * 25
+            self.shape_state = (target, target, 100)
+            if pct in (0, 100):
+                return shape_from if pct == 0 else target
+            x, y, q = (shape_from, target, pct) if self.shape_order.index(shape_from) < self.shape_order.index(target) \
+                else (target, shape_from, 100 - pct)
+            name = f'{x}-{y}-{q}'
+            if name in self.hand_meshes:
+                return name
         if not smooth or self.shape_state is None or target not in self.shape_order:
             self.shape_state = (target, target, 100)
             return target
@@ -132,10 +146,13 @@ class HumanBody:
         return f'{x}-{y}-{q}'
 
     def apply(self, data, palm, point_at=None, hand_shape: str = 'relaxed', palm_up: float = 0.0,
-              smooth: bool = False) -> dict:
-        """Pose the bound model for a palm position: segments, distance proxies, grasp anchor, hand mesh."""
-        pose = self.pose(palm, point_at, palm_up)
-        self.model.geom_dataid[self.hand_geom] = self.hand_meshes[self._shape_variant(hand_shape, smooth)]
+              smooth: bool = False, aim_blend: float = 1.0, shape_from: str | None = None,
+              shape_progress: float | None = None) -> dict:
+        """Pose the bound model for a palm position: segments, distance proxies, grasp anchor, hand mesh.
+        `aim_blend` / `shape_progress`: how far a pointing hand has formed (the arm motion's progress, 2026-10-12)."""
+        pose = self.pose(palm, point_at, palm_up, aim_blend)
+        self.model.geom_dataid[self.hand_geom] = self.hand_meshes[self._shape_variant(hand_shape, smooth, shape_from,
+                                                                                      shape_progress)]
         quat = np.zeros(4)
         for seg, (pos, rot) in pose['segments'].items():
             mujoco.mju_mat2Quat(quat, np.ascontiguousarray(rot).ravel())
@@ -244,9 +261,11 @@ class HumanBody:
             arm = self._arm(s, shoulder, target, palm_normal, fore_normal, hand)
         return arm
 
-    def _aim_hand(self, arm: dict, target) -> np.ndarray:
+    def _aim_hand(self, arm: dict, target, blend: float = 1.0) -> np.ndarray:
         """Hand rotation that puts the index finger ray (knuckle -> tip) through `target`; the wrist bends at most
-        MAX_WRIST_DEG away from the forearm."""
+        MAX_WRIST_DEG away from the forearm. `blend` < 1: only that fraction of the bend from the straight wrist (the
+        finger continuing the forearm) towards that aim - a pointing hand forms with the arm motion (2026-10-12: aiming
+        at once exposed the target in the gesture's first frame, before the arm moved)."""
         S = self.active.upper()
         J, wrist, fore = self.J, arm['wrist'], unit(arm['wrist'] - arm['elbow'])
         rest = frame(J[f'{S}_Wrist'] - J[f'{S}_Elbow'], PALM_DOWN).T
@@ -265,9 +284,13 @@ class HumanBody:
         angle = np.arccos(np.clip(np.dot(fore, aim), -1.0, 1.0))
         if angle > np.radians(MAX_WRIST_DEG):
             aim = rotation(np.cross(fore, aim), np.radians(MAX_WRIST_DEG)) @ fore
+            angle = np.radians(MAX_WRIST_DEG)
+        blend = float(np.clip(blend, 0.0, 1.0))
+        if blend < 1.0 and angle > 1e-6:
+            aim = rotation(np.cross(fore, aim), blend * angle) @ fore
         return rot(aim) @ self.R_yaw
 
-    def pose(self, palm, point_at=None, palm_up: float = 0.0) -> dict:
+    def pose(self, palm, point_at=None, palm_up: float = 0.0, aim_blend: float = 1.0) -> dict:
         """Segment transforms {segment: (pivot position, rotation)} and proxy geometry for a palm target.
 
         With `point_at`, the active hand bends at the wrist so that its index finger ray points at that point (at
@@ -307,7 +330,7 @@ class HumanBody:
             seg[f'{s}_hand'] = (arm['wrist'], arm['R_hand'])
         a = arms[self.active]
         if point_at is not None:
-            seg[f'{self.active}_hand'] = (a['wrist'], self._aim_hand(a, np.asarray(point_at, float)))
+            seg[f'{self.active}_hand'] = (a['wrist'], self._aim_hand(a, np.asarray(point_at, float), aim_blend))
         return dict(segments=seg, lean=theta, palm=a['palm'], reach_error=float(np.linalg.norm(a['palm'] - palm)),
                     chest=on_torso(J['Spine3']),
                     capsules={'upperarm': (a['shoulder'], a['elbow']), 'forearm': (a['elbow'], a['wrist']),

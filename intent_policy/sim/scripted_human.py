@@ -86,6 +86,8 @@ class ScriptedHuman:
         self.evidence: list[dict] = []       # scheduled evidence: t, kind, payload, segment, emitted, cancelled
         self._prev_robot_distance = np.inf
         self.point_at: np.ndarray | None = None   # what the index finger points at while gesturing (rendering only)
+        self._point_i = 0                         # pointings made so far (index into the per-gesture draws)
+        self.shape_from = 'relaxed'               # hand shape when the current gesture started (it forms from there)
         self.shape: str | None = None             # hand shape set by the current gesture (None: from point_at / holding)
         self.palm_from = self.palm_to = 0.0       # palm orientation (0 down, 1 up) at the start / end of the motion
 
@@ -110,8 +112,9 @@ class ScriptedHuman:
         return [ev for ev in self.evidence if not ev['cancelled'] and ev['t'] <= t + 1e-9]
 
     def move(self, t: float, target, duration: float, label: str, clearance: float | None = None,
-             key: str | None = None) -> None:
-        """Schedule a minimum-jerk hand motion; `duration` is scaled by the speed variant.
+             key: str | None = None, scale: bool = True) -> None:
+        """Schedule a minimum-jerk hand motion; `duration` is scaled by the speed variant (`scale`; durations drawn
+        from measured human data are not).
 
         With `clearance`, the motion is cautious: the hand stops where it is as soon as the
         robot is closer than `clearance` (the scripted human never pushes into the robot; a robot
@@ -120,7 +123,8 @@ class ScriptedHuman:
         """
         self._cancel_pending_evidence(self.segment)
         target = np.asarray(target, float) if self.reach is None else self.reach(target)
-        self.segment = Segment(t, max(duration / self.speed, 0.05), self.pos.copy(), target, label, clearance)
+        self.segment = Segment(t, max(duration / self.speed if scale else duration, 0.05), self.pos.copy(), target, label,
+                               clearance)
         self.emit('human_motion_start', label=label, target=np.round(target, 4).tolist(), duration=self.segment.duration,
                   target_key=key)
         if label in self.EVIDENCE_LABELS:
@@ -134,6 +138,29 @@ class ScriptedHuman:
         if self.shape is not None:
             return self.shape
         return 'point' if self.point_at is not None else 'grasp' if self.holding else 'relaxed'
+
+    POINT_LABELS = ('point_object', 'point_place')
+
+    @property
+    def gesture_progress(self) -> float:
+        """How far a pointing hand has formed: the minimum-jerk progress of the pointing motion itself (0 when it
+        starts, 1 once the pointing pose is reached and while it is held; 1 outside pointing). The wrist aim and the
+        hand shape follow it (sim/human_body.py), so the target is not shown before the arm moves (2026-10-12)."""
+        seg = self.segment
+        if self.point_at is None or seg is None or seg.label not in self.POINT_LABELS:
+            return 1.0
+        return float(min_jerk(min(max((self.t_last - seg.start_t) / seg.duration, 0.0), 1.0)))
+
+    @property
+    def shape_progress(self) -> float | None:
+        """How far the hand has formed into the shape of the motion under way (pointing, offer, 'wait', grasp): its
+        minimum-jerk progress; None when no motion changes the shape (the hand keeps / steps to its shape). A reaching
+        hand pre-shapes during the transport, its aperture peaking at ~60-70 % of the movement time (Jeannerod 1984),
+        so the gesture's final hand shape is not shown before the arm moves (2026-10-12; before: 4 frames at onset)."""
+        seg = self.segment
+        if seg is None or self.shape_from is None or self.shape_from == self.hand_shape:
+            return None
+        return float(min_jerk(min(max((self.t_last - seg.start_t) / seg.duration, 0.0), 1.0)))
 
     @property
     def palm_up(self) -> float:
@@ -220,8 +247,9 @@ class Gesture:
     """
     def __init__(self, kind: str, label: str = '', target=None, duration: float = 0.0, dwell: float = 0.0,
                  until=None, fn=None, clearance: float | None = None, shape: str | None = None, palm_up: float = 0.0,
-                 key=None, hold=None, hold_max: float = 0.0, on_arrive=None):
+                 key=None, hold=None, hold_max: float = 0.0, on_arrive=None, scale: bool = True):
         self.kind, self.label, self.target, self.duration, self.dwell = kind, label, target, duration, dwell
+        self.scale = scale                     # duration divided by the episode's speed_scale
         self.key = key
         self.hold, self.hold_max, self.on_arrive = hold, hold_max, on_arrive
         self.until, self.fn, self.clearance = until, fn, clearance
@@ -278,24 +306,37 @@ class GestureHuman(ScriptedHuman):
                 self.emit('protocol_step_complete', step=s, **payload)
         return fn
 
+    def _point_kinematics(self) -> tuple[float, bool]:
+        """(duration [s], scale) of the next pointing: drawn per gesture from the real-pointing durations
+        (`point_seq_s`, scenarios/config.py, human_behavior `kinematics`), else the episode's hand-set `point_s`."""
+        seq = self.params.get('point_seq_s')
+        if not seq:
+            return self.params['point_s'], True
+        i = min(self._point_i, len(seq) - 1)
+        self._point_i += 1
+        return float(seq[i]), False
+
     def G_point_object(self, key_fn, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
         """Point at the (current) selected object; key_fn() -> object key at the time the gesture starts. `hold`: keep
         pointing (looking at the target) until the robot's hand is above it, at most point_hold_max_s."""
+        dur, scale = self._point_kinematics()
         return Gesture('point', 'point_object', target=lambda ctx: np.asarray(ctx['object_positions'][key_fn()], float),
-                       duration=self.params['point_s'], dwell=dwell, key=key_fn,
+                       duration=dur, dwell=dwell, key=key_fn, scale=scale,
                        hold=self.until_robot_above(key_fn) if hold else None, hold_max=self.params.get('point_hold_max_s', 0.0),
                        on_arrive=self.arrive_steps(*steps) if steps else None)
 
     def G_point_zone(self, zone, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
+        dur, scale = self._point_kinematics()
         return Gesture('point', 'point_place', target=lambda ctx: np.r_[np.asarray(ctx['zone_positions'][zone])[:2], ctx['table_top_z']],
-                       duration=self.params['point_s'], dwell=dwell, key=zone,
+                       duration=dur, dwell=dwell, key=zone, scale=scale,
                        hold=self.until_robot_above(lambda: zone, zone=True) if hold else None, hold_max=self.params.get('point_hold_max_s', 0.0),
                        on_arrive=self.arrive_steps(*steps) if steps else None)
 
     def G_rest(self, label='return_rest', duration=None, pose=None, shape=None, palm_up=0.0) -> Gesture:
         pose = self.rest if pose is None else np.asarray(pose, float)
+        measured = duration is None and self.params.get('rest_from_dp', False)
         return Gesture('move', label, target=lambda ctx: pose, duration=self.params['rest_s'] if duration is None else duration,
-                       shape=shape, palm_up=palm_up)
+                       shape=shape, palm_up=palm_up, scale=not measured)
 
     def G_call(self, fn) -> Gesture:
         return Gesture('call', fn=fn)
@@ -324,11 +365,14 @@ class GestureHuman(ScriptedHuman):
         key = g.key() if callable(g.key) else g.key
         if g.kind == 'point':
             aim = np.asarray(g.target(ctx), float)
+            self.shape_from = self.hand_shape     # the hand forms from its current shape (gesture_progress)
             self.point_at, self.shape = aim, 'point'
-            self.move(t, self.point_pose(aim), g.duration, g.label, g.clearance, key)
+            palm = self.point_pose(aim)
+            self.move(t, palm, g.duration, g.label, g.clearance, key, scale=g.scale)
         elif g.kind == 'move':
+            self.shape_from = self.hand_shape     # an offer / 'wait' / grasp hand forms along the motion (shape_progress)
             self.point_at, self.shape = None, g.shape
-            self.move(t, g.target(ctx), g.duration, g.label, g.clearance, key)
+            self.move(t, g.target(ctx), g.duration, g.label, g.clearance, key, scale=g.scale)
 
     def _finished(self, g: Gesture, t: float, ctx: dict) -> bool:
         if g.kind == 'call':

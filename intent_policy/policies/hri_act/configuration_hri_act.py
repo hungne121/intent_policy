@@ -14,7 +14,7 @@ ACTION_MODES = ('restricted', 'continuous')
 INTENT_PREFIX = 'observation.oracle.'
 INTENT_ARCHS = ('fusion', 'tokens')
 INTENT_GROUPS = ('semantic', 'spatial', 'memory', 'time', 'motion')
-INTENT_SOURCES = ('hindsight', 'perfect', 'predicted', 'belief')
+INTENT_SOURCES = ('hindsight', 'perfect', 'predicted', 'device')
 INTENT_VERSIONS = ('v2', 'v32')
 TOKENS_V32 = ('human', 'sem', 'target', 'c_target', 'time', 'motion')     # = policies/intent_encoder_v32.TOKENS_V32
 SCHEMA_KEYS = ('targets', 'who', 'phases', 'tasks', 'n_waypoints', 'keypoints', 'keypoint_dim', 'tte_max_s')
@@ -56,7 +56,7 @@ class HRIACTConfig(ACTConfig):
     intent_keep: list[str] = field(default_factory=lambda: list(INTENT_GROUPS))
     intent_film: bool = False
     # Contract / token layout: 'v2' (13 tokens, INTENT_ACT_GUIDE_v2.md) or 'v32' (6 tokens + key padding mask,
-    # INTENT_ACT_v3.2.md §5; source `belief`). v32: intent_p_drop_group drops single tokens, intent_keep lists tokens.
+    # INTENT_ACT_v3.2.md §5; source `device`). v32: intent_p_drop_group drops single tokens, intent_keep lists tokens.
     intent_version: str = 'v2'
     # Task token (T1-T4, §4.1): conditions every model on the task id when set (needs intent_schema['tasks']).
     use_task_token: bool = False

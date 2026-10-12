@@ -138,7 +138,7 @@ def stages_per_frame(m: dict) -> dict[str, list[str]]:
 
 
 def belief_line(b: dict | None) -> str:
-    """The belief the expert acted on at this frame (belief trigger, INTENT_ACT_v3.2.md §4)."""
+    """The belief the expert acted on at this frame (device trigger, INTENT_ACT_v3.2.md §4.2e-g)."""
     if not b:
         return ''
     parts = [f'{k} {v:.2f}' for k, v in {**b['objects'], **b['zones']}.items()]
@@ -146,7 +146,7 @@ def belief_line(b: dict | None) -> str:
 
 
 def export_mp4(ds: LeRobotDataset, m: dict, path) -> None:
-    """The episode as an mp4 from the dataset's own frames, in the evaluation video layout (belief trigger: the
+    """The episode as an mp4 from the dataset's own frames, in the evaluation video layout (device trigger: the
     expert's belief on the last line, its commits among the events)."""
     marks = sorted([(p['frame'], f"{p['t']:5.2f}s {p['step']} (by {p['by']})") for p in m['protocol_steps']]
                    + [(c['frame'], f"{c['t']:5.2f}s INTENTION CHANGE {c['kind']}: {c['previous']} -> {c['current']}")

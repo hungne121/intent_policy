@@ -147,6 +147,10 @@ def main():
                         'needs no images, so failure videos would render every episode)')
     p.add_argument('--temporal-ensemble-coeff', type=float, default=None,
                    help='inference-time ACT temporal ensembling (default: protocol `inference`, else the checkpoint config)')
+    p.add_argument('--list', help='episode list (.jsonl) instead of the experiment benchmark.eval_list, e.g. '
+                                   'configs/episode_lists/v5/val_list.jsonl')
+    p.add_argument('--no-temporal-ensemble', action='store_true',
+                   help='no ACT temporal ensembling: execute the first action of every new chunk (guide v3)')
     args = p.parse_args()
     exp = load_yaml(args.config)
     out = run_dir('eval', f"{exp['experiment']}_{'expert' if args.expert else checkpoint_name(args.checkpoint)}", args.output_dir)
@@ -160,13 +164,15 @@ def main():
         ensemble = protocol.get('inference', {}).get('temporal_ensemble_coeff', 'config')
     else:
         bench = exp['benchmark']
-        splits = [dict(name='default', scenario_list=bench['eval_list'])] if bench.get('eval_list') else \
+        splits = [dict(name='default', scenario_list=args.list or bench['eval_list'])] if args.list or bench.get('eval_list') else \
             [dict(name='default', scenarios=bench['scenarios'], seed_start=bench['eval_seed_start'],
                   episodes_per_scenario=bench['eval_episodes_per_scenario'])]
         oracle_condition, protocol_name = {'condition': 'correct'}, exp['experiment']
         ensemble = 'config'
     if args.temporal_ensemble_coeff is not None:
         ensemble = args.temporal_ensemble_coeff
+    if args.no_temporal_ensemble:
+        ensemble = None
     jobs = []
     for split in splits:
         if args.splits and split['name'] not in args.splits:

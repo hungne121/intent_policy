@@ -8,7 +8,7 @@ the candidates (the instructed kind's twins in T1 / T2, the two cups in T3) the 
       which candidate it will be (should be at chance, ~1 / n_candidates)
 Red flag: excess > 0.02 or probe accuracy above chance by more than 2 binomial standard errors.
 
-  ./run.sh -m scripts.intent_leak_test --dataset-root outputs/datasets/intent_act_early_v5 --sources pb hs pp
+  ./run.sh -m scripts.intent_leak_test --dataset-root outputs/datasets/intent_act_device_early --sources pd hs
 """
 import argparse
 import json
@@ -69,7 +69,7 @@ def logistic_cv(X: np.ndarray, y: np.ndarray, groups: np.ndarray, n_cls: int, fo
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--dataset-root', required=True)
-    p.add_argument('--sources', nargs='+', default=['pb'], help='column prefixes intent_<src> (pb hs pp pr0 ...)')
+    p.add_argument('--sources', nargs='+', default=['pd'], help='column prefixes intent_<src> (pd hs pp pr0 ...)')
     p.add_argument('--schema', default='configs/intent_schema.yaml')
     args = p.parse_args()
     schema, root = load_schema(args.schema), resolve(args.dataset_root)

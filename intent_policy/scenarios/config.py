@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import copy
+import json
 import numpy as np
 import yaml
 from intent_policy.sim.base_env import ROOT
@@ -308,8 +309,27 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
     if t == 't4_intruder' and 'intrusion_time_s' in hb:
         human['intrusion_time_s'] = _uniform(rng, spec.get('intrusion_time_range') or hb['intrusion_time_s'])
         human['intrusion_hold_s'] = _uniform(rng, spec.get('hold_range') or hb['intrusion_hold_s'])
+    kin = hb.get('kinematics')
+    if kin:      # (2026-10-12) pointing calibrated on real people (DP dataset, docs/requirements/INTENT_ACT_v3.2.md §4.2d),
+        k = _kinematics(kin)             # drawn last: the earlier draws of the episode are unchanged
+        frac = float(k['minjerk_fraction_above_frac'])     # measured duration (10 % of peak speed) -> minimum-jerk T
+        pick = lambda key: float(k['samples'][key][int(rng.integers(len(k['samples'][key])))])
+        human['point_seq_s'] = [pick('approach_s') / frac for _ in range(8)]   # one per pointing gesture
+        human['point_dwell_s'] = [pick('hold_s') for _ in range(3)]           # minimum hold of the pointings
+        human['rest_s'] = pick('retract_s') / frac                            # returning the hand to rest
+        human['rest_from_dp'] = True
     var['human'] = human
     return var
+
+
+_KINEMATICS: dict[str, dict] = {}
+
+
+def _kinematics(path: str) -> dict:
+    """Real-pointing distributions (scripts/measure_dp_pointing.py), loaded once."""
+    if path not in _KINEMATICS:
+        _KINEMATICS[path] = json.loads((ROOT / path).read_text())
+    return _KINEMATICS[path]
 
 
 def load_scenario_list(path) -> list[dict]:

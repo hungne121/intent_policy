@@ -1,0 +1,1311 @@
+{
+ "val-T1-010": {
+  "cell_id": "val-T1-010",
+  "seed": 3000020,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000020,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.1
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.0
+    }
+   }
+  ]
+ },
+ "val-T1-016": {
+  "cell_id": "val-T1-016",
+  "seed": 3000030,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000030,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.45
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.6
+    }
+   }
+  ]
+ },
+ "val-T1-000": {
+  "cell_id": "val-T1-000",
+  "seed": 3000000,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000000,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.95
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.85
+    }
+   }
+  ]
+ },
+ "val-T1-005": {
+  "cell_id": "val-T1-005",
+  "seed": 3000010,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000010,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.3
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.3
+    }
+   }
+  ]
+ },
+ "val-T1-021": {
+  "cell_id": "val-T1-021",
+  "seed": 3000040,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000040,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.05
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.2
+    }
+   }
+  ]
+ },
+ "val-T1-026": {
+  "cell_id": "val-T1-026",
+  "seed": 3000050,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000050,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.95
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 9.35
+    }
+   }
+  ]
+ },
+ "val-T1-031": {
+  "cell_id": "val-T1-031",
+  "seed": 3000060,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000060,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.35
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.65
+    }
+   }
+  ]
+ },
+ "val-T1-037": {
+  "cell_id": "val-T1-037",
+  "seed": 3000070,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000070,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.45
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.1
+    }
+   }
+  ]
+ },
+ "val-T1-042": {
+  "cell_id": "val-T1-042",
+  "seed": 3000080,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000080,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.85
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.7
+    }
+   }
+  ]
+ },
+ "val-T1-047": {
+  "cell_id": "val-T1-047",
+  "seed": 3000090,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000090,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.8
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.2
+    }
+   }
+  ]
+ },
+ "val-T2-000": {
+  "cell_id": "val-T2-000",
+  "seed": 3000100,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000100,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.7
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.65
+    }
+   }
+  ]
+ },
+ "val-T2-005": {
+  "cell_id": "val-T2-005",
+  "seed": 3000110,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000110,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.25
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.05
+    }
+   }
+  ]
+ },
+ "val-T2-010": {
+  "cell_id": "val-T2-010",
+  "seed": 3000120,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000120,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.15
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.3
+    }
+   }
+  ]
+ },
+ "val-T2-016": {
+  "cell_id": "val-T2-016",
+  "seed": 3000130,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000130,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.35
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.85
+    }
+   }
+  ]
+ },
+ "val-T2-021": {
+  "cell_id": "val-T2-021",
+  "seed": 3000140,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000140,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.5
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.9
+    }
+   }
+  ]
+ },
+ "val-T2-026": {
+  "cell_id": "val-T2-026",
+  "seed": 3000150,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000150,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.45
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.05
+    }
+   }
+  ]
+ },
+ "val-T2-031": {
+  "cell_id": "val-T2-031",
+  "seed": 3000160,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000160,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.4
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.05
+    }
+   }
+  ]
+ },
+ "val-T2-037": {
+  "cell_id": "val-T2-037",
+  "seed": 3000170,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000170,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.9
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.8
+    }
+   }
+  ]
+ },
+ "val-T2-042": {
+  "cell_id": "val-T2-042",
+  "seed": 3000180,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000180,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.45
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.25
+    }
+   }
+  ]
+ },
+ "val-T2-047": {
+  "cell_id": "val-T2-047",
+  "seed": 3000190,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000190,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.25
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.15
+    }
+   }
+  ]
+ },
+ "val-T3-000": {
+  "cell_id": "val-T3-000",
+  "seed": 3000200,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000200,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 17.55
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 16.1
+    }
+   }
+  ]
+ },
+ "val-T3-005": {
+  "cell_id": "val-T3-005",
+  "seed": 3000210,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000210,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 18.0
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.95
+    }
+   }
+  ]
+ },
+ "val-T3-010": {
+  "cell_id": "val-T3-010",
+  "seed": 3000220,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000220,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 16.4
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.1
+    }
+   }
+  ]
+ },
+ "val-T3-016": {
+  "cell_id": "val-T3-016",
+  "seed": 3000230,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000230,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.9
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.7
+    }
+   }
+  ]
+ },
+ "val-T3-021": {
+  "cell_id": "val-T3-021",
+  "seed": 3000240,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000240,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.95
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.35
+    }
+   }
+  ]
+ },
+ "val-T3-026": {
+  "cell_id": "val-T3-026",
+  "seed": 3000250,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000250,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.25
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.9
+    }
+   }
+  ]
+ },
+ "val-T3-031": {
+  "cell_id": "val-T3-031",
+  "seed": 3000260,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000260,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.9
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.6
+    }
+   }
+  ]
+ },
+ "val-T3-037": {
+  "cell_id": "val-T3-037",
+  "seed": 3000270,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000270,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.15
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.15
+    }
+   }
+  ]
+ },
+ "val-T3-042": {
+  "cell_id": "val-T3-042",
+  "seed": 3000280,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000280,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.7
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.0
+    }
+   }
+  ]
+ },
+ "val-T3-047": {
+  "cell_id": "val-T3-047",
+  "seed": 3000290,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000290,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 16.5
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.85
+    }
+   }
+  ]
+ },
+ "val-T4-000": {
+  "cell_id": "val-T4-000",
+  "seed": 3000300,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000300,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.7,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.35,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4-005": {
+  "cell_id": "val-T4-005",
+  "seed": 3000311,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000310,
+    "late": {
+     "success": false,
+     "failure": "human_robot_contact",
+     "duration_s": 2.7,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.05,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   },
+   {
+    "seed": 3000311,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.85,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.3,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4-010": {
+  "cell_id": "val-T4-010",
+  "seed": 3000320,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000320,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.15,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.65,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4-016": {
+  "cell_id": "val-T4-016",
+  "seed": 3000330,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000330,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.9,
+     "entered_zone": true,
+     "phase": "carry"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.65,
+     "entered_zone": true,
+     "phase": "carry"
+    }
+   }
+  ]
+ },
+ "val-T4-021": {
+  "cell_id": "val-T4-021",
+  "seed": 3000340,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000340,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.8,
+     "entered_zone": true,
+     "phase": "carry"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.3,
+     "entered_zone": true,
+     "phase": "carry"
+    }
+   }
+  ]
+ },
+ "val-T4-026": {
+  "cell_id": "val-T4-026",
+  "seed": 3000350,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000350,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.7,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.1,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4-031": {
+  "cell_id": "val-T4-031",
+  "seed": 3000360,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000360,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.7,
+     "entered_zone": true,
+     "phase": "carry"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.05,
+     "entered_zone": true,
+     "phase": "carry"
+    }
+   }
+  ]
+ },
+ "val-T4-037": {
+  "cell_id": "val-T4-037",
+  "seed": 3000370,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000370,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.5,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.75,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4-042": {
+  "cell_id": "val-T4-042",
+  "seed": 3000380,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000380,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.3,
+     "entered_zone": true,
+     "phase": "place"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 12.85,
+     "entered_zone": true,
+     "phase": "place"
+    }
+   }
+  ]
+ },
+ "val-T4-047": {
+  "cell_id": "val-T4-047",
+  "seed": 3000390,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000390,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.25,
+     "entered_zone": true,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.25,
+     "entered_zone": true,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4neg-000": {
+  "cell_id": "val-T4neg-000",
+  "seed": 3000400,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000400,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.95,
+     "entered_zone": false,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.95,
+     "entered_zone": false,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4neg-006": {
+  "cell_id": "val-T4neg-006",
+  "seed": 3000410,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000410,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.95,
+     "entered_zone": false,
+     "phase": "place"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 11.95,
+     "entered_zone": false,
+     "phase": "place"
+    }
+   }
+  ]
+ },
+ "val-T4neg-012": {
+  "cell_id": "val-T4neg-012",
+  "seed": 3000420,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000420,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.8,
+     "entered_zone": false,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.8,
+     "entered_zone": false,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4neg-017": {
+  "cell_id": "val-T4neg-017",
+  "seed": 3000432,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000430,
+    "late": {
+     "success": false,
+     "failure": "unnecessary_stop",
+     "duration_s": 7.45,
+     "entered_zone": false,
+     "phase": "approach"
+    },
+    "early": {
+     "success": false,
+     "failure": "unnecessary_stop",
+     "duration_s": 7.45,
+     "entered_zone": false,
+     "phase": "approach"
+    }
+   },
+   {
+    "seed": 3000431,
+    "late": {
+     "success": false,
+     "failure": "unnecessary_stop",
+     "duration_s": 7.45,
+     "entered_zone": false,
+     "phase": "approach"
+    },
+    "early": {
+     "success": false,
+     "failure": "unnecessary_stop",
+     "duration_s": 7.45,
+     "entered_zone": false,
+     "phase": "approach"
+    }
+   },
+   {
+    "seed": 3000432,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.4,
+     "entered_zone": false,
+     "phase": "approach"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.4,
+     "entered_zone": false,
+     "phase": "approach"
+    }
+   }
+  ]
+ },
+ "val-T4neg-023": {
+  "cell_id": "val-T4neg-023",
+  "seed": 3000440,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000440,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.65,
+     "entered_zone": false,
+     "phase": "place"
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 10.65,
+     "entered_zone": false,
+     "phase": "place"
+    }
+   }
+  ]
+ },
+ "val-T5-000": {
+  "cell_id": "val-T5-000",
+  "seed": 3000450,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000450,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 14.45,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 13.1,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-005": {
+  "cell_id": "val-T5-005",
+  "seed": 3000461,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000460,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 23.1,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": false,
+     "failure": "human_robot_contact",
+     "duration_s": 8.75,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   },
+   {
+    "seed": 3000461,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 21.55,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 21.05,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-010": {
+  "cell_id": "val-T5-010",
+  "seed": 3000470,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000470,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 19.4,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 18.55,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-016": {
+  "cell_id": "val-T5-016",
+  "seed": 3000480,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000480,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.7,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 15.8,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-021": {
+  "cell_id": "val-T5-021",
+  "seed": 3000490,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000490,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 25.3,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 24.75,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-026": {
+  "cell_id": "val-T5-026",
+  "seed": 3000500,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000500,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 21.8,
+     "change_state": "grasp",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 19.85,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-031": {
+  "cell_id": "val-T5-031",
+  "seed": 3000510,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000510,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 18.5,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 17.5,
+     "change_state": "grasp",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-047": {
+  "cell_id": "val-T5-047",
+  "seed": 3000541,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000540,
+    "late": {
+     "success": false,
+     "failure": "cup_upset",
+     "duration_s": 5.7,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": false,
+     "failure": "cup_upset",
+     "duration_s": 4.25,
+     "change_state": null,
+     "cancelled": false,
+     "changed": false
+    }
+   },
+   {
+    "seed": 3000541,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 24.6,
+     "change_state": "approach",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 20.2,
+     "change_state": "grasp",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-037": {
+  "cell_id": "val-T5-037",
+  "seed": 3000520,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000520,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 35.8,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 30.95,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ },
+ "val-T5-042": {
+  "cell_id": "val-T5-042",
+  "seed": 3000530,
+  "ok": true,
+  "tries": [
+   {
+    "seed": 3000530,
+    "late": {
+     "success": true,
+     "failure": null,
+     "duration_s": 31.3,
+     "change_state": "grasp",
+     "cancelled": false,
+     "changed": true
+    },
+    "early": {
+     "success": true,
+     "failure": null,
+     "duration_s": 24.8,
+     "change_state": "holding",
+     "cancelled": false,
+     "changed": true
+    }
+   }
+  ]
+ }
+}

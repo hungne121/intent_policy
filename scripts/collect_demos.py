@@ -88,9 +88,10 @@ def frame_of(t: float) -> int:
 
 
 def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index, spec=None,
-                   keypoints: list[str] | None = None) -> tuple[dict, list, dict]:
+                   keypoints: list[str] | None = None, schema: dict | None = None) -> tuple[dict, list, dict]:
     frames, stages, humans, targets, actions, commits, noise, beliefs = [], [], [], [], [], [], [], []
     gt = {}
+    contract, src = [], []                   # intent contract v3.2 from the device the expert acts on (intent_pd)
 
     def on_frame(obs, decision, target, scenario):
         if not frames:
@@ -114,12 +115,21 @@ def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index,
         actions.append(label)
         noise.append(noisy)
         beliefs.append(decision.extras.get('expert_belief'))
+        bel = getattr(getattr(agent, 'expert', None), 'belief', None)
+        if bel is not None and schema is not None:          # trigger device: the belief the expert acted on this frame
+            if not src:
+                from intent_policy.intent.source_v32 import IntentV32
+                src.append(IntentV32(scenario, schema, belief=bel))
+                src[0].reset()
+            contract.append(src[0].step(np.asarray(obs['observation.state'], np.float64)))
         if decision.extras.get('expert_commit'):
             commits.append(dict(t=round(scenario.time, 3), frame=len(frames) - 1, target=decision.extras['expert_commit']))
 
     rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, on_frame=on_frame, keep_trace=False, spec=spec)
     info = dict(gt=gt, stages=stages, humans=humans, targets=targets, actions=actions, commits=commits,
-                noise_frames=int(sum(noise)), beliefs=beliefs if any(b is not None for b in beliefs) else None)
+                noise_frames=int(sum(noise)), beliefs=beliefs if any(b is not None for b in beliefs) else None,
+                intent_pd={k: np.stack([f[k] for f in contract]) for k in contract[0]} if contract else None,
+                device=dict(src[0].belief.cfg) if src else None)
     return rec, frames, info
 
 
@@ -228,13 +238,15 @@ def main():
     intent = exp.get('intent') or {}
     horizons = tuple(intent.get('horizons_s', (0.5, 1.0))) if intent.get('provider') == 'oracle' else None
     provider = OracleIntentProvider(horizons) if horizons is not None else None
-    keypoints = list(load_schema(intent['schema'])['keypoints']) if intent.get('schema') else None
+    schema = load_schema(intent['schema']) if intent.get('schema') else None
+    keypoints = list(schema['keypoints']) if schema else None
     noise_cfg = data.get('noise') or {}
     ds = LeRobotDataset.create(repo_id=data['repo_id'], fps=20, features=features(obs_cfg, horizons, keypoints), root=root,
                                robot_type='ur3e_susgrip', use_videos=True, image_writer_threads=4)
     scenario_ids = list(exp['benchmark']['scenarios'])
     entries = entries_of(exp, data, args)
     meta, rejected, cache = [], [], {}
+    device_cfg = None
     t0 = time.time()
     for n, e in enumerate(entries):
         sid, seed = e['scenario_id'], int(e['seed'])
@@ -249,11 +261,15 @@ def main():
             noisy = bool(noise_cfg) and np.random.default_rng(seed * 7 + 11).random() < float(noise_cfg['episode_fraction'])
         agent = NoisyExpertAgent(noise_cfg['burst_prob'], noise_cfg['burst_ticks']) if noisy else ExpertAgent()
         rec, frames, info = record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid), e['spec'],
-                                           keypoints)
+                                           keypoints, schema)
         if rec['success']:
             for fr in frames:
                 ds.add_frame({**fr, 'task': sc.cfg.task})
             ds.save_episode()
+            if info['intent_pd'] is not None:    # the device's contract frames -> build_intent_labels --sources device
+                (root / 'meta/intent_pd').mkdir(parents=True, exist_ok=True)
+                np.savez_compressed(root / f'meta/intent_pd/episode_{len(meta):06d}.npz', **info['intent_pd'])
+                device_cfg = info['device']
             meta.append(episode_meta(len(meta), sid, e['split'], seed, sc, rec, frames, info, e if e['index'] is not None else None))
         else:
             rejected.append(dict(entry=e, failure=rec['failure'], noisy=noisy))
@@ -273,6 +289,8 @@ def main():
     (root / 'meta/hri_restricted_actions.json').write_text(json.dumps(dict(
         ids={a.value: a.name for a in RestrictedAction}, controller=ctrl_cfg.to_dict()), indent=2))
     (root / 'meta/hri_experiment_config.json').write_text(json.dumps(exp, indent=2))
+    if device_cfg is not None:                   # the device settings the labels were measured with (rule, fold models)
+        (root / 'meta/intent_pd/device.json').write_text(json.dumps(device_cfg, indent=2, default=dump))
     card = create_lerobot_dataset_card(tags=['hri', 'ur3e', 'mujoco', 'scripted-expert', exp['experiment']],
                                        dataset_info=ds.meta.info, repo_id=data['repo_id'])
     card.save(root / 'README.md')

@@ -1,9 +1,6 @@
-# INTENT-ACT (docs/requirements/INTENT_ACT_GUIDE_v2.md), episode set 1 = A / C: the expert responds once the human's
-# intention is clear (trigger cue_complete: after the full instruction / pointing / pick). The same episodes train
-#   A: no intent      ./run.sh -m scripts.train_policy --config <this> --output-dir outputs/train/intent_act/A
-#   C: intent tokens  ./run.sh -m scripts.train_policy --config <this> --use-intent --intent-source hindsight --output-dir outputs/train/intent_act/C
-# after `scripts/build_intent_labels.py --dataset-root <data.root> --sources hindsight perfect predicted`.
-# Identical to intent_act_early.yaml except the expert trigger and the dataset (same list, seeds, ACT, budget).
+# INTENT-ACT v5 late episodes (expert trigger cue_complete: acts once the human's instruction / pointing / pick is
+# complete), dataset intent_act_late_v5. Since 2026-10-12 it is only the replay source of the device training data
+# (scripts/render_sensor_view.py, workstation/job1_device.sh); the 2x2 (A-D) uses intent_act_device_{late,early}.yaml.
 experiment: intent_act_late
 phase: intent_act
 seed: 0

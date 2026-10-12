@@ -2,7 +2,8 @@
 
 Reads the evaluation runs of A (late), B (early), C (late + intent), D (early + intent) on the same episode list
 (per-episode metrics of episodes/<split>/<task>/*.json.gz) and reports per task and overall:
-  - each model's mean of CSR, CT, WCR, AM, CRsp, DSR and of the early wrong commit rate EWC (a wrong
+  - each model's mean of CSR, CT, Rsp, WCR, WCD, AM, CRsp, DSR (benchmark/metrics.py) and of the early wrong commit
+    rate EWC (a wrong
     robot_target_commit before the human finished selecting: the 'false start' of an early policy);
   - the intent effect late (C - A), early (D - B) and the interaction (D - B) - (C - A), with 95 % paired bootstrap
     intervals over the episodes all four models share (H3 of the design).
@@ -18,8 +19,8 @@ import numpy as np
 from intent_policy.experts.scripted_expert import CUE_COMPLETE_STEP
 from intent_policy.utils import resolve
 
-METRICS = ('CSR', 'CT', 'WCR', 'EWC', 'AM', 'CRsp', 'DSR')
-LOWER_IS_BETTER = {'CT', 'WCR', 'EWC', 'CRsp'}
+METRICS = ('CSR', 'CT', 'Rsp', 'WCR', 'WCD', 'EWC', 'AM', 'CRsp', 'DSR')   # HRIBench-style set (+ EWC)
+LOWER_IS_BETTER = {'CT', 'Rsp', 'WCR', 'WCD', 'EWC', 'CRsp'}
 
 
 def early_wrong_commit(rec: dict) -> float | None:

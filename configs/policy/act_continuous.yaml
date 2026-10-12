@@ -3,11 +3,13 @@ type: hri_act
 action_mode: continuous
 use_intent: false
 # Chunk ~2 s: the ACT ablation (Zhao et al. 2023) peaks at k=100 @ 50 Hz = 2 s (1 % at k=1 -> 44 % at k=100), i.e.
-# 40 steps @ 20 Hz; it covers one robot sub-motion (~1.5-2 s) and one human gesture (~1.15 s measured). Inference as
-# in the ACT paper: query every step, temporal ensembling (m = 0.01) for reactivity. phase_4.md had H=16, prefix=2.
+# 40 steps @ 20 Hz; it covers one robot sub-motion (~1.5-2 s) and one human gesture (~1.15 s measured). phase_4.md
+# had H=16, prefix=2. Inference (guide v3): query every step and execute the new chunk's first action, no temporal
+# ensembling: with m = 0.01 over 40 chunks a new 'stop' prediction carries ~1/40 of the weight, and A (10k steps) still
+# moved at ~2/3 speed 0.5 s after a hand entered its zone (T4 did_not_yield 30/48). Training does not use it.
 chunk_size: 40
 n_action_steps: 1
-temporal_ensemble_coeff: 0.01
+temporal_ensemble_coeff: null
 vision_backbone: resnet18
 pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
 dim_model: 256

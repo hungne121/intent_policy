@@ -13,24 +13,31 @@
 | M3 | thu `intent_act_early_v5`, nhãn, leak test | xong (2026-10-10): 552/559 episode, nhãn hs / pp / pb cho early và late, leak test qua với pb |
 | M4 | contract + nguồn nhãn + encoder v3.2, mask, train/eval online | xong (2026-10-10, commit 70b9b20) |
 | M5 | inference chung | chưa |
-| M6 | train B, C, D, D_pr | **B xong** (2026-10-10 08:04, 15k bước, val_loss 0.151); C, D, D_pr chưa (bạn yêu cầu dừng sau B) |
+| M6 | train B, C, D, D_pr | B xong (2026-10-10 08:04, 15k, val_loss 0.151); val B/A xong (mục 6.9); C xong 15k; D dừng ở ~7.5k theo yêu cầu (2026-10-11); D_pr chưa |
 | M7 | eval + phân tích 2×2 | chưa |
-| M8 | DeePoint trên video thật | chưa |
+| M8 | DeePoint trên video thật | **đổi hướng 2026-10-11:** chạy DeePoint đã công bố trên ảnh sim (mục 6.10) để thay phần tự chế (ramp, λ, ...) bằng số đo của model thật |
+| Bộ đo 5 fold + máy trạm | gỡ belief tự chế, nguồn intent v3.2 từ bộ đo, gói job cho máy trạm | code xong 2026-10-12 (mục 6.16); chưa chạy: job 1–5 trên máy trạm (`workstation/README.md`) |
+
+> **2026-10-12:**
+> - Người dùng chọn bỏ những gì đã xác định không dùng nữa:
+>   - đường belief tự chế (`intent/belief.py`, thư viện vươn tay, trigger `belief`, nguồn intent `belief` / cột `intent_pb`);
+>   - tư thế mắt–ngón (H1);
+>   - các model DeePoint, dataset và model ACT thu với người sim còn lộ đích.
+> - M1–M3, M6 ở bảng trên thuộc đường cũ; mục 2–4 chỉ còn ghi chú, nội dung cũ xem git (commit 4739542).
+> - Mọi bước nặng từ nay chạy trên máy trạm (`workstation/`).
 
 ## 1. Bản đồ file
 
 | File | Vai trò | Mới / sửa |
 |---|---|---|
-| `intent_policy/intent/belief.py` | belief nhân quả: động học tay, lớp cử chỉ, likelihood chỉ tay, thư viện vươn tay + DTW online, bộ lọc belief, `OnlineBelief` cho expert | mới |
-| `scripts/fit_reach_library.py` | học thư viện vươn tay từ dataset late, out-of-fold, hiệu chỉnh nhiệt độ, báo cáo đường cong độ đúng | mới |
-| `assets/intent/reach_library_v5.npz` (+ `.json`) | thư viện đã học (5 fold), commit vào git | mới |
-| `intent_policy/experts/scripted_expert.py` | thêm `trigger: belief` | sửa |
+| ~~`intent_policy/intent/belief.py`~~ | đã xoá 2026-10-12; `HandKinematics` chuyển sang `intent/kinematics.py`, `fold_of` sang `intent/folds.py` | xoá |
+| ~~`scripts/fit_reach_library.py`~~, ~~`assets/intent/reach_library_v5.*`~~ | đã xoá 2026-10-12 | xoá |
+| `intent_policy/experts/scripted_expert.py` | thêm `trigger: belief` (đã thay bằng `device`, 2026-10-12) | sửa |
 | `scripts/check_expert.py` | `--config`, `--belief` (khoá lồng nhau `reach.method=ioc`), DART theo cell, commit sai (expert / bộ phát hiện), lead | sửa |
 | `intent_policy/scenarios/base_scenario.py`, `t1_pick_place.py` | `robot_target_commit` = bắt đầu hạ xuống vật hoặc vào vùng (`COMMIT_RADIUS` 5 cm, `COMMIT_DZ` 6 cm); điểm commit của vùng đặt = chỗ vật sẽ nằm | sửa |
 | `intent_policy/benchmark/runner.py`, `scripts/collect_demos.py`, `scripts/view_dataset.py` | ghi belief của expert theo frame vào meta (`expert_belief`), video preview hiện belief và commit | sửa |
-| `configs/intent_schema.yaml` | khối `belief:` | sửa |
-| `configs/experiments/intent_act_early.yaml` | `trigger: belief` | sửa |
-| `tests/test_belief.py` | 7 test | mới |
+| `configs/intent_schema.yaml` | khối `belief:` (đã xoá 2026-10-12) | sửa |
+| ~~`configs/experiments/intent_act_early.yaml`~~, ~~`tests/test_belief.py`~~ | đã xoá 2026-10-12 | xoá |
 
 ### 1.1 File mới / sửa ở M4 (intent v3.2)
 
@@ -49,97 +56,43 @@
 | `scripts/analyze_2x2.py` (mới) | bảng 2×2 cho M7: trung bình từng model, hiệu của intent khi late (C − A) và early (D − B), tương tác (D − B) − (C − A) kèm bootstrap ghép cặp theo episode; EWC = commit sai trước khi người chọn xong |
 | `tests/test_intent_v32.py` (mới) | 4 test (xem 2.5) |
 
-## 2. `intent_policy/intent/belief.py`
+### 1.2 File mới: chạy DeePoint thật trên ảnh sim (2026-10-11, mục 6.10)
 
-### 2.1 Hằng số
-- `SELECTION_CLASS`: ánh xạ nhãn chuyển động của người sim sang lớp cử chỉ "chọn đích":
-  - `point_object`, `point_place` → `point`;
-  - `reach_out` → `palm_up`;
-  - `reach_block` → `reach`;
-  - `stop_signal` → `palm_forward`;
-  - mọi nhãn khác → `rest`. Các đoạn giữ, rút tay, `move_over_cup`, `take_object` không chọn đích nào.
+| File | Vai trò |
+|---|---|
+| `third_party/deepoint/` (git-ignored) | repo DeePoint (commit f8afc75), weights `models/weight.ckpt` (73 MB, md5 dab07de2...) |
+| conda env `deepoint310` | python 3.10, torch 1.13.1+cu117, openpifpaf 0.13.11, pytorch-lightning 2.0.2, đúng `environment/pip_freeze.txt` của tác giả |
+| `scripts/deepoint.sh` (mới) | chạy script trong env `deepoint310`, tách khỏi PYTHONPATH của ROS và `~/.local` |
+| `scripts/deepoint_infer.py` (mới) | suy luận không GUI. Mặc định mỗi frame qua OpenPifPaf + spatial transformer một lần rồi temporal transformer theo cửa sổ 15 frame. Kết quả trùng bản gốc (`--reference`, vòng lặp của `src/demo.py`) trên clip demo: \|Δp\| ≤ 8.6e-7, hướng ≤ 0.03°; nhanh hơn ~35 lần |
+| `scripts/render_sensor_view.py` (mới) | chạy lại đúng episode của dataset (cùng scenario, seed, spec, config) với camera thế giới thêm vào (`front` / `side` / `oblique`), ghi mp4 + npz sự thật (keypoint, pose camera); kiểm tra keypoint lệch 0 m so với dataset |
+| `scripts/deepoint_sim_report.py` (mới) | đổi hướng DeePoint sang toạ độ thế giới (dựng lại hệ trục hand-centred của `hand2marker_direction` từ keypoint OpenPifPaf), so với sự thật sim, xuất video chú thích + `summary<suffix>.md`. Có bảng tổng hợp: precision / recall theo frame (nhãn quy ước DP), tỉ lệ "đang chỉ" theo lớp cử chỉ thật, thời điểm phát hiện, sai số hướng, ứng viên được chọn; `--suffix _deepoint_ft` để đánh giá bản fine-tune, `--fold k` để chỉ lấy fold test |
+| `scripts/render_sensor_view.py` (bổ sung) | thêm video 15 fps chính xác theo frame (frame k = frame sim round(4k/3), lưu `idx20_of_15`), khớp 3D theo thứ tự COCO (vai, khuỷu, cổ tay, mũi), `<tag>.json` (spec, fold, segment sự thật, vị trí đích); `--per-task N` chọn N episode không DART mỗi task, xoay vòng qua 5 fold |
+| `scripts/deepoint_export_dp.py` (mới) | ghi episode sim theo đúng định dạng DP (một venue cho mỗi fold, một session cho mỗi episode, camera 00), đặc trưng `use_preprocessed` tính bằng `MovieDataset` + `process_single_batch` |
+| `scripts/deepoint_finetune.py` (mới) | fine-tune bằng `DPDataset`, `PointingModule`, sampler của tác giả; khởi tạo từ weights gốc; batch 64; chọn checkpoint theo sai số góc trên validation; early stopping patience 5; ghi metric của model gốc trước khi train |
+| `third_party/dp_meta/DPDataset_public/` (git-ignored) | `labels/` + `keypoints/triangulation.pickle` của DP (md5 khớp README), dùng để đo quy ước nhãn |
 
-  Đây là "nhận dạng lớp cử chỉ hoàn hảo", giống nguồn perfect cũ. Độ trễ được mô phỏng bằng ramp.
-- `REACH_LABELS = ('reach_block', 'reach_out')`: các chuyển động đưa vào thư viện vươn tay.
-- `EXTRA_CLASSES = ['withdraw']`: các lớp cử chỉ của belief = 5 lớp của schema + `withdraw` (`withdraw_change`: rút tay hoặc trả khối sau khi đổi ý).
-- `SELECTION_HOLD`: các đoạn giữ ngay sau một lần vươn tay chọn đích: `waiting_offer` (chìa tay chờ) → `palm_up`; `lift_block`, `waiting_cup` → `reach`. Trong đoạn giữ, lớp cử chỉ vẫn tiếp tục (xác suất tiếp tục tăng), còn posterior vươn tay đóng băng ở giá trị lúc chuyển động kết thúc.
+## 2. Intent v3.2
 
-### 2.2 Các lớp / hàm
+`intent/belief.py` (belief tự chế: ramp, λ, thư viện vươn tay, IOC) đã gỡ ngày 2026-10-12. Belief của contract v3.2 giờ lấy từ bộ đo (`intent/device.py`, mục 6.14–6.16).
 
-| Tên | Vào → ra | Ghi chú |
-|---|---|---|
-| `HandKinematics(schema, onset_speed, still_speed)` | `step(t, kp)` | Tay hoạt động = tay xa vị trí frame đầu nhất. `speed` = tốc độ trung bình keypoint của tay đó. `onset_t` bắn khi tốc độ vượt 0.08 m/s sau khi đã < 0.03 m/s. `moving` = đang vượt ngưỡng onset |
-| `GestureRamp(classes, ramp_s, p_max, fps)` | `step(t, cls, kin)` → p (6,) | Lớp đúng tăng tuyến tính từ 1/G tới p_max = 0.95 trong ramp_s = 1.15 s, tính từ onset. Lớp đổi khi tay đang chạy thì ramp bắt đầu ngay; tay nhúc nhích > 0.03 m/s trong lớp mới cũng làm ramp bắt đầu (cử chỉ chậm, ngắn). `rest` luôn bằng p_max |
-| `pointing_likelihood(base, tip, positions, p_point, sigma_deg)` | → L (N,) | `L = p·exp(−θ²/2σ²) + (1−p)`; θ đo từ đầu ngón, hướng gốc → đầu ngón trỏ |
-| `reach_features(kp, rest, idx, names)` | → (…, 6) | cổ tay và đầu ngón trỏ của tay hoạt động, trừ vị trí ở frame đầu |
-| `time_normalise(x, n)` | (T, D) → (n, D) | nội suy tuyến tính theo thời gian chuẩn hóa |
-| `start_clusters(starts, radius)` | → (centres, labels) | gom cụm tham lam theo vị trí cổ tay lúc bắt đầu |
-| `ReachLibrary.fit(demos, n_steps, var_floor_m, families, radius, min_demos)` | → library | Với mỗi đích `g`: μ, σ² theo từng bước (sàn 1 cm). Với mỗi (cụm xuất phát c, đích) có ≥ 3 demo: thư viện riêng `g@c` |
-| `ReachLibrary.keys_for(classes, x0)` | → key | Chọn cụm xuất phát gần x0 nhất (trong 2·radius) có đủ mọi đích; không có thì dùng thư viện chung |
-| `ReachLibrary.nll(key, x)` | → (n,) | −log N(x; μ_j, σ²_j) ở mọi bước j |
-| `OnlineDTW(library, classes, temperature)` | `step(x)` → posterior | DTW online với bước 0/+1/+2; prefix bắt đầu ở bước 0–2. score = min_j D[j] / k; posterior = softmax(−score / T). `logits` giữ bản chưa hiệu chỉnh |
-| `GoalInference(goals, classes, beta)` | `step(wrist)` → posterior | MaxEnt IOC: logit_g = −(quãng đã đi + \|Q−g\| − \|S−g\|), chia β; `goals` = tư thế cuối của cổ tay theo đích (`ReachLibrary.goal`) |
-| `ReachPredictor(library, classes, method)` | `step(x, wrist)` → posterior; `mode` | `library_then_ioc`: thư viện nếu `cluster_for` có cụm phủ đủ ứng viên, không thì IOC; hoặc `ioc` / `library` |
-| `ReachLibrary.cluster_for(classes, x0)` | → cụm hoặc None | cụm xuất phát gần nhất có đủ mọi đích |
-| `fold_of(seed, folds)` | → int | `(seed // 10) % folds`, chia theo cell của danh sách |
-| `save_libraries` / `load_library(path, fold)` / `n_folds` | npz | key `f{fold}/{g}/{mean,var,start,goal}`, `r{fold}` (radius), `T{fold}/{họ}` (nhiệt độ), `T{fold}/ioc:{họ}` (β) |
-| `PointingBelief(keys, lam)` | `update(L)`; `.b` | `log b = λ·log b + log L`, chuẩn hóa |
-| `ReachBelief(keys, lam)` | `update(post, p_g, new_reach)`; `.b` | trong một lần vươn: `b = p_g·post + (1−p_g)·b_start`, không đệ quy, vì posterior đã tích lũy cả đoạn; ngoài lúc vươn: quên dần `norm(b^λ)` |
-| `OnlineBelief(scenario, schema, cfg, library_path)` | `reset()`, `step()`, `objects()`, `zones()`, `p_stop`, `p_withdraw`, `snapshot()` | belief của một scenario đang chạy, xem 2.3 |
-
-### 2.3 `OnlineBelief`: tập ứng viên và luồng mỗi frame
-**`reset()`** dựng tập ứng viên chỉ từ những gì policy cũng thấy được (task, loại vật trong lệnh, layout):
-
-| Task | Belief chỉ tay (`PointingBelief`) | Belief vươn tay (`ReachBelief` + DTW) |
-|---|---|---|
-| T1 | vật cùng loại với lệnh **và** P1, P2 (một tập chung: chỉ vào vùng không làm tăng belief của vật) | — |
-| T2 | vật cùng loại với lệnh | H1, H2 (lớp `palm_up`) |
-| T3 | — | U1, U2 → cốc đi kèm (`variation['pairs']`) (lớp `reach`) |
-| T4 | — | — |
-
-Thư viện dùng fold `fold_of(seed)`, nên không bao giờ thấy chính episode late cùng cell.
-
-**`step()`** (gọi một lần mỗi quyết định của expert, 20 Hz):
-1. `kp = sc.human_keypoints(6 keypoint)`. Đây cũng là keypoint được ghi vào dataset ở frame đó.
-2. `HandKinematics.step`, rồi `GestureRamp.step(lớp từ sc.human.stage)` ra `p_gesture`.
-3. Chỉ tay: `pointing_likelihood(gốc, đầu ngón, vị trí ứng viên, p_point)`, rồi `PointingBelief.update`. Vị trí vật là vị trí lúc bắt đầu episode (`sc.start_pos`); vị trí vùng là tâm vùng trên mặt bàn.
-4. Vươn tay: khi lớp hiện tại là lớp vươn tay của task (kể cả đoạn giữ sau đó) và ramp đã bắt đầu:
-   - ramp mới thì reset DTW;
-   - trong lúc chuyển động thì `post = dtw.step(reach_features)`; trong đoạn giữ thì dùng posterior cuối;
-   - `ReachBelief.update(post, p_g, new_reach)`.
-
-   Ngoài lúc đó thì belief chỉ quên dần.
-5. `objects()` / `zones()`:
-   - T1/T2 lấy từ belief chỉ tay (không chuẩn hóa lại trong nhóm);
-   - T3 objects = cốc, lấy từ belief vươn tay;
-   - T2 zones lấy từ belief vươn tay.
-
-   `p_stop` = p(`palm_forward`).
-
-### 2.4 Intent v3.2: nguồn nhãn và encoder (M4)
-**`IntentV32.step(state)`**: một frame, gọi đúng một lần mỗi frame 20 Hz.
+### 2.4 Intent v3.2: nguồn nhãn và encoder (M4; nguồn đổi sang bộ đo 2026-10-12)
+**`IntentV32(scenario, schema, belief=None, device_cfg=None).step(state)`**: một frame, gọi đúng một lần mỗi frame 20 Hz.
+- Khi thu dữ liệu: `belief` = `DeviceBelief` của chính expert (expert đã step nó trong frame này). `scripts/collect_demos.py` ghi các frame vào `meta/intent_pd/episode_*.npz` và `device.json`. `build_intent_labels --sources device` ghi thành cột `intent_pd.*` và chép `device.json` vào `meta/intent_schema.json`.
+- Khi eval (`PolicyAgent`, C/D): tự tạo `DeviceBelief` với đúng `device` lúc thu nhãn. `train_policy` chép mục này vào `intent_schema` của model.
 
 | Trường | Cách tính |
 |---|---|
-| `p_target` (17) | `OnlineBelief.distribution()` đổi sang tên đích của schema (vật → ô S của nó). T1: belief chỉ tay chung trên vật + P1/P2; T2: ½ belief vật + ½ belief tay H; T3: cốc; T4: `none` = 1 |
-| `p_gesture` (6) | lớp cử chỉ của belief = 5 lớp schema + `withdraw` |
+| `p_target` (17) | `DeviceBelief.distribution()` đổi sang tên đích của schema (vật → ô S của nó). T1: belief chỉ tay chung trên vật + P1/P2; T2: ½ belief vật + ½ belief tay H; T3: cốc; T4: `none` = 1 |
+| `p_gesture` (6) | xác suất 6 lớp của bộ đo (`none` của bộ đo = `rest` của schema) |
 | `p_who` (4) | `p_gesture` × bảng ai-làm (point → robot, reach → human, palm_up → joint, palm_forward → robot, withdraw → human) |
 | `c_who`, `c_target` | `IntentTracker` (bộ nhớ việc đã giao) trên `p_target`, `p_who`, 5 lớp schema (withdraw cộng vào rest) |
-| `phase`, `tte`, `tte_std` | luật động học của tay hoạt động (như nguồn perfect v2), không dùng tương lai |
+| `phase`, `tte`, `tte_std` | luật động học của tay hoạt động (như nguồn perfect v2, ngưỡng của khối `perfect`), không dùng tương lai; `tte` của chỉ tay dùng thời gian từ lúc bộ đo phát hiện (thay cho ramp) |
 | `xi` (8×6×3) | dự báo vận tốc không đổi (CVM) |
 | `occupancy` (7) | hộp quanh tay hiện tại + `xi` |
 | `point_dir` (6) | tia đơn vị gốc → đầu ngón trỏ + gốc tia (đầu ngón), định dạng DeePoint |
 | `min_dist` (1) | khoảng cách nhỏ nhất keypoint tay – TCP robot (xấp xỉ: không tính các khâu khác của robot) |
 | `hand_hist` (10×6×3) | keypoint 10 frame trước trừ keypoint hiện tại |
 | `human_present` (1) | 1 (tay mô phỏng luôn được theo dõi) |
-
-**`ReplayScenario`** dựng lại từ một episode đã ghi những gì `OnlineBelief` cần đọc:
-- `variation`, `seed`, `task_code`;
-- vùng (`layout`), vị trí vật lúc bắt đầu (`object_xy` + nửa chiều cao vật);
-- keypoint từng frame;
-- stage của người từng frame (`human_stages`).
-
-Đối chiếu trên 12 episode preview: belief phát lại khớp với `expert_belief` mà expert ghi lúc chạy, sai khác lớn nhất 0.002. Phần lớn sai khác do giá trị ghi bị làm tròn 3 chữ số; phần còn lại do độ cao vật được ước lượng.
 
 **`IntentEncoderV32`** dựng 6 token và mask:
 
@@ -159,9 +112,10 @@ Thư viện dùng fold `fold_of(seed)`, nên không bao giờ thấy chính epis
 - Token task không bao giờ bị che.
 - `decode_masked` chính là decoder của LeRobot, chỉ thêm `key_padding_mask` ở cross-attention. Test xác nhận: khi không che gì, kết quả trùng decoder gốc (sai khác < 1e-6).
 
-### 2.5 Kiểm tra M4
-- `tests/test_intent_v32.py` (4 test):
-  - nhãn tính offline bằng belief mà expert dùng trên một episode T1 chạy thật (sai khác < 0.01);
+### 2.5 Kiểm tra M4 (cập nhật 2026-10-12)
+- `tests/test_intent_v32.py` (5 test, DeePoint giả thay cho server):
+  - nhãn ghi lúc thu = belief expert đã dùng (sai khác < 0.01), chọn đúng model của fold, có pre-roll;
+  - khoá quyết định mở khi bộ đo thấy cử chỉ mới;
   - mask của encoder;
   - decoder có mask = decoder gốc;
   - che hết token intent thì hành động không phụ thuộc giá trị intent.
@@ -173,77 +127,43 @@ Thư viện dùng fold `fold_of(seed)`, nên không bao giờ thấy chính epis
   - (b) probe hồi quy logistic trên mọi trường intent ở các frame đó, kiểm chéo theo episode, phải ở mức ngẫu nhiên.
   - Trên preview: pb, hs, pp đều ok (mẫu nhỏ). Chạy lại trên dataset đầy đủ ở M3.
 
-## 3. Expert `trigger: belief` (`scripted_expert.py`)
+## 3. Expert
 
-| Thành phần | Mô tả |
-|---|---|
-| `reset()` | tạo `OnlineBelief`; đọc `b_star`, `n_hold`, `stop_star` (schema `belief`, có thể ghi đè bằng `expert.belief`) |
-| `_hedge_plan()` | `wait_motion_onset` (onset tay đầu tiên, phát hiện nhân quả) → `open` → `track(_hedge_objects)` |
-| `_weighted_mean(probs, points)` | Σ b·điểm: điểm tối thiểu hóa bình phương quãng đường kỳ vọng |
-| `_hedge_objects()` / `_hedge_zones()` | điểm trên vật ứng viên / trên vùng (T1, khi đang mang vật) ở độ cao di chuyển |
-| bước `track` | kiểu Step mới: đi về một điểm di động, tới nơi thì HOLD, không bao giờ tự xong (hết khi bị skip hoặc lập kế hoạch lại); vẫn có guard tay người |
-| `_follow_belief()` | `belief.step()`; rồi `p_stop ≥ stop_star` trong `n_hold` frame → `stop`; `p_withdraw ≥ stop_star` → `_pause()` (giữ mục tiêu cũ); `_decide('object')`; `_decide('zone')`; mỗi quyết định thành một "evidence" cho `_on_evidence` |
-| `_decide(name, probs, current)` | ứng viên khác `current` có b ≥ b* đúng `n_hold` frame liên tiếp (bắn một lần) |
-| `_on_evidence(ev, grasping)` | tách từ `_follow_evidence` cũ, dùng chung cho chế độ `evidence` và `belief` |
-| `_redirect` (belief) | (1) kẹp đang khép dở trên vật cũ: mở trước khi nhấc; (2) đổi mục tiêu khi vật cũ đã giao (T3: cốc đã ở U_cup): lấy vật cũ về chỗ cũ trước |
-| `_yield` (belief) | T4: tay hiện tại hoặc `pos + vel·0.5 s` (CVM) trong vùng robot |
-| T1 `hedge_zone` | thay bước chờ `await_zone`: khi đang mang vật, đi về trung bình có trọng số của P1/P2 cho tới khi vùng được quyết |
-
-Chế độ `evidence` cũ (mốc 40% + CONFIRM_S) giữ nguyên để tái lập dữ liệu cũ, không dùng cho v3.2.
+Trigger `belief` (hedge, `b_star` / `n_hold` / `stop_star` của khối `belief`) đã gỡ ngày 2026-10-12. Expert dùng bộ đo: trigger `device`, mục 6.14–6.16. Các phần dùng chung vẫn giữ: `_follow_belief`, `_decide`, `_on_evidence`, `_redirect`, `_pause` / `_resume`, `_yield` (T4, CVM).
 
 ## 4. Cấu hình
-`configs/intent_schema.yaml`, khối `belief`:
 
-```yaml
-belief:
-  lambda: 0.9            # quên mỗi frame
-  cone_sigma_deg: 4.61   # tia chỉ perfect
-  onset_speed_m_s: 0.08
-  still_speed_m_s: 0.03
-  ramp_s: 1.15
-  p_max: 0.95
-  b_star: 0.9            # ngưỡng commit
-  n_hold: 3              # frame liên tiếp
-  stop_star: 0.5         # ngưỡng dừng khi thấy cử chỉ "chờ"
-  reach: {library: assets/intent/reach_library_v5.npz, method: ioc, ioc_beta_min_m: 0.003,
-          n_steps: 40, var_floor_m: 0.01, start_radius_m: 0.06, min_demos: 3, folds: 5}
-```
+`configs/intent_schema.yaml`:
+- khối `belief` đã xoá;
+- khối `device`: `folds_file`, các lớp, camera, `rule`, `late_star` 0.95, `early_star` 0.7, `preroll_frames` 14.
 
-`configs/experiments/intent_act_early.yaml`:
-- `scenario_overrides.all.expert = {trigger: belief, grasp_settle_ticks: 0}`;
-- T4: `{start_s: 0, yield_prediction_horizon_s: 0.5}`.
+Thông số hiệu chỉnh theo fold nằm trong `device_folds.json` (mục 6.16). Config thí nghiệm: `configs/experiments/intent_act_device_{late,early}.yaml`.
 
 ## 5. Lệnh chạy
 
-```bash
-# học thư viện vươn tay (cần dataset late có human.keypoints + meta/intent_segments.json)
-./run.sh -m scripts.fit_reach_library --dataset outputs/datasets/intent_act_late_v5 --output assets/intent/reach_library_v5.npz
-# kiểm tra expert đúng như khi thu (override của config, DART theo cell, luật T5)
-./run.sh -m scripts.check_expert --list configs/episode_lists/v5/demo_list.jsonl \
-    --config configs/experiments/intent_act_early.yaml --triggers belief --per-task 12 --output outputs/expert_check/belief_demo_p12
-# quét ngưỡng
-./run.sh -m scripts.check_expert ... --belief b_star=0.95
-# test
-./run.sh -m pytest tests/test_belief.py -q
+Các bước nặng chạy trên máy trạm, theo thứ tự (chi tiết: `workstation/README.md`):
 
-# M3-M6: nhãn v3.2, leak test, train (laptop GTX 1650: ~0.71 bước/giây, 15k bước ≈ 6 giờ)
-./run.sh -m scripts.build_intent_labels --dataset-root outputs/datasets/intent_act_early_v5 --sources hindsight perfect belief
-./run.sh -m scripts.intent_leak_test --dataset-root outputs/datasets/intent_act_early_v5 --sources pb hs pp
-./run.sh -m scripts.train_policy --config configs/experiments/intent_act_early.yaml --output-dir outputs/train/intent_act/B \
-    --steps 15000 --save-every 2500                                                             # B: early, không intent
-./run.sh -m scripts.train_policy --config configs/experiments/intent_act_late.yaml --use-intent --intent-source belief \
-    --output-dir outputs/train/intent_act/C --steps 15000 --save-every 2500                     # C: late + intent v3.2
-./run.sh -m scripts.train_policy --config configs/experiments/intent_act_early.yaml --use-intent --intent-source belief \
-    --output-dir outputs/train/intent_act/D --steps 15000 --save-every 2500                     # D: early + intent v3.2
-# M5: chọn cách inference trên val list (A@15k)
-./run.sh -m scripts.evaluate --config configs/experiments/intent_act_late.yaml \
-    --checkpoint outputs/train/intent_act/A/checkpoints/015000/pretrained_model \
-    --list configs/episode_lists/v5/val_list.jsonl --temporal-ensemble-coeff=0.01 --workers 2 --videos 0 --no-traces
-# M7: bảng 2×2 từ 4 lần eval trên cùng eval list
-./run.sh -m scripts.analyze_2x2 --runs A=<eval A> B=<eval B> C=<eval C> D=<eval D> --output docs/reports/intent_2x2.md
+```bash
+bash workstation/setup.sh               # một lần: 2 env, DeePoint, dữ liệu từ HF, kiểm tra
+workstation/job1_device.sh              # render 286 episode, export, fine-tune 5 fold, suy luận, hiệu chỉnh -> device_folds.json
+workstation/job2_check.sh               # khoảng cách 0.7 / 0.95, expert check late + early (fold 0), bảng so sánh -> DỪNG, duyệt
+workstation/job3_preview.sh             # preview 2 dataset + video -> DỪNG, duyệt demo
+workstation/job4_collect.sh             # thu intent_act_device_{late,early}, nhãn hindsight + device, leak test
+workstation/job5_train.sh all           # train A-D (15k bước), eval trên eval list, bảng 2x2
+```
+
+Trên laptop:
+
+```bash
+python workstation/hf.py pull runs/device/<ngày> outputs/device/<ngày> && ln -sfn <ngày> outputs/device/current
+./run.sh -m pytest -q                   # 201 test qua; 4 test hỏng từ trước (mục 8)
 ```
 
 ## 6. Kết quả
+
+> 2026-10-12: các output ở mục 6.1–6.15 đã xoá theo quyết định của người dùng: dataset, model A–D, model DeePoint thu với người sim còn lộ đích, các lần expert check cũ. Số liệu giữ lại ở đây làm lịch sử.
+> - 6.1–6.9 thuộc đường belief tự chế (đã gỡ).
+> - Các số của DeePoint ở 6.10–6.15 một phần do chỗ lộ (lý thuyết §4.2g).
 
 ### 6.1 Thư viện vươn tay (out-of-fold, 318 demo: H1 90, H2 89, U1 68, U2 71)
 
@@ -381,6 +301,222 @@ Phân tích lỗi và cách xử lý:
 
   Nguồn hindsight (v2) rò rỉ đáp án qua các trường "tương lai", tức `xi` thật và `tte` chính xác, dù p_target vẫn đều. Đây là bằng chứng định lượng cho lý do bỏ hindsight trong v3.2. Nguồn belief v3.2 không rò rỉ.
 - **Theo yêu cầu "train B xong thì dừng"**, chuỗi dừng ngay sau leak test: eval M5 vừa bắt đầu đã bị ngắt; C, D chưa chạy. Lệnh để chạy tiếp khi bạn muốn: xem mục 5 (train C/D với `--intent-source belief`, `--steps 15000 --save-every 2500`).
+
+### 6.9 Val B và A (2026-10-10 23:12; val list v5, 55 episode, ensembling m = 0.01, commit = hành động không đảo ngược)
+Run folders:
+- B: `outputs/eval/2026-10-10/23-12-57_intent_act_early_B-015000`
+- A: `outputs/eval/2026-10-10/23-21-34_intent_act_late_A-015000`
+
+Mỗi run có video của episode đầu mỗi task và các episode hỏng.
+
+| Task (n) | CSR B / A | CT B / A [s] (ca thành công) | AM B / A [s] | WCR B / A | Lỗi của B | Lỗi của A |
+|---|---|---|---|---|---|---|
+| T1 (10) | 0.80 / **1.00** | **10.8** / 13.3 | **−1.92** / −2.82 | 0 / 0 | chạm vật khác ×2 | — |
+| T2 (10) | **0.90** / 0.70 | **12.8** / 14.4 | **−2.20** / −2.83 | 0.10 / 0 | chạm vật khác ×1 | rơi vật ×2, timeout ×1 |
+| T3 (10) | 0.70 / **1.00** | 16.9 / 16.1 | **−1.90** / −2.60 | 0.10 / 0 | timeout ×2, chạm vật khác ×1 | — |
+| T4 (10) | 0.20 / 0.00 | — | — | — | không nhường ×8 | không nhường ×8, chạm người, đặt ngoài vùng |
+| T4neg (5) | 1.00 / 0.80 | — | — | — | — | đặt ngoài vùng |
+| T5 (10) | 0.40 / 0.30 | — | — | 0.20 / 0.20 | timeout ×4, chạm người, rơi vật | timeout ×5, đổ cốc, chạm người |
+| **Tổng** | **35/55 (64%) / 34/55 (62%)** | | | | | |
+
+- AM = (lúc người chỉ xong) − (lúc robot bắt đầu hạ xuống đúng vật). Càng lớn càng sớm. Âm vì commit giờ là hành động không đảo ngược, xảy ra sau khi người chỉ xong.
+- **B commit sớm hơn A 0.6–0.9 s và hoàn thành nhanh hơn 1.6–2.5 s ở T1/T2**, đúng hướng của dữ liệu early.
+- B có commit sai ở T2/T3 (1/10 mỗi task) và chạm vật khác ở T1/T3, trong khi A không có. Đây là dấu hiệu của giả thuyết H1 ("early mà không có intent thì dễ chọn nhầm"), nhưng mẫu mới có 10 episode mỗi task.
+- T4 hỏng ở cả hai (không nhường 8/10). Chính ensembling m = 0.01 làm robot phản ứng chậm; đây là việc của M5, chung cho mọi model.
+- 10 episode mỗi task nên sai số khoảng ±15%; kết luận chính chờ eval 264 episode ở M7.
+
+### 6.10 DeePoint đã công bố chạy trên ảnh sim (2026-10-11; `outputs/sensor_view/2026-10-11/deepoint_test`)
+Mục đích: thay độ trễ tự đặt (ramp) và phần "giống DeePoint" tự sinh bằng đầu ra của chính model đã công bố.
+
+- **Không đo được trên DP dataset:** bộ frame nặng ~953 GB (5 file zip 145–281 GB), máy còn 12–16 GB trống.
+- **Thiết lập:** 8 episode của `intent_act_late_v5` không DART (T1 ×2, T2 ×2, T3, T4, T5 ×2; cả 5 episode có chỉ tay đều có twin); camera 1280×720, fovy 50°.
+  - `side`: (2.30, −0.48, 1.25) nhìn từ bên phải người;
+  - `front`: (0.30, 1.90, 1.45) nhìn qua bàn.
+  - Video đổi xuống 15 fps (tốc độ DeePoint được train); ngưỡng 0.5 = argmax của chính DeePoint.
+- **Lệnh:**
+  ```
+  ./run.sh -m scripts.render_sensor_view --dataset-root outputs/datasets/intent_act_late_v5 --episodes 0 1 120 121 263 350 462 463 --views side front --out outputs/sensor_view/2026-10-11/deepoint_test
+  ffmpeg -i <tag>_<view>.mp4 -r 15 <tag>_<view>_15fps.mp4
+  scripts/deepoint.sh scripts/deepoint_infer.py --video <tag>_<view>_15fps.mp4 --lr r --out <tag>_<view>_deepoint.npz
+  ./run.sh -m scripts.deepoint_sim_report --dir outputs/sensor_view/2026-10-11/deepoint_test --dataset-root outputs/datasets/intent_act_late_v5
+  ```
+
+Kết quả góc `side` (người được thấy ở 100% frame):
+
+| Chỉ số | Giá trị |
+|---|---|
+| phát hiện chỉ tay (p ≥ 0.5) sau khi tay bắt đầu chuyển động | 0.80–1.05 s (cử chỉ dài 0.90–1.35 s), tức **0.10–0.35 s trước khi tới tư thế chỉ** |
+| p khi tới tư thế chỉ / p cao nhất | 0.76–0.95 / 0.90–0.98 |
+| tỉ lệ frame giữ được nhận là chỉ | 1.00 cho chỉ vật; 0.52–1.00 cho chỉ vùng đặt |
+| sai số hướng (trung vị, frame giữ) | 24–34°. Hai thành phần phải và lên đúng; **thành phần sâu ≈ 0** trong khi thật là +0.5 (tay chếch ~30° ra xa camera) |
+| chọn đúng ứng viên gần nhất | vật: 5/6 lần chỉ đầu (twin cách xa); sai khi chỉ lại sang ô kề (S3 → S4); vùng đặt P: 0/4 |
+| **báo "đang chỉ" khi không chỉ** | chìa tay ngửa T2 và đưa tay vào vùng robot T4: p ≈ 0.95 suốt cử chỉ; "chờ" T5: p tới 0.94; sau khi chỉ xong còn ~1 s lúc tay rút về |
+
+Góc `front`: hầu như không nhận ra chỉ tay (giữ được 0–28%), vì tay chỉ về phía camera bị co ngắn và bàn che. Ở các frame nó nhận ra, thành phần sâu đúng dấu (lệch ~12°), nên phép đổi hệ toạ độ là đúng.
+
+Kết luận đo: DeePoint chạy được trên người sim và cho đường thời gian của p(chỉ). Nhưng nó không phân biệt chỉ tay với chìa tay / vươn tay / "chờ", và thiếu thành phần sâu khi nhìn nghiêng. Đề xuất fine-tune nằm ở tài liệu lý thuyết §4.2c.
+
+### 6.11 Pilot fine-tune DeePoint (2026-10-11; thiết kế: tài liệu lý thuyết §4.2c)
+
+| Bước | Lệnh / kết quả |
+|---|---|
+| render | `render_sensor_view --per-task 17 --views side --out outputs/sensor_view/2026-10-11/pilot_side`: 102 episode không DART (fold 0/1: 24, fold 2–4: 18), keypoint lệch ≤ 6e-8 m so với dataset, ~30 s mỗi episode |
+| xuất DP | `deepoint_export_dp.py --out outputs/deepoint_dp/pilot_side`: 22 394 frame, OpenPifPaf thấy người ở 100%, 2 301 frame "đang chỉ"; 3.4 GB; ~55 phút. Kiểm tra trên 1 episode: model gốc trên dữ liệu xuất ra = trên video (\|Δp\| ≤ 1.8e-7, hướng ≤ 0.03°); nhãn hướng = bàn tay → đích (0.0000°) |
+| fine-tune | `deepoint_finetune.py --test-fold 0` → `outputs/train/deepoint/2026-10-11/pilot_side_fold0`. Train fold 2–4: 10 493 cửa sổ (1 152 chỉ); val fold 1: 4 388 (629); test fold 0: 4 555 (520). ~2.5 phút / epoch, early stopping ở epoch 22, tốt nhất epoch 16 |
+| đánh giá | `deepoint_eval_fold.sh outputs/sensor_view/2026-10-11/pilot_side 0 _deepoint_ft <ckpt>` (và `_deepoint` cho model gốc) → `summary_deepoint[_ft]_fold0.md` + video `*_annotated.mp4` |
+
+Sửa chỉ số chọn checkpoint: `validation_step` gốc lấy trung bình theo batch và tính batch không có cửa sổ chỉ là 0°, nên với validation không xáo trộn nó báo 12.4° cho model gốc trong khi trung bình thật là 30.3°. Script dùng trung bình trên mọi cửa sổ chỉ của epoch (`validation/angle_deg`, đúng định nghĩa trong bài); chỉ số gốc vẫn được ghi.
+
+Fold test 0 (24 episode, 17 lần chỉ; cùng video):
+
+| | model gốc | fine-tune |
+|---|---|---|
+| precision / recall theo frame (nhãn DP = pha giữ) | 0.265 / 0.825 | **0.977 / 0.986** |
+| sai số góc (cửa sổ chỉ, hệ trục DeePoint, `test/angle_deg`) | 32.1° | **0.64°** |
+| sai số hướng so với đích từ đầu ngón (trung vị) | 29.0° | 3.2° |
+| chọn đúng ứng viên (twin + vùng P) | 0.57 | **1.00** |
+| báo "đang chỉ" khi: nghỉ / chìa tay / vươn tay / "chờ" | 0.04 / 0.79 / 0.27 / 0.60 | **0 / 0 / 0 / 0** |
+| … khi đang đưa tay lên / rút tay | 0.38 / 0.33 | 0.03 / 0.01 |
+| p ≥ 0.1 / 0.5 / 0.9 / 0.95, so với lúc tới tư thế chỉ (trung vị) | −0.55 / −0.40 / −0.15 / −0.05 s | −0.05 / 0.00 / 0.00 / 0.00 s |
+
+- Bản fine-tune gần như hoàn hảo vì người sim chỉ tay theo một tư thế cố định cho mỗi đích (IK tất định), cùng camera, cùng cảnh. Đây là điều kiện oracle, không phải độ chính xác trên người thật (DeePoint trên người lạ: 13.85°, Split-P).
+- **Hệ quả cho định nghĩa sớm / trễ (đã xử lý ở mục 6.12):** bản fine-tune học đúng quy ước DP (nhãn = pha giữ), nên p(chỉ) nhảy từ < 0.1 lên ≥ 0.95 trong khoảng 0.05 s ngay lúc tay tới tư thế chỉ. "Mức thấp nhất đo được" và "≥ 0.95" gần như trùng thời điểm. Với riêng cue chỉ tay, sớm và trễ gần như không khác nhau. Cần bạn quyết định (tài liệu lý thuyết §4.2c).
+
+### 6.12 Nhãn từ lúc tay chuyển động (quyết định 2026-10-11) và belief về đích
+
+| Bước | Lệnh / kết quả |
+|---|---|
+| nhãn | `deepoint_export_dp.py --label-start onset --features-from outputs/deepoint_dp/pilot_side --out outputs/deepoint_dp/pilot_side_onset`: chỉ ghi nhãn mới, đầu vào dùng chung qua symlink. Số frame "đang chỉ": 2 301 → 3 608 |
+| fine-tune | `deepoint_finetune.py --data outputs/deepoint_dp/pilot_side_onset --test-fold 0` → `outputs/train/deepoint/2026-10-11/pilot_side_onset_fold0`. Model gốc theo nhãn mới (test): 35.3°, P 0.36, R 0.68. Dừng ở epoch 21, tốt nhất epoch 15: test 1.49°, P 1.00, R 1.00 (theo cửa sổ) |
+| đánh giá | `deepoint_eval_fold.sh outputs/sensor_view/2026-10-11/pilot_side 0 _deepoint_ft_onset <ckpt>` → `summary_deepoint_ft_onset_fold0.md` + video. Theo frame (nhãn onset): P/R 0.996 / 0.995; báo nhầm 0 khi nghỉ / chìa tay / vươn tay / "chờ"; chọn đúng ứng viên 1.00; p ≥ 0.1 và ≥ 0.95 cùng ở 4% cử chỉ |
+| belief về đích | `deepoint_target_belief.py --suffix _deepoint_ft_onset --val-fold 1 --test-fold 0` (fold 1 cũng được chạy suy luận) → `target_belief_deepoint_ft_onset_fold0.md`: σ = 1.90° (MLE trên 1 304 frame của fold 1). Phát hiện đầu tiên ở 4% cử chỉ (belief đích đúng 0.89); belief ≥ 0.95 ở 37% (−0.75 s); 3/17 lần tụt dưới 0.5 sau khi đã ≥ 0.9 |
+
+`scripts/deepoint_target_belief.py` (mới): belief trên các ứng viên của episode, L = p·exp(−θ²/2σ²) + (1 − p), gốc tia là bàn tay theo định nghĩa DeePoint; σ fit trên fold validation; xuất đường belief theo phần cử chỉ, các mốc vượt ngưỡng, và bảng độ tin cậy.
+
+### 6.13 DeePoint đa cử chỉ (2026-10-12; thiết kế: tài liệu lý thuyết §4.2e)
+
+| File | Thay đổi |
+|---|---|
+| `scripts/deepoint_export_dp.py` | `--classes multi`: lớp cử chỉ `GESTURE_CLASSES` = [none, point, reach, palm_up, palm_forward, withdraw], lớp c ≥ 1 ↔ mã hành động DP [100(c−1), 100c), mã trong khối = marker đích (99: không có đích → không có hướng); bảng marker lặp các đích trong khối point / reach / palm_up. Chế độ `--features-from`: dùng chung đặc trưng và keypoint (symlink), còn `frames/<venue>/venue-info` ghi riêng cho bảng marker của mỗi kiểu nhãn |
+| `scripts/deepoint_finetune.py` | `GestureDataset` (`DPDataset` với bảng lớp N lớp qua property), `build_network` (đầu phân loại mở thành N hàng, 2 hàng đầu từ weights gốc), metric từng lớp + ma trận nhầm lẫn; số lớp đọc từ `export.json` |
+| `scripts/deepoint_infer.py` | đọc số lớp từ checkpoint; lưu thêm `probs` (T, C) |
+| `scripts/deepoint_gesture_report.py` (mới) | trả lời câu hỏi của từng task: ma trận nhầm lẫn theo frame, phát hiện mỗi đoạn (phần cử chỉ / giây), belief về đích của các cử chỉ có hướng (σ từng lớp fit trên fold validation), thời điểm belief ≥ 0.95, lựa chọn cuối đoạn |
+| `render_sensor_view.py` | thêm 35 episode T5 không DART vào `pilot_side` (đủ mẫu "chờ" 34, rút tay 18); `episodes.json` gộp, bản 102 cũ giữ ở `episodes_pilot102.json` |
+
+Kết quả (2026-10-12 05:35):
+- Fine-tune 40 epoch (khoảng 3.5 phút / epoch), checkpoint tốt nhất `epoch=35-step=9864.ckpt`.
+- Test fold 0 theo cửa sổ: sai số hướng 2.25°; recall / precision: không 0.93 / 0.96, chỉ tay 0.98 / 0.93, vươn tay 0.98 / 0.99, chìa tay 0.99 / 0.99, "chờ" 0.93 / 0.94, rút tay 0.78 / 0.72.
+- Báo cáo theo câu hỏi: `outputs/sensor_view/2026-10-11/pilot_side/gesture_report_deepoint_ft_multi_fold0.md` (bảng ở tài liệu lý thuyết §4.2e).
+
+Chuỗi chạy: `scratchpad/chain_multi.sh` (render → xuất đặc trưng → nhãn đa lớp `outputs/deepoint_dp/pilot_side_multi` → fine-tune `outputs/train/deepoint/2026-10-12/pilot_side_multi_fold0` → suy luận fold 0 và 1, hậu tố `_deepoint_ft_multi`), log `outputs/train/deepoint/pilot_side_multi_chain.log`.
+
+### 6.14 Expert trên bộ đo (`trigger: device`, 2026-10-12; lý thuyết §4.2f)
+
+| File | Vai trò |
+|---|---|
+| `scripts/deepoint_server.py` (mới, env `deepoint310`) | DeePoint chạy liên tục: mỗi frame 15 fps → `MovieDataset` theo từng frame (OpenPifPaf, đặc trưng, spatial transformer), 15 embedding gần nhất → temporal head. Giao thức stdin nhị phân / stdout JSON. Khớp suy luận offline: \|Δp\| ≤ 5e-6, hướng ≤ 0.22° (do làm tròn), argmax trùng 100%; khoảng 150 ms / frame |
+| `intent_policy/intent/device.py` (mới) | `DeePointClient` (tiến trình con, dùng chung trong một process), `Camera` (hình học dùng chung với các script báo cáo), `DeviceBelief`: cùng giao diện `OnlineBelief`; ứng viên theo task + ngữ cảnh quy trình; quy tắc `late` / `early`; giữ quyết định "chờ" / rút tay theo `hold_frames`; `last_point_t` |
+| `intent_policy/experts/scripted_expert.py` | `TRIGGERS += device`, `BELIEF_TRIGGERS = (belief, device)`; khối khởi tạo `device`; `_resume()` + hết thời gian chờ (`pause_timeout_s`) |
+| `configs/intent_schema.yaml` → `device` | checkpoint pilot, các lớp, camera `sensor_side` 1280×720, `sigma_deg`, `rule`, `late_star` 0.95, `hold_frames`, `pause_timeout_s` 1.33 |
+| `configs/experiments/intent_act_device_{late,early}.yaml` (mới) | `intent_act_early.yaml` + `expert: {trigger: device, device: {rule}}` + camera `sensor_side` (góc `side`); dataset `intent_act_device_{late,early}` |
+| `scripts/calibrate_device_rules.py` (mới) | hiệu chỉnh số frame giữ quyết định và thời gian chờ → `outputs/sensor_view/2026-10-11/pilot_side/device_rules_deepoint_ft_multi_fold1.md` |
+
+Kiểm tra, chỉ trên fold 0 (`outputs/expert_check_fold0_list.jsonl`, 112 ô; checkpoint pilot train trên fold 2–4):
+- T1 với quy tắc trễ: 2/6 → 5/6 sau khi thêm ngữ cảnh quy trình → 6/6 sau khi thêm số frame giữ và thời gian chờ.
+- T3 với quy tắc trễ: 3/6 (chạm vật khác do belief lật lúc nhấc khối) → 6/6 sau khi thêm khoá quyết định. Sau khi thêm σ theo thời gian, cam kết sai ban đầu giảm từ 3/6 xuống 1/6.
+- Expert check đầy đủ (6 mỗi task): `outputs/expert_check/device_{late,early}_f0_p6`. Late lúc 10:12 (không hedge), early lúc 09:40 (hedge; code early không đổi sau đó).
+
+| task | thành công trễ / sớm | episode có cam kết sai | CT (s) | lead của cam kết đầu (s) |
+|---|---|---|---|---|
+| T1 | 6/6 / 6/6 | 0 / 1 | 11.61 / 11.46 | 0.98 / 1.13 |
+| T2 | 6/6 / 6/6 | 0 / 1 | 13.28 / 13.28 | 0.90 / 0.90 |
+| T3 | 6/6 / 6/6 | 1 / 4 | 16.13 / 15.86 | 1.14 / 1.42 |
+| T4 | 6/6 / 6/6 | 0 / 0 | 12.98 / 12.98 | — |
+| T4neg | 6/6 / 6/6 | 0 / 0 | 11.49 / 11.49 | — |
+| T5 | 5/6 / 6/6 | 0 / 2 | 20.75 / 20.33 | 0.80 / 0.98 |
+
+Hai vấn đề mở (phiên intent-policy-e5 chỉ ra, 2026-10-12). **Đã xử lý theo quyết định của người dùng, §6.15:** (1) pre-roll; (2) định nghĩa sớm = belief ≥ 0.7.
+1. **Thời gian khởi động 1 s của DeePoint.** Server chỉ trả kết quả khi đủ 15 frame, tức từ 0.95 s; người thường bắt đầu cử chỉ ở 0.4–1.2 s. Nhiều lần cam kết đầu của cả hai quy tắc rơi đúng 0.95 s, nên khoảng cách sớm / trễ biến mất (ví dụ T2 CT trùng nhau).
+   - Đề xuất: pre-roll lúc reset, tức đưa frame đầu (người đang nghỉ) vào 14 lần, như camera thật đã chạy từ trước. Đây là sửa artifact, không đổi định nghĩa.
+2. **Quy tắc sớm lật qua lại giữa hai vật giống hệt** (cam kết với mọi belief, chỉ giữ 1 frame). Ví dụ T1 idx 0 cam kết 5 lần trong 0.8 s, belief 0.50–0.59; T5 idx 501 cam kết 12 lần.
+   - Các hướng: giữ nguyên; thêm số frame giữ tối thiểu (hiệu chỉnh như "chờ"); hoặc dùng một ngưỡng thấp.
+   - Chưa đổi định nghĩa sớm khi người dùng chưa chốt.
+
+### 6.15 Sửa sau rà soát (2026-10-12; lý thuyết §4.2g)
+
+| File | Thay đổi |
+|---|---|
+| `intent_policy/intent/device.py` | `self.star` = `late_star` (0.95) hoặc `early_star` (0.7) theo quy tắc; mọi cờ cử chỉ (`_gesture_flag`) dùng p ≥ `self.star`. Bỏ điều kiện `top != cls` của quy tắc sớm. `reset()`: pre-roll, render frame đầu rồi đưa vào server `preroll_frames` (14) lần. `thresholds()` trả `(self.star, 1, 0.5)` |
+| `intent_policy/experts/scripted_expert.py` | `self.hedge = device.hedge` (mặc định tắt); khi tắt, `_hedge_plan` chỉ đứng chờ cam kết đầu (`await_commit`), bước `hedge_zone` của T1 chỉ chạy khi bật |
+| `configs/intent_schema.yaml` → `device` | `early_star: 0.7`, `hedge: false`, `preroll_frames: 14`; `hold_frames.early` hiệu chỉnh ở mức 0.7 |
+| `intent_policy/sim/human_body.py` | `_aim_hand(arm, target, blend)`: xoay hướng ngón từ "nối tiếp cẳng tay" tới hướng ngắm theo `blend`; `_shape_variant(..., shape_from, progress)`: trộn hình bàn tay theo bước 25%; `apply(..., aim_blend, shape_from, shape_progress)` |
+| `intent_policy/sim/scripted_human.py` | `shape_from` (hình bàn tay lúc bắt đầu cử chỉ chỉ tay), `pointing_motion`, `gesture_progress` (tiến độ minimum-jerk của đoạn chỉ tay; ngoài đoạn = 1) |
+| `intent_policy/scenarios/base_scenario.py` | `_apply_human_pose` truyền `aim_blend = gesture_progress`, `shape_from`, và `shape_progress` chỉ khi đang chỉ tay |
+| `scripts/calibrate_device_rules.py` | quy tắc sớm = p ≥ `--early-star` (0.7) thay cho argmax |
+| `scripts/analyze_2x2.py` | `METRICS` thêm Rsp và WCD (bộ HRIBench-style giữ nguyên, không thêm metric mới) |
+| `scripts/check_expert.py` | mỗi episode lưu thêm `metrics` {CT, Rsp, AM, WCR, WCD, CRsp} từ runner để báo theo task |
+
+Kiểm tra:
+- 82 test human / scenario qua (gồm `test_scenario_poses_mannequin_and_changes_hand_shape_gradually`).
+- Pre-roll: kết quả đầu tiên của bộ đo ở t = 0, lớp "không", ở 18 episode fold 0 (T1–T3).
+- Lúc bắt đầu cử chỉ, tia ngón trỏ lệch đích 69°, hội tụ dần cùng cánh tay.
+- Khoảng cách 0.95 − 0.7 sau bước 1 + 3, trên bộ đo cũ (bảng ở lý thuyết §4.2g): T1 trung vị 0.05 s (≥ 0.1 s ở 2/6), T2 0 (0/6), T3 0.22 s (6/6).
+
+Chuỗi chạy lại với người sim đã sửa (`scratchpad/chain_v2.sh`, log `outputs/train/deepoint/pilot_side_v2_chain.log`):
+- render 137 episode cũ → `outputs/sensor_view/2026-10-12/pilot_side_v2`;
+- nhãn đa lớp từ lúc tay chuyển động → `outputs/deepoint_dp/pilot_side_v2_multi`;
+- fine-tune test fold 0 → `outputs/train/deepoint/2026-10-12/pilot_side_v2_multi_fold0`;
+- suy luận fold 0 và 1 (hậu tố `_deepoint_ft_multi`).
+
+Đặc trưng của bản cũ (`outputs/deepoint_dp/pilot_side/featvec-result-scratch`) đã xoá để đủ chỗ đĩa; checkpoint và đầu ra suy luận cũ giữ lại để so.
+
+### 6.16 Gỡ đường cũ, bộ đo 5 fold, gói máy trạm (2026-10-12; lý thuyết §4.2h)
+
+**Xoá** (người dùng chọn: "cái nào xác định sai không làm nữa thì bỏ đi"):
+- `intent/belief.py`, `scripts/fit_reach_library.py`, `assets/intent/reach_library_v5.*`, `tests/test_belief.py`, `configs/experiments/intent_act_early.yaml`, `scripts/deepoint_target_belief.py`; khối `belief` của schema; trigger `belief` và việc di chuyển dự phòng (hedge) của expert.
+- `HumanBody.pointing_palm_eye` (tư thế mắt–ngón) và lượt rút `point_ext`. Giữ lại phần rút thời lượng theo DP sau cờ `human_behavior.kinematics`, để dùng cho phương án làm chậm người sim nếu cần.
+- Output:
+  - `outputs/train/deepoint`, `outputs/sensor_view`, `outputs/deepoint_dp`, `outputs/expert_check`;
+  - `outputs/datasets/intent_act_early_v5` (+ preview), `outputs/train/intent_act/{A,B,C,D}`, `outputs/eval`.
+  - Giữ `outputs/datasets/intent_act_late_v5` làm nguồn replay; bản sao trên HF.
+
+**Sửa / mới:**
+
+| File | Thay đổi |
+|---|---|
+| `intent_policy/sim/scripted_human.py`, `scenarios/base_scenario.py` | `shape_progress`: mọi chuyển động có đổi hình bàn tay (chỉ tay, chìa tay, "chờ", cầm) tạo hình theo tiến độ minimum-jerk của chính chuyển động đó. Trước đây: đổi xong sau 4 frame (0.2 s, mỗi frame 25%) kể từ lúc bắt đầu cử chỉ |
+| `intent_policy/intent/folds.py` (mới), `kinematics.py` (mới) | `fold_of`, `FOLDS = 5`; `HandKinematics` (chuyển từ `belief.py`, ngưỡng của khối `perfect`) |
+| `intent_policy/intent/device.py` | `load_folds(folds_file)`. `reset()` chọn model và tham số của fold `fold_of(seed)`: σ, số frame giữ, thời gian chờ. Khoá quyết định theo từng cử chỉ: mở khi quyết định từng frame đổi từ `none` sang lớp đó. `DeePointClient` giữ nhiều checkpoint, `reset(model)` |
+| `scripts/deepoint_server.py` | `--ckpt` nhiều file; `{"cmd": "reset", "model": k}` |
+| `scripts/deepoint_infer.py` | `--ckpt` nhiều file + `--list` (mỗi dòng: video, `k=out.npz`...). OpenPifPaf / đặc trưng chạy một lần cho mọi model; kết quả trùng bản một model (\|Δp\| = 0, hướng ≤ 0.03°) |
+| `intent_policy/experts/scripted_expert.py` | chỉ còn trigger `device` cho expert belief; không di chuyển trước cam kết đầu; `pause_timeout` lấy theo fold |
+| `intent_policy/intent/source_v32.py` | `IntentV32` trên `DeviceBelief` (của expert hoặc của chính nó); bỏ `ReplayScenario`, `label_episode` |
+| `scripts/collect_demos.py` | trigger `device`: ghi contract v3.2 mỗi frame → `meta/intent_pd/episode_*.npz` + `device.json` |
+| `scripts/build_intent_labels.py` | nguồn `device` → cột `intent_pd.*`; `meta/intent_schema.json` có mục `device` |
+| `scripts/train_policy.py`, `configuration_hri_act.py`, `policy_agent.py` | nguồn intent `device` (thay `belief`); model C/D mang mục `device` của dataset; khi eval chạy bộ đo trực tiếp |
+| `scripts/calibrate_device_rules.py` | `--test-fold`, `--json`. Chỉ dùng fold validation để hiệu chỉnh. Thời gian chờ đo trên các fold train (không gồm fold validation và fold test). Bảng σ theo khuôn của `device.py` |
+| `scripts/make_device_folds.py` (mới) | gộp 5 checkpoint + 5 file hiệu chỉnh → `device_folds.json` (đường dẫn tương đối) |
+| `scripts/device_gap.py` (mới) | thời điểm belief vượt 0.7 / 0.95 ở cử chỉ đầu; kiểm tra pre-roll |
+| `scripts/compare_device_rules.py` (mới) | bảng late / early theo task: khoảng cách cam kết (trung vị, số episode ≥ 0.1 s), thành công, cam kết sai, CT, Rsp, AM, WCR, WCD |
+| `scripts/check_expert.py` | bỏ `--belief` |
+| `configs/episode_lists/v5/expert_check_fold0.jsonl` | danh sách fold 0 (112 ô), trước nằm trong `outputs/` |
+| `workstation/` (mới) | `README.md`, `env.sh`, `hf.py` (pull / push qua repo HF private `Hungdd88/intent-policy`), `setup.sh`, `job1_device.sh` … `job5_train.sh`, `env/*.txt` (pip freeze của laptop), `smoke/` (clip mẫu + đầu ra DeePoint của laptop để đối chiếu) |
+
+**Kiểm tra trên laptop:**
+- Test: 201 qua; 4 test hỏng từ trước (mục 8).
+- `test_intent_v32.py` (5 test) dùng DeePoint giả: nhãn ghi lúc thu bằng belief của expert; chọn đúng model theo fold; pre-roll; mở khoá khi có cử chỉ mới.
+- Hình bàn tay:
+  - chìa tay (T2 idx 122): 25% hình ở 27% chuyển động, đủ hình ở 77%;
+  - "chờ" (T5 idx 489 / 493 / 501): đủ hình ở 76–78%.
+- Chạy thử phần nối các bước của job 1 trên 12 episode, với đầu ra giả: chọn 286 episode, render, hiệu chỉnh 5 fold, `device_folds.json`.
+  - Lần chạy thử bắt được hai lỗi trong `calibrate_device_rules.py`: episode của fold test lọt vào tập hiệu chỉnh; tên biến bị dùng lại. Đã sửa.
+- HF: `inputs/intent_act_late_v5` (559 episode) và `inputs/deepoint/weight.ckpt` đã upload; tải về khớp từng byte.
+
+**T5 idx 484 (quy tắc trễ hết giờ, 2026-10-12):**
+- Rút tay đạt p ≥ 0.95 trong 6 frame, mà quy tắc trễ cần 7, nên tín hiệu đổi ý không được xác nhận.
+- Khoá quyết định giữ qua cả cú vươn tới khối mới, nên belief kẹt ở C3 = 0.998: robot giao C3, người chờ C1.
+- Đã sửa: khoá mở khi có cử chỉ mới. Không đổi số frame giữ.
+- Kiểm tra offline (model cũ, fold 0–1): T3 vươn tay 37/37 đoạn có đúng một lần bắt đầu; T1 36/36; T2 / T4 mỗi loại 1 đoạn có 2 lần.
 
 ## 7. Lệch so với plan đã duyệt (có lý do)
 1. **Hedging dùng trung bình có trọng số** thay cho trung vị hình học. Với 2 ứng viên, trung vị hình học nằm đúng tại vật nặng hơn, nên robot giật qua lại khi b ≈ 0.5.
