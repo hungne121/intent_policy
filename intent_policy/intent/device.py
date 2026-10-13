@@ -117,9 +117,10 @@ class DeePointClient:
         return self._send({'cmd': 'frame', 'h': rgb.shape[0], 'w': rgb.shape[1]}, rgb.tobytes())
 
 
-def load_folds(path, classes: list[str]) -> dict[int, dict]:
+def load_folds(path, classes: list[str]) -> tuple[dict[int, dict], dict]:
     """The fold models and their calibration (workstation/job1_device.sh -> device_folds.json):
-    {fold: {checkpoint, sigma_deg, sigma_deg_by_frames, hold_frames: {late, early}, pause_timeout_s}}."""
+    {fold: {checkpoint, sigma_deg, sigma_deg_by_frames, hold_frames: {late, early}, pause_timeout_s}}, and the file's
+    assignment (`assign: single`: one model for every episode, `seen_seeds` refused; else the model of the fold)."""
     f = resolve(path)
     if not f.exists():
         raise FileNotFoundError(f'{f}: no device models yet (run workstation/job1_device.sh and download its outputs, '
@@ -127,7 +128,8 @@ def load_folds(path, classes: list[str]) -> dict[int, dict]:
     d = json.loads(f.read_text())
     if list(d['classes']) != list(classes):
         raise ValueError(f"{f}: classes {d['classes']} != device.classes {classes}")
-    return {int(k): v for k, v in d['folds'].items()}
+    return {int(k): v for k, v in d['folds'].items()}, dict(assign=d.get('assign', 'fold'), model=d.get('model'),
+                                                             seen_seeds=set(d.get('seen_seeds') or []))
 
 
 class DeviceBelief:
@@ -161,7 +163,7 @@ class DeviceBelief:
         self.late_star = float(cfg['late_star'])
         self.star = self.late_star if self.rule == 'late' else float(cfg['early_star'])
         self.preroll = int(cfg.get('preroll_frames', 0))
-        self.folds = load_folds(cfg['folds_file'], self.classes)
+        self.folds, self.assign = load_folds(cfg['folds_file'], self.classes)
         self.cam_name, self.W, self.H = cfg['camera'], int(cfg['width']), int(cfg['height'])
         self.client = DeePointClient.shared(tuple(resolve(self.folds[k]['checkpoint']) for k in sorted(self.folds)))
         if self.client.n_classes != len(self.classes):
@@ -174,7 +176,12 @@ class DeviceBelief:
     def reset(self) -> None:
         sc, var = self.sc, self.sc.variation
         spec, desc = var['spec'], self.schema['instruction']['object_desc']
-        self.fold = fold_of(sc.seed, len(self.folds))     # the model that did not see this episode
+        if self.assign['assign'] == 'single':              # preliminary: one model, never on what it saw
+            if int(sc.seed) in self.assign['seen_seeds']:
+                raise ValueError(f'seed {sc.seed}: the single device model was trained / validated on this episode')
+            self.fold = int(self.assign['model'])
+        else:
+            self.fold = fold_of(sc.seed)                   # the model that did not see this episode
         f = self.folds[self.fold]
         self.hold = {g: int(k) for g, k in f['hold_frames'].get(self.rule, {}).items()}
         self.sigma = {k: float(v) for k, v in f['sigma_deg'].items()}

@@ -55,12 +55,12 @@ Chạy trong `tmux`. Mỗi job ghi log vào thư mục kết quả và upload l�
 | 2 | `workstation/job2_check.sh` | khoảng cách belief 0.7 / 0.95; expert check late và early trên danh sách fold 0; bảng so sánh theo task | **DỪNG**: gửi `compare.md` và `gap.md` để duyệt khoảng cách sớm / trễ |
 | 3 | `workstation/job3_preview.sh` | preview 2 dataset (2 episode mỗi task, mỗi quy tắc) kèm video | **DỪNG**: duyệt demo |
 | 4 | `workstation/job4_collect.sh` | thu `intent_act_device_late` và `_early` song song (danh sách demo v5), build nhãn (hindsight + bộ đo), leak test | chạy luôn job 5 |
-| 5 | `workstation/job5_train.sh all` | train A, B, C, D (mỗi model 15k bước), eval trên eval list (264 episode), bảng 2×2 | gửi bảng 2×2 |
+| 5 | `workstation/job5_train.sh all` | train A, B, C, D (mỗi model 2000 epoch theo đơn vị của ACT, khoảng 31k bước), eval trên eval list (264 episode), bảng 2×2 | gửi bảng 2×2 |
 
 Biến môi trường tuỳ chọn:
 - `RUN=outputs/device/<ngày>` (job 1): chạy tiếp một lần chạy cũ.
 - `PER_TASK` (job 2: mặc định 6; job 3: mặc định 2).
-- `STEPS` (job 5: mặc định 15000) và `EVAL_WORKERS` (job 5: mặc định 2).
+- `EPOCHS_ACT` (job 5: mặc định 2000) hoặc `STEPS` (đặt thẳng số bước), và `EVAL_WORKERS` (job 5: mặc định 2).
 - `HF_REPO`.
 
 ## Lấy kết quả về laptop

@@ -40,13 +40,19 @@ def load_policy(checkpoint: str | Path, device: str | None = None):
 
 class PolicyAgent(Agent):
     def __init__(self, checkpoint: str | Path, device: str | None = None, oracle_condition: dict | None = None,
-                 eval_seeds: list[int] | None = None, controller_cfg=None, temporal_ensemble_coeff: float | str | None = 'config'):
+                 eval_seeds: list[int] | None = None, controller_cfg=None, temporal_ensemble_coeff: float | str | None = 'config',
+                 intent_keep: list[str] | None = None):
+        """`intent_keep`: the intent tokens kept at evaluation (None: the checkpoint's; [] masks all of them, and the
+        v3.2 source - the measuring device - is then not run: the preliminary 2x2's no-intent conditions, §4.2i)."""
         self.checkpoint = Path(checkpoint)
         self.policy, self.pre, self.post = load_policy(self.checkpoint, device)
         cfg = self.policy.config
+        if intent_keep is not None:
+            cfg.intent_keep = list(intent_keep)
         self.tokens = cfg.use_intent and cfg.intent_arch == 'tokens'
         self.online_intent = None
         self.intent_v32 = self.tokens and cfg.intent_version == 'v32'
+        self.intent_off = self.intent_v32 and not cfg.intent_keep     # every token masked: no source needed
         if self.tokens and not self.intent_v32:
             if cfg.intent_source != 'hindsight':
                 raise NotImplementedError(f'closed-loop intent source {cfg.intent_source!r}: only hindsight (online '
@@ -75,7 +81,11 @@ class PolicyAgent(Agent):
         self.step_index = 0
         if self.reads_oracle:
             self.corruption.reset(scenario, scenario.seed)
-        if self.intent_v32:                     # contract v3.2: the measuring device on the live scenario, with the
+        if self.intent_off:
+            from intent_policy.intent.contract import field_shapes_v32
+            S = self.policy.config.intent_schema
+            self.zero_intent = {k: np.zeros(shape, np.float32) for k, shape in field_shapes_v32(S).items()}
+        elif self.intent_v32:                   # contract v3.2: the measuring device on the live scenario, with the
             from intent_policy.intent.source_v32 import IntentV32       # settings the training labels were measured with
             S = self.policy.config.intent_schema
             self.online_intent = IntentV32(scenario, S, device_cfg=S['device'])
@@ -91,11 +101,14 @@ class PolicyAgent(Agent):
             obs.update(oracle_values(given, self.scenario.tcp()))
             extras = {'oracle_given': given.compact(), 'oracle_true': self.reference.record(self.scenario).compact()}
         intent = None
-        if self.online_intent is not None:
+        if self.intent_v32 and self.intent_off:
+            intent = self.zero_intent           # masked by intent_keep = []: the values never reach the actions
+        elif self.online_intent is not None:
             if self.intent_v32:
                 intent = self.online_intent.step(np.asarray(obs['observation.state'], np.float64))
             else:
                 intent = self.online_intent.observe(self.scenario, self.step_index, float(np.asarray(obs['observation.state'])[6]))
+        if intent is not None and not (self.intent_v32 and self.intent_off):
             extras['intent'] = dict(p_target=int(intent['p_target'].argmax()), c_target=int(intent['c_target'].argmax()),
                                     p_who=int(intent['p_who'].argmax()), phase=int(intent['phase'].argmax()),
                                     tte=round(float(intent['tte'][0]), 3))
@@ -127,6 +140,7 @@ class PolicyAgent(Agent):
         cfg = self.policy.config
         return dict(type='lerobot_act', policy_class='HRIACTPolicy', checkpoint=str(self.checkpoint), device=self.device,
                     action_mode=cfg.action_mode, use_intent=cfg.use_intent, use_task_token=cfg.use_task_token,
+                    intent_keep=list(cfg.intent_keep) if cfg.use_intent else None,
                     online_intent=self.online_intent.name if self.online_intent is not None else None, intent_arch=cfg.intent_arch, intent_mask=cfg.intent_mask,
                     intent_provider='oracle' if self.reads_oracle else 'none',
                     oracle_condition=self.corruption.describe() | {'lead_s': self.provider.lead_s} if self.reads_oracle else None,

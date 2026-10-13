@@ -2,9 +2,8 @@
 
 Reads the evaluation runs of A (late), B (early), C (late + intent), D (early + intent) on the same episode list
 (per-episode metrics of episodes/<split>/<task>/*.json.gz) and reports per task and overall:
-  - each model's mean of CSR, CT, Rsp, WCR, WCD, AM, CRsp, DSR (benchmark/metrics.py) and of the early wrong commit
-    rate EWC (a wrong
-    robot_target_commit before the human finished selecting: the 'false start' of an early policy);
+  - each model's mean of CSR, CT, Rsp, WCR, WCD, AM, CRsp, DSR (benchmark/metrics.py; the HRIBench-style set only,
+    no metric of our own: the user, 2026-10-12);
   - the intent effect late (C - A), early (D - B) and the interaction (D - B) - (C - A), with 95 % paired bootstrap
     intervals over the episodes all four models share (H3 of the design).
 
@@ -16,24 +15,10 @@ import json
 from collections import defaultdict
 from pathlib import Path
 import numpy as np
-from intent_policy.experts.scripted_expert import CUE_COMPLETE_STEP
 from intent_policy.utils import resolve
 
-METRICS = ('CSR', 'CT', 'Rsp', 'WCR', 'WCD', 'EWC', 'AM', 'CRsp', 'DSR')   # HRIBench-style set (+ EWC)
-LOWER_IS_BETTER = {'CT', 'Rsp', 'WCR', 'WCD', 'EWC', 'CRsp'}
-
-
-def early_wrong_commit(rec: dict) -> float | None:
-    """1 if a wrong robot_target_commit happened before the cue-complete step of the task (None: no such step)."""
-    step = CUE_COMPLETE_STEP.get(rec['task'] if rec['task'] in CUE_COMPLETE_STEP else (rec.get('spec') or {}).get('task'))
-    if step is None:
-        return None
-    ev = rec['events']
-    done = next((e['timestamp'] for e in ev if e['event_type'] == 'protocol_step_complete' and e['payload'].get('step') == step), None)
-    wrong = [e['timestamp'] for e in ev if e['event_type'] == 'robot_target_commit' and not e['payload'].get('correct')]
-    if done is None:
-        return float(bool(wrong))
-    return float(any(t < done for t in wrong))
+METRICS = ('CSR', 'CT', 'Rsp', 'WCR', 'WCD', 'AM', 'CRsp', 'DSR')          # HRIBench-style set
+LOWER_IS_BETTER = {'CT', 'Rsp', 'WCR', 'WCD', 'CRsp'}
 
 
 def load_run(run: Path) -> dict[str, dict]:
@@ -45,9 +30,6 @@ def load_run(run: Path) -> dict[str, dict]:
         task = rec.get('list_task') or f.parent.name
         vals = {k: float(v) for k, v in (rec.get('metrics') or {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
         vals.update({k: float(v) for k, v in (rec.get('metrics') or {}).items() if isinstance(v, bool)})
-        ewc = early_wrong_commit(rec)
-        if ewc is not None:
-            vals['EWC'] = ewc
         out[rec['episode_id']] = dict(task=task, **vals)
     return out
 

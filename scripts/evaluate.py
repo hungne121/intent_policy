@@ -77,7 +77,7 @@ def build_agent(args_d: dict, eval_seeds: list[int], ctrl_cfg):
         return ExpertAgent()
     from intent_policy.policies.policy_agent import PolicyAgent
     return PolicyAgent(resolve(args_d['checkpoint']), args_d['device'], args_d['oracle_condition'], eval_seeds, ctrl_cfg,
-                       args_d['temporal_ensemble_coeff'])
+                       args_d['temporal_ensemble_coeff'], args_d.get('intent_keep'))
 
 
 def run_job(job: dict) -> dict:
@@ -149,6 +149,8 @@ def main():
                    help='inference-time ACT temporal ensembling (default: protocol `inference`, else the checkpoint config)')
     p.add_argument('--list', help='episode list (.jsonl) instead of the experiment benchmark.eval_list, e.g. '
                                    'configs/episode_lists/v5/val_list.jsonl')
+    p.add_argument('--intent-keep', help="intent tokens kept: 'none' (all masked, the source is not run), 'all', or "
+                                          "a comma list (default: the checkpoint's)")
     p.add_argument('--no-temporal-ensemble', action='store_true',
                    help='no ACT temporal ensembling: execute the first action of every new chunk (guide v3)')
     args = p.parse_args()
@@ -173,6 +175,9 @@ def main():
         ensemble = args.temporal_ensemble_coeff
     if args.no_temporal_ensemble:
         ensemble = None
+    from intent_policy.policies.intent_encoder_v32 import TOKENS_V32
+    intent_keep = None if args.intent_keep is None else [] if args.intent_keep == 'none' else \
+        list(TOKENS_V32) if args.intent_keep == 'all' else [t.strip() for t in args.intent_keep.split(',') if t.strip()]
     jobs = []
     for split in splits:
         if args.splits and split['name'] not in args.splits:
@@ -196,7 +201,8 @@ def main():
                              videos=args.videos, failure_videos=failure_videos,
                              threads=max(1, 12 // max(args.workers, 1)),
                              args=dict(expert=args.expert, checkpoint=args.checkpoint, device=args.device,
-                                       oracle_condition=oracle_condition, temporal_ensemble_coeff=ensemble)))
+                                       oracle_condition=oracle_condition, temporal_ensemble_coeff=ensemble,
+                                       intent_keep=intent_keep)))
     if args.workers > 1:
         with mp.get_context('spawn').Pool(args.workers) as pool:
             blocks = pool.map(run_job, jobs, chunksize=1)

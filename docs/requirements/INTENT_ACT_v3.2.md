@@ -450,6 +450,100 @@ Ba điểm bổ sung khi chạy thật, mỗi điểm đều dựa trên số đ
   4. Job 4: thu 2 dataset.
   5. Job 5: train và eval A–D.
 
+### 4.2i Đánh giá 2×2 sơ bộ trên laptop (yêu cầu của bạn, chốt 2026-10-13)
+**Bối cảnh.**
+- Máy trạm tạm chưa dùng được, và pipeline còn thay đổi nhiều.
+- Bạn cần kết quả 2×2 sơ bộ trước, vẫn đủ 4 ô và các chỉ số HRIBench-style. Khi kết quả như ý thì mới train đầy đủ (job 1–5, §4.2h).
+
+**Nguyên tắc:** giữ nguyên mọi thứ quyết định tính hợp lệ của 2×2, chỉ giảm khối lượng (`scripts/prelim_2x2.sh`).
+- Giữ nguyên:
+  - định nghĩa 4 ô: expert trễ ≥ 0.95, sớm ≥ 0.7, cùng bộ đo; A, B không thấy intent; C, D thấy intent của bộ đo;
+  - **4 mạng ACT riêng**, cùng kiến trúc, 3 camera, task token;
+  - cùng episode eval cho cả 4, bootstrap ghép cặp, bộ chỉ số HRIBench-style;
+  - không rò rỉ.
+
+| Hạng mục | Bản đầy đủ | Bản sơ bộ | Lý do / nguồn |
+|---|---|---|---|
+| Bộ đo | 5 model theo fold, 286 episode | **1 model**, 137 episode pilot (test fold 0, validation fold 1, train fold 2–4) | Không rò rỉ: code từ chối đo mọi episode model đã thấy (`seen_seeds`). Danh sách thu dữ liệu bỏ các cell đó; eval list là seed mới |
+| Dữ liệu | danh sách demo v5 (~93 episode / task / quy tắc) | **20 episode / task / quy tắc** (120 mỗi quy tắc, 69 có DART), rải đều trên các cell thiết kế | Late và early thu trên cùng các cell |
+| Mạng | 4 riêng | **4 riêng** (không dùng chung) | Xem "Vì sao không dùng 2 mạng" |
+| Độ dài train | **2000 epoch theo đơn vị của ACT** (~31.5k bước cho 504 episode train) | **2000 epoch theo đơn vị của ACT** (6.8k bước cho 108 episode train) | Xem "Độ dài train" |
+| Eval | eval list (263) | **8 episode / task** (48), cùng episode cho cả 4 | Khoảng tin cậy rộng hơn |
+| Chỉ số | HRIBench-style | CSR, CT, Rsp, WCR, WCD, AM, CRsp, DSR | EWC (chỉ số tự đặt) đã bỏ: giữ bộ HRIBench-style, không thêm chỉ số "đi nhầm" (bạn, 2026-10-12) |
+
+**Độ dài train** (cả bản đầy đủ lẫn sơ bộ; trước đây cố định 15k bước):
+- Nguồn:
+  - Lệnh train mẫu trong repo ACT gốc dùng `--num_epochs 2000` (batch 8, lr 1e-5).
+  - Mục "ACT tuning tips" khuyên: *"just train for longer! Success rate and smoothness can improve way after loss plateaus. For real-world data … train for at least 5000 epochs or 3-4 times the length after the loss has plateaued."*
+  - LeRobot: model ACT công bố cho ALOHA sim (50 episode) là checkpoint 80k bước, batch 8.
+- Trong code ACT gốc, một epoch là mỗi episode được lấy **một** mẫu (độ dài dataset = số episode, mỗi lần bốc một thời điểm ngẫu nhiên). Vậy số bước = 2000 × số episode train ÷ batch.
+- Mức cũ 15k bước với 504 episode train chỉ tương đương khoảng 950 epoch, thấp hơn mức khuyên.
+- Dữ liệu sim với expert lập trình, nên dùng mức 2000 (không phải 5000 của dữ liệu thật).
+- Kiểm tra theo tips: in đường loss validation của cả 4 mạng (mỗi 1000 bước) để xem loss phẳng từ lúc nào.
+
+**Vì sao không dùng 2 mạng** (một mạng mỗi quy tắc, train có / không intent, che intent khi eval). Đã cân nhắc rồi bỏ, vì nó làm kết quả nghiêng về phía giả thuyết:
+- Mạng học chung sẽ dựa vào token khi có intent và học từ ảnh ít hơn. Khi che intent, nó yếu hơn một mạng chỉ train không intent.
+- Chỗ yếu đó hại B (sớm, không intent) nhiều nhất, vì B phải đoán đích từ cử chỉ mới làm dở. Vì vậy D − B và tương tác bị phóng đại.
+
+**Hạn chế còn lại** (phải ghi khi báo cáo):
+- Ít demo cũng hại B nhiều nhất, nên các hiệu riêng (C − A, D − B) bị phóng đại. Kết luận chỉ đọc chiều và độ lớn cỡ chừng, chủ yếu ở tương tác; kết quả dương tính phải xác nhận bằng bản đầy đủ.
+- Hai cách kiểm tra:
+  - loss validation của B đã phẳng chưa;
+  - ở T4, expert trễ và sớm giống hệt nhau, nên A ≈ B và C ≈ D. Chênh lệch ở T4 cho biết mức nhiễu do train.
+
+**So sánh hai expert** (trễ / sớm): tính từ chính hai dataset thu trên cùng cell, gồm khoảng cách cam kết, thành công, cam kết sai, CT, Rsp, AM, WCR, WCD.
+
+**Điểm dừng:**
+1. Sau khi đo khoảng cách 0.7 / 0.95: nếu không cải thiện so với lần đo sau bước 1 + 3 (T1 trung vị 0.05 s, T2 0 s), dừng để bạn quyết phương án làm chậm người sim.
+2. Nếu cả 4 ô đều gần như không hoàn thành được task (train chưa đủ), bảng không kết luận được gì.
+
+**Kết quả bộ đo (2026-10-13 07:27; người sim đã sửa cả hai chỗ lộ):**
+- Model 0: tốt nhất ở epoch 25. Test fold 0 (29 episode): đúng lớp 0.96 theo cửa sổ, sai số hướng 2.5°.
+- Recall: không 0.88, chỉ tay 0.98, vươn tay 0.98, chìa tay 0.97, "chờ" 0.92, rút tay 0.80 (theo frame).
+- Belief về đích giờ tăng dần, không còn nhảy ngay khi phát hiện:
+
+  | Cử chỉ | Belief lúc phát hiện, cũ → mới | Belief ≥ 0.95 ở phần cử chỉ, cũ → mới |
+  |---|---|---|
+  | T1 chỉ tay | 0.74 → 0.26 | 36% → 47% |
+  | T2 chỉ tay | 0.99 → 0.48 | 17% → 38% |
+  | T2 chìa tay | 0.88 → 0.56 | 4% → 17% |
+  | T3 vươn tay | 0.39 → 0.69 | 17% → 23% |
+
+  Chọn đúng ở cuối đoạn vẫn 100%.
+- Số frame giữ (α = 5%, validation fold 1, 31 episode):
+
+  | Quy tắc | "chờ" | rút tay |
+  |---|---|---|
+  | trễ | 3 | 4 (0.35 s sau lúc bắt đầu) |
+  | sớm | 3 | **12** (0.82 s) |
+
+  - Ở quy tắc sớm, không có số frame ≤ 8 nào đạt α (tốt nhất 2/31 = 6%). Vì vậy khoảng tìm được mở tới 15 frame (1 s), giữ nguyên luật "k nhỏ nhất đạt ≤ α".
+  - Hệ quả: ngưỡng 0.7 báo nhầm rút tay nhiều hơn, nên phải giữ lâu hơn. Tín hiệu đổi ý được xác nhận chậm hơn ở quy tắc sớm.
+- Thời gian chờ 1.35 s (phân vị 95%, n = 21).
+
+**Khoảng cách 0.7 / 0.95** (fold 0, 6 episode mỗi task) **— điểm dừng 1 qua:**
+
+| Task | Sau bước 1 + 3 (bộ đo cũ) | Bây giờ | Chọn sai lúc 0.7 / 0.95 |
+|---|---|---|---|
+| T1 | trung vị 0.05 s, ≥ 0.1 s ở 2/6 | 0.20 s, 5/6 | 2/6 / 0/6 |
+| T2 | 0 s, 0/6 | 0.23 s, 6/6 | 2/6 / 0/6 |
+| T3 | 0.22 s, 6/6 | 0.10 s, 4/6 | 2/6 / 1/6 |
+
+- Pre-roll: kết quả đầu tiên ở t = 0, lớp "không".
+- Ở mức 0.7 expert chọn sai khoảng 1/3, khớp với ý nghĩa của ngưỡng (còn khoảng 30% rủi ro).
+
+**Thời gian ước tính trên laptop** (GTX 1650):
+
+| Bước | Thời gian |
+|---|---|
+| bộ đo | ~5 giờ |
+| khoảng cách 0.7 / 0.95 | ~10 phút |
+| thu 2 × 120 episode | ~3.5 giờ |
+| train 4 × 6.8k bước | ~11 giờ |
+| eval 4 × 48 episode | ~1.5 giờ |
+
+Tổng khoảng 21 giờ.
+
 ### 4.3 Tham số (`configs/intent_schema.yaml` → `belief`; đã xoá 2026-10-12, §4.2h)
 | Tên | Mặc định | Ý nghĩa |
 |---|---|---|

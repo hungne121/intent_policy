@@ -518,6 +518,29 @@ Chuỗi chạy lại với người sim đã sửa (`scratchpad/chain_v2.sh`, lo
 - Đã sửa: khoá mở khi có cử chỉ mới. Không đổi số frame giữ.
 - Kiểm tra offline (model cũ, fold 0–1): T3 vươn tay 37/37 đoạn có đúng một lần bắt đầu; T1 36/36; T2 / T4 mỗi loại 1 đoạn có 2 lần.
 
+### 6.17 2×2 sơ bộ trên laptop (chốt 2026-10-13; lý thuyết §4.2i)
+
+| File | Thay đổi |
+|---|---|
+| `scripts/prelim_2x2.sh` (mới) | chuỗi trên laptop, gồm các giai đoạn `device` → `gap` → `collect` → `train` → `eval`. Chạy lại được từ chỗ dừng; mọi job dưới `choom`, mỗi lúc một job GPU. Mặc định `N_DEMO=20`, `N_EVAL=8`, `EPOCHS_ACT=2000`. 4 mạng riêng A–D; số bước = 2000 × số episode train ÷ batch (`act_steps`) |
+| `workstation/job5_train.sh` | cùng luật `EPOCHS_ACT=2000` thay cho 15k bước cố định (~31.5k bước với 504 episode train); checkpoint `last` |
+| `scripts/val_loss_curves.py` (mới) | đường loss validation của các lần train, bước có loss nhỏ nhất, thay đổi cuối (kiểm tra loss đã phẳng chưa) |
+| `scripts/make_device_folds.py` | `--single K`: chỉ model K, dùng cho mọi episode; ghi `seen_seeds` (các episode đã render ngoài fold test K) |
+| `intent_policy/intent/device.py` | chế độ `single`: một model cho mọi episode, từ chối (ValueError) seed trong `seen_seeds` |
+| `scripts/make_prelim_lists.py` (mới) | danh sách demo và eval sơ bộ: N / M episode mỗi task, rải đều trên các cell, bỏ seed đã thấy |
+| `scripts/compare_device_rules.py` | `--late-dataset` / `--early-dataset`: so sánh hai expert từ meta của hai dataset |
+| `scripts/evaluate.py`, `intent_policy/policies/policy_agent.py` | `--intent-keep none \| all \| <danh sách>` (ablation khi eval; `none` che mọi token và không chạy bộ đo). Bản sơ bộ không dùng tuỳ chọn này, vì 4 mạng riêng |
+| `scripts/analyze_2x2.py` | bỏ EWC: chỉ còn bộ HRIBench-style |
+
+Lệnh:
+
+```bash
+scripts/prelim_2x2.sh device                       # ~5 h: render 137 episode, export, fine-tune model 0, hiệu chỉnh, device_folds.json
+scripts/prelim_2x2.sh gap                          # ~10 phút -> điểm dừng 1
+scripts/prelim_2x2.sh collect train eval           # ~16 h
+RUN=outputs/prelim/smoke N_DEMO=1 N_EVAL=1 STEPS=4 scripts/prelim_2x2.sh collect train eval   # thử toàn chuỗi
+```
+
 ## 7. Lệch so với plan đã duyệt (có lý do)
 1. **Hedging dùng trung bình có trọng số** thay cho trung vị hình học. Với 2 ứng viên, trung vị hình học nằm đúng tại vật nặng hơn, nên robot giật qua lại khi b ≈ 0.5.
 2. **Thư viện theo (cụm xuất phát, đích)**, đúng định nghĩa lớp trong paper D'Arpino. Bản đầu trộn mọi điểm xuất phát nên chỉ đúng 0.71 tới 60% quỹ đạo.
