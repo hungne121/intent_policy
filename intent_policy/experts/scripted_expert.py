@@ -23,8 +23,9 @@ Scenario config `expert` block (teacher settings only):
            cue_onset     clairvoyant: the target is known at the cue onset and after a change at the change itself
            device        belief-space expert on the measuring device (intent/device.py, INTENT_ACT_v3.2.md §4.2e-g):
                          the multi-gesture DeePoint on the sensor camera gives a belief over the candidates;
-                         `device.rule` late commits once a candidate's belief >= 0.95, early once it is >= 0.7, and
-                         neither moves before its first commit ("no blind moves", 2026-10-12). It re-targets when
+                         `device.rule` late commits once the gesture is complete (the device saw the hand stop) and a
+                         candidate's belief >= 0.95, early once a belief is >= 0.7 during the gesture; neither moves
+                         before its first commit ("no blind moves", 2026-10-12). It re-targets when
                          another candidate reaches the threshold, pauses on a confirmed 'wait' / withdraw. No
                          CONFIRM_S, no ground truth of the human's choice. T4: yields to the hand extrapolated at
                          constant velocity (causal).
@@ -314,10 +315,11 @@ class ScriptedExpert:
                 and self.obj is not None:
             self._pause()                       # the human takes back their choice (T3: carries the cube back): wait
                                                 # for the new target, keeping the old one so _redirect can undo it
-        obj = self._decide('object', bel.objects(), self.obj)
+        late = self.trigger == 'device' and bel.rule == 'late'    # late: only once the gesture is complete (§0)
+        obj = self._decide('object', bel.objects(), self.obj) if not late or bel.complete('object') else None
         if obj is not None:
             self._on_evidence(dict(kind='target_object', object=obj), grasping)
-        zone = self._decide('zone', bel.zones(), self.zone)
+        zone = self._decide('zone', bel.zones(), self.zone) if not late or bel.complete('zone') else None
         if zone is not None:
             self._on_evidence(dict(kind='target_zone', zone=zone), grasping)
 

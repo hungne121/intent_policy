@@ -13,9 +13,13 @@ running on the simulated sensor camera, turned into the belief the experts act o
 Five models (`folds_file`, written by workstation/job1_device.sh): model k is trained without folds k (test) and
 k + 1 (validation) and calibrated on fold k + 1; an episode is measured by the model of its own fold
 (intent/folds.fold_of), so no episode is measured by a model that saw it.
-Decision rules (`rule`, the user's definition, §4.2c-f; 2026-10-12: early = 0.7, no longer the first detection):
-  late    a candidate's belief >= late_star (0.95); the 'wait' / withdraw gestures once their probability >= late_star
-  early   a candidate's belief >= early_star (0.7); 'wait' / withdraw once their probability >= early_star
+Decision rules (`rule`, the user's definition, §0 and §4.2c-j):
+  late    the gesture is complete - the device saw the hand stop at its pose (speed below STILL_FRACTION of the
+          motion's peak, the DP / motor-control convention) - and a candidate's belief >= late_star (0.95): "late =
+          the expert waits for the gesture to finish" (§0; 2026-10-14, before: belief >= 0.95 alone, reached mid-gesture
+          only ~0.2 s after 0.7, so the two rules hardly differed). 'wait' / withdraw once their probability >= late_star
+  early   a candidate's belief >= early_star (0.7), during the gesture; 'wait' / withdraw once their probability
+          >= early_star
 The two experts differ only by this threshold (neither moves before its first commit). The device
 runs before the episode (`preroll_frames` copies of the resting human), as a real camera already running would, so
 its first output is at t = 0 instead of after its 15-frame window (0.95 s).
@@ -328,6 +332,24 @@ class DeviceBelief:
         zones = self.code == 'T1' and self.holding
         return {k: p for k, p in self.point_set.items()
                 if (k in self.object_keys and objects) or (k in self.zone_keys and zones)}
+
+    def complete(self, kind: str) -> bool:
+        """The directed gesture behind the `kind` ('object' / 'zone') candidates has finished: the hand is still at the
+        gesture's pose while the device detects the gesture, or its decision was locked when the hand stopped (the
+        late rule acts only then)."""
+        if kind == 'object':
+            key = ('reach', self.reach_set) if self.code == 'T3' else ('point', self._pointing_candidates())
+        elif self.code == 'T2':
+            key = ('palm_up', self.zone_set)
+        elif self.code == 'T1':
+            key = ('point', self._pointing_candidates())
+        else:
+            return False
+        cls, cands = key
+        if not cands:
+            return False
+        held = not self.moving and self.top == cls and self.class_run.get(cls, 0) > 0   # still at the pose
+        return held or (cls, tuple(sorted(cands))) in self.frozen
 
     def objects(self) -> dict[str, float]:
         if self.code == 'T3':

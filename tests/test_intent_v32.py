@@ -125,6 +125,27 @@ def test_lock_opens_at_a_new_gesture(fake_device):
     sc.close()
 
 
+def test_gesture_complete_needs_the_gesture_and_a_still_hand(fake_device):
+    """The late rule acts only once the directed gesture is complete: detected by the device while the hand is
+    still at its pose (or its decision locked when the hand stopped)."""
+    from intent_policy.intent.device import DeviceBelief
+    client, folds_file = fake_device
+    sc = device_scenario(folds_file)
+    sc.reset(seed=3)
+    b = DeviceBelief(sc, S, {**S['device'], 'folds_file': folds_file, 'width': 160, 'height': 90})
+    b.reset()
+    seen = []
+    for c in ('none', 'point'):
+        client.probs = [0.9 if i == S['device']['classes'].index(c) else 0.02 for i in range(6)]
+        for _ in range(2):
+            b.step()
+        seen.append(b.complete('object'))
+    assert seen == [False, True]                     # the human stands still: complete once pointing is detected
+    b.moving = True
+    assert not b.complete('object')                  # the hand still moving: not complete
+    sc.close()
+
+
 def test_encoder_masks_absent_human_and_dropped_tokens():
     enc = encoder()
     toks, mask = enc(random_intent(4))

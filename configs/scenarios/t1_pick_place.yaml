@@ -22,7 +22,7 @@ scene_variation:                    # random episodes when no scenario-list spec
 human_behavior:
   type: t1_instructor
   cue_onset_s: [0.4, 1.2]           # the first pointing motion starts
-  point_s: [1.0, 1.3]               # duration of a pointing motion
+  point_s: [1.5, 1.95]              # duration of a pointing motion # x1.5 (2026-10-13, INTENT_ACT_v3.2.md §4.2j): deliberate robot-directed gesture
   point_dwell_s: [0.3, 0.6]         # minimum hold after the pointing arrived (2026-10-03, was 1.8-2.5) ...
   rest_s: [0.9, 1.2]                # back to the rest pose
   point_hold_max_s: 6.0             # ... then kept until the robot's hand is above the target, at most this (user 2026-10-03)
@@ -39,7 +39,7 @@ intention_change:                   # T5; `probability` > 0 adds random changes 
   # the first indication completed, whatever the robot is doing (heading for, lowering to, holding or carrying the old
   # target); T1 / T2 first signal 'wait' (open hand, palm down, held out towards the robot), then point at the twin
   delay_s: [0.3, 6.0]
-  stop_s: [0.4, 0.6]                # the 'wait' hand moves out ...
+  stop_s: [0.6, 0.9]                # the 'wait' hand moves out ... # x1.5 (2026-10-13, INTENT_ACT_v3.2.md §4.2j): deliberate robot-directed gesture
   stop_hold_s: [0.4, 0.8]           # ... and is held this long
 expert:                             # demonstrator only (never a policy input)
   trigger: cue_complete             # cue_complete (act once the instruction is complete) | evidence | cue_onset

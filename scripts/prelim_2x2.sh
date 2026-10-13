@@ -11,7 +11,12 @@
 #            per epoch: the original ACT command, --num_epochs 2000), i.e. 2000 x training episodes / batch steps
 #   eval     A-D on N_EVAL eval-list episodes per task (C / D with the device in the loop) -> HRIBench-style 2x2
 #            (scripts/analyze_2x2.py), the validation-loss curves of the four networks (plateau check)
-# Usage: scripts/prelim_2x2.sh <stage> ... | all     (stages: device gap collect train eval). Finished steps are
+#   experts  the late and the early expert on the same eval episodes (references: H2) -> detailed analysis
+#            (scripts/analyze_2x2_detail.py)
+# 2026-10-13 (§4.2j): the device is trained on episodes recollected with the current human (stage `source`: the pilot
+# cells with the late cue_complete expert, no device) instead of replays of intent_act_late_v5 (recorded with the old,
+# faster human: its robot actions would not match the slower gestures).
+# Usage: scripts/prelim_2x2.sh <stage> ... | all     (stages: source device gap collect train eval experts). Finished steps are
 # skipped; RUN=outputs/prelim/<date> to continue a run. Every job runs under choom (the OOM killer takes it first) and
 # one GPU job at a time (memory: keep >= 3 GB free).
 set -euo pipefail
@@ -22,31 +27,48 @@ N_EVAL="${N_EVAL:-8}"            # eval-list episodes per list task
 EPOCHS_ACT="${EPOCHS_ACT:-2000}" # ACT epochs (one sample per training episode each); STEPS overrides the steps
 DEV=$RUN/device
 R=$DEV/render
+SRC=$RUN/datasets/render_source  # the device's training episodes (stage source)
 mkdir -p "$RUN"
 exec > >(tee -a "$RUN/chain.log") 2>&1
 log() { echo "[$(date '+%F %T')] $*"; }
 py() { choom -n 1000 -- ./run.sh "$@"; }
 dp() { choom -n 1000 -- scripts/deepoint.sh "$@"; }
 
-stage_device() {
-  log "device 1/5: render the pilot set (17 non-DART episodes per list task + every non-DART T5)"
-  EPS=$(./run.sh -c "
+stage_source() {
+  log "source: the pilot cells (17 non-DART per list task + every non-DART T5) with the late cue_complete expert"
+  mkdir -p "$RUN/lists"
+  ./run.sh -c "
 import json
 from scripts.render_sensor_view import select
 metas = [json.loads(l) for l in open('outputs/datasets/intent_act_late_v5/meta/hri_episodes.jsonl')]
 t5 = [m['episode_index'] for m in metas if m.get('list_task') == 'T5' and not (m.get('dart') or m.get('noise_frames'))]
-print(' '.join(map(str, sorted(set(select(metas, 17)) | set(t5)))))")
+idx = {metas[e]['list_index'] for e in set(select(metas, 17)) | set(t5)}
+rows = [l for l in open('configs/episode_lists/v5/demo_list.jsonl') if json.loads(l)['index'] in idx]
+open('$RUN/lists/pilot.jsonl', 'w').writelines(rows)
+print(len(rows), 'pilot cells')"
+  [ -f "$SRC/meta/hri_episodes.jsonl" ] || py -m scripts.collect_demos --config configs/experiments/intent_act_late.yaml \
+      --root "$SRC" --repo-id local/render_source --scenario-list "$RUN/lists/pilot.jsonl" --overwrite > "$RUN/collect_source.log" 2>&1
+  tail -n 2 "$RUN/collect_source.log"
+}
+
+stage_device() {
+  log "device 1/5: render the sensor view of the source episodes ($SRC)"
+  EPS=$(./run.sh -c "
+import json
+from scripts.render_sensor_view import select
+metas = [json.loads(l) for l in open('$SRC/meta/hri_episodes.jsonl')]
+print(' '.join(map(str, select(metas, 10_000))))")
   set -- $EPS
   log "  $# episodes"
   local all="$EPS"
   while [ $# -gt 0 ]; do                 # one process per 15 episodes: the renderer's memory grows ~0.1 GB per episode
     B="${*:1:15}"; shift $(( $# < 15 ? $# : 15 ))
-    py -m scripts.render_sensor_view --dataset-root outputs/datasets/intent_act_late_v5 --episodes $B --views side \
+    py -m scripts.render_sensor_view --dataset-root "$SRC" --episodes $B --views side \
         --out "$R" --skip-existing | grep -a "^\[" | tail -1 || true
   done
   ./run.sh -c "
 import json
-json.dump(dict(dataset='$(pwd)/outputs/datasets/intent_act_late_v5', episodes=[int(e) for e in '$all'.split()], views=['side']),
+json.dump(dict(dataset='$(pwd)/$SRC', episodes=[int(e) for e in '$all'.split()], views=['side']),
           open('$R/episodes.json', 'w'), indent=1)"
   log "  rendered $(ls "$R"/episode_*.json | wc -l)"
   log "device 2/5: export (6 gesture classes, labels from the motion onset)"
@@ -65,8 +87,8 @@ lines = [f\"$R/{m['tag']}_side_15fps.mp4 0=$R/{m['tag']}_side_m0.npz\" for m in
 open('$DEV/infer_jobs.txt', 'w').write('\n'.join(lines) + '\n')"
   dp scripts/deepoint_infer.py --ckpt "$CK" --list "$DEV/infer_jobs.txt" 2>&1 | tr '\r' '\n' | grep -a "^\[" | tail -1
   log "device 5/5: calibration (validation fold 1), report (test fold 0), device_folds.json"
-  py -m scripts.calibrate_device_rules --dir "$R" --suffix _m0 --test-fold 0 --val-fold 1 \
-      --json "$DEV/fold0/calibration.json" > "$DEV/fold0.calibration.log" 2>&1
+  py -m scripts.calibrate_device_rules --dir "$R" --suffix _m0 --test-fold 0 --val-fold 1 --kmax 15 \
+      --json "$DEV/fold0/calibration.json" > "$DEV/fold0.calibration.log" 2>&1   # holds up to 1 s (§4.2i)
   py -m scripts.deepoint_gesture_report --dir "$R" --suffix _m0 --test-fold 0 --val-fold 1 > "$DEV/fold0.report.log" 2>&1
   py -m scripts.make_device_folds --run "$DEV" --single 0
   mkdir -p outputs/device
@@ -152,8 +174,21 @@ stage_eval() {
   log "2x2: $RUN/intent_2x2.md, validation-loss curves: $RUN/val_loss.md"
 }
 
-[ $# -gt 0 ] || { echo "usage: $0 device gap collect train eval | all"; exit 1; }
-[ "$1" = all ] && set -- device gap collect train eval
+stage_experts() {
+  for rule in late early; do
+    local E=$RUN/eval/expert_$rule
+    log "eval expert $rule -> $E"
+    [ -f "$E/results.json" ] || py -m scripts.evaluate --config configs/experiments/intent_act_device_$rule.yaml --expert \
+        --list "$RUN/lists/eval.jsonl" --workers 1 --videos 1 --output-dir "$E" > "$E.log" 2>&1
+    tail -n 2 "$E.log"
+  done
+  py -m scripts.analyze_2x2_detail --runs A=$RUN/eval/A B=$RUN/eval/B C=$RUN/eval/C D=$RUN/eval/D \
+      --experts late=$RUN/eval/expert_late early=$RUN/eval/expert_early --output "$RUN/intent_2x2_detail.md" | tail -3
+  log "detailed analysis: $RUN/intent_2x2_detail.md"
+}
+
+[ $# -gt 0 ] || { echo "usage: $0 source device gap collect train eval experts | all"; exit 1; }
+[ "$1" = all ] && set -- source device gap collect train eval experts
 log "prelim 2x2 -> $RUN: $* (git $(git rev-parse --short HEAD), N_DEMO=$N_DEMO N_EVAL=$N_EVAL EPOCHS_ACT=$EPOCHS_ACT)"
 for s in "$@"; do "stage_$s"; done
 log "done: $*"

@@ -21,11 +21,11 @@ scene_variation:
 human_behavior:
   type: t3_requester
   cue_onset_s: [0.4, 1.2]           # the reach towards a cube in U starts (the intention cue)
-  u_reach_s: [0.9, 1.3]
+  u_reach_s: [1.35, 1.95]          # x1.5 (2026-10-13, INTENT_ACT_v3.2.md §4.2j): deliberate robot-directed gesture
   hold_pose: [0.36, -0.36, 0.78]    # the cube is held here (above the right part of U) while waiting for the cup
   hold_s: [0.7, 1.0]
-  put_back_s: [1.0, 1.4]            # T5 late: the first cube is put back on its spot
-  point_s: [1.0, 1.3]               # (drawn for every task, unused: no pointing in T3)
+  put_back_s: [1.5, 2.1]            # T5 late: the first cube is put back on its spot; x1.5 (§4.2j)
+  point_s: [1.5, 1.95]              # (drawn for every task, unused: no pointing in T3)
   point_dwell_s: [0.3, 0.5]         # the hand pauses above a cube before taking it
   robot_clear_m: 0.20               # the cube is dropped once the cup stands in U_cup and the gripper is this far away
   point_length_m: 0.50
@@ -43,7 +43,7 @@ intention_change:
   # the first indication completed, whatever the robot is doing (heading for, lowering to, holding or carrying the old
   # target); T1 / T2 first signal 'wait' (open hand, palm down, held out towards the robot), then point at the twin
   delay_s: [0.3, 6.0]
-  stop_s: [0.4, 0.6]                # the 'wait' hand moves out ...
+  stop_s: [0.6, 0.9]                # the 'wait' hand moves out ... # x1.5 (2026-10-13, INTENT_ACT_v3.2.md §4.2j): deliberate robot-directed gesture
   stop_hold_s: [0.4, 0.8]           # ... and is held this long
 expert:
   trigger: cue_complete
