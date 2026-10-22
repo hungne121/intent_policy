@@ -1,0 +1,30 @@
+# Continuous motion of the scripted expert (2026-10-18; docs/discussions/handover_som_va_intent_sai.md): the same
+# set-point interface as restricted_action.yaml, but a MOVE_* goes on a straight line towards the expert's goal with
+# all axes at once (restricted: 1 cm along one axis per tick, <= 0.2 m/s, staircase paths). The recorded action is the
+# joint target, as before; the learned continuous ACT policy is unchanged.
+restricted_action:
+  control_frame: base_link
+  translation_step: {x: 0.01, y: 0.01, z: 0.01}   # still used for DART-free axis moves' tolerance bookkeeping
+  execution_ticks: 1
+  gripper:
+    open: 0.085
+    closed: 0.0
+  limits:
+    x: [-0.13, 0.45]
+    y: [-0.36, 0.44]
+    z: [0.635, 1.00]
+  orientation: top_down
+  max_ik_error: 0.004
+  motion: continuous
+  continuous:
+    control_hz: 20
+    # TCP speed cap, the ISO/TS 15066 transient-contact limit for the back of the hand, the body region that shares
+    # the table with the robot: v <= F / sqrt(mu k) with F = 280 N (transient), k = 75 N/mm, mu <= m_R = M/2 + m_L
+    # (human mass neglected: conservative), M <= 11.2 kg (UR3e incl. cable, datasheet), m_L ~ 1.1 kg (gripper +
+    # object) -> 0.39 m/s. Below the UR3e maximum TCP speed (3 m/s, datasheet 2025).
+    tcp_speed: 0.39
+    # the last move into the waiting palm (T2, possible clamping of the hand): the quasi-static limit, F = 140 N -> 0.20
+    palm_speed: 0.20
+    tcp_accel: 1.2                    # [m/s^2] URScript movel default tool acceleration (Universal Robots script manual)
+    joint_speed: [3.1416, 3.1416, 3.1416, 6.2832, 6.2832, 6.2832]   # [rad/s] UR3e datasheet (±180°/s, wrists ±360°/s)
+    goal_tol: 0.001                   # [m] a goal is reached when the set-point is this close

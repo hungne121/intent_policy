@@ -121,3 +121,34 @@ def expert_counterfactual(exp: dict, episode_meta: dict, actions: np.ndarray, t:
         return dict(action=a, tcp=sc.tcp().round(5).tolist(), setpoint=mapper.setpoint.round(5).tolist(), stage=ex.stage)
     finally:
         sc.close()
+
+
+# ---------------------------------------------------------------------------------------------- v3.2 swap test
+SWAP_TASKS = ('T1', 'T2', 'T3')
+
+
+def alternative_partners(spec: dict) -> dict[str, str]:
+    """{key: partner} of the intent swap test (INTENT_ACT_v3.2.md §5.3): the alternative the human could have chosen in
+    the same scene, which only the human's cue tells apart - the target's identical twin (T1, T2), the other cup (T3),
+    P1 <-> P2, H1 <-> H2. Keys are object keys and place names, as in robot_target_commit events. Other tasks: {}."""
+    from intent_policy.scenarios.config import twin_of
+    task, layout = spec.get('task'), spec.get('layout') or {}
+    if task not in SWAP_TASKS:
+        return {}
+    out = {}
+    if task in ('T1', 'T2') and twin_of(spec['target']) in layout:
+        tw = twin_of(spec['target'])
+        out[spec['target']], out[tw] = tw, spec['target']
+    elif task == 'T3':
+        cups = sorted(k for k in layout if k.startswith('C'))
+        if len(cups) == 2:
+            out[cups[0]], out[cups[1]] = cups[1], cups[0]
+    for a, b in (('P1', 'P2'), ('H1', 'H2')):
+        out[a], out[b] = b, a
+    return out
+
+
+def slot_partners(spec: dict) -> dict[str, str]:
+    """alternative_partners in intent target names (an object -> its slot): the permutation of p_target / c_target."""
+    layout = spec.get('layout') or {}
+    return {layout.get(a, a): layout.get(b, b) for a, b in alternative_partners(spec).items()}

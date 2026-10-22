@@ -1,0 +1,61 @@
+% Báo cáo tiến độ 15/10/2026 — build: latexmk (XeLaTeX, xem latexmkrc)
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage{fontspec}
+\setsansfont{Lato}
+\newfontfamily\sym{DejaVu Sans}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% ---------- màu ----------
+\definecolor{ink}{HTML}{1F2328}
+\definecolor{mute}{HTML}{8A9099}
+\definecolor{line}{HTML}{D5DAE1}
+\definecolor{accent}{HTML}{2F6FB3}
+\definecolor{hot}{HTML}{E07B24}
+\definecolor{ok}{HTML}{2E9E5B}
+
+% ---------- giao diện tối giản ----------
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=ink,bg=white}
+\setbeamercolor{structure}{fg=accent}
+\setbeamercolor{frametitle}{fg=ink}
+\setbeamercolor{title}{fg=ink}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
+\setbeamerfont{title}{size=\LARGE,series=\bfseries}
+\setbeamertemplate{frametitle}{%
+  \vspace*{0.7em}\insertframetitle\par\vspace{0.25em}%
+  {\color{accent}\rule{1.2cm}{2pt}}\par}
+\setbeamertemplate{footline}{%
+  \hfill{\scriptsize\color{mute}\insertframenumber}\hspace*{1.2em}\vspace*{0.8em}}
+\setbeamertemplate{itemize item}{\color{accent}\small$\bullet$}
+\setbeamertemplate{itemize subitem}{\color{mute}\scriptsize$\bullet$}
+\setlength{\parskip}{0pt}
+
+\setbeamertemplate{title page}{%
+  \vspace*{1.4cm}
+  {\color{accent}\rule{1.5cm}{3pt}}\par\vspace{0.5cm}
+  {\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par}
+  \vspace{0.35cm}
+  {\large\color{mute}\insertsubtitle\par}
+  \vfill
+  {\insertauthor\par}\vspace{0.1cm}
+  {\small\color{mute}\insertinstitute\quad·\quad\insertdate\par}
+  \vspace*{0.9cm}}
+
+\newcommand{\done}{{\sym\color{ok}✓}}
+\newcommand{\half}{{\sym\color{hot}◐}}
+\newcommand{\todo}{{\sym\color{mute}○}}
+\newcommand{\gray}[1]{{\color{mute}#1}}
+
+\title{Học chính sách hành động cộng tác\\người -- robot có nhận thức ý định}
+\subtitle{Báo cáo tiến độ}
+\author{Đào Duy Hưng}
+\institute{GVHD: PGS.TS. Hoàng Văn Xiêm}
+\date{15/10/2026}
+\newcommand{\ci}[3]{$#1$\,{\color{mute}\scriptsize[$#2$;\,$#3$]}}
+\newcommand{\sig}{\textsuperscript{\color{ok}\bfseries*}}

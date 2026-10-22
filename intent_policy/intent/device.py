@@ -20,7 +20,13 @@ Decision rules (`rule`, the user's definition, §0 and §4.2c-j):
           only ~0.2 s after 0.7, so the two rules hardly differed). 'wait' / withdraw once their probability >= late_star
   early   a candidate's belief >= early_star (0.7), during the gesture; 'wait' / withdraw once their probability
           >= early_star
-The two experts differ only by this threshold (neither moves before its first commit). The device
+          2026-10-18 (the user's rule, docs/discussions/handover_som_va_intent_sai.md; slide bao_cao_2026-10-18):
+          `approach_star` (0.85) = the lowest belief level after which the leading candidate changes in < 10 % of the
+          gestures (scripts/device_stability.py, 241 unseen gestures): from it the robot moves towards the candidates
+          (reversible moves only, the belief-weighted point, Javdani et al. 2018); `commit_star` (0.9) = the commit,
+          after which the irreversible steps follow (descend, grasp). 'wait' / withdraw keep early_star and their
+          calibrated holds. Unset: both equal early_star (the 0.7 rule).
+The two experts differ only by these thresholds (neither moves before its first approach / commit). The device
 runs before the episode (`preroll_frames` copies of the resting human), as a real camera already running would, so
 its first output is at t = 0 instead of after its 15-frame window (0.95 s).
 """
@@ -166,6 +172,13 @@ class DeviceBelief:
             raise ValueError(f"device rule must be early | late, got {self.rule!r}")
         self.late_star = float(cfg['late_star'])
         self.star = self.late_star if self.rule == 'late' else float(cfg['early_star'])
+        # target beliefs (module doc): the commit level and, early only, the approach level (None: no approach)
+        self.commit_star = self.star if self.rule == 'late' else float(cfg.get('commit_star', self.star))
+        self.approach_star = None if self.rule == 'late' else cfg.get('approach_star')
+        if self.approach_star is not None:
+            self.approach_star = float(self.approach_star)
+            if not self.approach_star <= self.commit_star:
+                raise ValueError(f'device approach_star {self.approach_star} must be <= commit_star {self.commit_star}')
         self.preroll = int(cfg.get('preroll_frames', 0))
         self.folds, self.assign = load_folds(cfg['folds_file'], self.classes)
         self.cam_name, self.W, self.H = cfg['camera'], int(cfg['width']), int(cfg['height'])
@@ -211,6 +224,8 @@ class DeviceBelief:
         self.last_point_t: float | None = None         # time of the last device frame that detected pointing
         self.first_top: str | None = None              # the device's class at its first output (pre-roll check)
         self.frozen: dict[tuple, dict[str, float]] = {}  # (class, candidates) -> belief locked when the hand stopped
+        self.await_motion = False                      # a lock was cleared: a reach needs a new motion (step)
+        self.reach_best: dict[str, float] = {}         # most confident reach belief of the current motion (_freeze)
         self.hand = None
         self.peak = 0.0                                # peak hand speed of the current motion [m/s]
         self.moving = False
@@ -236,6 +251,10 @@ class DeviceBelief:
                 self.reach_map[b] = cup_of[b]
                 self.reach_set[b] = np.asarray(sc.start_pos[b], float)
             self.object_keys = list(self.reach_map.values())
+        self.t3_handover = self.code == 'T3' and bool(sc.cfg.human_behavior.get('handover'))
+        if self.t3_handover:                           # T3 new: the open hand over H1 / H2, as T2
+            self.zone_keys = [k for k, z in sc.zones.items() if z['kind'] == 'hand']
+            self.zone_set = {k: self.places[k] for k in self.zone_keys}
 
     def step(self) -> None:
         """Advance one 20 Hz control frame; the device sees the 15 fps frames."""
@@ -266,6 +285,8 @@ class DeviceBelief:
         if self.confirmed('palm_forward'):
             self.wait_seen = True
         if self.confirmed('palm_forward') or self.confirmed('withdraw'):
+            if self.frozen:
+                self.await_motion = True
             self.frozen.clear()                        # a change of mind is signalled: decisions open again
         seg = sc.human_pose['segments']
         wrist, elbow = np.asarray(seg['r_hand'][0], float), np.asarray(seg['r_forearm'][0], float)
@@ -274,7 +295,14 @@ class DeviceBelief:
         self.hand = hand
         self.peak = max(self.peak, speed)
         if speed >= self.STILL_FRACTION * self.peak and speed > 0:
+            if not self.moving:
+                self.reach_best = {}                   # a new motion
             self.moving = True
+            self.await_motion = False
+            if self.code == 'T3' and self.top == 'reach':
+                b = self._belief('reach', self.reach_set)
+                if b and max(b.values()) > max(self.reach_best.values(), default=0.0):
+                    self.reach_best = b
         elif self.moving:                              # the motion ended: lock the current gesture's decision
             self.moving, self.peak = False, 0.0
             self._freeze()
@@ -290,7 +318,7 @@ class DeviceBelief:
         out = []
         if self.code in ('T1', 'T2'):
             out.append(('point', self._pointing_candidates()))
-        if self.code == 'T2':
+        if self.code == 'T2' or self.t3_handover:
             out.append(('palm_up', self.zone_set))
         if self.code == 'T3':
             out.append(('reach', self.reach_set))
@@ -301,6 +329,11 @@ class DeviceBelief:
             key = (cls, tuple(sorted(cands)))
             if key not in self.frozen and self.top == cls:
                 b = self._belief(cls, cands)
+                if cls == 'reach' and self.reach_best and max(self.reach_best.values()) > max(b.values(), default=0.0):
+                    # 2026-10-18: a reach's target shows in the motion (Pérez-D'Arpino & Shah 2015: the first part of
+                    # the reach), while at its end the hand is at the cube and the direction hand -> cube is degenerate;
+                    # locking the end value left the late rule at 0.5 / 0.5 for ever (T5 on T3, expert check)
+                    b = dict(self.reach_best)
                 if b:
                     self.frozen[key] = b
 
@@ -311,6 +344,12 @@ class DeviceBelief:
             return dict(self.frozen[key])
         if not cands or self.probs is None or self.dw is None or self.hand is None:
             return {}
+        if cls == 'reach' and self.await_motion:
+            # 2026-10-18: after a change-of-mind signal cleared the lock, a reach gives no target evidence until the
+            # hand moves again: a hand still at (or holding) the reached object has a degenerate direction hand ->
+            # target (class doc), and false withdraw detections while the human holds the new cube still above U
+            # made the belief swing back to the old cube (T5 on T3, expert check outputs/trial_t235/2026-10-18)
+            return {k: 1.0 / len(cands) for k in cands}
         c = self.classes.index(cls)
         p, sigma = float(self.probs[c]), self.width(cls)
         L = {k: p * np.exp(-0.5 * (angle(self.dw, pos - self.hand) / sigma) ** 2) + (1 - p) for k, pos in cands.items()}
@@ -339,7 +378,7 @@ class DeviceBelief:
         late rule acts only then)."""
         if kind == 'object':
             key = ('reach', self.reach_set) if self.code == 'T3' else ('point', self._pointing_candidates())
-        elif self.code == 'T2':
+        elif self.code == 'T2' or self.t3_handover:
             key = ('palm_up', self.zone_set)
         elif self.code == 'T1':
             key = ('point', self._pointing_candidates())
@@ -358,18 +397,27 @@ class DeviceBelief:
         return {k: b[k] for k in self.object_keys if k in b}
 
     def zones(self) -> dict[str, float]:
-        if self.code == 'T2':
+        if self.code == 'T2' or self.t3_handover:
             return self._belief('palm_up', self.zone_set)
         if self.code == 'T1':
             b = self._belief('point', self._pointing_candidates())
             return {k: b[k] for k in self.zone_keys if k in b}
         return {}
 
+    def requests(self) -> dict[str, float]:
+        """T3: the belief over the cubes the human reaches for - the human's own goal. Which cup goes with a cube is
+        task knowledge the policy learns from the demonstrations (doc 'Hướng triển khai' §2.2, 2026-10-18); the
+        expert (a teacher) maps cube -> cup in `objects()`."""
+        return self._belief('reach', self.reach_set) if self.code == 'T3' else {}
+
     def distribution(self) -> dict[str, float]:
-        """One distribution over the episode's candidates (T1 the joint pointing set; T2 half objects, half zones)."""
+        """One distribution over the episode's candidates (T1 the joint pointing set; T2 half objects, half zones;
+        T3 the cubes, `requests`)."""
         if self.code == 'T1':
             return self._belief('point', self._pointing_candidates())
-        parts = [d for d in (self.objects(), self.zones()) if d]
+        if self.code == 'T3' and not self.t3_handover:
+            return self.requests()
+        parts = [d for d in ((self.requests() if self.code == 'T3' else self.objects()), self.zones()) if d]
         out: dict[str, float] = {}
         for d in parts:
             tot = sum(d.values()) or 1.0
@@ -400,9 +448,9 @@ class DeviceBelief:
         return np.full(len(self.classes), np.nan) if self.probs is None else self.probs
 
     def thresholds(self) -> tuple[float, int, float]:
-        """(b_star, n_hold, stop_star) of the belief expert: the rule's posterior threshold (late 0.95, early 0.7),
+        """(b_star, n_hold, stop_star) of the belief expert: the rule's commit threshold (late 0.95, early commit_star),
         no hold on the belief; p_stop / p_withdraw are already 0 / 1 decisions (`confirmed`)."""
-        return self.star, 1, 0.5
+        return self.commit_star, 1, 0.5
 
     def snapshot(self) -> dict:
         r = lambda d: {k: round(v, 3) for k, v in d.items()}

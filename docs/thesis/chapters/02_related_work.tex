@@ -1,0 +1,103 @@
+% !TEX root = ../main.tex
+\chapter{NGHIÊN CỨU LIÊN QUAN}
+\label{chap:related}
+
+Chương này tổng quan bốn nhóm công trình liên quan trực tiếp tới khóa luận:
+\begin{itemize}
+  \item học bắt chước cho thao tác robot, với trọng tâm là ACT;
+  \item các cách điều kiện hóa một chính sách theo thông tin bổ sung;
+  \item nhận biết và dự đoán ý định của con người;
+  \item các phương pháp đánh giá tương tác người -- robot.
+\end{itemize}
+
+\section{Học bắt chước cho thao tác robot}
+\label{sec:related-il}
+
+\subsection{Nhân bản hành vi và vấn đề lệch phân phối}
+
+Dạng đơn giản nhất của học bắt chước là nhân bản hành vi (behavior cloning): học có giám sát một ánh xạ từ quan sát $o_t$ sang hành động $a_t$ trên tập trình diễn của chuyên gia. Nhược điểm cơ bản của cách tiếp cận này là lệch phân phối (covariate shift). Khi chính sách mắc một lỗi nhỏ, nó đi vào những trạng thái chuyên gia chưa từng gặp, và lỗi tích lũy theo thời gian. Ross và cộng sự~\cite{ross2011dagger} chỉ ra rằng sai số kỳ vọng của nhân bản hành vi có thể tăng theo bình phương độ dài episode, và đề xuất DAgger: thu thập nhãn chuyên gia trên chính các trạng thái mà chính sách đi tới. DART~\cite{laskey2017dart} đi theo hướng khác: bơm nhiễu vào hành động của chuyên gia ngay khi thu thập trình diễn, để dữ liệu bao phủ cả những trạng thái lân cận quỹ đạo lý tưởng. Như Chương~\ref{chap:results} sẽ cho thấy, đây cũng là một trong những nguyên nhân chính khiến kết quả ngoại tuyến và vòng kín của khóa luận chênh lệch lớn.
+
+\subsection{ACT và phân đoạn hành động}
+
+ACT (Action Chunking with Transformers)~\cite{zhao2023act} là chính sách nền được sử dụng trong khóa luận. ACT có các đặc điểm chính sau:
+\begin{itemize}
+  \item \textbf{Bộ mã hóa ảnh.} Mỗi ảnh camera được mã hóa bằng ResNet18~\cite{he2016resnet} thành một lưới đặc trưng.
+  \item \textbf{Transformer kiểu DETR.} Lưới đặc trưng được đưa cùng token trạng thái khớp vào một transformer mã hóa -- giải mã~\cite{vaswani2017attention,carion2020detr}.
+  \item \textbf{Phân đoạn hành động.} Thay vì dự đoán một hành động mỗi bước, ACT dự đoán một \emph{đoạn} $k$ hành động liên tiếp (action chunk). Việc này giảm độ dài hiệu dụng của bài toán và làm giảm lỗi tích lũy.
+  \item \textbf{CVAE.} ACT dùng một bộ mã hóa CVAE~\cite{sohn2015cvae} để mô hình hóa sự đa dạng phong cách của người trình diễn; khi suy luận, biến tiềm ẩn được đặt bằng 0.
+  \item \textbf{Temporal ensembling.} ACT có thể trộn các đoạn hành động chồng lấn để chuyển động mượt hơn.
+\end{itemize}
+
+ACT ban đầu được thiết kế cho thao tác hai tay với hành động khớp liên tục. Khóa luận dùng bản cài đặt ACT của LeRobot~\cite{cadene2026lerobot}, nhưng thay đầu ra liên tục bằng một đầu phân loại 9 hành động rời rạc (Mục~\ref{sec:action-space}).
+
+\subsection{Các chính sách thị giác -- vận động khác}
+
+Diffusion Policy~\cite{chi2023diffusion} biểu diễn phân phối hành động bằng mô hình khuếch tán, phù hợp với dữ liệu trình diễn đa mốt. RT-1~\cite{brohan2023rt1} và Octo~\cite{octo2024} theo hướng chính sách tổng quát được huấn luyện trên tập dữ liệu lớn nhiều robot, với điều kiện là câu lệnh ngôn ngữ hoặc ảnh mục tiêu. Các môi trường mô phỏng chuẩn như robosuite~\cite{zhu2020robosuite} và LIBERO~\cite{liu2023libero} được dùng rộng rãi để đánh giá các chính sách này. Tuy nhiên, chúng không mô hình hóa con người như một tác tử có ý định trong cảnh.
+
+\section{Điều kiện hóa chính sách theo thông tin bổ sung}
+\label{sec:related-conditioning}
+
+Đưa thông tin ý định vào chính sách là một trường hợp riêng của bài toán \emph{điều kiện hóa} chính sách. Các công trình trước đã dùng ba nhóm kỹ thuật chính.
+\begin{itemize}
+  \item \textbf{Ghép token.} Thông tin điều kiện được chiếu thành token và đưa chung vào transformer cùng token ảnh. Đây là cách Octo~\cite{octo2024} đưa ngôn ngữ và ảnh mục tiêu vào mô hình. RoboAgent~\cite{bharadhwaj2024roboagent} (MT-ACT) mở rộng ACT cho nhiều nhiệm vụ bằng embedding câu lệnh.
+  \item \textbf{FiLM.} FiLM~\cite{perez2018film} sinh hệ số co giãn và dịch chuyển từ vector điều kiện rồi áp lên bản đồ đặc trưng của mạng thị giác. Bharadhwaj và cộng sự~\cite{bharadhwaj2024roboagent} báo cáo rằng bỏ FiLM khỏi MT-ACT làm hiệu năng giảm khoảng 5--10\%. BAKU~\cite{haldar2024baku} cũng dùng FiLM để điều kiện hóa theo nhiệm vụ.
+  \item \textbf{Dropout điều kiện và token rỗng.} BESO~\cite{reuss2023beso} bỏ ngẫu nhiên mục tiêu với xác suất 0,1 khi huấn luyện, nhờ đó một mạng học đồng thời chính sách có và không có mục tiêu. Octo ngẫu nhiên loại bỏ câu lệnh hoặc ảnh mục tiêu cho từng mẫu. Ý tưởng này gần với classifier-free guidance~\cite{ho2022cfg}, nơi điều kiện được thay bằng một embedding rỗng học được.
+\end{itemize}
+
+Khóa luận kế thừa cả ba nhóm: ghép token là cơ chế chính, FiLM là phương án dự phòng, và dropout theo \emph{nhóm thông tin} với token rỗng học được được dùng vừa để chống phụ thuộc quá mức vừa để phân tích tác động của từng loại thông tin (Mục~\ref{sec:group-dropout}). Để mã hóa đại lượng thời gian liên tục, khóa luận dùng đặc trưng Fourier~\cite{tancik2020fourier}.
+
+\section{Nhận biết và dự đoán ý định của con người}
+\label{sec:related-intent}
+
+\subsection{Ý định trong tương tác người -- robot}
+
+Losey và cộng sự~\cite{losey2018review} chia vấn đề chia sẻ điều khiển trong HRI vật lý thành ba khâu: \emph{nhận biết} ý định, \emph{phân xử} giữa người và robot, và \emph{truyền đạt} lại cho người. Khóa luận tập trung vào khâu đầu, và đặt câu hỏi khâu này giúp được gì cho một chính sách học từ dữ liệu.
+
+Nhiều công trình cho thấy lợi ích của việc đoán trước ý định:
+\begin{itemize}
+  \item Hoffman và Breazeal~\cite{hoffman2007cost} đề xuất chọn hành động theo kỳ vọng về bước tiếp theo của người, giúp sự phối hợp trôi chảy hơn.
+  \item Huang và Mutlu~\cite{huang2016anticipatory} dùng hướng nhìn để dự đoán vật người sắp yêu cầu, và rút ngắn thời gian hoàn thành so với điều khiển phản ứng.
+  \item Pérez-D'Arpino và Shah~\cite{perezdarpino2015fast} dự đoán đích của chuyển động vươn tay chỉ từ phần đầu quỹ đạo.
+  \item Mainprice và Berenson~\cite{mainprice2013human} dùng dự đoán sớm chuyển động người để lập kế hoạch cho robot tránh vùng người sắp chiếm.
+  \item Koppula và Saxena~\cite{koppula2016anticipating} dự đoán hoạt động tương lai dựa trên khả năng tương tác của vật (affordance).
+  \item Interaction primitives~\cite{amor2014interaction} học phân phối chung giữa chuyển động người và robot để suy ra phản hồi của robot.
+\end{itemize}
+
+Ở chiều ngược lại, Dragan và cộng sự~\cite{dragan2013legibility} nghiên cứu cách làm cho chuyển động của robot dễ đọc ý định đối với người.
+
+Cử chỉ chỉ tay là kênh truyền đạt ý định không gian tự nhiên nhất trong các nhiệm vụ chỉ dẫn. Nickel và Stiefelhagen~\cite{nickel2007pointing} nhận dạng cử chỉ chỉ tay và ước lượng hướng chỉ cho robot. Đối với trao vật, Ortenzi và cộng sự~\cite{ortenzi2021handovers} tổng quan các pha của một lần trao: giai đoạn trước trao (giao tiếp, căn chỉnh tư thế) và giai đoạn trao vật lý. Khóa luận dựa vào cách phân pha này khi định nghĩa các mốc thời gian của ý định.
+
+\subsection{Dự đoán hành động và chuyển động tương lai}
+
+Trong thị giác máy tính, bài toán dự đoán hành động sắp xảy ra đã được chuẩn hóa trên các bộ dữ liệu góc nhìn thứ nhất:
+\begin{itemize}
+  \item Ego4D~\cite{grauman2022ego4d} định nghĩa nhiệm vụ dự đoán tương tác ngắn hạn: vật sắp chạm, động từ và thời gian tới lúc chạm.
+  \item EPIC-KITCHENS-100~\cite{damen2022epic} đánh giá dự đoán hành động trước một khoảng thời gian cố định.
+  \item RU-LSTM~\cite{furnari2021rulstm} đo thời điểm sớm nhất mà dự đoán trở nên đúng.
+\end{itemize}
+
+Cách tách ``vật nào'', ``làm gì'' và ``bao lâu nữa'' của các bộ dữ liệu này là nguồn cảm hứng cho hợp đồng dữ liệu ý định ở Chương~\ref{chap:method}.
+
+Về dự đoán chuyển động, siMLPe~\cite{guo2023simlpe} cho thấy một mạng MLP đơn giản trên hệ số DCT đạt kết quả cạnh tranh trong dự đoán chuyển động người. Schöller và cộng sự~\cite{scholler2020cvm} chỉ ra rằng mô hình vận tốc không đổi là một mốc so sánh mạnh đáng ngạc nhiên. Trong cộng tác tay máy, ManiCast~\cite{kedia2023manicast} huấn luyện bộ dự báo chuyển động theo chi phí của bộ lập kế hoạch thay vì theo sai số trung bình. InteRACT~\cite{kedia2024interact} dự đoán ý định của người \emph{có điều kiện theo hành động tương lai của robot}, vì người cũng phản ứng với robot. Khóa luận dùng mô hình vận tốc không đổi làm bộ dự báo mặc định và để sẵn giao diện cho các mô hình học được.
+
+Về cảm biến, MediaPipe Hands~\cite{zhang2020mediapipe} ước lượng 21 điểm mốc bàn tay theo thời gian thực từ ảnh RGB. Đây là công cụ khóa luận chuẩn bị để đo nhiễu keypoint của người thật.
+
+\section{Đánh giá tương tác người -- robot}
+\label{sec:related-eval}
+
+Hoffman~\cite{hoffman2019fluency} hệ thống hóa các chỉ số khách quan về độ trôi chảy của cộng tác, như thời gian robot chờ, thời gian người chờ, tỉ lệ hoạt động đồng thời và độ trễ chức năng. Về an toàn, Lasota và cộng sự~\cite{lasota2017survey} tổng quan các phương pháp HRI an toàn, còn tiêu chuẩn ISO/TS~15066~\cite{iso15066} quy định yêu cầu cho robot cộng tác.
+
+HRIBench~\cite{liu2026hribench} là công trình gần nhất với khóa luận về mặt đánh giá. Benchmark này có các đặc điểm sau:
+\begin{itemize}
+  \item tổ chức 13 nhiệm vụ trong mô phỏng theo ba vai: Instructor, Collaborator, Intruder;
+  \item đề xuất các chỉ số tương tác về đồng bộ, khả năng phản hồi, tuân thủ quy trình và an toàn;
+  \item với vai Intruder, cố định lịch xuất hiện của người giữa các mô hình được so sánh.
+\end{itemize}
+Khóa luận dùng cùng cách chia vai và xây dựng bộ chỉ số theo tinh thần đó. Tuy nhiên, công thức cụ thể do khóa luận tự định nghĩa và tính trực tiếp từ chuỗi sự kiện của mô phỏng (Mục~\ref{sec:closed-loop-metrics}).
+
+Xu và cộng sự~\cite{xu2026learning} nghiên cứu cộng tác ngầm với chính sách thị giác -- ngôn ngữ -- hành động. Họ phát hiện hiện tượng rò rỉ hành động trong trình diễn: khi một đoạn hành động vắt qua thời điểm chuyển ý định, robot ``đi trước'' người. Phát hiện này là lý do khóa luận đo tỉ lệ \emph{khởi động sớm sai} (false start) như một chỉ số chính.
+
+\section{Nhận xét}
+\label{sec:related-gap}
+
+Các nghiên cứu về nhận biết ý định thường đặt bộ dự đoán ý định trong một hệ thống có bộ lập kế hoạch tường minh. Ngược lại, các chính sách học bắt chước hiện đại lại học hành vi trực tiếp từ ảnh và hiếm khi nhận thông tin về người như một đầu vào có cấu trúc. Vì thế vẫn còn bỏ ngỏ câu hỏi: \emph{một chính sách học bắt chước có sử dụng được thông tin ý định tường minh hay không, loại thông tin nào hữu ích, và lợi ích đó còn lại bao nhiêu khi thông tin được dự đoán thay vì biết chính xác}. Khóa luận tiếp cận câu hỏi này bằng một thiết kế thí nghiệm có kiểm soát. Thiết kế này tách thời điểm phản hồi của dữ liệu khỏi sự có mặt của thông tin ý định, và kiểm tra trực tiếp xem chính sách có \emph{đọc} thông tin ý định hay không, thay vì chỉ so sánh tỉ lệ thành công.

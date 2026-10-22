@@ -1,0 +1,187 @@
+% !TEX root = ../main.tex
+\chapter[THIẾT KẾ THÍ NGHIỆM VÀ QUY TRÌNH ĐÁNH GIÁ]{THIẾT KẾ THÍ NGHIỆM\\VÀ QUY TRÌNH ĐÁNH GIÁ}
+\label{chap:experiments}
+
+Chương này trình bày ba nội dung:
+\begin{itemize}
+  \item thiết kế thí nghiệm $2\times2$ dùng để trả lời các câu hỏi nghiên cứu;
+  \item quy trình đánh giá hai mức: kiểm tra ngoại tuyến xem chính sách có \emph{dùng} thông tin ý định hay không, và đánh giá vòng kín bằng các chỉ số tương tác;
+  \item thiết lập huấn luyện cụ thể.
+\end{itemize}
+
+\section{Thiết kế thí nghiệm \texorpdfstring{$2\times2$}{2×2}}
+\label{sec:design-2x2}
+
+Một khó khăn khi đánh giá lợi ích của thông tin ý định là hai yếu tố rất dễ bị lẫn vào nhau:
+\begin{itemize}
+  \item bản thân \emph{thông tin} ý định;
+  \item \emph{thời điểm} robot phản hồi trong dữ liệu trình diễn.
+\end{itemize}
+Nếu dữ liệu trình diễn chỉ phản hồi khi ý định đã hoàn toàn rõ, thì ảnh camera tại thời điểm đó đã chứa đủ thông tin để hành động, và thông tin ý định hầu như không có gì để đóng góp. Ngược lại, nếu dữ liệu phản hồi sớm, thì chính dữ liệu đã đòi hỏi chính sách phải ``đoán trước''. Khi đó cần biết lợi ích đến từ thông tin ý định hay chỉ từ dữ liệu sớm hơn.
+
+Để tách hai yếu tố, khóa luận huấn luyện bốn mô hình theo thiết kế $2\times2$ (Bảng~\ref{tab:2x2}):
+\begin{itemize}
+  \item A: không có thông tin ý định; thời điểm phản hồi là khi ý định của người hoàn toàn rõ ràng.
+  \item B: không có thông tin ý định; thời điểm phản hồi là trước khi ý định của người hoàn toàn rõ ràng.
+  \item C: có thông tin ý định; thời điểm phản hồi là khi ý định của người hoàn toàn rõ ràng.
+  \item D: có thông tin ý định; thời điểm phản hồi là trước khi ý định của người hoàn toàn rõ ràng.
+\end{itemize}
+
+Hai bộ dữ liệu được thu từ \emph{cùng} danh sách 280 kịch bản, cùng seed, với hai chế độ expert ở Mục~\ref{sec:expert}. A và C dùng chung bộ phản hồi khi rõ; B và D dùng chung bộ phản hồi sớm. Như vậy:
+\begin{itemize}
+  \item hai mô hình cùng hàng của Bảng~\ref{tab:2x2} chỉ khác nhau ở thời điểm phản hồi của expert;
+  \item hai mô hình cùng cột chỉ khác nhau ở việc có nhận thông tin ý định hay không.
+\end{itemize}
+Mọi mô hình đều có token nhiệm vụ, cùng kiến trúc, cùng siêu tham số và cùng số bước huấn luyện.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Bốn mô hình của thiết kế thí nghiệm $2\times2$.}
+  \label{tab:2x2}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    & \makecell{Phản hồi khi ý định\\hoàn toàn rõ ràng} & \makecell{Phản hồi trước khi ý định\\hoàn toàn rõ ràng} \\
+    \midrule
+    Không có thông tin ý định & A & B \\
+    Có thông tin ý định       & C & D \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Câu hỏi nghiên cứu}
+\label{sec:research-questions}
+
+Bốn câu hỏi của Chương~\ref{chap:introduction} tương ứng với bốn phép so sánh:
+\begin{itemize}
+  \item \textbf{Q1} (A với B): chính sách gốc có khả năng phản ứng sớm với ý định của người không? Nếu B học được hành vi sớm mà không cần thông tin ý định, thì ảnh camera đã chứa đủ tín hiệu để đoán trước.
+  \item \textbf{Q2} (A với C): chính sách nhận thức ý định có cải thiện độ chính xác không, trong trường hợp robot chỉ phản hồi khi đã rõ?
+  \item \textbf{Q3} (B với D): chính sách nhận thức ý định có khả năng phản ứng sớm tốt hơn chính sách gốc không?
+  \item \textbf{Q4} (A với D): câu hỏi chính --- thông tin ý định, cùng với dữ liệu phản hồi sớm, có cải thiện chính sách hành động gốc không?
+\end{itemize}
+
+Ngoài thiết kế $2\times2$, khóa luận đặt thêm hai câu hỏi về \emph{cách biểu diễn} thông tin ý định:
+\begin{itemize}
+  \item \textbf{Loại thông tin nào hữu ích?} Trên cùng mô hình D, chỉ giữ lại một tập con các nhóm thông tin (ngữ nghĩa, không gian, bộ nhớ, thời gian, chuyển động) và thay các nhóm còn lại bằng token rỗng (Mục~\ref{sec:group-dropout}).
+  \item \textbf{Lợi ích còn lại bao nhiêu khi thông tin được dự đoán?} Lần lượt thay nguồn hindsight bằng nguồn perfect rồi predicted (Mục~\ref{sec:sources}), và báo cáo khoảng cách giữa các mức.
+\end{itemize}
+
+\section{Kiểm tra ngoại tuyến: chính sách có dùng thông tin ý định không?}
+\label{sec:offline-checks}
+
+Một chính sách có thể đạt độ chính xác cao mà không hề đọc thông tin ý định, nếu ảnh camera đã đủ để đoán hành động. Vì vậy, trước khi so sánh tỉ lệ thành công, khóa luận kiểm tra trực tiếp xem đầu ra của chính sách có \emph{phụ thuộc} vào thông tin ý định hay không, bằng các can thiệp phản thực tế (counterfactual) trên dữ liệu kiểm định.
+
+Mỗi khung của các episode kiểm định được đánh giá ở các chế độ sau (biến tiềm ẩn bằng 0):
+\begin{itemize}
+  \item \textbf{gốc}: thông tin ý định đúng;
+  \item \textbf{hoán đổi theo nhóm}, luôn bằng giá trị \emph{hợp lệ} để tránh làm tăng giả tạo tỉ lệ thay đổi:
+    \begin{itemize}
+      \item \emph{không gian}: \texttt{p\_target} và \texttt{c\_target} chuyển sang một ô khác đang có vật cùng loại, hoặc vùng đặt sang vùng đặt khác;
+      \item \emph{ngữ nghĩa}: vai trò đổi robot $\leftrightarrow$ người;
+      \item \emph{thời gian}: \texttt{tte} dịch $\pm1$~s và \texttt{phase} lấy từ một khung khác;
+    \end{itemize}
+  \item \textbf{loại bỏ theo nhóm}: thay một nhóm bằng token rỗng;
+  \item \textbf{loại bỏ toàn bộ} thông tin ý định;
+  \item \textbf{so với mô hình B} trên cùng khung.
+\end{itemize}
+
+Từ các chế độ trên, khóa luận tính ba chỉ số:
+\begin{itemize}
+  \item \textbf{ICR} (Intent Change Rate): tỉ lệ khung mà hành động argmax thay đổi khi can thiệp.
+  \item \textbf{CGR} (Counterfactual Grounding Rate): trong các khung có hành động thay đổi khi hoán đổi, tỉ lệ hành động mới \emph{đúng} với ý định mới. Hành động đúng được xác định bằng một \emph{expert phản thực tế}: hành động mà expert sẽ chọn nếu mục tiêu là mục tiêu mới.
+  \item \textbf{Độ chính xác} so với hành động của expert, và \textbf{tỉ lệ khởi động sớm sai} (false start): tỉ lệ khung có hành động khác \texttt{HOLD} trước $t_\text{onset}$ đầu tiên của episode, khi người chưa hề bắt đầu ra hiệu, tính trên các episode T1--T3~\cite{xu2026learning}.
+\end{itemize}
+
+Các chỉ số được tách theo khoảng thời gian $t - t_\text{clear}$ (mỗi khoảng 0,2~s, từ $-1{,}5$ tới $+1{,}0$~s), vì lợi ích của thông tin ý định được kỳ vọng tập trung \emph{trước} $t_\text{clear}$, khi ảnh camera chưa đủ để đoán mục tiêu.
+
+Tiêu chí ``chính sách có dùng thông tin ý định'' được đặt \emph{trước} khi xem kết quả:
+\begin{itemize}
+  \item hoán đổi không gian cho $\text{ICR} \geq 0{,}3$ và $\text{CGR} \geq 0{,}6$ trong các khoảng trước $t_\text{clear}$;
+  \item khi loại bỏ toàn bộ thông tin ý định, hành vi của D gần với B.
+\end{itemize}
+
+\section{Đánh giá vòng kín}
+\label{sec:closed-loop-metrics}
+
+Trong đánh giá vòng kín, chính sách điều khiển robot trên danh sách đánh giá cố định gồm 120 episode (Mục~\ref{sec:tasks}). Thông tin ý định được tính trực tuyến từ nguồn đã chọn. Mọi sự kiện của episode được ghi lại, ví dụ người bắt đầu cử chỉ, robot bắt đầu chuyển động, gắp, nhả, va chạm, vi phạm khoảng cách an toàn, thành công. Các chỉ số ở Bảng~\ref{tab:metrics} được tính \emph{chỉ từ chuỗi sự kiện} và được báo cáo riêng từng chỉ số, không gộp thành điểm tổng hợp. Các chỉ số được nhóm theo tinh thần của HRIBench~\cite{liu2026hribench} và các chỉ số độ trôi chảy của Hoffman~\cite{hoffman2019fluency}: hiệu quả, phối hợp và an toàn. Công thức cụ thể do khóa luận tự định nghĩa, chưa đối chiếu từng chỉ số với bài báo HRIBench.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Các chỉ số đánh giá vòng kín (tính trên từng episode rồi lấy trung bình).}
+  \label{tab:metrics}
+  \small
+  \begin{tabularx}{\textwidth}{@{}l l X@{}}
+    \toprule
+    \textbf{Nhóm} & \textbf{Chỉ số} & \textbf{Định nghĩa} \\
+    \midrule
+    Hiệu quả & CSR & tỉ lệ hoàn thành nhiệm vụ \\
+             & CT  & thời gian hoàn thành (chỉ episode thành công) \\
+             & IR  & tỉ lệ thời gian robot đứng yên trong khoảng làm nhiệm vụ \\
+    \addlinespace
+    Phối hợp & TSync & $|t_\text{robot sẵn sàng} - t_\text{người sẵn sàng}|$ tại điểm tương tác \\
+             & Rsp   & thời gian từ tín hiệu của người (cử chỉ, xâm nhập) tới phản ứng đầu tiên của robot \\
+             & OC    & tỉ lệ bước quy trình hoàn thành đúng thứ tự \\
+    \addlinespace
+    An toàn  & CFR & 1 nếu không có va chạm người -- robot \\
+             & HCS & 1 nếu không va chạm và không vi phạm khoảng cách an toàn \\
+             & DSR & trong các episode có xâm nhập: phục hồi, hoàn thành và không va chạm \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Ngoài ra, khóa luận định nghĩa bốn chỉ số về \emph{sự cam kết} của robot dựa trên sự kiện ``robot hướng tới mục tiêu'':
+\begin{itemize}
+  \item AM: thời điểm hoàn thành cử chỉ trừ thời điểm cam kết đúng đầu tiên; dương nghĩa là đoán trước được;
+  \item WCR: có từng cam kết sai hay không;
+  \item WCD: tổng thời gian cam kết sai;
+  \item CRsp: thời gian từ lúc người đổi ý tới cam kết đúng mới.
+\end{itemize}
+Do robot di chuyển theo từng trục (đường đi hình chữ L), đoạn đường từ tư thế nghỉ có thể bị ghi nhận nhầm là cam kết sai, nên bốn chỉ số này hiện chỉ được dùng để tham khảo.
+
+\section{Thiết lập huấn luyện}
+\label{sec:training-setup}
+
+Các siêu tham số ở Bảng~\ref{tab:hparams} được giữ giống hệt nhau cho mọi mô hình. Một số giá trị nhỏ hơn mặc định của ACT để vừa với GPU 4~GB (NVIDIA GTX 1650) và kích thước tập dữ liệu.
+\begin{itemize}
+  \item \textbf{Huấn luyện.} Mỗi mô hình được huấn luyện 20\,000 bước với batch 32 ở độ chính xác fp32. Huấn luyện hỗn hợp độ chính xác đã được thử nhưng sinh giá trị NaN. Thời gian huấn luyện là khoảng 4,4--5,3 giờ mỗi mô hình.
+  \item \textbf{Chia tập.} Cứ 10 episode lấy 1 làm tập kiểm định (27 episode cho bộ phản hồi sớm).
+  \item \textbf{Chọn checkpoint.} Checkpoint được chọn theo quy tắc cố định là checkpoint cuối cùng, không chọn theo kết quả đánh giá.
+\end{itemize}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Siêu tham số huấn luyện, chung cho mọi mô hình.}
+  \label{tab:hparams}
+  \begin{tabularx}{\textwidth}{@{}X l@{}}
+    \toprule
+    \textbf{Tham số} & \textbf{Giá trị} \\
+    \midrule
+    Bộ mã hóa ảnh & ResNet18, khởi tạo ImageNet \\
+    Kích thước mô hình $d$ / số đầu chú ý / tầng truyền thẳng & 256 / 8 / 1024 \\
+    Số lớp mã hóa / giải mã & 4 / 1 \\
+    Độ dài đoạn hành động $H$ & 16 (0,8~s) \\
+    Số hành động thực thi mỗi lần dự đoán & 1 (không temporal ensembling) \\
+    CVAE & không dùng \\
+    Dropout & 0,1 \\
+    Tốc độ học (transformer / backbone) & $10^{-4}$ / $10^{-5}$ \\
+    Weight decay & $10^{-4}$ \\
+    Batch / số bước & 32 / 20\,000 \\
+    Dropout nhóm ý định / toàn bộ ý định & 0,15 / 0,1 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\paragraph{Thứ tự thực hiện.} Thí nghiệm được thực hiện theo thứ tự ưu tiên:
+\begin{enumerate}
+  \item B và D với nguồn hindsight, vì đây là cặp trả lời Q3, cũng là nơi lợi ích của ý định được kỳ vọng lớn nhất;
+  \item nếu D vượt qua kiểm tra ngoại tuyến, chạy D với nguồn perfect rồi predicted;
+  \item A và C để hoàn thiện thiết kế $2\times2$.
+\end{enumerate}
+
+\paragraph{Kiểm soát rò rỉ thông tin.} Các biện pháp sau được áp dụng để kết quả không bị ``ép'' bởi cách xây dựng dữ liệu:
+\begin{itemize}
+  \item chuyển động của người giống hệt nhau giữa các mô hình;
+  \item nhãn nhiệm vụ không tiết lộ mục tiêu hay việc người sắp đổi ý;
+  \item thông tin ý định chỉ mô tả người, không mã hóa hành động robot;
+  \item các phép hoán đổi luôn dùng giá trị hợp lệ;
+  \item không chọn checkpoint theo kết quả đánh giá.
+\end{itemize}

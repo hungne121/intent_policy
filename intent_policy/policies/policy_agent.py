@@ -41,9 +41,11 @@ def load_policy(checkpoint: str | Path, device: str | None = None):
 class PolicyAgent(Agent):
     def __init__(self, checkpoint: str | Path, device: str | None = None, oracle_condition: dict | None = None,
                  eval_seeds: list[int] | None = None, controller_cfg=None, temporal_ensemble_coeff: float | str | None = 'config',
-                 intent_keep: list[str] | None = None):
+                 intent_keep: list[str] | None = None, intent_swap: bool = False, ensemble_reset: float | None = None):
         """`intent_keep`: the intent tokens kept at evaluation (None: the checkpoint's; [] masks all of them, and the
-        v3.2 source - the measuring device - is then not run: the preliminary 2x2's no-intent conditions, §4.2i)."""
+        v3.2 source - the measuring device - is then not run: the preliminary 2x2's no-intent conditions, §4.2i).
+        `intent_swap` (v3.2 swap test, INTENT_ACT_v3.2.md §5.3): p_target and c_target given to the policy are those of
+        the alternative the human did not choose (benchmark/counterfactual.slot_partners); the scene is unchanged."""
         self.checkpoint = Path(checkpoint)
         self.policy, self.pre, self.post = load_policy(self.checkpoint, device)
         cfg = self.policy.config
@@ -53,6 +55,15 @@ class PolicyAgent(Agent):
         self.online_intent = None
         self.intent_v32 = self.tokens and cfg.intent_version == 'v32'
         self.intent_off = self.intent_v32 and not cfg.intent_keep     # every token masked: no source needed
+        self.intent_swap = bool(intent_swap)
+        self.ensemble_reset = ensemble_reset
+        if ensemble_reset is not None:
+            if not self.intent_v32 or self.intent_off:
+                raise ValueError('ensemble_reset needs an intent v3.2 policy with intent tokens kept')
+            self.policy.set_ensemble_reset(float(ensemble_reset))
+        if self.intent_swap and (not self.intent_v32 or self.intent_off):
+            raise ValueError('intent_swap needs an intent v3.2 policy with intent tokens kept')
+        self.swap = {}
         if self.tokens and not self.intent_v32:
             if cfg.intent_source != 'hindsight':
                 raise NotImplementedError(f'closed-loop intent source {cfg.intent_source!r}: only hindsight (online '
@@ -90,6 +101,9 @@ class PolicyAgent(Agent):
             S = self.policy.config.intent_schema
             self.online_intent = IntentV32(scenario, S, device_cfg=S['device'])
             self.online_intent.reset()
+            if self.intent_swap:
+                from intent_policy.benchmark.counterfactual import slot_partners
+                self.swap = slot_partners(scenario.variation['spec'])
         elif self.online_intent is not None:
             self.online_intent.reset()
 
@@ -106,12 +120,19 @@ class PolicyAgent(Agent):
         elif self.online_intent is not None:
             if self.intent_v32:
                 intent = self.online_intent.step(np.asarray(obs['observation.state'], np.float64))
+                if self.swap:
+                    from intent_policy.benchmark.counterfactual import permute_targets
+                    T = self.policy.config.intent_schema['targets']
+                    intent = dict(intent, p_target=permute_targets(intent['p_target'], self.swap, T),
+                                  c_target=permute_targets(intent['c_target'], self.swap, T))
             else:
                 intent = self.online_intent.observe(self.scenario, self.step_index, float(np.asarray(obs['observation.state'])[6]))
         if intent is not None and not (self.intent_v32 and self.intent_off):
             extras['intent'] = dict(p_target=int(intent['p_target'].argmax()), c_target=int(intent['c_target'].argmax()),
                                     p_who=int(intent['p_who'].argmax()), phase=int(intent['phase'].argmax()),
                                     tte=round(float(intent['tte'][0]), 3))
+            if self.intent_v32:                 # the belief the policy was given (swap test: t_intent, §5.3 K6)
+                extras['intent']['p_target_values'] = np.round(np.asarray(intent['p_target'], float), 4).tolist()
         self.step_index += 1
         obs = {k: v for k, v in obs.items() if k in self.expected_keys}
         if set(obs) != self.expected_keys:
@@ -134,13 +155,15 @@ class PolicyAgent(Agent):
                             probabilities=out['action_probabilities'][0].float().cpu().numpy().round(5).tolist(),
                             extras=extras)
         action = self.post(self.policy.select_action(batch))
+        if self.ensemble_reset is not None:
+            extras['ensembler_resets'] = int(self.policy.ensembler_resets)
         return Decision(joint_target=np.asarray(action[0].cpu().numpy(), float), extras=extras)
 
     def describe(self) -> dict:
         cfg = self.policy.config
         return dict(type='lerobot_act', policy_class='HRIACTPolicy', checkpoint=str(self.checkpoint), device=self.device,
                     action_mode=cfg.action_mode, use_intent=cfg.use_intent, use_task_token=cfg.use_task_token,
-                    intent_keep=list(cfg.intent_keep) if cfg.use_intent else None,
+                    intent_keep=list(cfg.intent_keep) if cfg.use_intent else None, intent_swap=self.intent_swap, ensemble_reset=self.ensemble_reset,
                     online_intent=self.online_intent.name if self.online_intent is not None else None, intent_arch=cfg.intent_arch, intent_mask=cfg.intent_mask,
                     intent_provider='oracle' if self.reads_oracle else 'none',
                     oracle_condition=self.corruption.describe() | {'lead_s': self.provider.lead_s} if self.reads_oracle else None,

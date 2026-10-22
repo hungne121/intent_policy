@@ -1,0 +1,59 @@
+% !TEX root = ../main.tex
+\chapter{KẾT LUẬN}
+\label{chap:conclusions}
+
+\section{Kết quả đạt được}
+
+Khóa luận nghiên cứu câu hỏi liệu một chính sách học bắt chước có hưởng lợi từ thông tin tường minh về ý định của con người trong các nhiệm vụ tương tác người -- robot hay không. Các kết quả chính, theo ba đóng góp đã nêu ở Chương~\ref{chap:introduction}, như sau.
+
+\paragraph{Chính sách nhận thức ý định.} Khóa luận đã đạt được:
+\begin{itemize}
+  \item một hợp đồng dữ liệu cố định cho thông tin ý định, chia theo ba loại ngữ nghĩa, không gian, thời gian và ứng với năm câu hỏi what, who, which, where, when;
+  \item ba nguồn sinh thông tin ý định theo hợp đồng (hindsight, perfect, predicted) dùng chung một bộ nhớ mục tiêu;
+  \item một bản mở rộng của ACT nhận thông tin ý định dưới dạng token, có dropout theo nhóm thông tin.
+\end{itemize}
+Cờ giữ vật suy ra từ độ mở kẹp đạt F1 0,979, và tia chỉ tay lệch trung bình $1{,}23^\circ$, cho thấy các thành phần nhân quả của đường ống hoạt động đúng như thiết kế.
+
+\paragraph{Bộ bối cảnh nhiệm vụ.} Năm nhiệm vụ T1--T5 và biến thể T4-neg thuộc ba vai Instructor, Collaborator, Intruder được xây dựng trong MuJoCo, kèm theo:
+\begin{itemize}
+  \item bố trí bàn được kiểm tra tự động theo tầm với của robot và người;
+  \item mô hình người có chuyển động lặp lại được;
+  \item danh sách kịch bản cân bằng (280 kịch bản trình diễn, 120 kịch bản đánh giá);
+  \item expert ở hai chế độ thời điểm, đạt CSR 0,892 trong đánh giá vòng kín.
+\end{itemize}
+
+\paragraph{Quy trình đánh giá.} Quy trình đánh giá gồm hai mức:
+\begin{itemize}
+  \item \emph{kiểm tra ngoại tuyến} bằng hoán đổi và loại bỏ theo nhóm thông tin (ICR, CGR, tỉ lệ khởi động sớm sai), trả lời trực tiếp câu hỏi chính sách có dùng thông tin ý định hay không;
+  \item \emph{đánh giá vòng kín} với các chỉ số tương tác tính từ chuỗi sự kiện.
+\end{itemize}
+
+\paragraph{Kết quả thực nghiệm sơ bộ.} Trên cặp mô hình B và D (dữ liệu phản hồi sớm, nguồn hindsight), các kết quả như sau:
+\begin{itemize}
+  \item thông tin ý định chỉ cải thiện độ chính xác ngoại tuyến 1,2 điểm phần trăm, tập trung ở các nhiệm vụ phụ thuộc thời điểm (T2, T4, T5);
+  \item chính sách hầu như bỏ qua thông tin không gian ($\text{ICR} = 0$ khi hoán đổi mục tiêu trước $t_\text{clear}$), và tiêu chí ``có dùng thông tin ý định'' đặt trước không đạt;
+  \item trong vòng kín, cả hai chính sách đều xa expert (CSR 0,008 và 0,092), chủ yếu do đứng yên và hết thời gian.
+\end{itemize}
+Hai phát hiện này tuy là kết quả âm nhưng có giá trị. Chúng cho thấy (i) lợi ích của thông tin ý định chỉ có thể xuất hiện khi dữ liệu trình diễn đòi hỏi hành động \emph{trước} khi ảnh đủ để suy ra mục tiêu, và (ii) cần giải quyết lỗi tích lũy của nhân bản hành vi trước khi so sánh các mô hình bằng tỉ lệ hoàn thành.
+
+\section{Hạn chế}
+
+Khóa luận có các hạn chế sau:
+\begin{itemize}
+  \item Toàn bộ thí nghiệm thực hiện trong mô phỏng với người được lập trình sẵn, không phản ứng với robot. Kết quả với người thật có thể khác, nhất là khi tương lai của người phụ thuộc vào hành động của robot.
+  \item Mới huấn luyện một seed cho mỗi mô hình. Các mô hình A, C và các nguồn perfect, predicted chưa được đánh giá, nên thiết kế $2\times2$ chưa hoàn chỉnh.
+  \item Tham số nhiễu của nguồn predicted chưa được đo từ người thật.
+  \item Các chỉ số cam kết (AM, WCR, WCD, CRsp) còn bị ảnh hưởng bởi đường đi hình chữ L của robot.
+  \item Các chỉ số tương tác được định nghĩa theo tinh thần HRIBench nhưng chưa đối chiếu từng công thức với bài báo gốc.
+\end{itemize}
+
+\section{Hướng phát triển}
+
+Các hướng phát triển tiếp theo, theo thứ tự ưu tiên:
+\begin{enumerate}
+  \item \textbf{Điều chỉnh dữ liệu trình diễn phản hồi sớm} để robot hành động ngay khi có thông tin, thay vì chờ cử chỉ được giữ đủ lâu. Khi đó thông tin ý định thực sự đi trước ảnh camera.
+  \item \textbf{Buộc chính sách dùng thông tin ý định}: che hoặc làm nhiễu vùng người trong ảnh khi huấn luyện, bật nhánh FiLM, và huấn luyện lâu hơn.
+  \item \textbf{Giảm lỗi tích lũy} bằng dữ liệu có nhiễu theo DART hoặc thu nhãn trên trạng thái của chính sách theo DAgger, sau đó lặp lại đánh giá vòng kín.
+  \item \textbf{Hoàn thiện thiết kế $2\times2$} với A và C, nhiều seed, và chuyển dần từ nguồn hindsight sang perfect, predicted để đo khoảng cách giữa thông tin lý tưởng và thông tin dự đoán.
+  \item \textbf{Đo nhiễu từ người thật} bằng camera RGB-D và MediaPipe, thay bộ dự báo vận tốc không đổi bằng các mô hình học được như InteRACT, và tiến tới thử nghiệm với người thật.
+\end{enumerate}

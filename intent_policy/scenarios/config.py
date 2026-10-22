@@ -309,6 +309,20 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
     if t == 't4_intruder' and 'intrusion_time_s' in hb:
         human['intrusion_time_s'] = _uniform(rng, spec.get('intrusion_time_range') or hb['intrusion_time_s'])
         human['intrusion_hold_s'] = _uniform(rng, spec.get('hold_range') or hb['intrusion_hold_s'])
+    if t == 't2_receiver' and hb.get('offer_styles'):   # T2 rhythm (2026-10-18), own generator: earlier draws unchanged
+        g = np.random.default_rng([int(seed), 4])
+        styles = dict(hb['offer_styles'])
+        names = sorted(styles)
+        w = np.asarray([float(styles[k]) for k in names])
+        human['offer_style'] = spec.get('offer_style') or names[int(g.choice(len(names), p=w / w.sum()))]
+        human['reaction_s'] = float(hb['reaction_s'])
+        human.pop('reach_delay_s', None)
+        human.pop('lower_first', None)
+    if t == 't3_requester' and hb.get('handover'):   # T3 new (2026-10-18), drawn from its own generator: the draws of
+        g = np.random.default_rng([int(seed), 3])      # the episode above are unchanged
+        hands = list(hb.get('hand_zones') or sorted(k for k, z in lay.items() if z['kind'] == 'hand'))
+        var['hand_zone'] = spec.get('hand') or hands[int(g.integers(len(hands)))]
+        human['reach_out_s'] = _uniform(g, hb['reach_out_s'])
     kin = hb.get('kinematics')
     if kin:      # (2026-10-12) pointing calibrated on real people (DP dataset, docs/requirements/INTENT_ACT_v3.2.md §4.2d),
         k = _kinematics(kin)             # drawn last: the earlier draws of the episode are unchanged

@@ -1,0 +1,31 @@
+% !TEX root = ../main.tex
+% Dài 1 trang, tối đa 2 trang. Theo hướng dẫn của mẫu, tóm tắt cần nêu:
+%  1. Bối cảnh của khóa luận
+%  2. Vấn đề được nghiên cứu
+%  3. Động lực: muốn giải quyết gì trong vấn đề, ý tưởng là gì, vì sao
+%  4. Phương pháp luận: cách tiếp cận đã chọn và vì sao nó hợp lý về mặt kỹ thuật
+%  5. Phương pháp cụ thể: dữ liệu, thuật toán, thiết kế, mô phỏng ... và các tham số chính
+%  6. Kết quả: tối đa 3 kết quả quan trọng nhất
+%  7. Kết luận: ý nghĩa của kết quả đối với vấn đề (mục 2) và bối cảnh rộng hơn (mục 1)
+% Giữ giọng văn trung tính; điều riêng tư ghi ở LỜI NÓI ĐẦU.
+\frontpage{TÓM TẮT}
+
+Các chính sách học bắt chước hiện đại như ACT điều khiển tay máy chính xác khi robot làm việc một mình. Tuy nhiên, chúng chưa được thiết kế cho bối cảnh robot làm việc cùng con người, nơi robot phải hiểu người muốn gì và phản hồi đúng lúc. Khóa luận nghiên cứu liệu việc cung cấp cho chính sách học bắt chước các tín hiệu tường minh về ý định của người có giúp robot hành động chính xác hơn, kịp thời hơn và an toàn hơn hay không.
+
+Khóa luận phân loại thông tin ý định theo năm câu hỏi mà robot cần trả lời (làm gì, ai làm, vật nào, ở đâu, khi nào) thành ba nhóm: ngữ nghĩa, không gian và thời gian. Các nhóm này được cố định thành một hợp đồng dữ liệu chung, do ba nguồn sinh ra:
+\begin{itemize}
+  \item nguồn hindsight lấy từ ground truth, đóng vai trò cận trên;
+  \item nguồn perfect nhân quả trên keypoint sạch;
+  \item nguồn predicted có nhiễu và bộ phân loại học được.
+\end{itemize}
+Ba nguồn dùng chung một bộ nhớ mục tiêu đã chốt. ACT được mở rộng để nhận thông tin này dưới dạng token, với dropout theo nhóm thông tin và một đầu phân loại 9 hành động rời rạc.
+
+Để đánh giá, khóa luận xây dựng trong mô phỏng MuJoCo năm nhiệm vụ thuộc ba vai tương tác (Instructor, Collaborator, Intruder) với tay máy UR3e và một mô hình người, cùng hai bộ dữ liệu trình diễn khác nhau ở thời điểm phản hồi của expert. Thiết kế thí nghiệm $2\times2$ tách tác động của thông tin ý định khỏi tác động của thời điểm phản hồi. Quy trình đánh giá gồm kiểm tra ngoại tuyến bằng hoán đổi và loại bỏ theo nhóm thông tin, và đánh giá vòng kín bằng các chỉ số tương tác dựa trên sự kiện.
+
+Kết quả sơ bộ trên dữ liệu phản hồi sớm cho thấy:
+\begin{itemize}
+  \item thông tin ý định chỉ tăng độ chính xác hành động ngoại tuyến từ 0,923 lên 0,935, chủ yếu ở các nhiệm vụ phụ thuộc thời điểm;
+  \item chính sách hầu như bỏ qua thông tin không gian về mục tiêu, vì trong dữ liệu trình diễn mục tiêu đã nhìn thấy được từ ảnh vào lúc robot cần hành động;
+  \item trong vòng kín, cả hai chính sách đều còn xa expert (tỉ lệ thành công 0,092 và 0,008 so với 0,892), chủ yếu do lỗi tích lũy khiến robot đứng yên.
+\end{itemize}
+Các kết quả này chỉ ra điều kiện cần để thông tin ý định có ích: dữ liệu trình diễn phải đòi hỏi hành động trước khi ảnh đủ để suy ra ý định. Chúng cũng định hướng các bước tiếp theo của nghiên cứu.

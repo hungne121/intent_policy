@@ -35,6 +35,13 @@ human_behavior:
   reach_delay_s: [0.0, 6.0]         # (2026-10-03) free timing, replaces early / on_time / late: the hand is held out
                                     #   this long after the pointing ends, whatever the robot is doing ...
   lower_first_prob: 0.5             # ... after lowering the pointing hand to rest first (else straight from pointing)
+  # (2026-10-18, the user's T2 rhythm: after pointing the human goes on to hold the hand out, never back to rest; off
+  # here, on in configs/experiments/intent_act_t235_*.yaml) two kinds of people, drawn per episode: `immediate` holds the
+  # hand out right after the pointing, `after_grasp` keeps the pointing pose until the robot has grasped the object, then
+  # holds the hand out after a simple visual reaction time (213 ms: Factors Influencing the Latency of Simple Reaction
+  # Time - Woods, Wyma, Yund, Herron, Reed - 2015). Replaces reach_delay_s / lower_first when set.
+  offer_styles: {}
+  reaction_s: 0.213
   palm_surface_m: 0.032             # palm surface above the palm centre (level, upturned hand; measured on the mesh)
   present_offset: [0.0, 0.015, 0.045] # the robot lowers the object into the palm and holds it still here (w.r.t. the
                                     #   palm centre, + half height): 1.5 cm towards the fingers (away from the wrist),

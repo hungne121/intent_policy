@@ -55,6 +55,15 @@ class HRIACTConfig(ACTConfig):
     intent_p_drop_all: float = 0.1
     intent_keep: list[str] = field(default_factory=lambda: list(INTENT_GROUPS))
     intent_film: bool = False
+    # v3.2 conditioning study (INTENT_ACT_v3.2.md §5.3): intent_film = FiLM of every ResNet stage by the intent tokens;
+    # image_p_drop = probability of masking all image tokens of a training sample (modality dropout, ModDrop).
+    image_p_drop: float = 0.0
+    # F1 (§5.3): initial scale of the target embeddings E_target / committed: 'small' = std 0.02 (D0), 'type' = N(0,1),
+    # the scale of the token type embedding (nn.Embedding default) they are summed with.
+    intent_target_init: str = 'small'
+    # v3.2 contract encoded as the 6 tokens ('tokens') or as ONE token u_t from the device's output only ('unified':
+    # target belief + hold, policies/intent_encoder_v32.IntentEncoderUnified; trial of 2026-10-18)
+    intent_repr: str = 'tokens'
     # Contract / token layout: 'v2' (13 tokens, INTENT_ACT_GUIDE_v2.md) or 'v32' (6 tokens + key padding mask,
     # INTENT_ACT_v3.2.md §5; source `device`). v32: intent_p_drop_group drops single tokens, intent_keep lists tokens.
     intent_version: str = 'v2'
@@ -83,8 +92,12 @@ class HRIACTConfig(ACTConfig):
             groups = TOKENS_V32 if self.intent_version == 'v32' else INTENT_GROUPS
             if set(self.intent_keep) - set(groups):
                 raise ValueError(f'intent_keep must be a subset of {groups}')
-            if self.intent_version == 'v32' and self.intent_film:
-                raise ValueError('intent_film is not implemented for intent v3.2')
+            if self.intent_target_init not in ('small', 'type') or (self.intent_target_init != 'small' and self.intent_version != 'v32'):
+                raise ValueError("intent_target_init is 'small' or 'type' (intent v3.2 only)")
+            if self.intent_repr not in ('tokens', 'unified') or (self.intent_repr != 'tokens' and self.intent_version != 'v32'):
+                raise ValueError("intent_repr is 'tokens' or 'unified' (intent v3.2 only)")
+            if not 0.0 <= self.image_p_drop < 1.0 or (self.image_p_drop and self.intent_version != 'v32'):
+                raise ValueError('image_p_drop needs intent v3.2 and lies in [0, 1)')
             if self.intent_source not in INTENT_SOURCES:
                 raise ValueError(f'intent_source must be one of {INTENT_SOURCES}')
             if self.intent_mask:
@@ -121,7 +134,8 @@ class HRIACTConfig(ACTConfig):
                    version=self.intent_version)
         if self.intent_version == 'v32':
             from intent_policy.intent.contract import HAND_HIST
-            out.update(n_gestures=len(s['gestures']) + 1, hand_hist=HAND_HIST)
+            out.update(n_gestures=len(s['gestures']) + 1, hand_hist=HAND_HIST,
+                       target_init_std=1.0 if self.intent_target_init == 'type' else 0.02, repr=self.intent_repr)
         return out
 
     @property

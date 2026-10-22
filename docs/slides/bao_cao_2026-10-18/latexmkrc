@@ -1,0 +1,5 @@
+# Build: XeLaTeX (fontspec, tiếng Việt). `latexmk` hoặc `latexmk -pdf` đều dùng xelatex.
+$pdf_mode = 5;
+$xelatex  = 'xelatex -synctex=1 -interaction=nonstopmode -file-line-error %O %S';
+$pdflatex = $xelatex;
+$clean_ext = 'nav snm vrb synctex.gz xdv';

@@ -1,0 +1,49 @@
+# TRIAL 2026-10-18 (docs/discussions/handover_som_va_intent_sai.md): intent_act_device_late with continuous
+# expert motion (configs/controller/continuous_motion.yaml: straight lines, UR3e joint speeds, ISO/TS 15066 TCP cap)
+# and the T2 anticipating handover. Delete this file to drop the trial.
+# INTENT-ACT with the measuring device in the loop (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g): the belief
+# expert driven by the multi-gesture DeePoint on the sensor camera (intent/device.py, the 5 fold models of
+# device.folds_file), late rule: commit once a candidate's belief >= 0.95, no motion before. Pair:
+# intent_act_device_early.yaml (identical except the rule). T4: the constant-velocity yield (no belief).
+experiment: intent_act_device_late_continuous
+phase: intent_act
+seed: 0
+policy:
+  config: configs/policy/act_continuous.yaml   # original continuous ACT head for A-D (user 2026-10-03)
+  use_task_token: true               # every model (A-D) gets the T1-T4 task token (guide v2 §5.1)
+  use_instruction: true              # + the T1 / T2 command's object / destination kind, never which one (2026-10-03)
+intent:
+  provider: labels                   # per-timestep intent labels intent.* (scripts/build_intent_labels.py)
+  schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
+benchmark:
+  scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
+  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/specs/EPISODE_PLAN_v5.md)
+observation:
+  cameras: [high, wrist, top]
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+scenario_overrides:
+  all:
+    expert: {trigger: device, device: {rule: late}, grasp_settle_ticks: 0}   # device-driven expert, late rule
+    scene: {cameras: {sensor_side: {pos: [2.30, -0.48, 1.25], target: [0.30, -0.48, 0.85], fovy: 50}}}   # the device's camera (render_sensor_view 'side')
+  t2_handover:
+    expert: {handover_mode: anticipate}
+  t4_interrupt:
+    expert: {start_s: 0.0, yield_prediction_horizon_s: 0.5}  # early: also yields to the hand extrapolated 0.5 s ahead
+data:
+  repo_id: local/intent_act_device_late_continuous
+  root: outputs/datasets/intent_act_device_late_continuous
+  scenario_list: configs/episode_lists/v5/demo_list.jsonl   # 580 design cells, DART per cell, seeds valid for late + early (plan v5)
+  noise:                             # DART, as intent_act_late.yaml
+    episode_fraction: 0.5            # (plan v5 lists fix DART per cell: `dart`; this fraction is then unused)
+    burst_prob: 0.04
+    burst_ticks: [3, 8]
+training:
+  steps: 20000
+  batch_size: 32
+  num_workers: 4
+  log_every: 100
+  save_every: 10000                 # checkpoints 10k, 20k (guide v2 §5.2), all kept
+  amp: false
+  keep_last: 0                      # keep every numbered checkpoint

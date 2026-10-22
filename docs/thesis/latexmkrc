@@ -1,0 +1,8 @@
+# Build: XeLaTeX + biber (dùng cho tiếng Việt / fontspec).
+# LaTeX Workshop's default recipe calls `latexmk -pdf`, which selects $pdflatex,
+# so $pdflatex is pointed at xelatex here; plain `latexmk` uses $pdf_mode = 5.
+$pdf_mode = 5;
+$xelatex  = 'xelatex -synctex=1 -interaction=nonstopmode -file-line-error %O %S';
+$pdflatex = $xelatex;
+$bibtex_use = 2;
+$clean_ext = 'bbl run.xml synctex.gz xdv';

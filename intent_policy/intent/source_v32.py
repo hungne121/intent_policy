@@ -76,6 +76,9 @@ class IntentV32:
         self.speeds: deque = deque(maxlen=5)
         layout = self.sc.variation['spec'].get('layout') or {}
         self.slot = dict(layout)                                    # object key -> its slot (target name)
+        for b in self.sc.variation['spec'].get('u_blocks') or []:   # T3: a cube -> the U spot it lies on
+            us = [k for k in ('U1', 'U2') if k in self.pos]
+            self.slot[b] = min(us, key=lambda k: float(np.linalg.norm(self.pos[k][:2] - np.asarray(self.sc.start_pos[b])[:2])))
 
     # -- pieces
     def _p_target(self) -> np.ndarray:

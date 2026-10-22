@@ -1,0 +1,64 @@
+% !TEX root = ../main.tex
+% Bìa (Phụ lục 01) và phụ bìa (Phụ lục 02). Tên trường 12pt, tên sinh viên 14pt,
+% tên đề tài 18pt, ngành/CBHD 14pt, "HÀ NỘI - năm" 12pt; tất cả in đậm.
+% Hai trang bìa được tính là trang i và ii nhưng không in số trang.
+
+% Khung viền đôi (dày ngoài, mảnh trong) như mẫu.
+\newcommand{\coverframe}{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \draw[line width=2.5pt]
+      ([xshift=1.2in, yshift=-0.7in]current page.north west) rectangle
+      ([xshift=-0.7in, yshift=0.7in]current page.south east);
+    \draw[line width=0.6pt]
+      ([xshift=1.2in+4pt, yshift=-0.7in-4pt]current page.north west) rectangle
+      ([xshift=-0.7in-4pt, yshift=0.7in+4pt]current page.south east);
+  \end{tikzpicture}}
+\newcommand{\coverfont}[1]{\fontsize{#1}{1.25\dimexpr #1pt\relax}\selectfont\bfseries}
+\newcommand{\coversetup}{\thispagestyle{empty}\coverframe\centering
+  \setstretch{1}\setlength{\parskip}{0pt}}
+\newcommand{\coveruniversity}{%
+  {\coverfont{12}ĐẠI HỌC QUỐC GIA HÀ NỘI\\TRƯỜNG ĐẠI HỌC CÔNG NGHỆ\par}}
+
+% ---------------------------------------------------------------
+% Bìa
+% ---------------------------------------------------------------
+\begingroup
+  \coversetup
+  \coveruniversity
+  \vspace{1cm}
+  \includegraphics[width=2.4cm]{logo-uet}\par
+  \vspace{1cm}
+  {\coverfont{14}\thesisAuthor\par}
+  \vspace{2.5cm}
+  {\coverfont{18}\thesisTitleCover\par}
+  \vfill
+  {\coverfont{14}\thesisMajortype\par}
+  {\coverfont{14}Ngành: \thesisMajor\par}
+  \vfill\vfill
+  {\coverfont{12}HÀ NỘI - \thesisYear\par}
+  \clearpage
+\endgroup
+
+% ---------------------------------------------------------------
+% Phụ bìa
+% ---------------------------------------------------------------
+\begingroup
+  \coversetup
+  \coveruniversity
+  \vspace{2cm}
+  {\coverfont{14}\thesisAuthor\par}
+  \vspace{2.5cm}
+  {\coverfont{18}\thesisTitleCover\par}
+  \vfill
+  {\coverfont{14}\thesisMajortype\par}
+  {\coverfont{14}Ngành: \thesisMajor\par}
+  \vspace{2cm}
+  {\coverfont{14}Cán bộ hướng dẫn: \thesisSupervisor\par}
+  \ifx\thesisCoSupervisor\empty\else
+    {\coverfont{14}Cán bộ đồng hướng dẫn: \thesisCoSupervisor\par}
+  \fi
+  \vfill
+  \centering
+  {\coverfont{12}HÀ NỘI - \thesisYear\par}
+  \clearpage
+\endgroup

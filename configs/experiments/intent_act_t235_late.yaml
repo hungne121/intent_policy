@@ -1,0 +1,53 @@
+# Trial of 2026-10-18 (session report "Báo cáo phiên 18/10"): A (late, no intent) vs D (early, unified intent token) on
+# T2, T3 and T5 (on T2 / T3) only, more demonstrations and training steps than the 2026-10-13 preliminary run.
+# Differences to intent_act_device_{late,early}_continuous.yaml: robot cameras side / top / wrist (the device's camera
+# replaces 'high', decision of 2026-10-15), no instruction token (user 2026-10-16), the early rule below.
+# late: commit once the gesture is complete and a candidate's belief >= 0.95 (unchanged); no motion before.
+experiment: intent_act_t235_late
+phase: intent_act
+seed: 0
+policy:
+  config: configs/policy/act_continuous.yaml   # original continuous ACT head, no temporal ensembling (n_action_steps 1)
+  use_task_token: true
+  use_instruction: false
+intent:
+  provider: labels
+  schema: configs/intent_schema.yaml
+benchmark:
+  scenarios: [t2_handover, t3_assist]
+  eval_list: configs/episode_lists/v5/eval_list.jsonl
+observation:
+  cameras: [sensor_side, top, wrist]
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+scenario_overrides:
+  all:
+    expert: {trigger: device, device: {rule: late, folds_file: outputs/trial_t235/2026-10-18/device_folds_recal.json}, grasp_settle_ticks: 0}
+    scene: {cameras: {sensor_side: {pos: [2.30, -0.48, 1.25], target: [0.30, -0.48, 0.85], fovy: 50}}}   # the device's camera (render_sensor_view 'side')
+
+  t2_handover:
+    human_behavior: {offer_styles: {immediate: 0.5, after_grasp: 0.5}}   # T2 rhythm: the two kinds of people, 50/50
+  t3_assist:                       # T3 new (2026-10-18): the cup with the cube into the open hand after the drop
+    human_behavior: {handover: true}
+    safety_constraints: {violation_distance_m: 0.01}   # handover into the palm requires proximity, as t2_handover.yaml
+    protocol_steps: [block_picked, cup_grasped, cup_at_support, block_in_cup, hand_ready, robot_at_handover, object_transferred]
+    metric_params:
+      tsync_human: {event_type: interaction_window_start, kind: handover}
+      tsync_robot: {event_type: protocol_step_complete, step: robot_at_handover}
+data:
+  repo_id: local/intent_act_t235_late
+  root: outputs/datasets/intent_act_t235_late
+  scenario_list: configs/episode_lists/v5/demo_list.jsonl
+  noise:
+    episode_fraction: 0.5
+    burst_prob: 0.04
+    burst_ticks: [3, 8]
+training:
+  steps: 30000
+  batch_size: 32
+  num_workers: 4
+  log_every: 100
+  save_every: 10000
+  amp: false
+  keep_last: 0

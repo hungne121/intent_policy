@@ -1,0 +1,142 @@
+% ==============================================================
+% Định dạng theo "Trình bày KLTN của chương trình đạt chuẩn quốc tế" — Trường ĐH
+% Công nghệ, ĐHQGHN (docs/paper/Trình-bày-KLTN-của-chương-trình-đạt-chuẩn-quốc-tế.pdf).
+% Mẫu không ghi thông số bằng chữ; các con số dưới đây đo trực tiếp từ file mẫu.
+% Khóa luận dùng định dạng của mẫu nhưng viết bằng tiếng Việt.
+% ==============================================================
+
+% --- Trang & chữ ------------------------------------------------
+% Lề: trái 1.5in, phải/trên/dưới 1in (đo từ mẫu). Khổ A4 theo quy định chung của trường
+% (file mẫu là Letter; đổi a4paper→letterpaper ở đây và trong main.tex nếu cần đúng khổ mẫu).
+\usepackage[a4paper, left=1.5in, right=1in, top=1in, bottom=1in,
+            headheight=24pt, footskip=0.5in]{geometry}
+\usepackage{fontspec}
+\usepackage[english, main=vietnamese]{babel}
+% Thân bài: Times New Roman (TeX Gyre Termes nếu máy không có).
+\IfFontExistsTF{Times New Roman}
+  {\setmainfont{Times New Roman}}
+  {\setmainfont{texgyretermes}[Extension=.otf, UprightFont=*-regular,
+     BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]}
+% Tiêu đề chương / danh mục / tài liệu tham khảo: Tahoma đậm (DejaVu Sans — cùng dáng — nếu không có).
+\IfFontExistsTF{Tahoma}
+  {\newfontfamily\headingfont{Tahoma}[Ligatures=TeX]}
+  {\newfontfamily\headingfont{DejaVuSans}[Extension=.ttf, UprightFont=*, BoldFont=*-Bold, Ligatures=TeX]}
+% 12pt, dãn dòng "1.5 lines" của Word (20.7pt); đoạn cách nhau 12pt, không thụt đầu dòng.
+\usepackage{setspace}
+\setstretch{1.43}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{12pt plus 2pt minus 1pt}
+\setlength{\emergencystretch}{2em}  % giãn khoảng trắng thay vì tràn lề (đoạn văn, tài liệu tham khảo)
+
+% --- Tiêu đề chương ----------------------------------------------
+% Chương có số: "Chương 1" (Times 22pt, căn phải) rồi TÊN CHƯƠNG (Tahoma đậm 22pt, căn phải).
+% Chương không số (Danh mục hình vẽ, DANH MỤC TỪ VIẾT TẮT, Tài liệu tham khảo): Tahoma đậm 20pt, căn giữa.
+% Tên chương viết IN HOA ngay trong \chapter{...}, như mẫu.
+\setkomafont{disposition}{\rmfamily\bfseries}
+\setkomafont{chapter}{\normalfont}
+\setkomafont{descriptionlabel}{\rmfamily\bfseries}
+\renewcommand*{\chapterformat}{\chapapp~\thechapter}
+\renewcommand*{\chapterlinesformat}[3]{%
+  \ifblank{#2}
+    {\centering\headingfont\bfseries\fontsize{20}{24}\selectfont #3\par}
+    {\raggedleft{\rmfamily\mdseries\fontsize{22}{26}\selectfont #2\par}%
+     \vspace{56pt}%
+     {\headingfont\bfseries\fontsize{22}{26}\selectfont #3\par}}}
+\RedeclareSectionCommand[beforeskip=40pt, afterskip=56pt]{chapter}
+
+% --- Tiêu đề mục: 1.1. (16pt đậm), 1.1.1. (14pt đậm), 1.1.1.1. (13pt đậm nghiêng) ----
+% Dấu chấm sau số mục (cả trong mục lục) do tùy chọn numbers=enddot của lớp tài liệu.
+\setkomafont{section}{\fontsize{16}{19}\selectfont}
+\setkomafont{subsection}{\fontsize{14}{17}\selectfont}
+\setkomafont{subsubsection}{\fontsize{13}{16}\selectfont\itshape}
+\RedeclareSectionCommands[beforeskip=18pt, afterskip=6pt]{section,subsection,subsubsection}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+% --- Mục lục ------------------------------------------------------
+% Chương: chữ đậm, không ghi số, có dấu chấm dẫn; mục: "1.1."; tiểu mục cấp 3–4 in nghiêng.
+\newcommand*{\tocgobble}[1]{}
+\RedeclareSectionCommand[tocentrynumberformat=\tocgobble, tocnumwidth=0pt,
+  tocentryformat=\rmfamily\bfseries, tocpagenumberformat=\rmfamily\bfseries,
+  toclinefill=\TOCLineLeaderFill, tocbeforeskip=10pt]{chapter}
+\RedeclareSectionCommand[tocnumwidth=2.8em]{section}
+\RedeclareSectionCommand[tocnumwidth=3.6em]{subsection}
+\RedeclareSectionCommand[tocnumwidth=4.6em]{subsubsection}
+\RedeclareSectionCommands[tocentryformat=\itshape, tocpagenumberformat=\itshape]{subsection,subsubsection}
+
+% --- Số trang: giữa, cuối trang ---------------------------------------
+\usepackage[automark]{scrlayer-scrpage}
+\clearpairofpagestyles
+\cfoot*{\pagemark}
+\setkomafont{pageheadfoot}{\normalfont}
+\setkomafont{pagenumber}{\rmfamily\bfseries}
+
+% --- Toán, hình, bảng, thuật toán ---------------------------------
+\usepackage{amsmath, amssymb, amsthm, bm}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{float, placeins}
+\usepackage{pdflscape}  % bảng/hình khổ ngang: \begin{landscape}...\end{landscape}
+% Chú thích: "Bảng 2.1 – ..." trên bảng, "Hình 2-1 – ..." dưới hình; đậm, 10pt, căn giữa.
+% (Mẫu đánh số hình bằng gạch nối "2-1" và bảng bằng dấu chấm "2.1".)
+\usepackage{caption}
+\DeclareCaptionFont{tenpt}{\fontsize{10}{12}\selectfont}
+\DeclareCaptionLabelSeparator{endash}{ -- }
+\captionsetup{font={tenpt,bf}, labelsep=endash, justification=centering}
+\captionsetup[table]{position=top}
+% numbers=enddot không áp dụng cho nhãn hình/bảng: "Bảng 2.1 –", không phải "Bảng 2.1. –".
+\renewcommand*{\figureformat}{\figurename~\thefigure}
+\renewcommand*{\tableformat}{\tablename~\thetable}
+\usepackage[font=tenpt, labelformat=parens, labelsep=space]{subcaption}
+\usepackage{booktabs, multirow, makecell, tabularx, threeparttable, longtable}
+\usepackage{siunitx}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+\usepackage{enumitem}
+\setlist{nosep}
+\setlist[itemize,enumerate]{leftmargin=*, labelindent=0.5in}
+
+\numberwithin{equation}{chapter}
+\numberwithin{figure}{chapter}
+\numberwithin{table}{chapter}
+\renewcommand{\thefigure}{\thechapter-\arabic{figure}}
+
+% Danh mục hình vẽ / bảng biểu: "Hình 2-1 – Chú thích ........ 6"
+\newcommand*{\loffigprefix}[1]{{\let\autodot\relax\figurename~#1~--\enskip}}
+\newcommand*{\lottabprefix}[1]{{\let\autodot\relax\tablename~#1~--\enskip}}
+\DeclareTOCStyleEntry[entrynumberformat=\loffigprefix, dynnumwidth=true, indent=0pt]{tocline}{figure}
+\DeclareTOCStyleEntry[entrynumberformat=\lottabprefix, dynnumwidth=true, indent=0pt]{tocline}{table}
+
+\addto\captionsvietnamese{%
+  \renewcommand{\chaptername}{Chương}%
+  \renewcommand{\appendixname}{Phụ lục}%
+  \renewcommand{\figurename}{Hình}%
+  \renewcommand{\tablename}{Bảng}%
+  \renewcommand{\contentsname}{MỤC LỤC}%
+  \renewcommand{\listfigurename}{Danh mục hình vẽ}%
+  \renewcommand{\listtablename}{Danh mục bảng biểu}%
+}
+\floatname{algorithm}{Thuật toán}
+
+% --- Trang phần đầu (LỜI CAM ĐOAN, TÓM TẮT, MỤC LỤC…): Times đậm 16pt, căn giữa
+\newcommand{\frontheading}[1]{%
+  {\centering\rmfamily\bfseries\fontsize{16}{20}\selectfont #1\par}\vspace{12pt}}
+\newcommand{\frontpage}[1]{\clearpage\frontheading{#1}}
+\deftocheading{toc}{\clearpage\frontheading{#1}}
+
+
+% --- Tài liệu tham khảo: IEEE, đánh số theo thứ tự trích dẫn -----
+\usepackage[autostyle=false, style=english]{csquotes}  % csquotes chưa có kiểu tiếng Việt
+\usepackage[backend=biber, style=ieee, sorting=none]{biblatex}
+\addbibresource{references.bib}
+\DeclareLanguageMapping{vietnamese}{english}  % biblatex chưa có bản tiếng Việt: các chữ "in", "vol.", "pp." giữ kiểu IEEE
+\renewrobustcmd*{\bibinitdelim}{}  % "F.T. Ulaby" như mẫu
+
+% --- Liên kết (để cuối) -----------------------------------------
+\usepackage[hidelinks, unicode]{hyperref}
+
+% --- Lệnh tiện dụng ---------------------------------------------
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}

@@ -246,8 +246,10 @@ def guide_overrides(args) -> dict:
         out['intent_keep'] = [g.strip() for g in args.intent_keep.split(',') if g.strip()]
     for flag, key in (('intent_source', 'intent_source'), ('intent_source_mix', 'intent_source_mix'),
                       ('intent_in_cvae', 'intent_in_cvae'), ('p_drop_group', 'intent_p_drop_group'),
-                      ('p_drop_all', 'intent_p_drop_all'), ('intent_film', 'intent_film'), ('n_action_steps', 'n_action_steps')):
-        if getattr(args, flag) is not None:
+                      ('p_drop_all', 'intent_p_drop_all'), ('intent_film', 'intent_film'), ('image_p_drop', 'image_p_drop'),
+                      ('intent_target_init', 'intent_target_init'),
+                      ('n_action_steps', 'n_action_steps')):
+        if getattr(args, flag, None) is not None:
             out[key] = getattr(args, flag)
     if args.action_mode is not None:
         out['action_mode'] = 'restricted' if args.action_mode == 'discrete' else args.action_mode
@@ -316,7 +318,13 @@ def main():
     g.add_argument('--action-mode', '--action_mode', choices=['continuous', 'discrete', 'restricted'],
                    help='override the policy action mode (discrete = restricted 9-action head)')
     g.add_argument('--intent-film', '--intent_film', action=argparse.BooleanOptionalAction, default=None,
-                   help='FiLM fallback on the backbone features (default: off)')
+                   help='FiLM of the backbone by the intent (v2: last feature map; v3.2: every ResNet stage) '
+                        '(default: off)')
+    g.add_argument('--intent-target-init', '--intent_target_init', choices=['small', 'type'],
+                   help="v3.2 F1: initial scale of the target embeddings ('small' = std 0.02, 'type' = N(0,1) as the "
+                        "type embedding; default small)")
+    g.add_argument('--image-p-drop', '--image_p_drop', type=float,
+                   help='v3.2: probability of masking all image tokens of a training sample (default 0)')
     g.add_argument('--n-action-steps', '--n_action_steps', type=int, help='override the policy n_action_steps')
     g.add_argument('--ckpt-rule', '--ckpt_rule', default='last', choices=['last'],
                    help='checkpoint selection rule recorded in the metadata (never chosen on test results)')
@@ -428,6 +436,7 @@ def main():
                     intent_tokens=dict(source=cfg.intent_source, source_mix=mix_spec, columns=selector.prefixes if selector else None,
                                        in_cvae=cfg.intent_in_cvae, cvae_used=bool(cfg.use_vae), p_drop_group=cfg.intent_p_drop_group,
                                        p_drop_all=cfg.intent_p_drop_all, keep=list(cfg.intent_keep), film=cfg.intent_film,
+                                       image_p_drop=cfg.image_p_drop, target_init=cfg.intent_target_init,
                                        calibrated=not (cfg.intent_source == 'predicted' or 'predicted' in str(mix_spec)) or
                                        bool(cfg.intent_schema.get('predicted', {}).get('noise')))
                     if uses_intent_tokens(policy_yaml) else None,

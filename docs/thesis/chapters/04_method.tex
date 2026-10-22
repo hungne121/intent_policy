@@ -1,0 +1,313 @@
+% !TEX root = ../main.tex
+\chapter[CHÍNH SÁCH HỌC BẮT CHƯỚC NHẬN THỨC Ý ĐỊNH]{CHÍNH SÁCH HỌC BẮT CHƯỚC\\NHẬN THỨC Ý ĐỊNH}
+\label{chap:method}
+
+Chương này trình bày phương pháp đề xuất, gồm năm phần:
+\begin{itemize}
+  \item cách phát biểu bài toán và không gian hành động rút gọn;
+  \item cách phân loại thông tin ý định và hợp đồng dữ liệu cố định;
+  \item ba nguồn sinh thông tin ý định cùng bộ nhớ mục tiêu dùng chung;
+  \item cách đưa thông tin ý định vào ACT;
+  \item cách huấn luyện và suy luận.
+\end{itemize}
+
+\section{Phát biểu bài toán}
+\label{sec:formulation}
+
+Tại mỗi bước điều khiển $t$, chính sách nhận quan sát $o_t$, gồm ba ảnh camera và trạng thái robot $s_t$, cùng nhãn nhiệm vụ $\kappa \in \{\text{T1},\ldots,\text{T4}\}$. Chính sách gốc mô hình hóa phân phối của một đoạn $H$ hành động tương lai:
+\begin{equation}
+  \pi_\theta\left(a_{t:t+H-1} \mid o_t, \kappa\right).
+  \label{eq:policy-base}
+\end{equation}
+
+Nhãn nhiệm vụ chỉ cho biết loại nhiệm vụ. Nó không tiết lộ vật mục tiêu, việc người sắp đổi ý, hay việc người có xâm nhập hay không. Vì vậy T5 được gộp vào nhiệm vụ gốc T1/T2/T3, và T4-neg được gộp vào T4. Chính sách nhận thức ý định nhận thêm một vector thông tin ý định $c_t$:
+\begin{equation}
+  \pi_\theta\left(a_{t:t+H-1} \mid o_t, \kappa, c_t\right).
+  \label{eq:policy-intent}
+\end{equation}
+
+Câu hỏi trung tâm là liệu \eqref{eq:policy-intent} có tốt hơn \eqref{eq:policy-base} hay không, khi hai mô hình có cùng kiến trúc, cùng dữ liệu và cùng ngân sách huấn luyện.
+
+Một nguyên tắc xuyên suốt: $c_t$ chỉ mô tả \emph{con người}. Không trường nào trong $c_t$ được mã hóa hành động của robot hay thời điểm robot cần bắt đầu. Đó là quyết định của chính sách. Nếu vi phạm nguyên tắc này, chính sách có thể ``chép đáp án'' từ $c_t$, và mọi so sánh sẽ mất ý nghĩa.
+
+\section{Không gian hành động rút gọn}
+\label{sec:action-space}
+
+Để đo tác động của ý định một cách rõ ràng nhất, chính sách xuất ra hành động rời rạc trong tập 9 hành động ở Bảng~\ref{tab:actions}, thay vì quỹ đạo khớp liên tục như ACT gốc. Mỗi hành động được ánh xạ tất định thành một điểm đặt Cartesian của điểm công cụ (bước 1~cm trong hệ gốc robot), rồi thành mục tiêu khớp qua động học ngược với hướng kẹp cố định từ trên xuống. Điểm đặt bị giới hạn trong một hộp an toàn, và các điểm đặt mà động học ngược không đạt được sẽ bị từ chối. Tần số ra quyết định là 20~Hz.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Không gian hành động rút gọn gồm 9 hành động.}
+  \label{tab:actions}
+  \small
+  \begin{tabular}{@{}cll@{}}
+    \toprule
+    \textbf{Mã} & \textbf{Hành động} & \textbf{Lệnh điều khiển} \\
+    \midrule
+    0 & \texttt{HOLD} & giữ nguyên điểm đặt \\
+    1 / 2 & \texttt{MOVE\_FORWARD} / \texttt{MOVE\_BACKWARD} & $\pm 1$~cm theo $X$ (về phía người / về phía robot) \\
+    3 / 4 & \texttt{MOVE\_LEFT} / \texttt{MOVE\_RIGHT} & $\pm 1$~cm theo $Y$ \\
+    5 / 6 & \texttt{MOVE\_UP} / \texttt{MOVE\_DOWN} & $\pm 1$~cm theo $Z$ \\
+    7 / 8 & \texttt{OPEN\_GRIPPER} / \texttt{CLOSE\_GRIPPER} & khe kẹp 0,085~m / 0~m \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Việc rút gọn mang lại ba lợi ích:
+\begin{itemize}
+  \item Hành động của chính sách và của expert so sánh được trực tiếp bằng argmax, nhờ đó định nghĩa được các chỉ số ``hành động có đổi không'' và ``đổi có đúng không'' ở Mục~\ref{sec:offline-checks}.
+  \item Đầu phân loại cho ra log-xác suất của từng hành động, thuận tiện cho phân tích.
+  \item Độ khó điều khiển mức thấp được loại bỏ, để sự khác biệt giữa các mô hình chủ yếu đến từ việc \emph{chọn đúng việc cần làm và đúng lúc}.
+\end{itemize}
+
+\section{Phân loại thông tin ý định}
+\label{sec:intent-taxonomy}
+
+Để phối hợp với người, robot cần trả lời năm câu hỏi: \emph{làm gì} (what), \emph{ai làm} (who), \emph{vật nào} (which), \emph{ở đâu} (where) và \emph{khi nào} (when). Mỗi câu hỏi được đáp ứng bởi một loại thông tin (Bảng~\ref{tab:taxonomy}):
+\begin{itemize}
+  \item \textbf{ngữ nghĩa}: nhiệm vụ và vai trò;
+  \item \textbf{không gian}: mục tiêu và vùng người chiếm;
+  \item \textbf{thời gian}: thời điểm người hoàn thành cử chỉ.
+\end{itemize}
+
+Thông tin thời gian là nơi \emph{dự đoán} có giá trị nhất. Khi biết trước người sẽ hoàn thành cử chỉ sau bao lâu, robot có thời gian để chuẩn bị thay vì chờ tới khi mọi thứ đã rõ.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Câu hỏi HRI, loại thông tin và trường tương ứng trong hợp đồng dữ liệu.}
+  \label{tab:taxonomy}
+  \begin{tabularx}{\textwidth}{@{}l l X@{}}
+    \toprule
+    \textbf{Câu hỏi} & \textbf{Loại thông tin} & \textbf{Trường} \\
+    \midrule
+    Làm gì (what) & ngữ nghĩa & \texttt{task\_id} (cài sẵn) \\
+    Ai làm (who) & ngữ nghĩa, suy ra từ loại cử chỉ & \texttt{p\_who}, \texttt{c\_who} \\
+    Vật nào, ở đâu (which, where) & không gian & \texttt{p\_target}, \texttt{c\_target}, \texttt{occupancy} \\
+    Khi nào (when) & thời gian & \texttt{tte}, \texttt{tte\_std}, \texttt{phase} \\
+    Như thế nào (how) & không gian và thời gian & \texttt{xi} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Hợp đồng dữ liệu ý định}
+\label{sec:contract}
+
+Một rủi ro lớn khi đưa thông tin ý định vào chính sách là chính sách ``quen'' với một dạng dữ liệu lý tưởng, rồi bị ``sốc'' khi gặp dữ liệu thật từ một bộ dự đoán. Để tránh điều này, mọi nguồn thông tin ý định phải xuất ra \emph{đúng một hợp đồng dữ liệu cố định}: cùng tên trường, cùng kích thước và cùng miền giá trị (Bảng~\ref{tab:contract}). Chính sách không được biết đang chạy với nguồn nào.
+
+Hợp đồng dùng ba bộ từ vựng:
+\begin{itemize}
+  \item \textbf{Mục tiêu}: $K = 17$ \emph{vị trí} theo thứ tự cố định: \texttt{none}, S1--S6, U1, U2, U, P1, P2, H1, H2, \texttt{U\_cup}, \texttt{robot\_zone}, \texttt{zone\_edge}. Mục tiêu là vị trí chứ không phải danh tính vật, vì các vật giống hệt nhau đứng ở ô ngẫu nhiên.
+  \item \textbf{Vai trò}: \texttt{[none, robot, human, joint]}.
+  \item \textbf{Pha cử chỉ}: \texttt{[rest, prepare, stroke, hold, retract]}.
+\end{itemize}
+
+Quỹ đạo tay tương lai \texttt{xi} gồm $M = 8$ mốc cách đều trong 1,2~s tới, cho $J = 6$ keypoint: cổ tay, gốc ngón trỏ và đầu ngón trỏ của mỗi tay.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Hợp đồng dữ liệu ý định. Tiền tố \texttt{p\_} là thông tin tức thời, cập nhật mỗi khung; tiền tố \texttt{c\_} là thông tin đã chốt, do bộ nhớ mục tiêu giữ tới khi hoàn thành.}
+  \label{tab:contract}
+  \small
+  \begin{tabularx}{\textwidth}{@{}l l X@{}}
+    \toprule
+    \textbf{Trường} & \textbf{Kích thước} & \textbf{Ý nghĩa và ràng buộc} \\
+    \midrule
+    \texttt{p\_who} & 4 & phân phối vai trò của cử chỉ hiện tại, tổng bằng 1 \\
+    \texttt{p\_target} & $K$ & phân phối mục tiêu tức thời; không có ý định thì dồn vào \texttt{none} \\
+    \texttt{c\_who}, \texttt{c\_target} & 4, $K$ & vai trò và mục tiêu đã chốt; \texttt{none} khi chưa chốt \\
+    \texttt{occupancy} & 7 & hộp bao vùng tay người sắp chiếm $[c_x, c_y, c_z, s_x, s_y, s_z, \text{conf}]$ (mét) \\
+    \texttt{tte} & 1 & thời gian tới khi cử chỉ đạt tư thế đích, $[0, 3]$~s \\
+    \texttt{tte\_std} & 1 & độ bất định của \texttt{tte} \\
+    \texttt{phase} & 5 & phân phối pha cử chỉ \\
+    \texttt{xi} & $M \times J \times 3$ & vị trí keypoint tay tương lai, \emph{tương đối} vị trí hiện tại, hệ gốc robot \\
+    \texttt{confidence} & 2 & $\left[1 - H(\texttt{p\_target})/\log K,\ \max \texttt{p\_who}\right]$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Hợp đồng có ba ràng buộc bắt buộc:
+\begin{itemize}
+  \item Không phân phối nào được là vector toàn 0; trạng thái ``không có gì'' luôn dồn vào lớp \texttt{none}.
+  \item Mọi phân phối có tổng bằng 1 với sai số $10^{-4}$.
+  \item Không có giá trị NaN.
+\end{itemize}
+Một hàm kiểm tra được gọi cả khi ghi dữ liệu lẫn trong bộ kiểm thử.
+
+\paragraph{Mốc thời gian của một cử chỉ.} Mỗi cử chỉ mang ý định của người tạo một đoạn với các mốc sau, tương tự cách Ego4D và Ortenzi và cộng sự phân pha hành động~\cite{grauman2022ego4d,ortenzi2021handovers}:
+\begin{itemize}
+  \item $t_\text{onset}$: người bắt đầu chuyển động tay của cử chỉ;
+  \item $t_\text{clear}$: chuyển động kết thúc, cử chỉ đã thành hình và ý định trở nên rõ ràng;
+  \item $t_\text{event}$: cử chỉ kết thúc, tính cả thời gian giữ;
+  \item $t_\text{end}$: kết thúc các giai đoạn ``chờ robot'' sau đó, ví dụ tay đưa ra chờ nhận vật.
+\end{itemize}
+Điểm cam kết 40\% mà expert phản hồi sớm sử dụng nằm giữa $t_\text{onset}$ và $t_\text{clear}$.
+
+\section{Các nguồn thông tin ý định}
+\label{sec:sources}
+
+Ba nguồn cùng cài đặt một giao diện: tại mỗi bước, nguồn nhận keypoint của người và trạng thái robot, rồi trả về đúng hợp đồng ở Bảng~\ref{tab:contract}. Ba nguồn khác nhau ở mức độ ``lý tưởng'' của thông tin. Nhờ đó tách được giá trị của bản thân thông tin khỏi chất lượng của bộ dự đoán.
+
+\subsection{Nguồn hindsight}
+
+Nguồn hindsight đọc trực tiếp các đoạn ground truth của mô phỏng:
+\begin{itemize}
+  \item \texttt{p\_target} và \texttt{p\_who} là one-hot đúng trong $[t_\text{onset}, t_\text{end}]$ và là \texttt{none} ngoài khoảng đó;
+  \item \texttt{tte} và \texttt{phase} tính từ các mốc thật;
+  \item \texttt{xi} là vị trí tay tương lai thật.
+\end{itemize}
+Nguồn này \emph{biết tương lai}, nên chỉ đóng vai trò cận trên của lợi ích có thể đạt được, không dùng cho mô hình triển khai thật. Nó chỉ hợp lệ khi chuyển động của người không phụ thuộc robot, đúng như thiết lập ở Mục~\ref{sec:human}.
+
+\subsection{Nguồn perfect}
+
+Nguồn perfect hoàn toàn \emph{nhân quả}: tại thời điểm $t$ chỉ dùng dữ liệu tới $t$, trên keypoint sạch. Nó không dùng các mốc ground truth $t_\text{onset}$, $t_\text{clear}$. Nguồn này kết hợp hai bằng chứng về mục tiêu.
+
+\paragraph{Tia chỉ tay.} Tia chỉ tay đi từ gốc ngón trỏ qua đầu ngón trỏ. Với góc lệch $\theta_k$ từ tia tới tâm ô $k$, bằng chứng chỉ tay là
+\begin{equation}
+  p_\text{point}(k) \propto \exp\left(-\frac{\theta_k^2}{2\sigma^2}\right),
+  \label{eq:point}
+\end{equation}
+và chỉ bật khi cử chỉ là chỉ tay. Độ rộng $\sigma = 4{,}61^\circ$ không phải giá trị chọn tay mà là phân vị 95\% của sai số góc đo được trên dữ liệu (Mục~\ref{sec:source-quality}).
+
+\paragraph{Điểm cuối quỹ đạo.} Vị trí tay tương lai được ngoại suy bằng mô hình vận tốc không đổi~\cite{scholler2020cvm}, sau khi làm mượt bằng bộ lọc Savitzky--Golay~\cite{savitzky1964}. Điểm cuối tại 1,2~s được chuyển thành phân phối $p_\text{reach}$ qua softmax của khoảng cách tới từng ô, với nhiệt độ 5~cm.
+
+\paragraph{Gộp Bayes theo thời gian.} Hai bằng chứng được gộp đệ quy:
+\begin{equation}
+  p_t(k) \propto \left[\textstyle\sum_j T_{jk}\, p_{t-1}(j)\right] \cdot p_\text{point}(k)^{w_1} \cdot p_\text{reach}(k)^{w_2},
+  \label{eq:bayes}
+\end{equation}
+với $T$ là ma trận chuyển có xác suất ở lại $1-\varepsilon$ ($\varepsilon = 0{,}02$), cho phép người đổi ý.
+
+\paragraph{Các trường còn lại.} Các trường còn lại được tính như sau:
+\begin{itemize}
+  \item \textbf{Loại cử chỉ.} Thời điểm bắt đầu cử chỉ được phát hiện bằng ngưỡng tốc độ tay (0,08~m/s). Xác suất của lớp cử chỉ đúng tăng tuyến tính tới 0,95 sau $1{,}15$~s, là trung vị của $t_\text{clear} - t_\text{onset}$ đo trên tập huấn luyện. Vai trò được suy ra từ cử chỉ: chỉ tay $\to$ robot làm, vươn tay $\to$ người làm, ngửa tay ở vùng H $\to$ cùng làm.
+  \item \textbf{\texttt{tte}.} Bằng khoảng cách tới tư thế đích của cử chỉ chia cho tốc độ tay.
+  \item \textbf{\texttt{phase}.} Theo luật động học: tốc độ, khoảng cách tới đích, thời gian giữ yên.
+  \item \textbf{\texttt{occupancy}.} Là hộp bao quanh \texttt{xi} cộng biên 5~cm.
+\end{itemize}
+
+\subsection{Nguồn predicted}
+
+Nguồn predicted chạy cùng đường ống với nguồn perfect, nhưng khác ở hai điểm:
+\begin{itemize}
+  \item \textbf{Keypoint có nhiễu.} Keypoint đi qua một mô hình nhiễu (rung, mất tay, trễ, lệch góc). Tham số của mô hình nhiễu được thiết kế để đo từ dữ liệu người thật ghi bằng camera RGB-D và MediaPipe~\cite{zhang2020mediapipe}.
+  \item \textbf{Cử chỉ do mô hình học được.} Loại cử chỉ do một bộ phân loại nhỏ huấn luyện trên chuỗi keypoint dự đoán. Bộ phân loại được huấn luyện theo \emph{cross-fitting} năm phần: mỗi phần của tập huấn luyện được gán nhãn bởi bộ phân loại học trên bốn phần còn lại. Nhờ đó chính sách thấy đúng loại lỗi mà bộ dự đoán mắc phải ngoài tập huấn luyện của nó. Xác suất đầu ra được hiệu chỉnh bằng temperature scaling~\cite{guo2017calibration}.
+\end{itemize}
+Bộ dự báo chuyển động mặc định là mô hình vận tốc không đổi, với giao diện để thay bằng các mô hình học được như siMLPe hay InteRACT~\cite{guo2023simlpe,kedia2024interact}.
+
+\subsection{Bộ nhớ mục tiêu (IntentTracker)}
+\label{sec:tracker}
+
+ACT không có bộ nhớ: mỗi quyết định chỉ dựa trên quan sát hiện tại. Trong T1, người chỉ vào khối rồi chỉ vào vùng đặt, sau đó hạ tay về. Khi robot bắt đầu gắp, thông tin tức thời \texttt{p\_target} đã trở về \texttt{none}. Bộ nhớ mục tiêu giải quyết vấn đề này bằng cách giữ các mục tiêu đã chốt trong một hàng đợi, theo các luật sau:
+\begin{itemize}
+  \item \textbf{Chốt.} Khi $\max \texttt{p\_target} \geq 0{,}8$ và cử chỉ ổn định ít nhất 5 khung, một cặp (vai trò, mục tiêu) được đưa vào hàng đợi theo văn phạm:
+    \begin{itemize}
+      \item chỉ vào ô vật $\to$ robot gắp;
+      \item chỉ vào ô đặt $\to$ robot đặt, chỉ khi đã có lệnh gắp chờ hoặc đang cầm vật;
+      \item ngửa tay ở vùng H $\to$ trao vật.
+    \end{itemize}
+  \item \textbf{Thay thế.} Chỉ vào một ô vật khác khi vật cũ chưa được gắp sẽ \emph{thay thế} mục tiêu cũ. Đây là cách xử lý người đổi ý (T5).
+  \item \textbf{Hoàn thành.} Mục tiêu đầu hàng được lấy ra khi trạng thái robot cho thấy bước đó đã xong:
+    \begin{itemize}
+      \item gắp xong: kẹp đóng, đang giữ vật và đã nâng quá 3~cm;
+      \item đặt xong: kẹp mở trong bán kính 8~cm quanh ô đích;
+      \item trao xong: kẹp mở khi tay người ở gần vùng H.
+    \end{itemize}
+\end{itemize}
+
+Cờ ``đang giữ vật'' được suy ra từ độ mở kẹp đo được chứ không đọc từ mô phỏng, để bộ nhớ dùng được trên robot thật.
+
+Bộ nhớ dùng chung cho cả ba nguồn. Với nguồn hindsight, nó nhận sự kiện ground truth thay cho các phân phối. T3 và T4 không có luật chốt, vì mục tiêu ở đó được suy ra từ chuyển động chứ không từ chỉ dẫn, nên các trường \texttt{c\_} luôn là \texttt{none} ở hai nhiệm vụ này.
+
+\section{Đưa thông tin ý định vào ACT}
+\label{sec:intent-act}
+
+\subsection{Kiến trúc}
+
+Chính sách được xây dựng trên lớp ACT của LeRobot~\cite{cadene2026lerobot}, không sửa thư viện gốc. Mỗi ảnh camera đi qua ResNet18~\cite{he2016resnet} khởi tạo từ ImageNet, cho một lưới token ảnh. Trạng thái robot cho một token. Nhãn nhiệm vụ và thông tin ý định được chiếu thành 14 token và chèn vào chuỗi đầu vào của bộ mã hóa transformer, ngay sau các token một chiều và trước các token ảnh (Hình~\ref{fig:intent-act}). Các token ý định gồm:
+\begin{itemize}
+  \item \textbf{TASK}: \texttt{Embedding} của nhãn nhiệm vụ. Token này có ở \emph{mọi} mô hình, kể cả mô hình gốc.
+  \item \textbf{WHO}: \texttt{p\_who} $\oplus$ \texttt{c\_who} qua một lớp tuyến tính.
+  \item \textbf{TARGET} và \textbf{C\_TARGET}: phân phối mục tiêu nhân với một bảng embedding $E_\text{target} \in \mathbb{R}^{K\times d}$ \emph{dùng chung}, để ``ô S3'' có cùng biểu diễn dù là ý định tức thời hay đã chốt. C\_TARGET cộng thêm một embedding vai trò ``đã chốt''.
+  \item \textbf{OCC}: \texttt{occupancy} qua một lớp tuyến tính.
+  \item \textbf{TIME}: đặc trưng Fourier~\cite{tancik2020fourier} của \texttt{tte}, ghép với độ bất định của \texttt{tte}, phân phối pha và hai giá trị độ tin cậy, qua một MLP.
+  \item \textbf{XI$_1$..XI$_8$}: mỗi mốc quỹ đạo tương lai (đã chuẩn hóa z-score theo thống kê tập huấn luyện) qua một lớp tuyến tính, cộng embedding thời gian của mốc.
+\end{itemize}
+Mỗi token cộng thêm một embedding loại theo nhóm thông tin, và bảng embedding vị trí một chiều của ACT được mở rộng tương ứng. Khi tắt cả token nhiệm vụ lẫn token ý định, mô hình trùng khớp với ACT gốc; điều này được kiểm tra bằng bộ kiểm thử tự động.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+      font=\small,
+      box/.style={draw, rounded corners=2pt, align=center, minimum height=0.9cm, inner sep=4pt},
+      tok/.style={draw, fill=#1, minimum width=0.55cm, minimum height=0.55cm, inner sep=0pt, font=\scriptsize},
+      tok/.default=white,
+      arr/.style={-{Latex[length=2mm]}, thick}]
+    % inputs
+    \node[box, fill=gray!10] (img) at (0,0) {3 ảnh camera\\$256\times192$};
+    \node[box, fill=gray!10] (state) at (0,-1.6) {trạng thái\\robot $s_t$};
+    \node[box, fill=orange!15] (intent) at (0,-3.4) {thông tin ý định $c_t$\\(hợp đồng dữ liệu)};
+    \node[box, fill=orange!5] (task) at (0,-5.0) {nhãn nhiệm vụ $\kappa$};
+    % encoders
+    \node[box] (resnet) at (3.3,0) {ResNet18};
+    \node[box] (lin) at (3.3,-1.6) {Linear};
+    \node[box, fill=orange!15] (ienc) at (3.3,-3.4) {bộ mã hóa\\ý định};
+    \node[box, fill=orange!5] (temb) at (3.3,-5.0) {Embedding};
+    % tokens column
+    \node[tok=gray!10] (ti) at (6.0,0) {};
+    \node[tok=gray!10, right=0pt of ti] (ti2) {};
+    \node[tok=gray!10, right=0pt of ti2] (ti3) {$\cdots$};
+    \node[tok=gray!10] (ts) at (6.0,-1.6) {};
+    \node[tok=orange!15] (w) at (6.0,-3.4) {W};
+    \node[tok=orange!15, right=0pt of w] (t1) {T};
+    \node[tok=orange!15, right=0pt of t1] (t2) {C};
+    \node[tok=orange!15, right=0pt of t2] (t3) {O};
+    \node[tok=orange!15, right=0pt of t3] (t4) {$\tau$};
+    \node[tok=orange!15, right=0pt of t4] (t5) {$\xi{\times}8$};
+    \node[tok=orange!5] (tt) at (6.0,-5.0) {K};
+    % transformer
+    \node[box, minimum width=2.4cm, minimum height=5.8cm, fill=blue!5] (enc) at (10.6,-2.5) {Transformer\\mã hóa\\(4 lớp)\\[6pt]$\downarrow$\\[6pt]Transformer\\giải mã\\(1 lớp)};
+    \node[box, fill=blue!10] (head) at (13.4,-2.5) {đầu phân loại\\$H\times 9$\\hành động};
+    % arrows
+    \draw[arr] (img) -- (resnet);  \draw[arr] (resnet) -- (ti);
+    \draw[arr] (state) -- (lin);   \draw[arr] (lin) -- (ts);
+    \draw[arr] (intent) -- (ienc); \draw[arr] (ienc) -- (w);
+    \draw[arr] (task) -- (temb);   \draw[arr] (temb) -- (tt);
+    \draw[arr] (ti3.east) -- (ti3.east -| enc.west);
+    \draw[arr] (ts.east) -- (ts.east -| enc.west);
+    \draw[arr] (t5.east) -- (t5.east -| enc.west);
+    \draw[arr] (tt.east) -- (tt.east -| enc.west);
+    \draw[arr] (enc) -- (head);
+    \node[font=\scriptsize, align=center] at (7.15,-4.15) {dropout theo nhóm\\(token rỗng học được)};
+  \end{tikzpicture}}
+  \caption{Kiến trúc chính sách nhận thức ý định. Thông tin ý định được chiếu thành các token WHO (W), TARGET (T), C\_TARGET (C), OCC (O), TIME ($\tau$) và 8 token XI ($\xi$), rồi đưa chung vào bộ mã hóa transformer của ACT cùng token nhiệm vụ (K), token trạng thái và token ảnh.}
+  \label{fig:intent-act}
+\end{figure}
+
+\subsection{Đầu ra và hàm mất mát}
+
+Đầu ra của bộ giải mã cho mỗi vị trí trong đoạn $H$ bước được chiếu thành 9 logit. Hàm mất mát là cross-entropy trung bình trên các vị trí hợp lệ của đoạn (bỏ qua phần đệm ở cuối episode). Vì dùng đầu phân loại, nhánh CVAE của ACT không cần thiết và được tắt.
+
+\subsection{Dropout theo nhóm thông tin}
+\label{sec:group-dropout}
+
+Các token ý định được chia thành năm nhóm:
+\begin{itemize}
+  \item \emph{ngữ nghĩa}: WHO;
+  \item \emph{không gian}: TARGET, OCC;
+  \item \emph{bộ nhớ}: C\_TARGET;
+  \item \emph{thời gian}: TIME;
+  \item \emph{chuyển động}: XI.
+\end{itemize}
+Khi huấn luyện, mỗi nhóm bị thay bằng \emph{token rỗng học được}, riêng cho từng token, với xác suất 0,15. Toàn bộ thông tin ý định bị thay với xác suất 0,1. Cách làm này tương tự dropout mục tiêu của BESO~\cite{reuss2023beso} và classifier-free guidance~\cite{ho2022cfg}, và có hai tác dụng:
+\begin{itemize}
+  \item chống việc chính sách phụ thuộc hoàn toàn vào một nhóm;
+  \item cho phép đánh giá cùng một mô hình khi chỉ giữ lại một tập con các nhóm, phục vụ câu hỏi ``loại thông tin nào hữu ích'' (Mục~\ref{sec:research-questions}).
+\end{itemize}
+Token rỗng học được được ưu tiên hơn vector 0, vì vector 0 cộng embedding vị trí vẫn là một token ``có nghĩa''.
+
+\subsection{Suy luận}
+
+Chính sách tính lại quyết định ở mọi bước (thực thi 1 hành động mỗi lần dự đoán, không dùng temporal ensembling). Thực thi nhiều bước của một đoạn làm tăng quán tính, khiến robot chậm phản ứng với người, và theo Xu và cộng sự~\cite{xu2026learning} còn làm tăng nguy cơ khởi động sớm sai.
+
+Trong vòng kín, thông tin ý định được tính trực tuyến từ nguồn đã chọn. Một phương án dự phòng là FiLM~\cite{perez2018film}: hệ số $\gamma, \beta$ sinh từ trung bình các token ý định, áp lên bản đồ đặc trưng ảnh, khởi tạo để biến đổi ban đầu là đồng nhất. Phương án này đã được cài đặt nhưng chỉ bật nếu chính sách bỏ qua thông tin ý định.

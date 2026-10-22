@@ -67,7 +67,7 @@ def expert_wrong_commits(rec, expert, sc) -> int:
     change before the change, the new one after), zones vs the episode's zone."""
     spec, var = rec['spec'], rec['variation']
     change = next((e for e in rec['events'] if e['event_type'] == 'human_intention_change'), None)
-    objects, zone = set(spec.get('layout') or {}), var.get('target_zone')
+    objects, zone = set(spec.get('layout') or {}), var.get('hand_zone') or var.get('target_zone')   # T3 new: the hand zone
     wrong = 0
     for c in expert.commit_log:
         if c['target'] in objects:

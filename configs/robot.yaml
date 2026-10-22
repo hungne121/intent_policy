@@ -4,7 +4,10 @@ home: [-1.062, -2.370, 1.663, -0.864, -1.571, -2.633]   # rest: TCP (0.15, 0.00,
                                     #   the base, clear of the high camera's view of the human's hands
 tool_yaw_deg: 0.0                   # top-down tool yaw about world Z: 0 = fingers close along world X (the human stands
                                     #   at the robot's side, -Y, and takes objects from their free -Y face); -90 = along Y
-max_joint_speed: 1.5                # [rad/s] per-joint target rate limit
+max_joint_speed: [3.1416, 3.1416, 3.1416, 6.2832, 6.2832, 6.2832]   # [rad/s] per-joint target rate limit = the UR3e
+                                    #   datasheet maximum joint speeds (base / shoulder / elbow ±180°/s, wrists ±360°/s;
+                                    #   Universal Robots UR3e datasheet 2025). Was 1.5 for every joint until 2026-10-18
+                                    #   (results before then were produced with 1.5)
 max_gripper_speed: 0.12             # [m/s] finger-gap target rate limit
 assisted_grasp:
   # SusGrip fingertips move on an arc and rise ~1.2 cm while closing, which rotates objects about

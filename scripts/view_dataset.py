@@ -156,6 +156,8 @@ def export_mp4(ds: LeRobotDataset, m: dict, path) -> None:
     beliefs = m.get('expert_belief') or []
     stage = stages_per_frame(m)
     main_key = f'observation.images.{MAIN_CAMERA}'
+    if main_key not in ds.meta.camera_keys:      # datasets without `high` (2026-10-18 trial: side / top / wrist)
+        main_key = ds.meta.camera_keys[0]
     side_keys = [k for k in ds.meta.camera_keys if k != main_key]
     names = [k.removeprefix('observation.images.') for k in side_keys]
     writer, frame, i = VideoWriter(path), None, 0

@@ -77,7 +77,8 @@ def build_agent(args_d: dict, eval_seeds: list[int], ctrl_cfg):
         return ExpertAgent()
     from intent_policy.policies.policy_agent import PolicyAgent
     return PolicyAgent(resolve(args_d['checkpoint']), args_d['device'], args_d['oracle_condition'], eval_seeds, ctrl_cfg,
-                       args_d['temporal_ensemble_coeff'], args_d.get('intent_keep'))
+                       args_d['temporal_ensemble_coeff'], args_d.get('intent_keep'), bool(args_d.get('intent_swap')),
+                       args_d.get('ensemble_reset'))
 
 
 def run_job(job: dict) -> dict:
@@ -151,6 +152,12 @@ def main():
                                    'configs/episode_lists/v5/val_list.jsonl')
     p.add_argument('--intent-keep', help="intent tokens kept: 'none' (all masked, the source is not run), 'all', or "
                                           "a comma list (default: the checkpoint's)")
+    p.add_argument('--intent-swap', action='store_true',
+                   help='v3.2 swap test: give the policy p_target / c_target of the alternative the human did not choose '
+                        '(twin / other cup, P1<->P2, H1<->H2; T1-T3), the scene unchanged (INTENT_ACT_v3.2.md §5.3)')
+    p.add_argument('--ensemble-reset', type=float, metavar='STAR',
+                   help='v3.2: clear the ensembling buffer when the decision rebuilt from the given belief (share of its '
+                        'target kind >= STAR, the condition rule: early 0.7) switches target (research_collab.md K9)')
     p.add_argument('--no-temporal-ensemble', action='store_true',
                    help='no ACT temporal ensembling: execute the first action of every new chunk (guide v3)')
     args = p.parse_args()
@@ -202,7 +209,8 @@ def main():
                              threads=max(1, 12 // max(args.workers, 1)),
                              args=dict(expert=args.expert, checkpoint=args.checkpoint, device=args.device,
                                        oracle_condition=oracle_condition, temporal_ensemble_coeff=ensemble,
-                                       intent_keep=intent_keep)))
+                                       intent_keep=intent_keep, intent_swap=args.intent_swap,
+                                       ensemble_reset=args.ensemble_reset)))
     if args.workers > 1:
         with mp.get_context('spawn').Pool(args.workers) as pool:
             blocks = pool.map(run_job, jobs, chunksize=1)

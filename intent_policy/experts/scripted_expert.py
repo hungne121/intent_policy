@@ -25,12 +25,25 @@ Scenario config `expert` block (teacher settings only):
                          the multi-gesture DeePoint on the sensor camera gives a belief over the candidates;
                          `device.rule` late commits once the gesture is complete (the device saw the hand stop) and a
                          candidate's belief >= 0.95, early once a belief is >= 0.7 during the gesture; neither moves
-                         before its first commit ("no blind moves", 2026-10-12). It re-targets when
+                         before its first commit ("no blind moves", 2026-10-12). Early with device.approach_star /
+                         commit_star (2026-10-18, the user's rule): from approach_star (0.85) the robot moves towards
+                         the belief-weighted point above the candidates (reversible, Javdani et al. 2018), at
+                         commit_star (0.9) it commits and grasps; T2's hand zones the same way. It re-targets when
                          another candidate reaches the threshold, pauses on a confirmed 'wait' / withdraw. No
                          CONFIRM_S, no ground truth of the human's choice. T4: yields to the hand extrapolated at
                          constant velocity (causal).
   travel_dz: travel height above the table
   T2 staging_offset: holding point (x, y) w.r.t. the centre of the hand zones, at handover height
+  T2 handover_mode (TRIAL 2026-10-18, docs/discussions/handover_som_va_intent_sai.md §2; device trigger only):
+           staging_wait  (default) wait at the staging point until the hand zone is decided, then over the palm,
+                         settle, down into it
+           anticipate    once the device sees the palm-up gesture, track the belief-weighted point over the hand zones
+                         (Javdani et al. 2018: act on the goal distribution); over the decided zone, settle; go down
+                         when the device sees the open hand still, or when the predicted time to ready
+                         (ready_s - time since the palm-up onset) is within descent_s
+           ready_s       1.35: median device palm-up onset -> hand in place, measured (scripts/unified_intent_eval.py,
+                         outputs/dp_prediction/2026-10-18); descent_s 0.70: median to_handover -> robot_at_handover of
+                         the device experts' T2 eval episodes (16)
   T4 yield_zone_margin_m / yield_prediction_horizon_s: hold while the (predicted) hand is in the robot zone
   T4 start_s: the robot starts by itself this long after the episode start (default 0.5)
   grasp_settle_ticks: HOLD decisions after the gripper closed, before lifting (default 3). Fixed waits like this and
@@ -62,13 +75,15 @@ BELIEF_TRIGGERS = ('device',)            # the belief expert on the measuring de
 # cue_complete: each sub-intention is acted on once its deictic gesture is complete (the pointing hand arrived)
 CUE_COMPLETE_STEP = {'T1': 'object_indicated', 'T2': 'target_indicated', 'T3': 'block_picked'}
 FOREVER = 10 ** 6
+HAND_OUT_STAGES = ('waiting_offer', 'take_object', 'pulling', 'wait_release')   # T3 new: the open hand is out, still
 
 
 class Step:
     """One plan step. kind: wait | goto | track | grip | hold | settle | call. `guard`: hold while the hand is near
     (anticipating triggers). `skip`: callable, the step ends as soon as it returns True."""
-    def __init__(self, kind, target=None, until=None, ticks=0, name='', guard=False, skip=None):
+    def __init__(self, kind, target=None, until=None, ticks=0, name='', guard=False, skip=None, speed=None):
         self.kind, self.target, self.until, self.ticks, self.name, self.guard, self.skip = kind, target, until, ticks, name, guard, skip
+        self.speed = speed                  # continuous motion: speed cap of this move [m/s] (None: the controller's)
 
 
 class ScriptedExpert:
@@ -77,6 +92,9 @@ class ScriptedExpert:
         self.mapper = mapper
         self.rng = np.random.default_rng(rng_seed)
         self.tol = mapper.step / 2 + 1e-6
+        if getattr(mapper, 'continuous', False):    # straight-line moves land on the goal: a goal tolerance, not half a step
+            self.tol = np.full(3, float(mapper.cfg.continuous.get('goal_tol', 0.001))) + 1e-9
+        self._step_speed: float | None = None
 
     # ------------------------------------------------------------------ plan construction
     def reset(self) -> None:
@@ -92,6 +110,15 @@ class ScriptedExpert:
         self.yield_margin = float(ecfg.get('yield_zone_margin_m', 0.0))
         self.yield_horizon = float(ecfg.get('yield_prediction_horizon_s', 0.0))
         self.grasp_settle = int(ecfg.get('grasp_settle_ticks', 3))
+        self.t3_handover = self.code == 'T3' and bool(sc.cfg.human_behavior.get('handover'))   # T3 new (2026-10-18)
+        self.handover_mode = ecfg.get('handover_mode', 'staging_wait')
+        if self.handover_mode not in ('staging_wait', 'anticipate'):
+            raise ValueError(f"expert.handover_mode must be staging_wait or anticipate, got {self.handover_mode!r}")
+        if self.handover_mode == 'anticipate' and self.trigger != 'device':
+            raise ValueError('expert.handover_mode anticipate needs the device trigger (the palm-up onset and zone belief)')
+        self.ready_s = float(ecfg.get('ready_s', 1.35))
+        self.descent_s = float(ecfg.get('descent_s', 0.70))
+        self.palm_onset_t: float | None = None
         self.obj: str | None = None
         self.zone: str | None = None
         self.n_changes = self.n_evidence = 0
@@ -116,9 +143,13 @@ class ScriptedExpert:
             self.belief = DeviceBelief(sc, schema, dcfg)
             self.belief.reset()
             self.b_star, self.n_hold, self.stop_star = self.belief.thresholds()
+            self.approach_star = self.belief.approach_star          # early 2026-10-18 rule; None: no approach
             self.pause_timeout = self.belief.pause_timeout_s      # calibrated with the episode's fold model
             self._runs = {}
+        else:
+            self.approach_star = None
         self.pause_t: float | None = None
+        self._paused = None                     # (plan, index) interrupted by a 'wait' (_pause / _resume)
         if self.code == 'T4':                   # no instruction: the robot starts the pick-and-place by itself
             start = float(ecfg.get('start_s', 0.5))
             self._set_plan([Step('wait', until=lambda: sc.time >= start - 1e-9, name='wait_start'),
@@ -141,6 +172,8 @@ class ScriptedExpert:
         """Zone known without evidence: T3's cup spot U_cup and T4's fixed place zone P1, T1's place zone once
         instructed, T2's hand zone once the hand is out (cue_onset: from the start)."""
         sc = self.sc
+        if self.t3_handover:                    # T3 new: the hand zone of the handover (the cup spot is fixed)
+            return sc.variation['hand_zone'] if self.trigger == 'cue_onset' or 'hand_ready' in sc.protocol_done else None
         if self.code in ('T3', 'T4') or self.trigger == 'cue_onset':
             return sc.variation['target_zone']
         if self.code == 'T1':
@@ -170,6 +203,7 @@ class ScriptedExpert:
                 Step('hold', ticks=FOREVER, name='await_evidence')]
 
     def _commit(self, target: str, plan) -> None:
+        self._paused = None                     # a new target: the interrupted plan is void
         self.commit_t = self.sc.time
         self.committed = self._new_commit = target
         self.commit_log.append(dict(t=round(self.sc.time, 4), target=target))
@@ -194,6 +228,27 @@ class ScriptedExpert:
         # T3: the cup stands right in front of the human: first move away from them (+y, not into the base band)
         clear = Step('goto', lambda: np.r_[self.mapper.setpoint[0], max(self.mapper.setpoint[1], -R_SAFE - 0.005), self.travel],
                      name='clear_human')
+        if self.t3_handover:
+            # T3 new: wait at rest (the human drops the cube once the gripper is clear, scripted_human._robot_clear), and
+            # come back for the cup with the cube only once the open hand has stopped in its zone: H1 is 11.5 cm from
+            # U_cup and the hand's way out crosses the arm's way back to the cup (expert check 2026-10-18: contacts).
+            # Then hand it over into the open hand as in T2.
+            # The way back to the cup goes 10 cm above the palm height (the open fingers reach 5.4 cm sideways and passed
+            # over the palm at H1), and the cup goes straight over the open hand (the T2 staging point would cross H1).
+            # Waiting point: on the cup's row (outside the base band, R_SAFE), on the far side from the hand zones,
+            # robot_clear_m + 1 cm from the cup spot - the arm neither crosses the band (its detour runs over H1) nor the
+            # hand's way, there and back (expert check 2026-10-18: contacts at H1 from the rest pose).
+            sc = self.sc
+            spot = sc.zone_pos(sc.variation['target_zone'])
+            wait_xy = np.r_[spot[0] - float(sc.cfg.human_behavior['robot_clear_m']) - 0.01, spot[1]]
+            return grasp + self._place_steps(obj, sc.variation['target_zone']) + [
+                Step('goto', lambda: np.r_[wait_xy, self.travel], name='wait_beside'),
+                Step('wait', until=lambda: 'block_in_cup' in sc.protocol_done, name='await_drop'),
+                # back for the cup once the hand has left it (GUARD_OCCUPIED_XY, the guard rule); the hand goes to H2,
+                # away from the arm's way along the cup row (waiting for the hand to stop at H2 cost the human 4.85 s)
+                Step('wait', until=lambda: float(np.linalg.norm(sc.human.pos[:2] - sc.pos(obj)[:2])) >= GUARD_OCCUPIED_XY,
+                     name='await_hand_clear')] + \
+                self._grasp_steps(obj) + self._handover_steps(obj, via_staging=False)
         return grasp + self._place_steps(obj) + [clear] + self._home_steps()
 
     def _grasp_steps(self, key):
@@ -211,13 +266,15 @@ class ScriptedExpert:
             Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='lift'),
         ]
 
-    def _place_steps(self, obj):
-        """Transport to / release in the *current* zone (T1/T4: place zone P, T3: the cup spot U_cup)."""
+    def _place_steps(self, obj, zone: str | None = None):
+        """Transport to / release in the *current* zone (T1/T4: place zone P, T3: the cup spot U_cup), or in `zone`
+        (T3 new: U_cup, while self.zone is the hand zone of the handover)."""
         sc = self.sc
         cup = sc.scene['objects'][obj]['shape'] == 'cup'
         drop = 0.003 if cup else 0.012
-        above = lambda: np.r_[sc.zone_pos(self.zone)[:2] + self.tcp_obj_offset[:2], self.travel]
-        place = lambda: np.r_[sc.zone_pos(self.zone)[:2], sc.rest_height[obj] + drop] + self.tcp_obj_offset
+        zk = (lambda: zone) if zone is not None else (lambda: self.zone)
+        above = lambda: np.r_[sc.zone_pos(zk())[:2] + self.tcp_obj_offset[:2], self.travel]
+        place = lambda: np.r_[sc.zone_pos(zk())[:2], sc.rest_height[obj] + drop] + self.tcp_obj_offset
         return [
             Step('goto', above, name='transport', guard=True),
             Step('goto', place, name='lower', guard=True),
@@ -229,7 +286,9 @@ class ScriptedExpert:
     def _home_steps(self):
         return [Step('goto', lambda: self.sc.rest_tcp, name='to_rest'), Step('hold', ticks=FOREVER, name='done')]
 
-    def _handover_steps(self, obj):
+    def _handover_steps(self, obj, via_staging: bool = True):
+        """T2 (and T3 new) into the open palm. via_staging False (T3 new: the hand is already out and still): wait for
+        the hand zone, then straight over the palm."""
         sc = self.sc
         hands = np.mean([sc.zone_pos(k) for k, z in sc.zones.items() if z['kind'] == 'hand'], axis=0)
         in_palm = np.asarray(sc.cfg.human_behavior['present_offset'], float) + [0.0, 0.0, sc.rest_height[obj] - sc.table_z]
@@ -237,6 +296,34 @@ class ScriptedExpert:
         over_z = lambda: hands[2] + in_palm[2] + HANDOVER_DZ + self.tcp_obj_offset[2]  # the hand zones share one height
         staging = lambda: np.r_[hands[:2] + np.asarray(sc.cfg.expert['staging_offset'], float) + self.tcp_obj_offset[:2], over_z()]
         human = sc.human
+        palm_v = self.mapper.cfg.continuous.get('palm_speed') if getattr(self.mapper, 'continuous', False) else None
+        if not via_staging:
+            return [
+                Step('wait', until=lambda: self.zone is not None, name='await_hand'),
+                Step('goto', lambda: np.r_[present()[:2], over_z()], name='over_hand'),
+                Step('settle', ticks=15, name='settle_over_hand'),
+                Step('wait', until=self._hand_still, name='await_hand_still'),   # never down into a moving hand
+                Step('goto', present, name='to_handover', speed=palm_v),
+                Step('wait', until=lambda: human.holding == obj and human.stage in ('pulling', 'wait_release'), name='wait_pull'),
+                Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
+                Step('wait', until=lambda: human.stage in ('withdraw_with_object', 'done'), name='wait_human_withdraw'),
+                Step('goto', lambda: self.retreat_point, name='retreat'),
+            ] + self._home_steps()
+        if self.handover_mode == 'anticipate':
+            return [
+                Step('goto', staging, name='to_staging', guard=True),
+                Step('wait', until=lambda: self.zone is not None or self._zone_approach(), name='await_palm'),
+                Step('track', lambda: self._hedge_point(in_palm, over_z()), name='hedge', guard=True,
+                     skip=lambda: self.zone is not None),
+                Step('goto', lambda: np.r_[present()[:2], over_z()], name='over_hand'),
+                Step('settle', ticks=15, name='settle_over_hand'),
+                Step('wait', until=self._descend_now, name='time_descent'),
+                Step('goto', present, name='to_handover', speed=palm_v),
+                Step('wait', until=lambda: human.holding == obj and human.stage in ('pulling', 'wait_release'), name='wait_pull'),
+                Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
+                Step('wait', until=lambda: human.stage in ('withdraw_with_object', 'done'), name='wait_human_withdraw'),
+                Step('goto', lambda: self.retreat_point, name='retreat'),
+            ] + self._home_steps()
         return [
             # always via the staging point at handover height: the arm rises where it can (not next to the base or at
             # the edge of its reach), then crosses over the open fingers, over the palm and straight down into it
@@ -244,12 +331,72 @@ class ScriptedExpert:
             Step('wait', until=lambda: self.zone is not None, name='await_hand'),
             Step('goto', lambda: np.r_[present()[:2], over_z()], name='over_hand'),
             Step('settle', ticks=15, name='settle_over_hand'),
-            Step('goto', present, name='to_handover'),
+            Step('goto', present, name='to_handover', speed=palm_v),
             Step('wait', until=lambda: human.holding == obj and human.stage in ('pulling', 'wait_release'), name='wait_pull'),
             Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
             Step('wait', until=lambda: human.stage in ('withdraw_with_object', 'done'), name='wait_human_withdraw'),
             Step('goto', lambda: self.retreat_point, name='retreat'),
         ] + self._home_steps()
+
+    # ------------------------------------------------------------------ T2 anticipate (trial)
+    def _palm_seen(self) -> bool:
+        """The device sees the palm-up gesture (its class probability >= 0.5); remembers the first such time."""
+        bel = self.belief
+        if bel is None or bel.probs is None:
+            return False
+        if self.palm_onset_t is None and float(bel.probs[bel.classes.index('palm_up')]) >= 0.5:
+            self.palm_onset_t = self.sc.time
+        return self.palm_onset_t is not None
+
+    def _zone_approach(self) -> bool:
+        """Start hedging over the hand zones: a zone belief >= approach_star (2026-10-18 rule); without it, once the
+        palm-up gesture is seen (the 2026-10-18 trial)."""
+        if self.approach_star is None:
+            return self._palm_seen()
+        z = self.belief.zones() if self.belief is not None else {}
+        return bool(z) and max(z.values()) >= self.approach_star
+
+    def _approach_plan(self) -> list[Step]:
+        """Before the first commit, from approach_star: open the gripper and follow the belief-weighted point above the
+        candidates' grasp points at travel height (reversible moves only; Javdani et al. 2018). The commit at
+        commit_star replaces this plan by the task steps (descend and grasp: irreversible)."""
+        sc = self.sc
+
+        def hedge():
+            b = self.belief.objects()
+            keys = [k for k in b if b[k] > 0]
+            if not keys:
+                return np.r_[self.mapper.setpoint[:2], self.travel]
+            w = np.array([b[k] for k in keys], float)
+            xy = (w[:, None] * np.asarray([sc.grasp_point(k)[:2] for k in keys])).sum(0) / w.sum()
+            return np.r_[xy, self.travel]
+        return [Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25, name='approach_open'),
+                Step('track', hedge, name='approach', guard=True)]
+
+    def _hedge_point(self, in_palm, z) -> np.ndarray:
+        """Belief-weighted point over the hand zones at handover height (uniform until the device gives a belief)."""
+        sc = self.sc
+        keys = [k for k, zn in sc.zones.items() if zn['kind'] == 'hand']
+        b = self.belief.zones() if self.belief is not None else {}
+        w = np.array([max(float(b.get(k, 0.0)), 0.0) for k in keys])
+        w = w / w.sum() if w.sum() > 0 else np.full(len(keys), 1.0 / len(keys))
+        xy = sum(wi * sc.zone_pos(k)[:2] for wi, k in zip(w, keys)) + in_palm[:2] + self.tcp_obj_offset[:2]
+        return np.r_[xy, z]
+
+    def _hand_still(self) -> bool:
+        """The open hand is out and still: the device sees palm-up with the hand stopped (device trigger), else the
+        human's stage (teacher triggers without the device)."""
+        bel = self.belief
+        if bel is not None:
+            return bel.top == 'palm_up' and not bel.moving
+        return self.sc.human.stage in HAND_OUT_STAGES
+
+    def _descend_now(self) -> bool:
+        """Go down into the palm only when the device sees the open hand still (2026-10-18: "while the hand still moves,
+        never descend into its path", handover discussion 17/10; before, also when the predicted time to ready was
+        within the descent time)."""
+        bel = self.belief
+        return bel is not None and bel.top == 'palm_up' and not bel.moving and self.palm_onset_t is not None
 
     # ------------------------------------------------------------------ following the human
     def _follow_evidence(self) -> None:
@@ -264,6 +411,8 @@ class ScriptedExpert:
         """One piece of evidence about the human's target (evidence events of the sim, or belief decisions)."""
         sc = self.sc
         kind = ev['kind']
+        if self.t3_handover and kind in ('target_object', 'target_withdrawn') and 'block_in_cup' in sc.protocol_done:
+            return                              # T3 new: the cube is in the cup, which cup is no longer open
         if kind == 'target_zone':
             self.zone = ev['zone']              # pending steps read the zone when they start
             self.commit_log.append(dict(t=round(sc.time, 4), target=self.zone))
@@ -282,7 +431,7 @@ class ScriptedExpert:
                                                 # (T3: the cup stands in U_cup): _redirect fetches it back first
         elif kind == 'target_object' and not grasping and ev['object'] != self.obj:
             self.obj = ev['object']
-            if self.code == 'T3':
+            if self.code == 'T3' and not self.t3_handover:
                 self.zone = sc.variation['target_zone']
             self._commit(self.obj, [self._lift_step('commit_lift')] + self._task_steps())
 
@@ -316,6 +465,10 @@ class ScriptedExpert:
             self._pause()                       # the human takes back their choice (T3: carries the cube back): wait
                                                 # for the new target, keeping the old one so _redirect can undo it
         late = self.trigger == 'device' and bel.rule == 'late'    # late: only once the gesture is complete (§0)
+        if self.approach_star is not None and self.obj is None and self.stage == 'await_commit':
+            b = bel.objects()                   # early 2026-10-18: start moving towards the candidates
+            if b and max(b.values()) >= self.approach_star:
+                self._set_plan(self._approach_plan())
         obj = self._decide('object', bel.objects(), self.obj) if not late or bel.complete('object') else None
         if obj is not None:
             self._on_evidence(dict(kind='target_object', object=obj), grasping)
@@ -335,20 +488,40 @@ class ScriptedExpert:
             self._redirect(self.sc.human.selected_object)
 
     def _pause(self) -> None:
-        """'Wait!': stop where the arm is (holding whatever it holds) until the new target is known."""
+        """'Wait!': stop where the arm is (holding whatever it holds) until the new target is known. The interrupted
+        plan is kept so that a 'wait' no new pointing follows resumes it where it stopped (_resume)."""
         if self.obj is not None:
+            if self.stage not in ('await_correction', 'pause_back_off'):
+                self._paused = (self.plan, self.i)
             self.pause_t = self.sc.time
-            self._set_plan([Step('hold', ticks=FOREVER, name='await_correction')])
+            sc, sp = self.sc, self.mapper.setpoint.copy()
+            near = float(np.linalg.norm(sc.human.pos[:2] - sc.tcp()[:2])) < GUARD_APPROACH_XY
+            # 2026-10-18: a 'wait' with the gripper next to the hand (T5: the change comes while the robot holds the old
+            # object over the open palm): back off away from the human (+Y) and up before holding, so the arm that moves
+            # on to point again does not run into it (separation, ISO/TS 15066 speed and separation monitoring);
+            # expert check: contact when it held in place
+            back = [Step('goto', lambda: np.r_[sp[0], sp[1] + 0.10, max(sp[2], self.travel)], name='pause_back_off')] \
+                if near and self.stage != 'pause_back_off' else []
+            self._set_plan(back + [Step('hold', ticks=FOREVER, name='await_correction')])
 
     def _resume(self) -> None:
         """Device trigger: a 'wait' that no new pointing followed (a false alarm of the device, or a change of mind
         not carried out): continue the task for the committed object, without re-grasping a held one."""
         sc = self.sc
+        self.pause_t = None
+        paused, self._paused = getattr(self, '_paused', None), None
+        if paused is not None:
+            # 2026-10-18: continue the interrupted plan where it stopped. Before, the task steps were restarted, so a
+            # false 'withdraw' after the delivery (T3: the cup already in U_cup) made the robot grasp and place the
+            # delivered cup again (expert check outputs/trial_t235/2026-10-18)
+            plan, i = paused
+            self._set_plan(plan)
+            self.i = i
+            return
         held = next((k for k, g in sc.grasp_state.items() if g), None)
         steps = self._task_steps()
         if held == self.obj:
             steps = steps[len(self._grasp_steps(self.obj)):]
-        self.pause_t = None
         self._set_plan([self._lift_step('resume_lift')] + steps)
 
     def _redirect(self, new: str) -> None:
@@ -359,7 +532,7 @@ class ScriptedExpert:
             return                                  # not started yet: the plan reads the choice when it starts
         old = sc.change_old
         self.obj = new
-        if self.code == 'T3':
+        if self.code == 'T3' and not self.t3_handover:
             self.zone = sc.variation['target_zone']
         if held is not None and held != new:
             steps = self._put_back_steps(held)
@@ -407,6 +580,34 @@ class ScriptedExpert:
 
     # ------------------------------------------------------------------ acting
     def _toward(self, target) -> int | None:
+        if getattr(self.mapper, 'continuous', False):
+            return self._toward_continuous(target)
+        return self._toward_axis(target)
+
+    def _toward_continuous(self, target) -> int | None:
+        """Continuous motion: hand the mapper a straight-line goal (all axes at once). Same detour as the axis moves
+        around the robot base (out to x >= R_SAFE before crossing |y| < R_SAFE, inwards only after the crossing). A
+        straight step the controller refused (IK reach / workspace) falls back to one axis step."""
+        tg, sp = np.asarray(target, float), self.mapper.setpoint
+        tol = float(np.max(self.tol))
+        if np.all(np.abs(tg - sp) <= self.tol):
+            self._moved_from = None
+            return None
+        if self._moved_from is not None and np.array_equal(self._moved_from, sp):
+            return self._toward_axis(target)
+        band = abs(tg[1] - sp[1]) > tol and min(sp[1], tg[1]) < R_SAFE and max(sp[1], tg[1]) > -R_SAFE
+        if band and sp[0] < R_SAFE - tol:
+            wp = np.r_[R_SAFE, sp[1], sp[2]]
+        elif band and tg[0] < sp[0] - tol:
+            wp = np.r_[sp[0], tg[1], tg[2]]
+        else:
+            wp = tg
+        self.mapper.next_goal = wp
+        self.mapper.next_speed = self._step_speed
+        self._moved_from = sp.copy()
+        return A.MOVE_FORWARD                 # a translation token; the mapper moves towards next_goal
+
+    def _toward_axis(self, target) -> int | None:
         err = np.asarray(target, float) - self.mapper.setpoint
         rot = self.mapper.frame_rotation()
         err_frame = rot.T @ err
@@ -485,6 +686,8 @@ class ScriptedExpert:
             self._follow_evidence()
         elif self.trigger in BELIEF_TRIGGERS:
             self._follow_belief()
+            if self.handover_mode == 'anticipate' and self.code == 'T2':
+                self._palm_seen()               # the palm-up onset time, whatever step the plan is in
         else:
             if self.trigger == 'cue_complete' and self.timed_change:
                 self._follow_correction()
@@ -524,7 +727,8 @@ class ScriptedExpert:
             if step.kind == 'grip':
                 if (step.until is not None and step.until()) or self.counter >= step.ticks:
                     if step.name == 'release':
-                        away = [0.0, 0.06, 0.10] if self.code == 'T2' else [0.0, 0.0, 0.05]   # T2: up, then away from the hand (+Y)
+                        palm = self.code == 'T2' or (self.t3_handover and self.sc.human.holding is not None)
+                        away = [0.0, 0.06, 0.10] if palm else [0.0, 0.0, 0.05]   # T2 / T3 new palm: up, then away from the hand (+Y)
                         self.retreat_point = self.mapper.setpoint + away
                     if step.name == 'close':
                         key = self._grasped_key()
@@ -537,6 +741,7 @@ class ScriptedExpert:
             if step.kind == 'track':                # follow a moving point, never done (until skipped / re-planned)
                 target = step.target()
                 self._moved_from = moved_from
+                self._step_speed = step.speed
                 a = self._toward(target)
                 if a is None or (step.guard and self._guard_hold(target)):
                     self._moved_from = None
@@ -545,6 +750,7 @@ class ScriptedExpert:
             if step.kind == 'goto':
                 target = step.target()
                 self._moved_from = moved_from
+                self._step_speed = step.speed
                 a = self._toward(target)
                 if a is None:
                     self._advance()

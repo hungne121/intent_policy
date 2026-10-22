@@ -8,7 +8,9 @@ Changes to LeRobot's `ACT` (the original ACT's detr_vae.py / transformer.py chan
   * optional FiLM of every camera's backbone feature map by the intent tokens (`film`).
   * intent v3.2 (`intent_cfg['version'] == 'v32'`, docs/requirements/INTENT_ACT_v3.2.md §5): 6 tokens from
     IntentEncoderV32 with a key padding mask applied in the encoder self-attention and in the decoder cross-attention
-    (`decode_masked`, LeRobot's ACTDecoder with the mask); never in the CVAE encoder.
+    (`decode_masked`, LeRobot's ACTDecoder with the mask); never in the CVAE encoder. v3.2 conditioning study (§5.3):
+    `film` modulates every ResNet stage by the intent tokens (IntentFiLMV32), `config.image_p_drop` drops all image
+    tokens of a training sample (modality dropout) through the same key padding mask.
 With neither task nor intent tokens the module is exactly LeRobot's ACT (same modules, initialisation, RNG use) and
 `forward` is LeRobot's own `ACT.forward`.
 
@@ -22,7 +24,7 @@ from lerobot.policies.act.modeling_act import ACT, create_sinusoidal_pos_embeddi
 from lerobot.utils.constants import ACTION, OBS_ENV_STATE, OBS_IMAGES, OBS_STATE
 
 from intent_policy.policies.intent_encoder import IntentEncoder, IntentFiLM
-from intent_policy.policies.intent_encoder_v32 import IntentEncoderV32
+from intent_policy.policies.intent_encoder_v32 import IntentEncoderUnified, IntentEncoderV32, IntentFiLMV32
 
 
 def decode_masked(decoder, x: Tensor, encoder_out: Tensor, decoder_pos_embed: Tensor, encoder_pos_embed: Tensor,
@@ -75,10 +77,14 @@ class IntentACT(ACT):
             self.instr_object_emb, self.instr_dest_emb = nn.Embedding(instruction[0], d), nn.Embedding(instruction[1], d)
         cfg = intent_cfg or {}
         self.intent_v32 = self.use_intent and cfg.get('version', 'v2') == 'v32'
-        if self.intent_v32:
+        if self.intent_v32 and cfg.get('repr', 'tokens') == 'unified':   # one token u_t (trial 2026-10-18)
+            self.intent_encoder = IntentEncoderUnified(d, cfg['n_targets'], cfg['n_gestures'])
+            self.n_extra += self.intent_encoder.n_tokens
+        elif self.intent_v32:
             self.intent_encoder = IntentEncoderV32(d, cfg['n_targets'], cfg['n_who'], cfg['n_phases'], cfg['n_gestures'],
                                                    cfg['n_waypoints'], cfg['n_joints'], cfg['hand_hist'], cfg.get('kp_dim', 3),
-                                                   n_fourier=cfg.get('n_fourier', 6), tte_max=cfg.get('tte_max', 3.0))
+                                                   n_fourier=cfg.get('n_fourier', 6), tte_max=cfg.get('tte_max', 3.0),
+                                                   target_init_std=cfg.get('target_init_std', 0.02))
             self.n_extra += self.intent_encoder.n_tokens
         elif self.use_intent:
             self.intent_encoder = IntentEncoder(d, cfg['n_targets'], cfg['n_who'], cfg['n_phases'], cfg['n_waypoints'],
@@ -92,8 +98,13 @@ class IntentACT(ACT):
         if self.intent_in_cvae:
             n_vae = 1 + bool(config.robot_state_feature) + self.n_extra + config.chunk_size
             self.register_buffer('vae_encoder_pos_enc', create_sinusoidal_pos_embedding(n_vae, d).unsqueeze(0))
+        film = self.use_intent and cfg.get('film') and config.image_features
         self.intent_film = IntentFiLM(d, self.encoder_img_feat_input_proj.in_channels) \
-            if self.use_intent and cfg.get('film') and config.image_features else None
+            if film and not self.intent_v32 else None
+        self.intent_film_v32 = IntentFiLMV32(d, self.intent_encoder.n_tokens, {
+            name: getattr(m[-1], 'conv3', m[-1].conv2).out_channels
+            for name, m in self.backbone.items() if name.startswith('layer')}) if film and self.intent_v32 else None
+        self.image_p_drop = float(getattr(config, 'image_p_drop', 0.0))
 
     def extra_tokens(self, batch: dict) -> tuple[Tensor, Tensor | None, Tensor | None]:
         """(B, n_extra, D) task + intent tokens, the intent tokens alone (for FiLM) and, for intent v3.2, the key
@@ -119,6 +130,17 @@ class IntentACT(ACT):
             parts.append(intent_tok)
         mask = torch.cat(masks, dim=1) if self.intent_v32 else None
         return torch.cat(parts, dim=1), intent_tok, mask
+
+    def backbone_features(self, img: Tensor, film: dict | None) -> Tensor:
+        """LeRobot's backbone(img)['feature_map'], with each ResNet stage FiLM-ed by the intent when `film` is given."""
+        if film is None:
+            return self.backbone(img)['feature_map']
+        x = img
+        for name, module in self.backbone.items():       # IntermediateLayerGetter: conv1 ... layer4, in order
+            x = module(x)
+            if name in film:
+                x = IntentFiLMV32.modulate(x, film[name])
+        return x
 
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, tuple[Tensor, Tensor] | tuple[None, None]]:
         if not (self.use_intent or self.use_task):
@@ -160,9 +182,11 @@ class IntentACT(ACT):
             encoder_in_tokens.append(self.encoder_env_state_input_proj(batch[OBS_ENV_STATE]))
         encoder_in_tokens.extend(list(extra_tok.permute(1, 0, 2)))                           # N x (B, D)
 
+        film = self.intent_film_v32(intent_tok, extra_mask[:, -intent_tok.shape[1]:]) \
+            if self.intent_film_v32 is not None else None
         if self.config.image_features:
             for img in batch[OBS_IMAGES]:
-                cam_features = self.backbone(img)['feature_map']
+                cam_features = self.backbone_features(img, film)
                 cam_pos_embed = self.encoder_cam_feat_pos_embed(cam_features).to(dtype=cam_features.dtype)
                 if self.intent_film is not None:
                     cam_features = self.intent_film(cam_features, intent_tok)
@@ -183,8 +207,11 @@ class IntentACT(ACT):
         else:                                    # v3.2: [latent, state, (env), extra..., images], only extras masked
             n_1d = 1 + bool(self.config.robot_state_feature) + bool(self.config.env_state_feature)
             n_img = encoder_in_tokens.shape[0] - n_1d - extra_mask.shape[1]
+            img_mask = torch.zeros(batch_size, n_img, dtype=torch.bool, device=extra_mask.device)
+            if self.training and self.image_p_drop > 0:             # modality dropout of the cameras (§5.3)
+                img_mask |= (torch.rand(batch_size, device=extra_mask.device) < self.image_p_drop)[:, None]
             kpm = torch.cat([torch.zeros(batch_size, n_1d, dtype=torch.bool, device=extra_mask.device), extra_mask,
-                             torch.zeros(batch_size, n_img, dtype=torch.bool, device=extra_mask.device)], dim=1)
+                             img_mask], dim=1)
             encoder_out = self.encoder(encoder_in_tokens, pos_embed=encoder_in_pos_embed, key_padding_mask=kpm)
             decoder_out = decode_masked(self.decoder, decoder_in, encoder_out, self.decoder_pos_embed.weight.unsqueeze(1),
                                         encoder_in_pos_embed, kpm)

@@ -541,6 +541,119 @@ scripts/prelim_2x2.sh collect train eval           # ~16 h
 RUN=outputs/prelim/smoke N_DEMO=1 N_EVAL=1 STEPS=4 scripts/prelim_2x2.sh collect train eval   # thử toàn chuỗi
 ```
 
+### 6.18 Sửa sau lần sơ bộ 1: quy tắc trễ, người chậm, phân tích chi tiết (2026-10-13; lý thuyết §4.2j)
+
+| File | Thay đổi |
+|---|---|
+| `intent_policy/intent/device.py` | `complete(kind)`: cử chỉ có hướng sau các ứng viên đã xong (tay đứng yên trong khi bộ đo vẫn thấy cử chỉ, hoặc quyết định đã khoá lúc tay dừng); docstring quy tắc |
+| `intent_policy/experts/scripted_expert.py` | quy tắc trễ: chỉ quyết đích (vật / vùng) khi `complete` |
+| `configs/scenarios/t1_pick_place.yaml`, `t2_handover.yaml`, `t3_assist.yaml` | `point_s`, `reach_out_s`, `u_reach_s`, `stop_s`, `put_back_s` ×1.5; T4 giữ nguyên |
+| `scripts/device_gap.py` | quyết định sớm (0.7) so với quy tắc trễ (cử chỉ xong và 0.95); `--tmax` 5 s |
+| `scripts/prelim_2x2.sh` | giai đoạn `source` (thu lại các cell pilot bằng expert `cue_complete` làm dữ liệu train bộ đo), render từ đó, `--kmax 15`, giai đoạn `experts` (hai expert trên cùng episode eval + phân tích chi tiết) |
+| `scripts/analyze_2x2_detail.py` (mới) | kiểm tra mục tiêu và H1–H3: lợi ích (dấu đã đổi để > 0 luôn là tốt hơn), khoảng tin cậy 95% bootstrap ghép cặp, P(lợi > 0), số episode tốt / tệ / hoà; trung bình theo task, gộp và toàn bộ; đối chứng T4; cơ chế cam kết đầu tiên (phân rã AM, WCR); lỗi theo task |
+| `tests/test_intent_v32.py` | `test_gesture_complete_needs_the_gesture_and_a_still_hand` |
+
+- Kiểm tra: 88 test human / scenario / intent qua. Commit `4be458b`.
+- Lần chạy mới: `outputs/prelim/2026-10-13_slow` (`all`, bắt đầu 22:03).
+- Lần sơ bộ 1 (`outputs/prelim/2026-10-13`) giữ làm mốc. Đã xoá phần export của bộ đo cũ (5 GB) và các checkpoint có trạng thái optimizer; vẫn giữ model cuối, dataset, kết quả eval và báo cáo.
+
+### 6.19 Nghiên cứu điều kiện hoá intent trên D (2026-10-14; lý thuyết §5.3)
+
+| File | Thay đổi |
+|---|---|
+| `intent_policy/policies/intent_encoder_v32.py` | `IntentFiLMV32`: 6 token nối lại (token bị che = 0) → Linear(6d → d) + GELU → mỗi tầng ResNet một đầu Linear ra (γ, β), khởi tạo 0; `modulate`: x·(1 + γ) + β |
+| `intent_policy/policies/intent_act.py` | `intent_film` với v3.2 → `intent_film_v32` (layer1–4); `backbone_features`: chạy lần lượt từng khối của LeRobot `IntermediateLayerGetter`, FiLM sau mỗi `layer*`. `image_p_drop`: khi train, che cả 144 token ảnh của một mẫu trong key padding mask (encoder và cross-attention của decoder). FiLM của v2 giữ nguyên |
+| `intent_policy/policies/hri_act/configuration_hri_act.py` | trường `image_p_drop` (mặc định 0, chỉ v3.2); bỏ lỗi "FiLM chưa có cho v3.2" |
+| `scripts/train_policy.py` | `--image-p-drop`; `--intent-film` dùng được cho v3.2; metadata ghi `image_p_drop` |
+| `scripts/intent_reliance.py` (mới) | đo offline: L1 trên frame validation khi intent đủ / che / xáo; tỉ lệ theo task; mức đổi hành động |
+| `scripts/compare_conditioning.py` (mới) | mỗi biến thể: có intent và che intent (số episode đổi kết quả, lợi ích ghép cặp, bootstrap), so với B, gộp kết quả offline |
+| `scripts/d_conditioning.sh` (mới) | chuỗi chạy: train từng biến thể (bước của D) → đo offline → eval có intent và che intent → so sánh; bước nào xong thì bỏ qua |
+| `intent_policy/benchmark/counterfactual.py` | phép thử hoán: `alternative_partners` (vật sinh đôi ở T1/T2, cốc kia ở T3, P1↔P2, H1↔H2; khoá theo tên vật như trong event), `slot_partners` (theo tên đích của schema) |
+| `intent_policy/policies/policy_agent.py`, `scripts/evaluate.py` | `--intent-swap`: hoán `p_target` và `c_target` từ bộ đo trước khi đưa vào policy; cảnh không đổi; chỉ v3.2, phải giữ token intent |
+| `scripts/intent_swap_test.py` (mới) | xếp cam kết đầu tiên của mỗi quyết định (vật; T1 thêm chỗ đặt) vào: đích của người / phương án hoán / khác / không có. Δ ghép cặp so với lúc intent thật, bootstrap. Lọc theo `list_task`, vì spec của T5 mang task gốc |
+| `scripts/swap_test.sh` (mới) | chờ `d_conditioning.sh` xong, rồi eval T1–T3: hoán (D_film_vdrop, rồi D0), sau đó che HUMAN/MOTION có và không hoán; phân tích sau mỗi bước → `conditioning/swap_test.md` |
+| `tests/test_intent_v32.py` | `test_v32_film_starts_as_identity_and_then_conditions_every_stage`, `test_image_dropout_masks_the_cameras_in_training_only`, `test_swap_test_partners_and_classes` |
+
+- Kiểm tra:
+  - 204/208 test qua.
+  - 4 test hỏng (`test_episode_list_v5` ×3, `test_oracle_intent::test_commitment_events_follow_the_robot`) đã hỏng sẵn trước thay đổi này: chạy lại trên code đã commit vẫn hỏng y như vậy. Chưa sửa.
+  - Smoke 100 bước với FiLM + dropout ảnh: 0.88 bước/s, 19.8M tham số (D0: 19.0M).
+- Mốc D0 (offline): `outputs/prelim/2026-10-13_slow/reliance/D`; so sánh D0 với chính nó khi che intent: `conditioning/compare_D0.md`.
+- Chạy (bạn chốt 18:45: train bản kết hợp trước, ablation FiLM riêng / dropout riêng để sau nếu có thời gian; D_film đang chạy dở ở bước 1200 thì dừng và xoá):
+  ```
+  RUN=outputs/prelim/2026-10-13_slow bash scripts/d_conditioning.sh film_vdrop     # bắt đầu 18:48
+  RUN=outputs/prelim/2026-10-13_slow bash scripts/d_conditioning.sh film vdrop     # ablation, sau
+  ```
+  - Log: `conditioning/run.log`.
+  - Model: `train/D_<biến thể>`.
+  - Kết quả: `reliance/D_<biến thể>`, `eval/D_<biến thể>{,_masked}`, `conditioning/compare.md`.
+- Phép thử hoán (bắt đầu 22:17, tự đợi chuỗi trên):
+  ```
+  RUN=outputs/prelim/2026-10-13_slow bash scripts/swap_test.sh       # D_film_vdrop, D
+  ```
+  - Log: `conditioning/swap_run.log`.
+  - Eval: `eval/<model>_{swap,true_nohuman,swap_nohuman}`.
+  - Chạy thử phân tích trên các eval sẵn có đã bắt được 2 lỗi đo, đã sửa: T5 bị lẫn vào vì spec mang task gốc; tay nhận ở T2 không có event. Sau khi sửa, hai expert cam kết đúng đích người 100% / 97%.
+
+- Kết quả (lý thuyết §5.3):
+  - `conditioning/compare.md`, `conditioning/swap_test.md`.
+  - D_film_vdrop khi hoán: 0/32 quyết định đổi. Đã kiểm tra trên trace rằng intent có bị hoán.
+  - Lệnh khớp khác so với lúc dùng intent thật: trung vị max |Δ| 0.08 rad (script so sánh nằm trong scratchpad; chưa đưa vào repo).
+
+- Chẩn đoán (2026-10-15):
+  - `scripts/intent_diagnostics.py` (mới): dịch thời gian intent (cả chunk và bước đầu), che từng token, gradient theo token, "kéo kế hoạch" bằng FK MuJoCo, kiểm tra keyframe.
+  - `scripts/intent_reliance.py`: thêm `--split train|val`, `--window decision`, biến thể `swapped`, nhóm agree / twin_first.
+  - `scripts/intent_swap_test.py`: thêm phần heading (tiến độ của đầu kẹp sau onset).
+  - Đầu ra: `reliance/<model>/diagnostics_train.md`, `reliance_train_decision.md`, `conditioning/swap_test_heading.md`.
+  - Trao đổi với Codex: `research_collab.md`.
+
+- F1 (2026-10-15):
+  - `--intent-target-init type` (`IntentEncoderV32(target_init_std)`, `HRIACTConfig.intent_target_init`).
+  - `scripts/f1_gate.sh`: train + cổng P1/P2. `scripts/f1_rollout.sh`: chạy thật intent thật / hoán / che.
+  - `policy_agent` ghi thêm `p_target_values` vào trace.
+  - `intent_swap_test.py` có thêm hướng đi từ `t_intent`. Định nghĩa này suy biến, xem lý thuyết §5.3.
+  - `intent_diagnostics.py` có thêm dịch thời gian từng token và khoảng tin cậy theo episode.
+  - Kết quả: `reliance/D_f1/`, `conditioning/{f1_gate.log,swap_test_f1.md,compare_f1.md}`.
+
+### 6.20 Thử nghiệm 18/10: A so với D trên T2, T3, T5 (lý thuyết §4.2l)
+
+| File | Thay đổi |
+|---|---|
+| `intent_policy/intent/device.py` | `approach_star`, `commit_star` cho luật sớm (`thresholds()` trả `commit_star`); `requests()` = belief trên khối T3, `distribution()` của T3 dùng nó; `await_motion`: sau khi mở khoá vì tín hiệu đổi ý, `reach` cho belief đều tới khi tay cử động lại |
+| `intent_policy/intent/source_v32.py` | T3: khối → ô U1/U2 gần nhất khi ghi `p_target` |
+| `intent_policy/experts/scripted_expert.py` | `_approach_plan` (mở kẹp, bám điểm trung bình theo belief phía trên ứng viên); `_zone_approach` cho vùng tay T2; `_pause` giữ kế hoạch bị ngắt, `_resume` làm tiếp kế hoạch đó |
+| `intent_policy/policies/intent_encoder_v32.py` | `IntentEncoderUnified`: 1 token u_t @ E_u (E_u ~ N(0,1)) + type embedding; dùng giao diện mask / keep của v3.2 (token theo `keep['target']`) |
+| `intent_policy/policies/intent_act.py`, `hri_act/configuration_hri_act.py` | `intent_repr: tokens | unified` |
+| `configs/experiments/intent_act_t235_{late,early}.yaml` (mới) | camera side/top/wrist, không token lệnh, chuyển động liên tục, luật sớm 0,85 / 0,9, T2 `anticipate` cho sớm |
+| `scripts/make_t235_lists.py` (mới) | 60 ô demo / 20 ô eval mỗi task (T2, T3, T5 trên T2/T3), ngoài pool bộ đo; T5 bù bằng seed mới (+3 … +9) |
+| `scripts/trial_t235.sh` (mới) | lists → collect (late, early song song) → report → train A → train D → eval A, D |
+| `scripts/device_report.py` (mới) | độ dài cử chỉ, độ chính xác theo ρ / τ, thời điểm vượt 0,85 / 0,9 / 0,95, hồi phục khi dẫn sai, T5 đổi ý, báo động giả của tín hiệu đổi ý |
+| `scripts/device_latency.py` (mới) | thời gian tính của DeePoint mỗi frame |
+| `scripts/compare_ad.py` (mới) | A so với D ghép cặp theo seed: CSR, CT, F-DEL lúc chọn vật, lúc trao (T2), lúc cốc tới (T3), CRsp |
+| `tests/test_intent_v32.py` | `test_unified_token_reads_only_the_device_output` |
+
+- Kiểm tra: `tests/test_intent_v32.py` 11/11 qua.
+- Kiểm expert (`outputs/trial_t235/2026-10-18/expert_check/`): sau 2 lần sửa, sớm T2 2/2, T3 4/4, T5 7/8 (đổ cốc); trễ T2 2/2, T3 3/4 (bộ đo nhận ra vươn tay sau khi tay đã tới, luật trễ không chốt).
+- Chạy (16:30): `nohup scripts/trial_t235.sh all`; log `outputs/trial_t235/2026-10-18/chain.log`.
+- Đợt 1 dừng lúc 20:53 (bạn yêu cầu T3 mới). Đợt 2:
+
+| File | Thay đổi |
+|---|---|
+| `configs/scenarios/t3_assist.yaml` | `human_behavior.handover` (mặc định tắt), tham số nhận vật như T2, `hand_zones: [H2]`; `expert.staging_offset` |
+| `intent_policy/scenarios/config.py` | T3 handover: `hand_zone`, `reach_out_s` rút từ generator riêng `[seed, 3]` (các lần rút cũ không đổi) |
+| `intent_policy/sim/scripted_human.py` | `AssistRequester`: sau khi thả khối, dùng lại `HandoverReceiver.receive_gestures` (tay ngửa ở `hand_zone`, cầm, kéo) |
+| `intent_policy/scenarios/t3_assist.py` | chế độ handover: bước `block_in_cup` khi khối nằm yên trong cốc, `robot_at_handover`, `object_dropped`, đỡ lòng bàn tay như T2; thành công = người cầm cốc, khối trong cốc |
+| `intent_policy/intent/device.py` | T3 handover: belief `palm_up` trên vùng tay như T2 |
+| `intent_policy/experts/scripted_expert.py` | T3 handover: đặt cốc ở U_cup → chờ cạnh cốc (cách `robot_clear_m` + 1 cm, cùng hàng) → chờ khối vào cốc và tay đã chìa → gắp lại cốc → thẳng lên trên tay (`_handover_steps(via_staging=False)`); `_place_steps(obj, zone)` |
+| `intent_policy/policies/intent_encoder_v32.py` | hold của token = p(palm_forward) (bỏ withdraw) |
+| `configs/experiments/intent_act_t235_{late,early}.yaml` | `t3_assist`: handover, protocol steps và TSync theo trao vật, khoảng cách vi phạm 1 cm; `device.folds_file` = bản hiệu chỉnh lại |
+| `scripts/check_expert.py` | so commit vùng với `hand_zone` khi có |
+| `scripts/trial_t235_run2.sh` (mới) | đợt 2: thu trễ → thu sớm → báo cáo bộ đo → train A → (train D ‖ eval A) → eval D → so sánh |
+| `configs/scenarios/t2_handover.yaml`, `scenarios/config.py`, `sim/scripted_human.py` (19/10) | nhịp T2 theo yêu cầu của bạn: `offer_styles` — `immediate` (chìa tay ngay sau khi chỉ) / `after_grasp` (giữ tư thế chỉ tới khi robot gắp xong, rồi chìa tay sau 0,213 s); trong danh sách ô đặt cố định xen kẽ 50/50 (`spec.offer_style`); thay cho hạ tay + chờ ngẫu nhiên |
+| `experts/scripted_expert.py` (19/10) | T2: chỉ hạ vào lòng bàn tay khi bộ đo thấy tay ngửa đứng yên (bỏ hạ theo thời gian dự đoán); `_pause`: tay kẹp gần tay người thì lùi 10 cm (+Y) và lên độ cao di chuyển rồi mới dừng; T3 mới: quay lại lấy cốc khi tay đã rời cốc ≥ 14 cm, chờ tay đứng yên mới hạ vào lòng bàn tay (`_hand_still`) |
+| `scripts/view_dataset.py` (19/10) | clip từ dataset không có camera `high`: lấy camera đầu tiên làm khung chính |
+
+
 ## 7. Lệch so với plan đã duyệt (có lý do)
 1. **Hedging dùng trung bình có trọng số** thay cho trung vị hình học. Với 2 ứng viên, trung vị hình học nằm đúng tại vật nặng hơn, nên robot giật qua lại khi b ≈ 0.5.
 2. **Thư viện theo (cụm xuất phát, đích)**, đúng định nghĩa lớp trong paper D'Arpino. Bản đầu trộn mọi điểm xuất phát nên chỉ đúng 0.71 tới 60% quỹ đạo.

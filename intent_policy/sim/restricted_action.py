@@ -44,6 +44,12 @@ class RestrictedActionConfig:
     limits: dict = field(default_factory=lambda: {'x': [0.12, 0.56], 'y': [-0.32, 0.32], 'z': [0.635, 0.95]})
     orientation: str = 'top_down'
     max_ik_error: float = 0.004      # [m] set-points the IK cannot reach within this are refused
+    # 'restricted': a MOVE_* shifts the set-point by translation_step along one axis (the original interface).
+    # 'continuous' (2026-10-18): a MOVE_* with a goal (`next_goal`, set by the scripted expert) moves the set-point on a
+    # straight line towards it, all axes at once, under `continuous` limits; without a goal (DART noise) along the
+    # action's axis at the same speed. HOLD / gripper actions stop the set-point.
+    motion: str = 'restricted'
+    continuous: dict = field(default_factory=dict)
 
     @classmethod
     def load(cls, path: str | Path = ROOT / 'configs/controller/restricted_action.yaml') -> 'RestrictedActionConfig':
@@ -55,7 +61,8 @@ class RestrictedActionConfig:
     def to_dict(self) -> dict:
         return dict(control_frame=self.control_frame, translation_step=dict(self.translation_step),
                     execution_ticks=self.execution_ticks, gripper=dict(self.gripper), limits=dict(self.limits),
-                    orientation=self.orientation, max_ik_error=self.max_ik_error)
+                    orientation=self.orientation, max_ik_error=self.max_ik_error, motion=self.motion,
+                    continuous=dict(self.continuous))
 
 
 @dataclass
@@ -107,6 +114,48 @@ class RestrictedActionMapper:
         self.setpoint = self.env.observe().ee_pos.copy()
         self.gripper_target = float(self.env.data.ctrl[6])
         self._arm_cache: tuple[np.ndarray, np.ndarray] | None = None
+        self.speed = 0.0                      # continuous: current set-point speed along the path [m/s]
+        self.next_goal: np.ndarray | None = None
+        self.next_speed: float | None = None  # continuous: speed cap for the next move only (e.g. into the palm)
+
+    @property
+    def continuous(self) -> bool:
+        return self.cfg.motion == 'continuous'
+
+    def _continuous_delta(self, action: RestrictedAction) -> np.ndarray:
+        """Straight-line set-point step [world, m] for one control tick: towards `next_goal` (or along the action's
+        axis without one), speed <= tcp_speed (or `next_speed`), speed change <= tcp_accel * dt, decelerating to stop
+        at the goal (v <= sqrt(2 a d)), every joint's change <= its joint_speed * dt (UR3e datasheet)."""
+        c = self.cfg.continuous
+        dt = 1.0 / float(c.get('control_hz', 20))
+        vmax = float(self.next_speed if self.next_speed is not None else c['tcp_speed'])
+        amax = float(c['tcp_accel'])
+        if self.next_goal is not None:
+            d = np.asarray(self.next_goal, float) - self.setpoint
+            dist = float(np.linalg.norm(d))
+            if dist < 1e-9:
+                self.speed = 0.0
+                return np.zeros(3)
+            direction = d / dist
+            vgoal = np.sqrt(2.0 * amax * dist)
+        else:                                 # no goal (DART noise): along the action's axis
+            axis, sign = DIRECTIONS[action]
+            direction = self.frame_rotation() @ (np.eye(3)[axis] * sign)
+            dist, vgoal = np.inf, np.inf
+        v = min(vmax, vgoal, self.speed + amax * dt)
+        step = min(v * dt, dist)
+        delta = direction * step
+        wmax = np.asarray(c['joint_speed'], float) * dt
+        q0 = self._arm_cache[1] if self._arm_cache is not None else self.env.solve_ik(self.setpoint)
+        for _ in range(3):                    # shrink the step until every joint is within its speed limit
+            cand = np.clip(self.setpoint + delta, self.lo, self.hi)
+            dq = np.abs(self.env.solve_ik(cand) - q0)
+            ratio = float(np.max(dq / wmax))
+            if ratio <= 1.0:
+                break
+            delta = delta / ratio * 0.95
+        self.speed = float(np.linalg.norm(delta)) / dt
+        return delta
 
     def translation(self, action: RestrictedAction) -> np.ndarray:
         delta = np.zeros(3)
@@ -116,19 +165,27 @@ class RestrictedActionMapper:
         return delta
 
     def preview(self, action_id) -> ControllerCommand:
-        """The command `map` would return, without changing the mapper state (set-point, gripper, cache)."""
-        saved = (self.setpoint.copy(), self.gripper_target, self._arm_cache, getattr(self.env, 'last_ik_error', None))
+        """The command `map` would return, without changing the mapper state (set-point, gripper, cache, speed, goal)."""
+        saved = (self.setpoint.copy(), self.gripper_target, self._arm_cache, getattr(self.env, 'last_ik_error', None),
+                 self.speed, self.next_goal, self.next_speed)
         try:
             return self.map(action_id)
         finally:
-            self.setpoint, self.gripper_target, self._arm_cache, last = saved
+            self.setpoint, self.gripper_target, self._arm_cache, last, self.speed, self.next_goal, self.next_speed = saved
             if last is not None:
                 self.env.last_ik_error = last
 
     def map(self, action_id) -> ControllerCommand:
         action = validate_action(action_id)
-        delta_frame = self.translation(action)
-        delta_world = self.frame_rotation() @ delta_frame
+        if self.continuous and action in DIRECTIONS:
+            delta_world = self._continuous_delta(action)
+            delta_frame = self.frame_rotation().T @ delta_world
+        else:
+            if self.continuous:
+                self.speed = 0.0              # HOLD / gripper: the set-point stops
+            delta_frame = self.translation(action)
+            delta_world = self.frame_rotation() @ delta_frame
+        self.next_goal, self.next_speed = None, None      # a goal / speed cap is valid for one command only
         if action is RestrictedAction.OPEN_GRIPPER:
             self.gripper_target = float(self.cfg.gripper['open'])
         elif action is RestrictedAction.CLOSE_GRIPPER:
@@ -139,6 +196,7 @@ class RestrictedActionMapper:
             arm = self.env.solve_ik(candidate)
             if np.array_equal(candidate, self.setpoint) or self.env.last_ik_error > self.cfg.max_ik_error:
                 rejected = True               # workspace box or kinematic reach limit: stay put
+                self.speed = 0.0
             else:
                 self.setpoint = candidate
                 self._arm_cache = (candidate.copy(), arm)

@@ -1,0 +1,56 @@
+% Khóa luận tốt nghiệp — Trường ĐH Công nghệ, ĐHQGHN.
+% Định dạng theo docs/paper/Trình-bày-KLTN-của-chương-trình-đạt-chuẩn-quốc-tế.pdf, viết bằng tiếng Việt.
+% Biên dịch bằng XeLaTeX + biber (xem latexmkrc).
+% VSCode: Ctrl+Alt+B để build, Ctrl+Alt+V để xem PDF, Ctrl+Click trong PDF để nhảy về nguồn.
+\RequirePackage{fix-cm}
+\documentclass[a4paper, fontsize=12pt, oneside, numbers=enddot, listof=totoc,
+               DIV=12, footheight=24pt]{scrreprt}
+\input{setup}
+
+% --- Thông tin bìa (sửa ở đây) ----------------------------------
+\newcommand{\thesisAuthor}{Đào Duy Hưng}
+\newcommand{\thesisTitle}{Học chính sách hành động cộng tác người - robot có nhận thức ý định}
+% Tên đề tài IN HOA, có ngắt dòng, dùng trên bìa.
+\newcommand{\thesisTitleCover}{HỌC CHÍNH SÁCH HÀNH ĐỘNG\\CỘNG TÁC NGƯỜI - ROBOT\\ CÓ NHẬN THỨC Ý ĐỊNH CHO}
+\newcommand{\thesisMajortype}{KHÓA LUẬN TỐT NGHIỆP ĐẠI HỌC HỆ CHÍNH QUY}
+\newcommand{\thesisMajor}{Kỹ thuật Robot}
+\newcommand{\thesisDegreeName}{Kỹ sư ngành Kỹ thuật Robot}  % dùng trong trang xác nhận của CBHD
+\newcommand{\thesisSupervisor}{PGS.TS. Hoàng Văn Xiêm}
+\newcommand{\thesisCoSupervisor}{}  % để trống {} nếu không có cán bộ đồng hướng dẫn
+\newcommand{\thesisYear}{2026}      % năm bảo vệ
+
+\hypersetup{pdftitle={Học chính sách hành động cộng tác người - robot có nhận thức ý định}}
+
+\begin{document}
+
+% --- Phần đầu: số trang La Mã, tính từ trang bìa ------------------
+\pagenumbering{roman}
+\input{frontmatter/covers}          % bìa (Phụ lục 01), phụ bìa (Phụ lục 02)
+\input{frontmatter/authorship}      % LỜI CAM ĐOAN
+\input{frontmatter/approval}        % XÁC NHẬN CỦA CÁN BỘ HƯỚNG DẪN
+\input{frontmatter/acknowledgements}
+% \input{frontmatter/preface}       % LỜI NÓI ĐẦU (không bắt buộc; điều riêng tư ghi ở đây, không ghi trong tóm tắt)
+\input{frontmatter/abstract}
+\tableofcontents
+\listoffigures
+\listoftables
+\input{frontmatter/abbreviations}
+
+% --- Nội dung chính -------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+\input{chapters/01_introduction}
+\input{chapters/02_related_work}
+\input{chapters/03_task_suite}
+\input{chapters/04_method}
+\input{chapters/05_experiments}
+\input{chapters/06_results}
+\input{chapters/07_conclusions}
+
+\printbibliography[heading=bibintoc, title={Tài liệu tham khảo}]
+
+% --- Phụ lục -------------------------------------------------
+% \appendix
+% \input{appendix/A_ten_phu_luc}
+
+\end{document}

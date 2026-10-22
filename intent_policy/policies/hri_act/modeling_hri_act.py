@@ -127,11 +127,44 @@ class HRIACTPolicy(ACTPolicy):
                                         for t in TOKENS_V32}
         return batch
 
+    def set_ensemble_reset(self, star: float | None) -> None:
+        """Intent v3.2, evaluation only (research_collab.md K9): clear the temporal-ensembling buffer when the decision
+        reconstructed from the given belief switches from one valid target to another - per target kind
+        (intent_schema target_kinds), the target whose share of its kind's belief is >= `star` (the condition's rule,
+        early 0.7). The first decision does not reset. None: off."""
+        self._reset_star = star
+
+    def _maybe_reset_on_decision(self, batch: dict, ens) -> None:
+        intent = batch.get('intent')
+        if getattr(self, '_reset_star', None) is None or intent is None or 'p_target' not in intent:
+            return
+        S = self.config.intent_schema
+        p = intent['p_target'][0].detach().float().cpu()
+        T = S['targets']
+        reset = False
+        for kind, keys in S['target_kinds'].items():
+            idx = [T.index(k) for k in keys if k in T]
+            tot = float(p[idx].sum())
+            if tot <= 0:
+                continue
+            j = max(idx, key=lambda i: float(p[i]))
+            if float(p[j]) / tot >= self._reset_star:
+                prev = self._decisions.get(kind)
+                if prev is not None and prev != j:
+                    reset = True
+                self._decisions[kind] = j
+        if reset:
+            ens.reset()
+            self.ensembler_resets += 1
+
     def _maybe_reset_ensembler(self, batch: dict) -> None:
         """§4.3: with temporal ensembling, clear the chunk buffer when the committed target or who changes, or when
-        the target confidence first exceeds 0.8 after having been below it."""
+        the target confidence first exceeds 0.8 after having been below it. v3.2: the decision rule of
+        `set_ensemble_reset` when it is on."""
         intent = batch.get('intent')
         ens = self._restricted_ensembler if self.config.action_mode == 'restricted' else getattr(self, 'temporal_ensembler', None)
+        if self.config.temporal_ensemble_coeff is not None and ens is not None:
+            self._maybe_reset_on_decision(batch, ens)
         if intent is None or self.config.temporal_ensemble_coeff is None or ens is None or 'confidence' not in intent:
             return
         key = (int(intent['c_target'][0].argmax()), int(intent['c_who'][0].argmax()))
@@ -152,6 +185,7 @@ class HRIACTPolicy(ACTPolicy):
         coeff = self.config.temporal_ensemble_coeff
         self._restricted_ensembler = ACTTemporalEnsembler(coeff, self.config.chunk_size) if coeff is not None else None
         self._intent_key, self._conf_armed, self.ensembler_resets = None, True, 0
+        self._decisions = {}
 
     def set_temporal_ensemble(self, coeff: float | None) -> None:
         """Inference-time temporal ensembling (ACT, Zhao et al. 2023, Alg. 2); needs n_action_steps == 1."""

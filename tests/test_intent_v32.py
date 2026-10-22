@@ -193,3 +193,118 @@ def test_fully_masked_intent_does_not_change_the_actions():
     b2, _ = model({**base, 'intent': random_intent(2, 2)})
     assert torch.allclose(a1, a2, atol=1e-6)
     assert not torch.allclose(b1, b2, atol=1e-4)
+
+
+def image_model(**over):
+    """A small v3.2 IntentACT with one camera (no pretrained backbone download)."""
+    from intent_policy.policies.hri_act import HRIACTConfig
+    from intent_policy.policies.intent_act import IntentACT
+    from lerobot.configs.types import FeatureType, PolicyFeature
+    cfg = HRIACTConfig(input_features={'observation.state': PolicyFeature(FeatureType.STATE, (10,)),
+                                       'observation.images.top': PolicyFeature(FeatureType.VISUAL, (3, 64, 64))},
+                       output_features={'action': PolicyFeature(FeatureType.ACTION, (7,))}, action_mode='continuous',
+                       dim_model=32, n_heads=4, dim_feedforward=64, chunk_size=4, n_action_steps=1, latent_dim=8,
+                       pretrained_backbone_weights=None, use_vae=False, use_intent=True, intent_arch='tokens',
+                       intent_schema=S, intent_source='device', intent_version='v32', use_task_token=True,
+                       device='cpu', push_to_hub=False, **over)
+    return IntentACT(cfg, cfg.intent_token_cfg, cfg.n_tasks)
+
+
+def image_batch(seed=0, intent_seed=1):
+    g = torch.Generator().manual_seed(seed)
+    return {'observation.state': torch.randn(2, 10, generator=g), 'observation.images': [torch.rand(2, 3, 64, 64, generator=g)],
+            'task_id': torch.tensor([0, 1]), 'intent': random_intent(2, intent_seed)}
+
+
+def test_v32_film_starts_as_identity_and_then_conditions_every_stage():
+    torch.manual_seed(0)
+    plain = image_model().eval()
+    torch.manual_seed(0)
+    film = image_model(intent_film=True).eval()
+    assert set(film.intent_film_v32.heads) == {'layer1', 'layer2', 'layer3', 'layer4'}
+    film.load_state_dict({**film.state_dict(), **plain.state_dict()})
+    b = image_batch()
+    assert torch.allclose(plain(b)[0], film(b)[0], atol=1e-6)
+    for h in film.intent_film_v32.heads.values():                  # a trained FiLM: the intent changes the image path
+        torch.nn.init.normal_(h.weight, std=0.1)
+    film.encoder_1d_feature_pos_embed.weight.data.zero_()
+    none = {t: torch.zeros(2, dtype=torch.bool) for t in TOKENS_V32}
+    a1, a2 = film({**image_batch(intent_seed=1), 'intent_keep': none})[0], film({**image_batch(intent_seed=2), 'intent_keep': none})[0]
+    assert torch.allclose(a1, a2, atol=1e-6)                       # masked intent: FiLM sees zeros either way
+    assert not torch.allclose(film(image_batch(intent_seed=1))[0], film(image_batch(intent_seed=2))[0], atol=1e-4)
+
+
+def test_image_dropout_masks_the_cameras_in_training_only():
+    torch.manual_seed(0)
+    model = image_model(image_p_drop=0.999999)
+    for m in model.modules():                                      # no random dropout: compare two training passes
+        if isinstance(m, torch.nn.Dropout):
+            m.p = 0.0
+        elif isinstance(m, torch.nn.MultiheadAttention):
+            m.dropout = 0.0
+    model.train()
+    b1, b2 = image_batch(), image_batch()
+    b2['observation.images'] = [torch.rand(2, 3, 64, 64)]
+    assert torch.allclose(model(b1)[0], model(b2)[0], atol=1e-6)   # every image token masked: images do not matter
+    model.eval()
+    assert not torch.allclose(model(b1)[0], model(b2)[0], atol=1e-4)
+    with pytest.raises(ValueError):
+        image_model(image_p_drop=1.0)
+
+
+def test_swap_test_partners_and_classes():
+    """§5.3 swap test: the alternative is the twin (T1 / T2) or the other cup (T3); p_target mass is conserved; the
+    first commit per decision is classified against the human's target and the alternative."""
+    from intent_policy.benchmark.counterfactual import alternative_partners, permute_targets, slot_partners
+    from scripts.intent_swap_test import decisions
+    t1 = {'task': 'T1', 'target': 'B1', 'layout': {'B1': 'S2', 'B1p': 'S3', 'B3': 'S1'}, 'place': 'P1'}
+    assert alternative_partners(t1)['B1'] == 'B1p' and slot_partners(t1)['S2'] == 'S3'
+    t3 = {'task': 'T3', 'target': 'C1', 'layout': {'C1': 'S1', 'C3': 'S5'}, 'u_blocks': ['B1', 'B2']}
+    assert slot_partners(t3) ['S1'] == 'S5' and alternative_partners({'task': 'T4'}) == {}
+    T = S['targets']
+    p = np.zeros(len(T), np.float32)
+    p[T.index('S2')], p[T.index('P1')] = 0.7, 0.3
+    q = permute_targets(p, slot_partners(t1), T)
+    assert q[T.index('S3')] == np.float32(0.7) and q[T.index('P2')] == np.float32(0.3) and np.isclose(q.sum(), 1.0)
+    ev = lambda *ts: [dict(event_type='robot_target_commit', payload=dict(target=t)) for t in ts]
+    rec = dict(spec=t1, list_task='T1', events=ev('B1p', 'B1', 'P1'))
+    assert decisions(rec) == {'object': 'alt', 'place': 'human'}
+    assert decisions(dict(rec, events=ev('B3'))) == {'object': 'other', 'place': 'none'}
+    assert decisions(dict(spec=t3, list_task='T3', events=ev('C3'))) == {'object': 'alt'}
+
+
+def test_f1_target_init_only_rescales_the_target_embeddings():
+    """§5.3 F1: 'type' draws the same random numbers as D0 and only rescales E_target / committed to N(0,1)."""
+    torch.manual_seed(0)
+    small = image_model().state_dict()
+    torch.manual_seed(0)
+    unit = image_model(intent_target_init='type').state_dict()
+    for k in small:
+        if k.endswith(('E_target', 'committed')):
+            assert torch.allclose(unit[k], small[k] / 0.02, atol=1e-5)
+        else:
+            assert torch.equal(unit[k], small[k]), k
+    with pytest.raises(ValueError):
+        image_model(intent_target_init='big')
+
+
+def test_unified_token_reads_only_the_device_output():
+    """Trial 2026-10-18: intent_repr 'unified' = ONE token u_t = [(1 - hold) p_target, hold] (hold = p(palm_forward) +
+    p(withdraw)); the other contract fields (simulator keypoints, forecasts) do not change the actions; masked, the
+    intent does not matter; FiLM + image dropout work with it."""
+    torch.manual_seed(0)
+    model = image_model(intent_repr='unified', intent_film=True, image_p_drop=0.1).eval()
+    assert model.intent_encoder.n_tokens == 1
+    for h in model.intent_film_v32.heads.values():
+        torch.nn.init.normal_(h.weight, std=0.1)
+    b1, b2 = image_batch(intent_seed=1), image_batch(intent_seed=1)
+    for k in b2['intent']:                                         # change every field except p_target / p_gesture
+        if k not in ('p_target', 'p_gesture'):
+            b2['intent'][k] = b2['intent'][k] + 1.0
+    assert torch.allclose(model(b1)[0], model(b2)[0], atol=1e-6)
+    b3 = image_batch(intent_seed=2)
+    assert not torch.allclose(model(b1)[0], model(b3)[0], atol=1e-4)
+    none = {t: torch.zeros(2, dtype=torch.bool) for t in TOKENS_V32}
+    assert torch.allclose(model({**b1, 'intent_keep': none})[0], model({**b3, 'intent_keep': none})[0], atol=1e-6)
+    u = model.intent_encoder.unified(b1['intent'])
+    assert u.shape[-1] == len(S['targets']) + 1 and torch.allclose(u.sum(-1), torch.ones(2), atol=1e-5)

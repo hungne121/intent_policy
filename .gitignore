@@ -4,3 +4,14 @@ __pycache__/
 .pytest_cache/
 outputs/
 third_party/
+# LaTeX build files of the slide decks (docs/thesis has its own .gitignore)
+docs/slides/**/*.aux
+docs/slides/**/*.log
+docs/slides/**/*.fls
+docs/slides/**/*.fdb_latexmk
+docs/slides/**/*.nav
+docs/slides/**/*.snm
+docs/slides/**/*.toc
+docs/slides/**/*.out
+docs/slides/**/*.xdv
+docs/slides/**/*.synctex.gz

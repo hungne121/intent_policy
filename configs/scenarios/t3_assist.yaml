@@ -33,6 +33,26 @@ human_behavior:
   drop_height_m: 0.15               # cube centre above the table when released over the cup (cup 8.5 cm tall)
   drop_move_s: [0.8, 1.2]
   rest_s: [0.9, 1.2]
+  # T3 new (user 2026-10-17/18; off here, on in configs/experiments/intent_act_t235_*.yaml): after dropping the cube
+  # into the cup the human holds an open hand out, palm up, in a hand zone (H1 / H2, drawn per episode) and the robot
+  # puts the cup with the cube into it, as in T2 (same receive gestures and parameters as t2_handover.yaml). The robot
+  # cannot hold the cup under the falling cube: with the top-down rim grasp the gripper base covers the whole cup
+  # opening from 4 cm above the rim (measured 2026-10-18), so the cup stands in U_cup while the cube is dropped.
+  handover: false
+  # the open hand is held out at H2 only: the forearm of a hand at H1 (0.24, -0.15) lies over the cup spot U_cup
+  # (0.205, -0.26), and every way of taking the cup back from U_cup towards H1 touched the wrist or forearm (expert
+  # check 2026-10-18, 4 route variants); from H2 (0.36, -0.15) the forearm is clear of U_cup
+  hand_zones: [H2]
+  reach_out_s: [1.5, 2.1]
+  palm_surface_m: 0.032
+  present_offset: [0.0, 0.015, 0.045]
+  accept_radius_m: 0.02
+  accept_still_s: 0.3
+  take_s: 0.4
+  take_gap_m: 0.003
+  hand_clearance_m: 0.005
+  pull_offset: [0.0, -0.04, -0.03]
+  pull_s: 0.6
 intention_change:
   probability: 0.0
   late_trigger_m: 0.15
@@ -48,6 +68,7 @@ intention_change:
 expert:
   trigger: cue_complete
   travel_dz: 0.20
+  staging_offset: [0.0, 0.14]       # T3 new: as T2 (waiting point / holding point before the palm, w.r.t. the hand zones)
 timing:
   timeout_s: 60.0
   stable_s: 0.5

@@ -576,7 +576,12 @@ class HandoverReceiver(GestureHuman):
                         key=lambda: self.selected_target)
         ready = self.G_call(lambda t, ctx: (self.emit('interaction_window_start', kind='handover', actor='human'),
                                             self.emit('protocol_step_complete', step='hand_ready')))
-        if 'reach_delay_s' in p:               # (2026-10-03) free timing, independent of the robot: optionally lower the
+        if p.get('offer_style') == 'immediate':  # (2026-10-18) the hand goes out right after the pointing
+            pre = []
+        elif p.get('offer_style') == 'after_grasp':   # ... or once the robot has grasped the object (pointing pose kept)
+            pre = [Gesture('wait', 'wait_robot_grasp', until=lambda t, ctx: ctx['robot_grasping'].get(self.selected_object, False)),
+                   Gesture('sleep', 'react', duration=p['reaction_s'])]
+        elif 'reach_delay_s' in p:               # (2026-10-03) free timing, independent of the robot: optionally lower the
             #                                      pointing hand first, then hold the hand out after a random delay
             pre = ([self.G_rest()] if p['lower_first'] else []) + [Gesture('sleep', 'wait_to_offer', duration=p['reach_delay_s'])]
         elif self.timing == 'early':
@@ -661,6 +666,26 @@ class AssistRequester(GestureHuman):
         self.block_of = {cup: block for block, cup in variation['pairs'].items()}
         self.hold = np.asarray(behavior['hold_pose'], float)
         self.take_pose: dict[str, np.ndarray] = {}
+        # T3 new (behavior.handover, 2026-10-18): after the drop, receive the cup (with the cube) in the open hand at
+        # variation.hand_zone, with T2's receive gestures (HandoverReceiver, reused below)
+        self.handover = bool(behavior.get('handover'))
+        self.hand_zone = variation.get('hand_zone')
+        self.timing = 'early'                    # T2's receive: the hand goes out right away (no lowering, no delay)
+        self.lift_t = self.still_since = self.rest_pos = self.rest_since = None
+
+    receive_gestures = HandoverReceiver.receive_gestures
+    expected_object_pos = HandoverReceiver.expected_object_pos
+    _under_object = HandoverReceiver._under_object
+    _offered = HandoverReceiver._offered
+    _caught = HandoverReceiver._caught
+    _hold_object = HandoverReceiver._hold_object
+    _lifted = HandoverReceiver._lifted
+
+    def palm_at_zone(self, ctx) -> np.ndarray:
+        return np.asarray(ctx['zone_positions'][self.hand_zone], float)
+
+    def _to_hand_zone(self, t, ctx) -> None:
+        self.selected_target = self.hand_zone   # what the open hand is aimed at (labels, zone evidence)
 
     @property
     def block(self) -> str:
@@ -716,8 +741,9 @@ class AssistRequester(GestureHuman):
                 Gesture('wait', 'waiting_cup', until=self._robot_clear),
                 Gesture('move', 'move_over_cup', target=over, duration=p['drop_move_s'], key='U_cup'),
                 self.G_call(self._drop_block), Gesture('sleep', 'dropped', duration=0.6),
-                self.G_call(lambda t, ctx: self.emit('interaction_window_end', kind='assist', actor='human')),
-                self.G_rest('withdraw'), self.G_call(lambda t, ctx: self.goto('done', t))]
+                self.G_call(lambda t, ctx: self.emit('interaction_window_end', kind='assist', actor='human'))] + \
+            ([self.G_call(self._to_hand_zone)] + self.receive_gestures() if self.handover else
+             [self.G_rest('withdraw'), self.G_call(lambda t, ctx: self.goto('done', t))])
 
     def _take_block(self, t, ctx):
         if self.first_indicated_t is None:       # T3's indication: the cube is taken (block_picked)

@@ -178,8 +178,8 @@ class ManipulationEnv:
             raise ValueError('Action must be finite shape (7,)')
         limits = self.arm_limits
         arm = np.clip(action[:6], limits[:, 0], limits[:, 1])
-        arm = self.data.qpos[self.qids] + np.clip(arm - self.data.qpos[self.qids],
-            -self.cfg['max_joint_speed'] * self.dt, self.cfg['max_joint_speed'] * self.dt)
+        vmax = np.asarray(self.cfg['max_joint_speed'], float) * self.dt     # scalar or per joint [rad/s]
+        arm = self.data.qpos[self.qids] + np.clip(arm - self.data.qpos[self.qids], -vmax, vmax)
         if self.assisted and action[6] > self.open_above:
             self._release()                       # opening command frees the object immediately
         grip = np.clip(action[6], 0, GRIPPER_OPEN)
