@@ -9,7 +9,8 @@ Tóm tắt:
 - Dữ liệu sim: LeRobot v3.0, 20 fps. Có keypoint người 3D ground truth (6 khớp) theo frame. **Không** có vị trí vật theo frame, không có "robot đang cầm vật nào".
 - HABIT: 10 Hz, chỉ RGB. Không có keypoint, depth, vị trí vật, intrinsics. Không có nhãn onset.
 - Phát hiện mới: HABIT có 4 task donut **có nhãn đích tường minh** (S9875–S9878, 220 episode), cùng cảnh với S7414 (306 episode). Đích của S7414 suy ra được từ vị trí gripper khi gắp: luật (tay, y) đúng 32/32 trên episode có nhãn.
-- Đề xuất task HABIT: **S7414 + S9875–S9878 (donut, Supervisor)**. Cần người dùng chọn.
+- ~~Đề xuất task HABIT: **S7414 + S9875–S9878 (donut, Supervisor)**. Cần người dùng chọn.~~ **Sửa 23/10/2026 (CORRECTIONS #4, #5):** đã chốt S8789, S8791, S6760 (mục 8).
+- **Sửa 23/10/2026:** báo cáo này đã được sửa theo `docs/requirements/HANDOFF_PIF_CORRECTIONS.md`; chỗ sửa ghi "Sửa 23/10/2026 (#n)", câu cũ gạch ngang.
 - Ba câu hỏi cần người dùng trả lời ở cuối báo cáo (mục 7).
 
 ---
@@ -131,7 +132,7 @@ Tiêu chí lấy từ ghi chú 22/10: nhãn đủ không, suy ra đích dễ kh�
 | S7045 lon | 151 | 2 | 3 loại lon | Từ lon robot gắp | Cử chỉ là cầm lon, không phải chỉ | Cowork S7065, Collab S9242 |
 | S6755 cáp | 121 | 4 | 2 giỏ | Từ vị trí thả | Cử chỉ nhỏ, tay robot che nhiều | Cowork S6758, Collab S6759 |
 
-**Đề xuất: S7414 + S9875–S9878.** Lý do:
+~~**Đề xuất: S7414 + S9875–S9878.**~~ **Sửa 23/10/2026 (#5):** đã thay bằng S8789 / S8791 / S6760 (mục 8, `HANDOFF_PIF_LOCAL.md` §2). Bộ donut chỉ dùng làm tập kiểm thêm nếu cần. Lý do (của đề xuất cũ):
 1. Nhiều cử chỉ nhất trong một cảnh (≈ 832). Có 220 episode nhãn tường minh, dùng làm tập đánh giá sạch và để kiểm luật suy đích.
 2. Lần chỉ thứ hai của S7414 chỉ còn 3 ứng viên, nên K thay đổi tự nhiên (đúng thiết kế token đối tượng có padding).
 3. Màu donut đổi chỗ, nên mô hình không học tắt "màu → đích".
@@ -212,6 +213,8 @@ Nguồn trích dẫn dưới đây viết theo trí nhớ, **chưa kiểm lại 
 | Hướng chỉ tay | DeePoint | Nakamura et al. 2023, ICCV | model gốc đúng 6/6 trên người thật, bản fine-tune sim 0/6 (báo cáo 19/10) |
 | Onset cử chỉ | ngưỡng tốc độ cổ tay | Teasdale et al. 1993, *J. Motor Behavior* ("Determining movement onsets from temporal series") | sim đang dùng 0.08 m/s; với 2D phải đổi sang px/s, cần đo |
 
+**Sửa 23/10/2026 (#7):** đã chốt chạy thử **token 3D trong hệ bàn** (hệ thật dùng RealSense RGB-D; HABIT dùng 3D ước lượng, coi là kết quả bi quan; ablation 2D vs 3D ước lượng trên HABIT). Phần so sánh dưới đây giữ để tham khảo, xem `HANDOFF_PIF_LOCAL.md` §6.
+
 Hai hướng cho token video thật:
 
 - **2D (toạ độ ảnh `front_view`)**: keypoint 2D + bbox/tâm vật 2D, chuẩn hoá theo kích thước ảnh. Không cần depth, không cần calib. Nhưng phụ thuộc góc camera. Sim phải render đúng góc camera đó để dùng chung (B5). Hướng chỉ tay trong 2D thiếu chiều sâu.
@@ -255,9 +258,9 @@ Chi phí: S7414 + S9875–78 khoảng 153k + 64k frame. Cloud không có GPU, n�
 
 ## 7. Câu hỏi cho người dùng
 
-1. **Chọn task HABIT nào?** Đề xuất: S7414 + S9875–S9878 (donut). Phương án hai: S8789 (4 hộp kín giống nhau).
-2. **Token video thật 2D hay 3D?** (mục 5). Nếu 2D, sim phải render góc `front_view` tương đương. Nếu 3D, cần chọn model depth hoặc tay 3D.
-3. **Xác nhận tự cài PIF** (JEPA ≈ HMM, Huang 2026, chưa có code công khai), vì ngày 11/10 bạn đã bác tự cài bài không có code.
+1. **Chọn task HABIT nào?** Đề xuất: S7414 + S9875–S9878 (donut). Phương án hai: S8789 (4 hộp kín giống nhau). **Sửa 23/10/2026 (#4, #5):** đã trả lời: S8789, S8791, S6760.
+2. **Token video thật 2D hay 3D?** (mục 5). Nếu 2D, sim phải render góc `front_view` tương đương. Nếu 3D, cần chọn model depth hoặc tay 3D. **Sửa 23/10/2026 (#7):** đã trả lời: 3D hệ bàn, chạy thử; ablation 2D vs 3D ước lượng trên HABIT.
+3. **Xác nhận tự cài PIF** (JEPA ≈ HMM, Huang 2026, chưa có code công khai), vì ngày 11/10 bạn đã bác tự cài bài không có code. **Sửa 23/10/2026 (#8):** đã trả lời: được tự cài nếu người dùng duyệt hết chi tiết thiết kế ở P2.
 4. (Nhỏ) Bạn có video người thật của riêng bạn không, để đưa vào kiểm thử ngoài HABIT? Repo hiện chỉ có `scripts/record_real.py` (RealSense + MediaPipe), không có video.
 5. (Nhỏ) P1 trên cloud cần HF token để đọc `Hungdd88/intent-policy`, hoặc P1 làm trên workstation?
 

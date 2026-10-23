@@ -6,6 +6,8 @@
 > - **Phần A:** bối cảnh và quy tắc làm việc. Agent phải tuân theo.
 > - **Phần B:** quyết định đã chốt và *lý do*. Không tự ý đảo ngược; nếu thấy cần đổi thì dừng lại và hỏi.
 > - **Phần C:** hướng dẫn triển khai P0–P5.
+>
+> **23/10/2026:** file này đã được sửa theo [CORRECTIONS](HANDOFF_PIF_CORRECTIONS.md). Chỗ sửa ghi "**Sửa 23/10/2026 (#n)**", n là số dòng trong bảng sửa; câu cũ được gạch ngang, không xoá. Thứ tự ưu tiên khi mâu thuẫn: HANDOFF_PIF_CORRECTIONS > HANDOFF_PIF_LOCAL > HANDOFF_PIF_NOTES > file này.
 
 ---
 
@@ -28,7 +30,7 @@ Ba đóng góp hướng tới:
 ## A2. Hạ tầng hiện có
 
 - LeRobot. Policy IntentACT là lớp con của ACT. Khi tắt intent và task token, IntentACT phải trùng ACT gốc.
-- Không gian hành động: 9 hành động rời rạc (tiến/lùi/trái/phải, lên/xuống, dừng, đóng/mở gripper), head phân loại cross-entropy. `n_action_steps = 1`, không temporal ensembling.
+- Không gian hành động: ~~9 hành động rời rạc (tiến/lùi/trái/phải, lên/xuống, dừng, đóng/mở gripper), head phân loại cross-entropy.~~ **Sửa 23/10/2026 (#1):** ACT liên tục, `configs/policy/act_continuous.yaml`: `action_mode: continuous`, chunk 40 bước (2 s ở 20 Hz), action [7] = 6 joint target + gripper, loss L1 + KL (`use_vae: true`). Chế độ `restricted` (9 lớp, CE) còn trong code nhưng là bản cũ. `n_action_steps = 1`, không temporal ensembling.
 - Dữ liệu sinh trong sim, có người sim và expert script. Các guide cũ: `docs/requirements/INTENT_ACT_GUIDE_v2.md`, bản v3 (Claude Doc), `EPISODE_PLAN_v5.md`.
 - Bộ intent cũ: MediaPipe + IntentTracker luật, hợp đồng dữ liệu `p_who, p_target (K=17), c_target, occupancy, tte, phase, xi…`. **Bộ này được thay bằng PIF** (lý do ở B1). Giữ nguyên code cũ làm baseline, không xóa.
 
@@ -75,7 +77,7 @@ Robot đã biết nhiệm vụ lớn (workflow subtask H_i / R_i, theo HABIT). C
 
 ## B4. Mô hình mới: Predictive Intent Filter (PIF)
 
-- Họ JEPA (dự đoán trong không gian ẩn), nhưng trạng thái ẩn **rời rạc, có cấu trúc, lọc đệ quy như HMM**. Cơ sở: Huang 2026, *Your Probabilistic JEPA Is Secretly a Hidden Markov Model* (encoder theo lịch sử = bộ lọc; predictor = chuyển trạng thái; nút thắt thông tin dự đoán = tìm trạng thái tối thiểu đủ dùng; độ dự đoán dư để kiểm tra tính đủ). Bài nền VJEPA có code công khai: github.com/YongchaoHuang/VJEPA (chỉ tham khảo cách viết loss). Bài JEPA ≈ HMM chưa tìm thấy code; tự cài theo công thức.
+- Họ JEPA (dự đoán trong không gian ẩn), nhưng trạng thái ẩn **rời rạc, có cấu trúc, lọc đệ quy như HMM**. Cơ sở: Huang 2026, *Your Probabilistic JEPA Is Secretly a Hidden Markov Model* (encoder theo lịch sử = bộ lọc; predictor = chuyển trạng thái; nút thắt thông tin dự đoán = tìm trạng thái tối thiểu đủ dùng; độ dự đoán dư để kiểm tra tính đủ). Bài nền VJEPA có code công khai: github.com/YongchaoHuang/VJEPA (chỉ tham khảo cách viết loss). Bài JEPA ≈ HMM chưa tìm thấy code; ~~tự cài theo công thức~~. **Sửa 23/10/2026 (#8):** được tự cài **nếu người dùng duyệt hết chi tiết thiết kế**. P2 phải trình bày kiến trúc, công thức loss và nguồn trước khi viết code.
 - **Predictor không được thấy lịch sử**, chỉ thấy frame hiện tại + Z. Mọi thông tin vượt quá frame hiện tại bắt buộc đi qua Z, nên Z không thể bị bỏ qua và bộ nhớ lệnh phải nằm trong belief.
 - **Mục tiêu dự đoán chọn theo nhiệm vụ**: tương lai của đối tượng và của tay người, không phải toàn thân hay nền. Đây là cách "chỉ lấy cái mình cần" (nút thắt thông tin dự đoán: Bialek, Tishby; CEB; bisimulation/DBC). JEPA không tự nén (HEPA 2026), nên phải có nút thắt tường minh: Z nhỏ + KL nén.
 - **Đổi ý là một phần của mô hình**: chuyển trạng thái có xác suất giữ ρ_t.
@@ -85,8 +87,9 @@ Robot đã biết nhiệm vụ lớn (workflow subtask H_i / R_i, theo HABIT). C
 
 ## B5. Đầu vào thống nhất sim và thật
 
-- Bỏ lưới 17 ô cố định. Đầu vào là **token keypoint người + token đối tượng** (vật, khay, vùng đều là đối tượng). Đích là con trỏ vào token, nên số đối tượng thay đổi được.
-- Mục tiêu dài hạn: ở sim và thật, đầu vào sinh ra bởi **cùng một pipeline nhận thức** chạy trên ảnh camera trước của robot (ở sim là ảnh render có domain randomization; Tobin et al. 2017). **Trước mắt** (guide này) dùng keypoint và đối tượng ground truth từ sim để làm PIF chạy được; pipeline nhận thức trên ảnh render làm sau.
+- Bỏ lưới 17 ô cố định. Đầu vào là **token keypoint người + token đối tượng** ~~(vật, khay, vùng đều là đối tượng)~~. Đích là con trỏ vào token, nên số đối tượng thay đổi được.
+  **Sửa 23/10/2026 (#14):** PIF **không phụ thuộc cách chia vùng** của sim. Token đối tượng chỉ gồm thứ có thật, nhìn thấy được (vật, hộp, khay, vạch dán nếu có), vị trí 3D + nhúng loại chung (vật / vật chứa / bề mặt đặt), không có id vùng (S1, P1, H1…), không có K cố định. `layout.yaml` chỉ dùng để đặt vật và chấm nhãn khi đánh giá. Đích "tay người" lấy từ token người, không phải vùng H.
+- Mục tiêu dài hạn: ở sim và thật, đầu vào sinh ra bởi **cùng một pipeline nhận thức** chạy trên ảnh camera trước của robot (ở sim là ảnh render có domain randomization; Tobin et al. 2017). **Sửa 23/10/2026 (#11):** camera thật là Intel RealSense D435 hoặc D435i (RGB-D; người dùng ghi "d345/d345i", cần hỏi lại). Spec D435: lỗi Z ≤ 2 % tới 2 m. Camera chưa lắp, vị trí để sau; token 3D hệ bàn không phụ thuộc vị trí camera.** **Trước mắt (guide này) dùng keypoint và đối tượng ground truth từ sim để làm PIF chạy được; pipeline nhận thức trên ảnh render làm sau.
 - Không đưa vị trí end-effector robot vào PIF (chống copycat). Chỉ đưa "robot đang cầm vật nào".
 
 ## B6. Quy trình
@@ -94,7 +97,10 @@ Robot đã biết nhiệm vụ lớn (workflow subtask H_i / R_i, theo HABIT). C
 - **Làm PIF riêng trước, đánh giá riêng, đóng băng, rồi mới nối vào ACT.** Lý do: cần đánh giá ý định độc lập; swap test chỉ có nghĩa khi belief là đầu vào cố định; dễ gỡ lỗi. Fine-tune chung chỉ là ablation sau cùng.
 - Cấu trúc: **cùng repo, package riêng `pif/`**. ACT chỉ phụ thuộc vào giao diện `PIFEncoder` (Phần C §7).
 - **Đổi ý thật tạm hoãn.** Test dự đoán sai bằng **đổi nhãn/belief có kiểm soát** (`pif/corrupt.py`).
-- Đánh giá trên người thật về sau: HABIT (Hugging Face `configinc/HABIT`, LeRobot format, 10 Hz, có `human_role_subtask_index` theo frame; Supervisor có chỉ số đích k trong lệnh; Collaborator suy ra đích từ hành động robot ngay sau đó vì dữ liệu thu theo kiểu reactive) và video người thật của người dùng. Không làm trong guide này.
+- Đánh giá trên người thật ~~về sau~~: HABIT (Hugging Face `configinc/HABIT`, LeRobot format, 10 Hz, có `human_role_subtask_index` theo frame; ~~Supervisor có chỉ số đích k trong lệnh~~; Collaborator suy ra đích từ hành động robot ngay sau đó vì dữ liệu thu theo kiểu reactive) và video người thật của người dùng. ~~Không làm trong guide này.~~
+  **Sửa 23/10/2026 (#3):** **test trên HABIT trước**, rồi mới tới video người dùng quay.
+  **Sửa 23/10/2026 (#9):** "Supervisor có chỉ số đích k trong lệnh" sai với S8789 và phần lớn task Supervisor ("indicated by the human"). Đích suy ra từ chỗ robot thả hoặc gắp. Chỉ S9875–S9878 (donut) có k trong lệnh (PIF_P0 §2.4).
+  **Sửa 23/10/2026 (#10):** HABIT **không có nhãn onset / t_clear**. Human subtask đầu tính cả lúc đứng chờ. Phải tự suy ra (ví dụ ngưỡng tốc độ cổ tay, Teasdale et al. 1993), cần nguồn (PIF_P0 §2.4, §2.6).
 
 ## B7. Cách đưa intent vào ACT (để biết trước, chưa làm)
 
@@ -183,9 +189,9 @@ configs/pif/
 
 | Nhóm | Mỗi token gồm | Số token |
 |---|---|---|
-| Người | vị trí 3D, vận tốc 3D (sai phân lùi, nhân quả), nhúng id khớp, cờ `visible` | J (≈10: cổ tay, gốc + đầu ngón trỏ hai tay, vai, đầu) |
-| Đối tượng | vị trí 3D, nhúng loại (vật / ô đặt / vùng P / H / …), `has_item`, `done` | K biến đổi, có padding mask |
-| Robot | `holding` = chỉ số đối tượng đang cầm hoặc none (one-hot trên K+1, hoặc nhúng) | 1 |
+| Người | vị trí 3D, vận tốc 3D (sai phân lùi, nhân quả), nhúng id khớp, cờ `visible` | J (≈10: cổ tay, gốc + đầu ngón trỏ hai tay, vai, đầu). **Sửa 23/10/2026 (#17):** sim hiện chỉ ghi J = 6. Kế hoạch J = 11 (thêm vai, khuỷu ×2, đầu) qua replay/thu lại. Ở HABIT đầu thường bị cắt → `visible = 0` |
+| Đối tượng | vị trí 3D, nhúng loại ~~(vật / ô đặt / vùng P / H / …)~~ **Sửa 23/10/2026 (#14):** loại chung (vật / vật chứa / bề mặt đặt), chỉ thứ nhìn thấy được, không có id vùng của layout sim, `has_item`, `done` | K biến đổi, có padding mask |
+| Robot | `holding` = chỉ số đối tượng đang cầm hoặc none (one-hot trên K+1, hoặc nhúng). **Sửa 23/10/2026 (#18):** sim chỉ có bool `hri.holding_gt`; phải dựng từ event `object_grasp` hoặc replay | 1 |
 
 - Không đưa vị trí/vận tốc end-effector robot vào token (chống copycat).
 - Toạ độ quy về **hệ bàn**, chuẩn hoá bằng thống kê train (lưu vào checkpoint).
@@ -327,7 +333,7 @@ Báo cáo P5. **DỪNG — chờ guide tích hợp ACT.**
 ## 8. Cấu hình mặc định (`configs/pif/base.yaml`)
 
 ```yaml
-fps: <lấy từ P0>
+fps: <lấy từ P0>   # Sửa 23/10/2026 (#6): PIF 10 Hz, thời gian tính bằng giây; sim lấy mỗi 2 frame một; ACT vẫn 20 Hz, giữ belief giữa hai lần cập nhật; KHÔNG nội suy HABIT lên 20 Hz (lộ tương lai, §0.3). Chạy thử
 seq_seconds: 4.0
 horizons_s: [0.5, 1.0, 2.0, 4.0]
 d_model: 128

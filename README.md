@@ -1,7 +1,8 @@
 # Human-Intention-Aware Robot Action Policy — UR3e + SusGrip (MuJoCo)
 
-Tài liệu nguồn của project. Định hướng nghiên cứu đầy đủ nằm trong
-[docs/requirements/agent.md](docs/requirements/agent.md); yêu cầu từng phase trong `docs/requirements/phase_*.md`.
+Tài liệu nguồn của project. ~~Định hướng nghiên cứu đầy đủ nằm trong
+`docs/requirements/agent.md`; yêu cầu từng phase trong `docs/requirements/phase_*.md`.~~
+**Sửa 23/10/2026 (CORRECTIONS #2):** hai file đó không còn trong repo. Hướng hiện tại: [CLAUDE.md](CLAUDE.md) và [docs/requirements/HANDOFF_PIF_CORRECTIONS.md](docs/requirements/HANDOFF_PIF_CORRECTIONS.md) (đọc trước), [HANDOFF_PIF_LOCAL.md](docs/requirements/HANDOFF_PIF_LOCAL.md), [HANDOFF_PIF_NOTES.md](docs/requirements/HANDOFF_PIF_NOTES.md), [HANDOFF_PIF.md](docs/requirements/HANDOFF_PIF.md).
 Báo cáo triển khai: [docs/reports/](docs/reports/).
 
 ## 1. Mục tiêu nghiên cứu
@@ -11,7 +12,9 @@ của người (Spatial/Target, Motion/Kinematic) có cung cấp thông tin *h�
 robot hay không. Đối tượng nghiên cứu là **một policy robot duy nhất** (LeRobot ACT), không phải
 bộ phân loại ý định, không phải mỗi kỹ năng một model.
 
-| Phase | Nội dung | Trạng thái |
+**Sửa 23/10/2026 (#2):** bảng phase dưới đây là trạng thái **cũ**, chỉ ghi lại để tham khảo. Đầu chính hiện tại là ACT **continuous**; restricted (9 hành động) là bản cũ. Kế hoạch hiện tại: mô hình ý định PIF, milestone P0–P5 (`docs/requirements/HANDOFF_PIF.md`).
+
+| Phase (cũ) | Nội dung | Trạng thái (cũ) |
 |---|---|---|
 | 0/1 Foundation | LeRobot ACT + mô phỏng + task HRI T1–T5 + đầu restricted 9 hành động + event/metric + baseline No-Intent | Scene và task T1–T5 đã dựng; chưa thu demo / train lại |
 | 2 Oracle utility | Oracle Spatial+Motion so với No-Intent (correct/wrong/shuffled/noisy/delayed) | Chưa bắt đầu |
@@ -43,7 +46,7 @@ RestrictedActionMapper (Cartesian set-point + IK)
 - `intent_policy/policies/hri_act/`: `HRIACTConfig(ACTConfig)` (đăng ký `type: hri_act`) và
   `HRIACTPolicy(ACTPolicy)`. Mạng ACT của LeRobot được dùng nguyên vẹn; latent `h` lấy bằng
   forward-pre-hook trên `action_head` gốc, nên cả hai đầu dùng chung một lần forward.
-- `action_mode: restricted | continuous` chọn bằng config (`configs/policy/*.yaml`).
+- `action_mode: restricted | continuous` chọn bằng config (`configs/policy/*.yaml`). **Sửa 23/10/2026 (#2):** đầu chính là **continuous** (`configs/policy/act_continuous.yaml`: chunk 40, action [7], L1 + KL, `n_action_steps: 1`). Restricted head là bản cũ, giữ để tham khảo.
 - Scenario/task chỉ là metadata dữ liệu (`task` trong dataset); không có routing sang model khác.
 - Phase 1 **không có** oracle, intent encoder, fusion hay predictor (`use_intent: true` báo lỗi).
 
@@ -88,6 +91,7 @@ intent_policy/                    # thư mục project
 Khung toạ độ: world = `base_link` của UR3e dịch lên độ cao bàn (mặt bàn z = 0.62, bàn đứng 0.85 m); +X phía
 trước robot, +Y bên trái robot, +Z lên trên. Người **đứng, bố trí chéo 90°**: đứng ở mép bàn bên phải robot
 (y = −0.48), nhìn về +Y, lệch sang bên 0.30 m so với đế robot; các hàng U/H/P căn giữa trước mặt người.
+**Sửa 23/10/2026 (CORRECTIONS #12):** giữ UR3e một tay (robot thật sau này cũng một tay). Khi thêm task HABIT vào sim: người **đứng đối diện** robot, vật thay bằng hình cơ bản; sim giữ cấu trúc task, không cần giống hệt (`docs/requirements/HANDOFF_PIF_LOCAL.md` §3). Bố trí 90° ở trên là của T1–T5 hiện tại.
 
 **Bố trí bàn theo hàng** (`configs/layout.yaml`, yêu cầu 2026-09-30; đo và kiểm tra bằng
 `scripts/calibrate_layout.py`, báo cáo `outputs/layout/layout_check.md`). Tính từ người ra xa:
@@ -143,6 +147,8 @@ Expert (`intent_policy/experts/scripted_expert.py`) có 3 chế độ `trigger`:
 - `cue_onset`: biết trước ý định (cận trên).
 
 ## 5. Không gian hành động restricted (9 hành động)
+
+**Sửa 23/10/2026 (#2):** đây là **bản cũ**. Không gian hành động chính là ACT liên tục (6 joint target + gripper, chunk 40), xem §2. Mục này giữ để tham khảo.
 
 | id | hành động | lệnh controller (khung `base_link`, mặc định bước 0.01 m) |
 |---|---|---|
