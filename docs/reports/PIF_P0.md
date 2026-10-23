@@ -271,3 +271,11 @@ Script trong `docs/reports/PIF_P0/` (chỉ dùng cho báo cáo này, không ph�
 - `scan_full.py <habit_root> <parquet ...>`: như trên cho config `full`, giải mã bằng `full/meta`.
 - `grasp_xy.py <parquet ...>`: các lần gripper đóng, tay, TCP xyz (mục 2.5).
 - `sheet.py <video> <out.jpg> <t ...>`: ghép frame theo thời điểm (hình mục 2.6).
+
+---
+
+## 8. Cập nhật 23/10/2026 15:14 (+07): chốt task HABIT
+
+Sau trao đổi với người dùng, đã chốt ba task cỡ vừa, mỗi vai một task, robot dùng từng tay một (hợp với robot một tay về sau), dễ mô phỏng:
+**S8789** (Supervisor, Food Storage, 208 ep), **S8791** (Coworker, Food Storage, 119 ep), **S6760** (Collaborator, PCB, 127 ep).
+Đề xuất donut ở mục 2.7 được thay bằng bộ này. Lý do, số đo một tay / hai tay (`PIF_P0/arm_usage.py`) và lưu ý: xem `docs/requirements/HANDOFF_PIF_LOCAL.md`.
