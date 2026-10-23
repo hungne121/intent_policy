@@ -1,5 +1,7 @@
 # Bàn giao từ phiên cloud sang phiên local (PIF, sau P0)
 
+> Đọc [HANDOFF_PIF_CORRECTIONS.md](HANDOFF_PIF_CORRECTIONS.md) trước: bảng sửa thông tin cũ trong mọi tài liệu.
+
 Viết lúc 23/10/2026 15:14 (+07), giờ lấy bằng `date`. Đọc file này sau [HANDOFF_PIF.md](HANDOFF_PIF.md) và [HANDOFF_PIF_NOTES.md](HANDOFF_PIF_NOTES.md). Chỗ nào khác nhau thì theo file này (mới nhất).
 
 ## 0. Lấy code
@@ -75,10 +77,10 @@ Nguồn nhãn đề xuất cho eval. **Chưa kiểm**, P1 phải kiểm từng c
 1. **ACT: đầu ra là action chunk liên tục**, không phải 9 nhãn rời rạc. Đã kiểm trong code: `configs/policy/act_continuous.yaml` (`action_mode: continuous`, chunk 40 bước = 2 s ở 20 Hz, action [7] = 6 joint target + gripper, loss L1 + KL vì `use_vae: true`, `n_action_steps: 1`, không temporal ensembling). Các config `intent_act_*_continuous` và `intent_act_t235_*` dùng file này. Chế độ rời rạc (`restricted_action`, CE 9 lớp) vẫn còn trong code nhưng là bản cũ. Câu "9 hành động rời rạc" ở A2 của handoff là **sai/cũ**.
 2. **Tự cài PIF:** người dùng cho phép **nếu duyệt hết chi tiết thiết kế**. P2 phải trình bày đầy đủ kiến trúc, loss, công thức và nguồn trước khi viết code.
 3. **Video thật riêng:** người dùng sẽ quay sau khi test trên HABIT cho kết quả khả quan.
-4. **fps:** người dùng muốn giữ 20. Claude đề xuất (chờ duyệt) để PIF chạy ở 10 Hz, ACT vẫn 20 Hz. Lý do: nâng HABIT 10 → 20 Hz bằng nội suy không thêm thông tin, và frame nội suy tại t + 0.05 s dùng frame t + 0.1 s, tức là **lộ tương lai**, vi phạm quy tắc nhân quả (§0.3). Cách an toàn là định nghĩa thời gian của PIF bằng giây; sim lấy mỗi 2 frame một; khi chạy cùng ACT ở 20 Hz thì giữ nguyên belief giữa hai lần cập nhật (zero-order hold).
-5. **Token 2D hay 3D:** người dùng cho biết hệ thật dùng **camera RealSense (RGB-D)**. Claude đổi đề xuất sang **3D hệ bàn** (mục 7), chờ người dùng duyệt.
+4. **fps:** người dùng muốn giữ 20. Chốt chạy thử (người dùng 23/10: "cứ chạy thử", đánh giá theo kết quả): PIF chạy ở 10 Hz, ACT vẫn 20 Hz. Lý do: nâng HABIT 10 → 20 Hz bằng nội suy không thêm thông tin, và frame nội suy tại t + 0.05 s dùng frame t + 0.1 s, tức là **lộ tương lai**, vi phạm quy tắc nhân quả (§0.3). Cách an toàn là định nghĩa thời gian của PIF bằng giây; sim lấy mỗi 2 frame một; khi chạy cùng ACT ở 20 Hz thì giữ nguyên belief giữa hai lần cập nhật (zero-order hold).
+5. **Token 2D hay 3D:** người dùng cho biết hệ thật dùng **camera RealSense (RGB-D)**. Chốt chạy thử **3D hệ bàn** (mục 6), người dùng đánh giá theo kết quả. Camera: D435 hoặc D435i (người dùng ghi "d345", cần hỏi lại), chưa lắp.
 
-## 7. Token video thật: 2D hay 3D
+## 6. Token video thật: 2D hay 3D
 
 Không tìm thấy nghiên cứu nào so sánh trực tiếp 2D và 3D cho bài toán đoán đích hay ý định. Các tài liệu về handover đều dùng skeleton 3D, nhưng đo bằng mocap hoặc RGB-D, không phải từ video RGB (Laplaza et al. 2022; Pérez-D'Arpino & Shah 2015). Các so sánh dưới đây suy ra từ tính chất của từng loại dữ liệu, kèm số đo đã công bố.
 
@@ -100,17 +102,17 @@ Không tìm thấy nghiên cứu nào so sánh trực tiếp 2D và 3D cho bài 
 | Hệ thật (RealSense) | **có, đo được** | keypoint 2D + depth tại pixel (`scripts/record_real.py`, median trong cửa sổ vì đầu ngón tay hay rơi vào pixel depth lỗi) | D435: lỗi Z ≤ 2 % tới 2 m (Intel). Ở khoảng 1 m là cỡ 1–2 cm |
 | HABIT | **không**, chỉ RGB, không intrinsics | ước lượng: depth đơn mắt có thang mét + fit mặt bàn | lớn hơn, cỡ vài cm (≈ 44 mm với tay 3D đơn mắt, mục bảng trên) |
 
-Đề xuất mới (chờ người dùng duyệt): **token 3D trong hệ bàn**, đúng như handoff §2.
+Chốt chạy thử: **token 3D trong hệ bàn**, đúng như handoff §2.
 1. Hệ đích cuối cùng (robot thật + RealSense) có 3D đo được. Sim có 3D GT. Cả hai cùng hệ bàn, không phụ thuộc góc camera.
 2. Chỉ HABIT thiếu độ sâu. HABIT dùng 3D ước lượng: model depth đơn mắt có thang mét, ước lượng cả tiêu cự (ví dụ Depth Pro), sau đó fit mặt bàn bằng RANSAC để ra hệ bàn. Kết quả trên HABIT vì vậy là **ước lượng bi quan** (nhiễu lớn hơn hệ thật).
 3. Train với augment nhiễu keypoint có thang đo (handoff §3 đã có `keypoint_noise_m`). Mức nhiễu phải đo, không đoán: đo trên RealSense bằng `scripts/record_real.py stats`; với HABIT thì đo độ lệch giữa vị trí hộp ước lượng và khoảng cách thật giữa các hộp.
 4. Ablation trên HABIT: **2D (toạ độ ảnh) so với 3D ước lượng**, để biết độ sâu ước lượng giúp hay hại. Nếu 3D ước lượng kém hơn 2D trên HABIT thì báo thẳng, và giữ 3D cho sim + hệ thật.
 
-Việc cần hỏi thêm: model RealSense cụ thể (D435 / D435i / D405…) và camera đặt ở đâu so với bàn, để đặt camera ảo trong sim cho khớp.
+Vị trí camera: chưa lắp, để sau. Token 3D hệ bàn không phụ thuộc vị trí camera.
 
-## 6. Việc tiếp theo (đọc cả mục 7)
+## 7. Việc tiếp theo
 
-1. Người dùng duyệt token 3D hệ bàn (mục 7), cách xử lý fps (mục 5.4), và cho biết model + vị trí RealSense.
+1. Làm theo `HANDOFF_PIF_CORRECTIONS.md` mục D (sửa tài liệu, rồi P1).
 2. P1 (handoff §2–3): dữ liệu và token cho ba task HABIT trên. Thu lại hoặc replay dữ liệu sim có thêm vị trí vật, `holding_obj` và J ≈ 11 (`PIF_P0.md` mục 4).
 3. Chạy pipeline nhận thức trên khoảng 160k frame thì dùng workstation (`workstation/job*.sh`), không chạy trên laptop.
 4. Quy tắc làm việc vẫn như `HANDOFF_PIF_NOTES.md` mục 5. Đặc biệt: commit **không** có dòng Co-Authored-By, và hết mỗi milestone thì DỪNG.
