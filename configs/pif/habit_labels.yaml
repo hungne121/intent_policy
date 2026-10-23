@@ -1,7 +1,0 @@
-# HABIT label rules for PIF evaluation (HANDOFF_PIF_LOCAL.md §4; PIF_P1 report). Eval only, never training inputs.
-gripper:
-  # closed = gripper_position above a per-task threshold. LOCAL §4.5 (> 0.5) does not hold for the soft butter roll:
-  # 31/208 S8789 and 9/119 S8791 episodes never exceed 0.5. Threshold = Otsu's method (Otsu 1979, "A threshold
-  # selection method from gray-level histograms") on all gripper samples of the task (bimodal: open ~0 / closed).
-  threshold: {S8789: 0.252, S8791: 0.303, S6760: 0.477}
-  min_frames: 3             # a state must last 0.3 s to count (open/close flicker of 1-2 frames seen in S8789)
