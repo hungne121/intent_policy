@@ -1,0 +1,103 @@
+{
+ "episodes": 559,
+ "frames_10hz": 89058,
+ "samples": 67257,
+ "window_frames": 40,
+ "horizons_frames": [
+  5,
+  10,
+  20,
+  40
+ ],
+ "K_min": 4,
+ "K_max": 7,
+ "hidden_keypoint_frac": 0.0,
+ "per_task": {
+  "T1": {
+   "episodes": 120,
+   "frames_10hz": 16629,
+   "seconds_mean": 13.9,
+   "K_min": 6,
+   "K_max": 6,
+   "samples": 11949,
+   "holding_frac": 0.32,
+   "gestures_with_target": 240,
+   "target_kinds": {
+    "object": 120,
+    "surface": 120
+   }
+  },
+  "T2": {
+   "episodes": 141,
+   "frames_10hz": 20776,
+   "seconds_mean": 14.7,
+   "K_min": 6,
+   "K_max": 6,
+   "samples": 15277,
+   "holding_frac": 0.466,
+   "gestures_with_target": 423,
+   "target_kinds": {
+    "container": 142,
+    "human": 141,
+    "object": 140
+   }
+  },
+  "T3": {
+   "episodes": 83,
+   "frames_10hz": 14256,
+   "seconds_mean": 17.2,
+   "K_min": 7,
+   "K_max": 7,
+   "samples": 11019,
+   "holding_frac": 0.316,
+   "gestures_with_target": 166,
+   "target_kinds": {
+    "object": 83,
+    "surface": 83
+   }
+  },
+  "T4": {
+   "episodes": 72,
+   "frames_10hz": 9768,
+   "seconds_mean": 13.6,
+   "K_min": 4,
+   "K_max": 4,
+   "samples": 6960,
+   "holding_frac": 0.357,
+   "gestures_with_target": 72,
+   "target_kinds": {
+    "region": 72
+   }
+  },
+  "T4neg": {
+   "episodes": 46,
+   "frames_10hz": 5294,
+   "seconds_mean": 11.5,
+   "K_min": 4,
+   "K_max": 4,
+   "samples": 3500,
+   "holding_frac": 0.303,
+   "gestures_with_target": 46,
+   "target_kinds": {
+    "surface": 24,
+    "region": 22
+   }
+  },
+  "T5": {
+   "episodes": 97,
+   "frames_10hz": 22335,
+   "seconds_mean": 23.0,
+   "K_min": 6,
+   "K_max": 7,
+   "samples": 18552,
+   "holding_frac": 0.398,
+   "gestures_with_target": 334,
+   "target_kinds": {
+    "object": 175,
+    "surface": 67,
+    "container": 54,
+    "human": 38
+   }
+  }
+ }
+}
