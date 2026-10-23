@@ -70,16 +70,38 @@ Nguồn nhãn đề xuất cho eval. **Chưa kiểm**, P1 phải kiểm từng c
 - S8791: hộp người sắp đóng = hộp robot vừa thả bánh. Vùng tay sắp vào lấy trực tiếp từ keypoint cổ tay tương lai (không cần nhãn).
 - S6760: lúc người sẵn sàng = lúc robot đóng gripper khi nhận PCB từ người. Lúc người đã cầm = lúc robot mở gripper sau khi đưa.
 
-## 5. Câu hỏi còn mở (hỏi người dùng trước P1)
+## 5. Trả lời của người dùng (23/10) và việc còn mở
 
-1. **Token video thật 2D hay 3D?** (`PIF_P0.md` mục 5). HABIT chỉ có RGB, không có intrinsics.
-2. **Xác nhận tự cài PIF** (JEPA ≈ HMM, Huang 2026, chưa có code công khai). Ngày 11/10 người dùng đã bác việc tự cài bài không có code.
-3. Người dùng có video người thật riêng không, ngoài HABIT?
-4. fps: sim 20, HABIT 10. Ghi chú 22/10 để "quyết sau".
+1. **ACT: đầu ra là action chunk liên tục**, không phải 9 nhãn rời rạc. Đã kiểm trong code: `configs/policy/act_continuous.yaml` (`action_mode: continuous`, chunk 40 bước = 2 s ở 20 Hz, action [7] = 6 joint target + gripper, loss L1 + KL vì `use_vae: true`, `n_action_steps: 1`, không temporal ensembling). Các config `intent_act_*_continuous` và `intent_act_t235_*` dùng file này. Chế độ rời rạc (`restricted_action`, CE 9 lớp) vẫn còn trong code nhưng là bản cũ. Câu "9 hành động rời rạc" ở A2 của handoff là **sai/cũ**.
+2. **Tự cài PIF:** người dùng cho phép **nếu duyệt hết chi tiết thiết kế**. P2 phải trình bày đầy đủ kiến trúc, loss, công thức và nguồn trước khi viết code.
+3. **Video thật riêng:** người dùng sẽ quay sau khi test trên HABIT cho kết quả khả quan.
+4. **fps:** người dùng muốn giữ 20. Claude đề xuất (chờ duyệt) để PIF chạy ở 10 Hz, ACT vẫn 20 Hz. Lý do: nâng HABIT 10 → 20 Hz bằng nội suy không thêm thông tin, và frame nội suy tại t + 0.05 s dùng frame t + 0.1 s, tức là **lộ tương lai**, vi phạm quy tắc nhân quả (§0.3). Cách an toàn là định nghĩa thời gian của PIF bằng giây; sim lấy mỗi 2 frame một; khi chạy cùng ACT ở 20 Hz thì giữ nguyên belief giữa hai lần cập nhật (zero-order hold).
+5. **Token 2D hay 3D: còn mở.** Phân tích ở mục 7. Claude đề xuất 2D trước, chờ người dùng quyết.
 
-## 6. Việc tiếp theo
+## 7. Token video thật: 2D hay 3D
 
-1. Người dùng duyệt P0 + mục 2 của file này, rồi trả lời mục 5.
+Không tìm thấy nghiên cứu nào so sánh trực tiếp 2D và 3D cho bài toán đoán đích hay ý định. Các tài liệu về handover đều dùng skeleton 3D, nhưng đo bằng mocap hoặc RGB-D, không phải từ video RGB (Laplaza et al. 2022; Pérez-D'Arpino & Shah 2015). Các so sánh dưới đây suy ra từ tính chất của từng loại dữ liệu, kèm số đo đã công bố.
+
+| | 2D (toạ độ ảnh `front_view`) | 3D (hệ bàn) |
+|---|---|---|
+| Thông tin | Mất chiều sâu theo trục camera. `front_view` nhìn từ phía robot về người, nên chuyển động **về phía bàn/robot** (vươn tay, chìa tay đưa nhận) nằm gần trục sâu và chỉ thấy như thay đổi kích thước/vị trí dọc | Đủ ba chiều |
+| Phân biệt đích | Ứng viên của S8789 / S8791 xếp **ngang** → thấy rõ trong 2D | như 2D, cộng chiều sâu |
+| Nhiễu | Keypoint 2D chính xác cỡ pixel. Ngón tay vẫn khó khi ở gần (đánh giá keypoint cự ly gần trong HRI, arXiv 2207.07742) | Vị trí tuyệt đối từ một ảnh có lỗi lớn: theo một bài đánh giá, HaMeR trên HO3D có lỗi gốc tay ≈ 44 mm trong hệ camera, so với ≈ 14.5 mm khi căn theo cổ tay (arXiv 2609.24424, chưa đọc được bản gốc để kiểm). Hai hộp kề cách nhau khoảng 20 cm |
+| Phụ thuộc camera | Có. Đổi góc camera là đổi phân phối token | Không, khi đã có hệ bàn. Nhưng HABIT không có intrinsics: phải ước lượng tiêu cự (Depth Pro làm được, Bochkovskii et al. 2025) và tự fit mặt bàn |
+| Sim | Chiếu keypoint GT 3D qua một camera ảo đặt như `front_view`. **Không cần render**, và không có lỗi do detector chạy trên ảnh người gỗ (DeePoint fine-tune trên sim: 0/6 trên người thật) | Có sẵn GT 3D. Phải thêm nhiễu bằng cỡ nhiễu 3D thật để khớp miền |
+| Chi phí | Nhẹ, model keypoint có thể chạy CPU | Thêm model depth hoặc tay 3D, cần GPU |
+| Khớp handoff §2 | Lệch (handoff ghi 3D hệ bàn) | Khớp |
+
+Đề xuất của Claude (chờ người dùng duyệt): **làm 2D trước** cho test HABIT, vì ba lý do:
+1. Đích của S8789 / S8791 nằm ngang, thấy được trong 2D.
+2. Sim chỉ cần chiếu GT, không có lỗi do render.
+3. Lỗi 3D đơn mắt (≈ 4 cm) cùng cỡ với khoảng cách mà mô hình cần phân biệt.
+
+Đổi lại, cần chuẩn bị trước một phép thử: thêm **2.5D** (2D + depth tương đối từ model depth) làm ablation, và so probe đích / thời điểm của S6760 (chìa tay theo trục sâu) giữa 2D và 2.5D. Nếu 2D thua rõ ở S6760 thì chuyển sang 3D.
+
+## 6. Việc tiếp theo (đọc cả mục 7)
+
+1. Người dùng quyết token 2D/3D (mục 7) và cách xử lý fps (mục 5.4).
 2. P1 (handoff §2–3): dữ liệu và token cho ba task HABIT trên. Thu lại hoặc replay dữ liệu sim có thêm vị trí vật, `holding_obj` và J ≈ 11 (`PIF_P0.md` mục 4).
 3. Chạy pipeline nhận thức trên khoảng 160k frame thì dùng workstation (`workstation/job*.sh`), không chạy trên laptop.
 4. Quy tắc làm việc vẫn như `HANDOFF_PIF_NOTES.md` mục 5. Đặc biệt: commit **không** có dòng Co-Authored-By, và hết mỗi milestone thì DỪNG.
