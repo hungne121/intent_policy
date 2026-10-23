@@ -160,7 +160,7 @@ Toạ độ "hệ bàn": sim là world dịch z − 0.62. HABIT chưa có hệ b
 | Đối tượng | Sim | HABIT donut | Trường |
 |---|---|---|---|
 | vật | `variation.object_xy` + replay để có vị trí theo frame | 4 hộp giấy: detector ở frame đầu + tracking | vị trí, nhúng loại = "vật" |
-| ô / vùng | S1–S6, P1–P2, H1–H2, U, U_cup từ `layout.yaml` (tĩnh) | 2 hộp bánh, khay người cầm (động) | vị trí, nhúng loại |
+| ô / vùng (**đã bỏ 23/10**: PIF không dùng vùng của layout, xem `HANDOFF_PIF_CORRECTIONS.md` #14) | S1–S6, P1–P2, H1–H2, U, U_cup từ `layout.yaml` (tĩnh) | 2 hộp bánh, khay người cầm (động) | vị trí, nhúng loại |
 | `has_item` | slot có vật (từ vị trí vật) | hộp còn donut | 0/1 |
 | `done` | từ `protocol_steps` / event | hộp đã bị gắp đi (gripper đóng + suy đích) | 0/1 |
 
@@ -235,7 +235,7 @@ Chi phí: S7414 + S9875–78 khoảng 153k + 64k frame. Cloud không có GPU, n�
 | §2 | token robot `holding` = vật nào | Sim chỉ ghi bool `hri.holding_gt`. Phải dựng từ event hoặc replay |
 | §2 | J ≈ 10 | Sim ghi J = 6. Thiếu vai, khuỷu, đầu |
 | §8 | `fps: <lấy từ P0>` | Sim 20 fps, HABIT 10 Hz. Ghi chú 22/10: fps quyết sau |
-| Ghi chú 22/10 | "T1–T5 trong `configs/scenarios/`" | Có 4 file T1–T4. T5 (đổi ý) và T4neg là biến thể trong scenario list |
+| Ghi chú 22/10 | "T1–T5 trong `configs/scenarios/`" | (**Ghi nhầm, 23/10**: T1–T5 là đúng; T5 chỉ được cài trong scenario list thay vì file yaml riêng) |
 | Ghi chú 22/10 | 5 task chỉ tay | Có thêm ≥ 11 task Supervisor có chỉ tay và 7 sid không có mô tả (mục 2.2) |
 | A3.7 / §0.6 | test trong `tests/` và `pif/tests/` | Không mâu thuẫn, ghi lại để thống nhất: test PIF đặt ở `pif/tests/` |
 

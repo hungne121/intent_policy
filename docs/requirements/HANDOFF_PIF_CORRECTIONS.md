@@ -27,8 +27,8 @@ Viết lúc 23/10/2026, phiên cloud, sau khi rà lại: `CLAUDE.md`, `README.md
 
 | # | File, vị trí | Đang ghi | Đúng | Căn cứ |
 |---|---|---|---|---|
-| 13 | `NOTES` §1.3 | "T1–T5 trong `configs/scenarios/`" | Có 4 file T1–T4. T5 (đổi ý) và T4neg là biến thể trong scenario list (`configs/episode_lists/v5/`) | `ls configs/scenarios` |
-| 14 | `NOTES` §4 | "`layout.yaml` có 17 vị trí" | `layout.yaml` có 12 vùng (S1–S6, P1–P2, H1–H2, U, U_cup) + `robot_zone`. Con số 17 là danh sách đích cũ trong `intent_schema.yaml` (gồm `none`, U1, U2, `robot_zone`, `zone_edge`) | đọc 2 file |
+| 13 | `NOTES` §1.3 | "T1–T5" | **Đúng, giữ nguyên.** Bộ task của người dùng là T1–T5. (P0 §6.1 ghi nhầm đây là chỗ sai: chỉ là T5 được cài bằng spec `change` trong scenario list thay vì một file yaml riêng. Không sửa NOTES.) | người dùng 23/10 |
+| 14 | `HANDOFF_PIF.md` §2 (token đối tượng: "nhúng loại (vật / ô đặt / vùng P / H / …)"); `PIF_P0.md` §3.2 (lấy ô/vùng S1–S6, P, H, U từ `layout.yaml` làm token); `NOTES` §4 ("layout có 17 vị trí") | PIF dùng các vùng/ô của layout sim làm đầu vào | **PIF không phụ thuộc cách chia vùng.** `layout.yaml` (S1–S6, P, H, U, `robot_zone`…) chỉ là setup của mô phỏng: dùng để đặt vật và để chấm nhãn khi đánh giá. Token đối tượng chỉ gồm thứ **có thật, nhìn thấy được** mà pipeline nhận thức sẽ phát hiện (vật, hộp, khay, vạch dán nếu có), với vị trí 3D + nhúng loại **chung** (vật / vật chứa / bề mặt đặt), không có id vùng (S1, P1, H1…), không có số K cố định. Đích "tay người" (handover) lấy từ token người, không phải vùng H. Không đưa `robot_zone` hay ranh giới vùng vào PIF | người dùng 23/10 |
 | 15 | `NOTES` §3 | Bảng 5 task chỉ tay Supervisor | Có ≥ 11 task Supervisor khác có chỉ tay, và 7 sid không có `task_details` (S9875–78, S8097, S8102, S8103) | P0 §2.2 |
 | 16 | `NOTES` §6.3 | "Muốn tải HABIT phải mở mạng Custom" | Phiên cloud 22–23/10 đã tải HABIT được với cấu hình hiện tại (HTTP 200) | P0 §2.1 |
 | 17 | `HANDOFF_PIF.md` §2 | Token người J ≈ 10 | Sim hiện chỉ ghi J = 6. Kế hoạch J = 11 (thêm vai, khuỷu ×2, đầu) qua replay/thu lại. Ở HABIT đầu thường bị cắt → `visible = 0` | P0 §1.4, §3.1 |
