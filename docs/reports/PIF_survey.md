@@ -91,7 +91,7 @@ Người dùng loại DeePoint: chỉ tay là lệnh, quay lại nhận dạng l
 
 **Đề xuất:** làm đúng công thức ManiCast: **huấn luyện trước trên CoMaD** (mocap sạch, có trao vật, có người – robot), rồi **tinh chỉnh trên HABIT + sim** cho đúng camera và đúng nhiễu của mình. Rủi ro: lệch miền giữa mocap và keypoint ước lượng từ video, cần đo.
 
-## 7. Các bài giống ManiCast: quan sát người → robot hành động sớm, đúng việc (24/10/2026 14:00)
+## 7. Các bài giống ManiCast: quan sát người → robot hành động sớm, đúng việc (24/10/2026 14:01)
 
 | Bài | Nơi đăng | Quan sát gì | Robot làm gì với nó | Đánh giá | Code / dữ liệu |
 |---|---|---|---|---|---|
