@@ -52,23 +52,69 @@ Cách đo:
 - **Câu 2:** làm sai belief có kiểm soát; đo thời gian bộ lọc tự sửa (dự đoán P4, mục 6) và khả năng ACT phục hồi (P8).
 - **RQ2:** cải thiện bằng cơ chế nào, loại thông tin nào giúp.
 
-## 2. Quyết định đang hiệu lực
+## 2. Quyết định đang hiệu lực (viết lại 25/10/2026 00:40; **chỗ duy nhất ghi quyết định**)
+
+Người dùng 25/10 00:3x: "ghi những gì đã chốt cho đàng hoàng, mấy lần rồi toàn lạc". Từ nay mọi quyết định mới **ghi vào bảng này trước**, rồi mới làm. Tài liệu khác (`docs/sim/scenarios_v6_proposal.md`, báo cáo) chỉ giữ chi tiết và số đo. Mỗi dòng có ngày và nguồn (câu của người dùng hoặc số đo).
+
+### 2.1 Mục tiêu, câu hỏi, mô hình so sánh
 
 | Chủ đề | Quyết định | Nguồn |
 |---|---|---|
-| Model ACT so sánh | **A, B, D** (bỏ C) | người dùng 24/10 |
-| Hành động của ACT | **Liên tục**: `configs/policy/act_continuous.yaml`, chunk 40 bước (2 s ở 20 Hz), action [7] = 6 joint target + gripper, loss L1 + KL, `n_action_steps: 1`, không temporal ensembling. Đầu `restricted` (9 hành động) là bản cũ, **không dùng** (sơ đồ trong ADR-001 ghi "1 trong 9 hành động" là sai) | người dùng 22–23/10 |
-| **Đưa ý định vào policy** | **Không lái policy lúc chạy** (inference-time steering kiểu Collaborative VLA / ITPS). So **B (ngầm)** với **D (ý định là đầu vào khi train)**; giữ **ACT**, không chuyển sang Diffusion Policy / flow matching | người dùng 24/10/2026 15:02 |
-| **Mô hình ý định** | **PIF v3**: HMM có cấu trúc, học được, belief bằng bộ lọc Bayes chính xác (mục 4). Thay v2 | ADR-001, người dùng 24/10 |
-| **Cách chứng minh model** | Không chọn kiến trúc bằng A/B. Kiểm các dự đoán P1–P9 do lý thuyết đưa ra. **Pilot có tiêu chí go/no-go đặt trước** (mục 6) trước khi cài đầy đủ | ADR-001; người dùng 24/10 |
-| Thứ tự làm | **PIF trên HABIT trước**, ổn rồi mới chỉnh sang sim. Video người dùng tự quay để sau | người dùng 22–23/10 |
-| Task HABIT | **S8789** Supervisor (4 hộp kín giống nhau, người chỉ một hộp), **S8791** Coworker (người đóng nắp hộp robot vừa bỏ bánh), **S6760** Collaborator (trao và nhận lại tấm PCB) | người dùng 23/10; `PIF_P0.md` §8 |
-| Tần số | PIF chạy **10 Hz**, thời gian tính bằng giây. Sim lấy mỗi 2 frame một. Không nội suy HABIT. ACT 20 Hz, giữ nguyên belief giữa hai lần cập nhật | người dùng 23/10 |
-| Token | **3D trong hệ bàn** (người dùng 24/10: "3D cũng được"). Hệ thật dùng RealSense. HABIT dùng 3D ước lượng (MoGe-2), coi là kết quả bi quan. Ablation 2D vs 3D làm lại được từ `outputs/habit/extract` | người dùng 23–24/10 |
-| Đối tượng | Token chỉ gồm thứ thấy được, nhúng loại chung (object / container / surface). Không có id vùng, không có K cố định. Đích "tay người" lấy từ token người | người dùng 23/10 |
-| Tự cài PIF | Được, **nếu người dùng duyệt chi tiết thiết kế** | người dùng 23/10 |
-| Model có sẵn | Dùng nguyên code + weights đã công bố, không fine-tune, không chỉnh tham số theo kết quả mong muốn | quy tắc chung |
-| Máy thuê | Chỉ thuê GPU cho **tầng trích xuất** (nặng, chung cho mọi phương án). PIF v3 có ít tham số, fit trên laptop/workstation. Card đề xuất: RTX A5000 Secure ($0.27/h, đọc lúc 24/10 06:12); đo tốc độ 1 episode trước khi chạy hết. Ngân sách $15 | người dùng 24/10 |
+| Mục tiêu chính | Từ quan sát người, robot **hành động trước, đúng vai, đúng việc** (bảng vai ở §0). Đo bằng hành vi robot, không bằng độ đúng đoán đích | người dùng 24/10 13:48 |
+| Câu hỏi khoá luận | Q1 sớm / nhanh hơn nhờ ý định dự đoán; Q2 ý định sai thì ai sửa (bộ dự đoán hay policy); Q3 benchmark HRI (đa số sim, ~100 episode thật). Chỉ số thời gian trước, CSR sau | người dùng 24/10 |
+| Mô hình so sánh | **A** (demo muộn, không ý định), **B** (demo sớm, không ý định), **D** (demo sớm + ý định), **oracle** (D với đích thật, chỉ làm trần). **Bỏ C** | người dùng 24/10; oracle 25/10 00:3x |
+| Policy | **ACT**, hành động **liên tục**: `configs/policy/act_continuous.yaml`, chunk 40 (2 s @ 20 Hz), action [7] (6 joint + gripper), L1 + KL, `n_action_steps: 1`, không temporal ensembling. Không chuyển sang Diffusion Policy / flow matching | người dùng 22–24/10 |
+| Lái policy lúc chạy | **Không** (không inference-time steering). **Không có bộ giám sát commit** sau ACT; thời điểm commit học từ demo | người dùng 24/10 15:02; 25/10 00:3x ("không hợp ý mình") |
+
+### 2.2 Bộ ý định (công cụ, không cần tính mới; dùng phương pháp đã công bố, ưu tiên gần đây — §0)
+
+| Chủ đề | Quyết định | Nguồn |
+|---|---|---|
+| DeePoint | **Loại** (chỉ tay là lệnh, không phải dự đoán) | người dùng 24/10 |
+| Dự báo chuyển động người | **ManiCast** (Kedia et al., CoRL 2023), **fine-tune trên chuyển động người v6 bằng đúng công thức của tác giả** (`pif/forecast_finetune.py`, checkpoint `outputs/forecast_ft/2026-10-24_23-44/best.pt`: cổ tay tại 1 s 60 mm so với 88 mm giữ tư thế, 92 mm bản gốc). Đóng băng khi dùng cho ACT. ⚠ mâu thuẫn với dòng "model có sẵn không fine-tune" cũ, xem §2.6 | đề xuất 24/10 18:2x, người dùng "làm nhanh lên" |
+| Đọc ra đích (cho expert, để đo) | **Lập kế hoạch ngược** trên đường đã đi + dự báo (Dragan, Lee, Srinivasa 2013; Baker, Saxe, Tenenbaum 2009), β = 1/sai số dự báo đo được; **tia ngón trỏ chỉ khi bàn tay ở dạng chỉ** (vMF, σ = 4.61° đo được); **thừa số dừng** cho đích người với tới được. **Không có ngưỡng belief tự đặt** (0.7 / 0.9 của DeePoint là cũ). Code `pif/v6_goal.py` | người dùng 24/10 ("0.7 là ngày xưa", "ừm làm nhanh lên"); kết quả §1d của tài liệu v6 |
+| Đầu vào ý định của D | **Dự báo ManiCast** (token motion). Ablation sau cổng: + belief, dual (dự báo + belief), token riêng so với nối vào state | 25/10 00:3x ("theo ý bạn") |
+| Cách đưa ý định vào ACT | Bắt đầu từ bản tốt nhất đã có: **FiLM + image-token dropout + F1** (D0 token thường đã bỏ qua ý định, 14–15/10) | INTENT_ACT_v3.2.md §5.3; 25/10 |
+| Dự báo tác động của người lên môi trường (vật sẽ ở đâu, đặt xuống, nắp đóng) | **Để sau** (hai mức (a) ghép có lý thuyết, (b) mô hình HOI học, đã ghi) | người dùng 25/10 |
+
+### 2.3 Kịch bản và người trong sim
+
+| Chủ đề | Quyết định | Nguồn |
+|---|---|---|
+| Kịch bản | **v6** lấy từ HABIT: `t1_choose_item` (Supervisor), `t2_fetch_return` (Collaborator), `t3_coaster_cup` (Collaborator), `t4_coworker` (Coworker), T5 = đổi ý trên T1. Kịch bản cũ `t1_pick_place`…`t4_interrupt` giữ để tái lập kết quả cũ, không thu dữ liệu mới | người dùng 24/10 16:20 ("ok triển khai") |
+| T1 | Bánh trên I1–I3, cách nhau ~14° nhìn từ vai (giãn layout) + tia ngón trỏ | người dùng 24/10 ("C đi") |
+| Chuyển động người | Thư viện **HY-Motion 1.0-Lite** (168 đoạn), quỹ đạo tay nắn về đích (motion warping), lọc: cách robot ≥ 15 cm, lệch đường thẳng ≤ 25%, trên mặt bàn | người dùng 24/10 (duyệt thuê máy) |
+
+### 2.4 Expert, demo, kiểm tra
+
+| Chủ đề | Quyết định | Nguồn |
+|---|---|---|
+| Expert | **Không đặc quyền**: chỉ quyết định từ thông tin D cũng có. **Sớm** (B, D): hindsight optimization (Javdani et al. 2018) trên phân phối đích; commit khi chi phí kỳ vọng cam kết ≤ chi phí chờ (chi phí đo trong sim). **Muộn** (A): cùng belief, commit sau khi cử chỉ xong. Expert `cue_complete` hiện tại chỉ là chỗ tạm để kiểm scene | người dùng 24/10 ("robot chờ xong thì intent có ích gì"), 25/10 |
+| Demo | Thu **theo task** (không chia 6 nhóm); các tình huống (mơ hồ, rõ dần, đổi ý, chờ) tự có; gắn nhãn tình huống từng episode. Ý định "tự tin nhưng sai" kiểm lúc đánh giá (E1–E6) | người dùng 25/10 |
+| Trước khi thu lớn | Pilot 5–10 episode/task → **người dùng duyệt video**; đếm chunk cắt qua chuyển trạng thái (action leakage: Xu et al., CoRL 2026); **cổng D**: train trên pilot, D phải đi theo ý định khi che / tráo (`intent_reliance.py`, `intent_swap_test.py`) | quy tắc duyệt demo; 25/10 |
+| Vòng 2 | **DAgger** (Ross, Gordon, Bagnell 2011), expert tự gắn nhãn lại; không dùng AutoIntervene | 25/10 |
+| Đánh giá | Riêng: khởi động (useful motion onset, chốt định nghĩa trước), thời gian hoàn thành, hồi phục, commit sai, an toàn | 25/10 |
+
+### 2.5 Máy và chi phí
+
+| Chủ đề | Quyết định | Nguồn |
+|---|---|---|
+| Train | Cái gì train được trên laptop thì train trên laptop | người dùng 25/10 00:4x |
+| GPU thuê | Được dùng khi cần, **tự đánh giá**; phải tối ưu: chuẩn bị xong mọi thứ trước khi thuê, không để máy thuê chờ việc, tải kết quả xong xoá ngay. Ngân sách $15, đã chi ≈ $4.84 | người dùng 24/10, 25/10 00:4x |
+| Tần số | Ý định 10 Hz, ACT 20 Hz (giữ ý định giữa hai lần cập nhật). ManiCast nội suy lịch sử 10 Hz → 25 Hz một cách nhân quả, đúng giao diện của nó | người dùng 23/10; 24/10 |
+
+### 2.6 Đã thay / cần người dùng xác nhận
+
+| Quyết định cũ | Hiện trạng | Cần xác nhận? |
+|---|---|---|
+| PIF v3 (HMM, ADR-001) là mô hình ý định | Không dùng cho sim v6: trên v6, bộ lọc yếu (18:04) và fit suy biến khi keypoint không nhiễu; thay bằng ManiCast + lập kế hoạch ngược | **Có**: dừng hẳn PIF v3, hay giữ cho HABIT? |
+| Thứ tự: PIF trên HABIT trước, rồi sim | Thực tế từ 24/10 tối đang làm sim v6 trước | **Có** |
+| Model có sẵn: dùng nguyên weights, không fine-tune | ManiCast đã fine-tune (công thức của tác giả), vì bản gốc không hơn "giữ tư thế" trên sim | **Có**: giữ bản fine-tune? |
+| Ngưỡng belief 0.7 / 0.9 (DeePoint v3.2) | Bỏ | Không |
+| Đầu vào D = belief từ thiết bị DeePoint | Thay bằng dự báo ManiCast | Không |
+| GPU thuê chỉ cho tầng trích xuất | Thay bằng dòng §2.5 | Không |
+| Expert oracle `cue_onset` | Hỏng khi người đổi ý (6/12 cả ở T1 cũ); không dùng | Không |
+| Task HABIT S8789 / S8791 / S6760, token 3D, 10 Hz | Vẫn hiệu lực cho phần HABIT / người thật | Không |
 
 ## 3. Vì sao cần mô hình ý định riêng
 
@@ -255,21 +301,18 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - Giai đoạn A: laptop, CPU.
 - Giai đoạn B: thuê GPU trích xuất S8789 (67 082 frame). Ước tính trên RTX A5000 chưa đo; đo 1 episode trước. Fit model: laptop.
 
-## 7. Trạng thái (24/10/2026 12:56)
+## 7. Trạng thái (25/10/2026 00:40)
 
 | Mốc | Trạng thái |
 |---|---|
-| P0 đọc code, chọn dữ liệu | xong (`PIF_P0.md`) |
-| P1 dữ liệu và token | sim xong; HABIT xong pipeline, mới trích xuất 3 episode S8789 (`PIF_P1.md`) |
-| PIF v2 (P2–P4 bản thử) | thay bằng v3; code v2 còn trong `pif/model.py`, `pif/losses.py` |
-| **PIF v3** | lõi đã cài (`pif/filter.py`, `pif/pilot.py`). **Pilot giai đoạn B xong 24/10 12:55: "một phần"** (G1 đạt: 0.584 [0.511, 0.657] không nhãn; G2, G3 không đạt: GRU có giám sát 0.84–0.94). Tự sửa P4: 177/178, trung vị 1.9 s. Belief lên 0.75 rồi giảm còn 0.52. Báo cáo `docs/reports/PIF_pilot.md`; **chờ người dùng chọn hướng** |
-| P5 export cho ACT | chưa |
+| Kịch bản v6 (M1–M4) | xong: expert `cue_complete` (tạm) 48/48 trên 4 task với chuyển động HY-Motion |
+| ManiCast | đánh giá bản gốc xong; fine-tune trên v6 xong (`outputs/forecast_ft/2026-10-24_23-44`) |
+| Đọc ra đích (M5 bước 1) | xong trên keypoint sạch: T1 100% từ 0.4 s, T2 100% từ 0.2 s, T3 ~80% từ 0.3 s (có ManiCast); chưa kiểm keypoint có nhiễu |
+| Dự báo vật đang cầm | đo xong: tốt khi đang mang (T4 78 vs 173 mm); kém khi đặt xuống; phần mở rộng để sau |
+| **Tiếp theo** | expert sớm (HO) + expert muộn (A) → pilot demo → người dùng duyệt → kiểm leakage → train trên pilot → cổng D |
+| PIF v3 trên HABIT | pilot "một phần" (24/10 12:55); tạm dừng, chờ xác nhận §2.6 |
 
-Câu hỏi còn mở:
-- camera D435 hay D435i;
-- luật `visible` cho keypoint nằm ngoài khung;
-- luật nhãn S8789 cho buổi 260415 / 260418;
-- cách suy `has_item` / `done` cho HABIT.
+Chi tiết từng bước và số đo: `docs/sim/scenarios_v6_proposal.md`.
 
 ## 8. Quy tắc làm việc
 
