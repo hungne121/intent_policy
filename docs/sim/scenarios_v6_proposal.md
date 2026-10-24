@@ -86,3 +86,8 @@ Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outpu
   1. Lon cao 10 cm, gắp gần đỉnh, nên điểm trao ở H2 + 3 cm nằm ngoài tầm UR3e (IK hụt 176 mm). Đổi lon thành 6 cm, độ lệch tay ±2 cm: đo IK xấu nhất 2.4 mm.
   2. Độ lệch tay bị cộng hai lần (scenario một lần, người một lần). Giờ chỉ scenario cộng, trong `zone_pos`.
   3. Hai điểm đặt quá cao nên ngoài tầm: điểm robot rút lên sau khi trao (+10 cm) và điểm tiếp cận khi nhận lại (+8 cm). Hạ xuống +5 cm và +3.5 cm; người đưa trả ở cùng độ cao lúc nhận.
+- 17:14: T4 v6 `t4_coworker` xong, expert 16/16. Ba lỗi đã sửa:
+  1. Bánh hình ellipsoid lăn 3 cm trong hộp; đổi sang hình hộp.
+  2. Tay người mang món đồ về đi xuyên qua robot đang đứng nhường; đổi sang rút ra theo lối bên phải người.
+  3. Người với tay khi robot đang chắn lối, tay dừng giữa chừng mà vẫn "cầm" món đồ. Giờ người chỉ với khi cả lối đi cách robot ≥ 15 cm, và chỉ cầm khi tay đã tới món đồ.
+- **M1–M4 xong cho cả 4 task** (expert `cue_complete`): T1 16/16 (T5 12/12), T2 12/12, T3 8/8, T4 16/16.

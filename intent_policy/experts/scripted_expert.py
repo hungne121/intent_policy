@@ -224,6 +224,11 @@ class ScriptedExpert:
     def _task_steps(self) -> list[Step]:
         obj = self.obj
         grasp = self._grasp_steps(obj)
+        if getattr(self.sc, 'v6_plan', None) == 'coworker':   # v6 T4: each roll into its box, in turn (T4's yield rule)
+            steps = []
+            for bread, box in self.sc.pairs:
+                steps += self._grasp_steps(bread) + self._place_steps(bread, box)
+            return steps + self._home_steps()
         if self.code in ('T1', 'T4'):
             await_zone = Step('wait', until=lambda: self.zone is not None, name='await_zone')
             return grasp + [await_zone] + self._place_steps(obj) + self._home_steps()

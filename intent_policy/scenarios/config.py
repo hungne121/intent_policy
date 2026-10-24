@@ -165,7 +165,13 @@ def random_spec(cfg: ScenarioConfig, rng) -> dict:
     slots = zones_of(scene, 'slot')
     code = cfg.task_code
     spec: dict = {'task': code}
-    if code == 'T2' and sv.get('variant') == 'fetch_return':   # v6: one can on a slot, the work piece in U
+    if code == 'T4' and sv.get('variant') == 'coworker':      # v6: two rolls on slots, the item on its slot, lids in U
+        slots_free = [k for k in slots if k != sv['item_slot']]
+        layout = dict(zip(sv['breads'], [slots_free[i] for i in rng.permutation(len(slots_free))[:len(sv['breads'])]]))
+        layout[sv['item']] = sv['item_slot']
+        spec.update(target=sv['breads'][0], layout=layout, u_blocks=list(sv['lids']), place=sv['boxes'][0],
+                    phase='carry', hold_s=0.0, negative=False)
+    elif code == 'T2' and sv.get('variant') == 'fetch_return':   # v6: one can on a slot, the work piece in U
         spec.update(target=sv['object'], layout=_slots_for(rng, scene, [sv['object']], slots), u_blocks=[sv['work_piece']],
                     hand=_pick(rng, zones_of(scene, 'hand')), return_hand=_pick(rng, zones_of(scene, 'hand')),
                     timing='immediate')
@@ -225,7 +231,8 @@ def validate_spec(cfg: ScenarioConfig, spec: dict) -> None:
         raise ValueError('the target must stand on a slot')
     if cup_crowded(scene, layout):
         raise ValueError(f'a cup next to another object in a row: {layout}')
-    need = {'T1': {'place': 'place'}, 'T4': {'place': 'place'}, 'T2': {'hand': 'hand'}}.get(code, {})
+    coworker = code == 'T4' and cfg.scene_variation.get('variant') == 'coworker'
+    need = {'T1': {'place': 'place'}, 'T4': {'place': 'box' if coworker else 'place'}, 'T2': {'hand': 'hand'}}.get(code, {})
     for field_, kind in need.items():
         if spec.get(field_) not in zones_of(scene, kind):
             raise ValueError(f'{field_} must be one of {zones_of(scene, kind)}')
@@ -240,7 +247,7 @@ def validate_spec(cfg: ScenarioConfig, spec: dict) -> None:
         pairs = cfg.scene_variation['pairs']
         if sorted(spec.get('u_blocks') or []) != sorted(pairs) or sorted(layout) != sorted(pairs.values()):
             raise ValueError(f'T3 needs the cubes {list(pairs)} in U and their paired cups {list(pairs.values())} on slots')
-    if code == 'T4' and len(layout) != 1:
+    if code == 'T4' and len(layout) != 1 and not coworker:
         raise ValueError('T4 has a single cube on the table')
     change = spec.get('change')
     if change:
@@ -273,6 +280,9 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
         u = next(k for k, z in lay.items() if z['kind'] == 'human_store')
         for k, spot in zip(u_blocks, lay[u]['blocks']):
             xy[k] = (np.asarray(spot, float) + rng.uniform(-1, 1, 2) * 0.005).tolist()
+    for k, p in (sv.get('u_xy') or {}).items():      # v6: human-side objects at fixed spots (lids), small jitter
+        if k in xy:
+            xy[k] = (np.asarray(p, float) + rng.uniform(-1, 1, 2) * 0.005).tolist()
     var['object_xy'] = xy
     var['object_yaw'] = {k: 0.0 if is_cup(objs[k]) else float(rng.uniform(-1, 1) * sv.get('object_yaw_rad', 0.2)) for k in xy}
     var['on_table'] = list(xy)
@@ -309,6 +319,12 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
                      hand_offset=(rng.uniform(-1, 1, 2) * float(hb['hand_jitter_m'])).tolist(),
                      return_offset=(rng.uniform(-1, 1, 2) * float(hb['hand_jitter_m'])).tolist(),
                      offer_style='immediate', reaction_s=float(hb['reaction_s']), late_wait_s=0.0)
+    elif t == 't4_coworker':                         # v6: lids closed after each roll, one fetch of the item
+        human.update(approach_s=_uniform(rng, hb['approach_s']), withdraw_s=_uniform(rng, hb['withdraw_s']),
+                     intrusion_time_s=_uniform(rng, hb['intrusion_time_s']), intrusion_hold_s=_uniform(rng, hb['intrusion_hold_s']),
+                     lid_reach_s=_uniform(rng, hb['lid_reach_s']), lid_carry_s=_uniform(rng, hb['lid_carry_s']),
+                     lid_lower_s=_uniform(rng, hb['lid_lower_s']), trigger_delay_s=0.0)
+        var['coworker'] = dict(boxes=list(sv['boxes']), lids=list(sv['lids']), breads=list(sv['breads']), item=sv['item'])
     elif t == 't3_coaster':                          # v6: take the coaster, carry it to the spot, put it down
         human.update(take_reach_s=_uniform(rng, hb['take_reach_s']), carry_s=_uniform(rng, hb['carry_s']),
                      lower_s=_uniform(rng, hb['lower_s']),

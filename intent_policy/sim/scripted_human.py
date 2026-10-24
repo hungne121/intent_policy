@@ -936,6 +936,115 @@ class WorkerReceiver(HandoverReceiver):
         self.run_queue(t, ctx)
 
 
+class CoworkerHuman(Interrupter):
+    """v6 T4 (HABIT 'Place the bread into the airtight container', S8791, coworker): the robot puts the rolls into the
+    boxes by itself. The human closes the lid of each box once the robot has put its roll in and moved away (the
+    workflow), and at a random moment reaches into the robot zone for the spice box (a real reason to enter it), takes
+    it and puts it down in front of themselves. The intrusion waits until the hands are free (no lid in hand)."""
+
+    def __init__(self, scene, behavior, variation):
+        super().__init__(scene, behavior, variation)
+        sv = variation['coworker']
+        self.boxes, self.lids, self.item = sv['boxes'], sv['lids'], sv['item']
+        self.lid_done: set[str] = set()
+
+    def idle(self) -> bool:
+        return self.current is None and not self.queue
+
+    def lid_gestures(self, box: str, lid: str) -> list[Gesture]:
+        p, b = self.params, self.behavior
+        dz = float(b['grip_dz_m'])
+        on_lid = lambda ctx: np.asarray(ctx['object_positions'][lid], float) + [0.0, 0.0, dz]
+        closed = lambda ctx: np.r_[np.asarray(ctx['zone_positions'][box], float)[:2],
+                                   ctx['table_top_z'] + b['box_height_m'] + ctx['object_half_height'][lid] + 0.001 + dz]
+        return [Gesture('move', 'reach_lid', target=on_lid, duration=p['lid_reach_s'], shape='grasp', key=lid,
+                        clearance=b['hand_clearance_m']),
+                self.G_call(lambda t, ctx: self._grab(lid)),
+                Gesture('move', 'carry_lid', target=lambda ctx: closed(ctx) + [0.0, 0.0, b['lid_lift_m']],
+                        duration=p['lid_carry_s'], shape='grasp', key=box, clearance=b['hand_clearance_m']),
+                Gesture('move', 'close_lid', target=closed, duration=p['lid_lower_s'], shape='grasp', key=box),
+                self.G_call(lambda t, ctx: self._drop(lid, step=f'lid_on_{box}')),
+                self.G_rest('withdraw_lid')]
+
+    def _grab(self, key):
+        self.requests.append(('attach', key))
+        self.holding = key
+        self.emit('object_grasp', object=key, actor='human')
+
+    def _drop(self, key, step=None):
+        self.requests.append(('detach', key))
+        self.holding = None
+        self.emit('object_release', object=key, actor='human')
+        if step:
+            self.emit('protocol_step_complete', step=step, object=key)
+
+    def intrusion(self, t, ctx) -> list[Gesture]:
+        """Reach into the robot zone for the item (via the config waypoint), take it, bring it out and put it down
+        in front of the human (`item_drop`), back to rest."""
+        p, b = self.params, self.behavior
+        top = ctx['table_top_z']
+        dz = float(b['grip_dz_m'])
+        item = lambda ctx: np.asarray(ctx['object_positions'][self.item], float) + [0.0, 0.0, dz]
+        via = [np.array([w[0], w[1], top + w[2]], float) for w in b.get('item_via', [])]
+        drop = np.array([*b['item_drop'], top + ctx['object_half_height'][self.item] + 0.001 + dz], float)
+        self.extras.update(intrusion_point=np.round(item(ctx), 4).tolist(), trigger_time=round(t, 4), phase=self.phase,
+                           negative=False)
+        share = p['approach_s'] / (len(via) + 1)
+        g = [Gesture('move', 'intrude_approach', target=lambda ctx, w=w: w, duration=share, clearance=b['hand_clearance_m'],
+                     key='robot_zone') for w in via]
+        g += [Gesture('move', 'intrude', target=item, duration=share, clearance=b['hand_clearance_m'], key='robot_zone'),
+              self.G_call(self._take_item),
+              Gesture('sleep', 'dwelling', duration=self.hold_s)]
+        g += [Gesture('move', 'withdraw', target=lambda ctx, w=w: w + [0.0, 0.0, 0.03], duration=p['withdraw_s'] / (len(via) + 1),
+                      shape='grasp', clearance=b['hand_clearance_m']) for w in via[::-1]]
+        out = [np.array([w[0], w[1], top + w[2]], float) for w in b.get('item_out', [])]   # back out along the human's side
+        g += [Gesture('move', 'withdraw', target=lambda ctx, w=w: w, duration=p['withdraw_s'] / max(len(out), 1), shape='grasp')
+              for w in out]
+        return g + [self.G_call(lambda t, ctx: self.extras.update(withdrawn_time=round(t, 4))),
+                    Gesture('move', 'put_item', target=lambda ctx: drop + [0.0, 0.0, 0.04], duration=p['withdraw_s'], shape='grasp'),
+                    Gesture('move', 'put_item', target=lambda ctx: drop, duration=0.4, shape='grasp'),
+                    self.G_call(lambda t, ctx: self._drop(self.item, step='item_fetched') if self.holding == self.item else None),
+                    self.G_rest('withdraw')]
+
+    def _path_points(self, ctx) -> list[np.ndarray]:
+        b, top = self.behavior, ctx['table_top_z']
+        xyz = lambda w: np.array([w[0], w[1], top + w[2]], float)
+        item = np.asarray(ctx['object_positions'][self.item], float)
+        drop = np.array([*b['item_drop'], top], float)
+        return [self.pos, *map(xyz, b.get('item_via', [])), item, *map(xyz, b.get('item_out', [])), drop]
+
+    def path_clear(self, ctx) -> bool:
+        """The way to the item and back keeps `item_path_clear_m` from the robot (links and TCP): a person waits for
+        the arm to be out of the way before reaching across (else the hand stops short for clearance)."""
+        pts = self._path_points(ctx)
+        robot = list(ctx['robot_chain']) + [np.asarray(ctx['tcp'], float)]
+        samples = [a + (c - a) * u for a, c in zip(pts, pts[1:]) for u in np.linspace(0.0, 1.0, 12)]
+        return min(float(np.linalg.norm(q - r)) for q in samples for r in robot) >= self.behavior['item_path_clear_m']
+
+    def _take_item(self, t, ctx):
+        """Take the item only if the hand reached it (it may have stopped short for clearance): else no grab."""
+        item = np.asarray(ctx['object_positions'][self.item], float)
+        if np.linalg.norm(self.pos - item - [0.0, 0.0, self.behavior['grip_dz_m']]) <= 0.02:
+            self._grab(self.item)
+        else:
+            self.extras.update(item_missed=round(t, 4))
+
+    def behave(self, t, ctx):
+        self.started = True
+        if self.idle():
+            if not self.intruded and t >= self.params['intrusion_time_s'] - 1e-9 and self.path_clear(ctx):
+                self.intruded = True
+                self.queue = self.intrusion(t, ctx)
+            else:
+                for box, lid in zip(self.boxes, self.lids):   # the roll is in and the gripper has moved away
+                    away = ctx['tcp_xy_distance'](ctx['zone_positions'][box]) >= self.behavior['lid_robot_clear_m']
+                    if lid not in self.lid_done and f'bread_in_{box}' in ctx['protocol_done'] and away:
+                        self.lid_done.add(lid)
+                        self.queue = self.lid_gestures(box, lid)
+                        break
+        self.run_queue(t, ctx)
+
+
 class CoasterPlacer(GestureHuman):
     """v6 T3 (HABIT 'Place coasters on the table and set cups on them'): take the coaster from U, carry it to a spot of
     the person's choice in the shared area (K1-K3 + a small offset), put it down, withdraw and wait for the robot to set
@@ -993,6 +1102,7 @@ BEHAVIORS = {
     't4_intruder': Interrupter,
     't3_coaster': CoasterPlacer,
     't2_worker': WorkerReceiver,
+    't4_coworker': CoworkerHuman,
 }
 
 

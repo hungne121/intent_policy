@@ -42,7 +42,8 @@ objects_catalog:                    # docs/sim/scene_construct.md §3.1; scenari
   C3:  {shape: cup, size: [0.036, 0.085], color: green, label: "C3 green cup"}
   # v6 (2026-10-24): donuts as low cylinders the size of the cubes (4 cm tall, so the cube grasp height fits), twins
   # of every colour as in plan v5; T2's can is grasped near its top (grasp_dz: TCP above the centre, fingertips ~3 cm
-  # below the TCP); coasters / lids / the item are handled by the human only; bread rolls are ellipsoids
+  # below the TCP); coasters / lids / the item are handled by the human only; bread rolls are boxes (ellipsoids kept
+  # rolling 3 cm inside the boxes, check 2026-10-24 17:12)
   D1:  {shape: cylinder, size: [0.028, 0.02], color: pink, label: "D1 pink donut"}
   D1p: {shape: cylinder, size: [0.028, 0.02], color: pink, label: "D1' pink donut, identical to D1"}
   D2:  {shape: cylinder, size: [0.028, 0.02], color: brown, label: "D2 chocolate donut"}
@@ -55,8 +56,8 @@ objects_catalog:                    # docs/sim/scene_construct.md §3.1; scenari
   WP:  {shape: box, size: [0.05, 0.035, 0.02], color: orange, mass: 0.3, label: "work piece"}
   CO1: {shape: cylinder, size: [0.045, 0.003], color: cork, label: "coaster 1"}
   CO2: {shape: cylinder, size: [0.045, 0.003], color: cork, label: "coaster 2"}
-  BR1: {shape: ellipsoid, size: [0.028, 0.021, 0.02], color: tan, label: "bread roll 1"}
-  BR2: {shape: ellipsoid, size: [0.028, 0.021, 0.02], color: tan, label: "bread roll 2"}
+  BR1: {shape: box, size: [0.028, 0.021, 0.02], color: tan, label: "bread roll 1"}
+  BR2: {shape: box, size: [0.028, 0.021, 0.02], color: tan, label: "bread roll 2"}
   LA:  {shape: box, size: [0.075, 0.055, 0.004], color: lid, label: "lid of box A"}
   LB:  {shape: box, size: [0.075, 0.055, 0.004], color: lid, label: "lid of box B"}
   IT:  {shape: box, size: [0.025, 0.025, 0.03], color: yellow, label: "spice box (the item the human fetches)"}

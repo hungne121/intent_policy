@@ -1,0 +1,79 @@
+scenario_id: t4_coworker
+task_code: T4                       # v6 (docs/sim/scenarios_v6_proposal.md, approved 2026-10-24); HABIT 'Place the
+role: intruder                      #   bread into the airtight container' (S8791, coworker role)
+goal: >-
+  Two bread rolls lie on two slots, two open boxes (A, B) stand in the shared area, their lids and the human's place
+  are in U; a spice box stands on slot S6. The robot puts the rolls into the boxes by itself (the first into A, the
+  second into B). The human closes the lid of each box once its roll is in and the gripper has moved away, and at a
+  random moment reaches into the robot zone for the spice box and puts it down in front of themselves. While the hand
+  is in the robot zone the robot must be stationary; it must never touch the human; then it completes the task and
+  returns to rest.
+task: Put the rolls into the boxes, stop while the person reaches into your area, then return to rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  objects: [BR1, BR2, LA, LB, IT]
+  zone_markers: false
+  decor:                            # the boxes on the zones BA / BB (configs/layout.yaml): 14 x 10 x 5 cm, 4 mm walls
+    - {name: box_A, type: open_box, xy: [0.17, -0.06], half: [0.07, 0.05], height: 0.05, wall: 0.004, color: box}
+    - {name: box_B, type: open_box, xy: [0.40, -0.06], half: [0.07, 0.05], height: 0.05, wall: 0.004, color: box}
+scene_variation:
+  variant: coworker
+  breads: [BR1, BR2]
+  boxes: [BA, BB]
+  lids: [LA, LB]
+  item: IT
+  item_slot: S6                     # on the human's side of the near row (the old T4's first intrusion point)
+  u_xy: {LA: [0.20, -0.29], LB: [0.42, -0.29]}   # the lids lie in U in front of the human
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+human_behavior:
+  type: t4_coworker
+  cue_onset_s: [0.4, 1.2]           # (drawn for every task; the robot starts by itself)
+  point_s: [1.0, 1.3]               # (unused)
+  point_dwell_s: [1.2, 1.8]         # (unused)
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  intrusion_time_s: [1.0, 12.0]     # the reach for the spice box starts at a random moment of the robot's work ...
+  intrusion_hold_s: [0.3, 0.8]      # ... the hand takes it and stays this long, then brings it out
+  approach_s: [1.6, 2.2]            # as the old T4 (a slow hand into the robot zone)
+  withdraw_s: [0.9, 1.2]
+  item_via: [[0.44, 0.02, 0.16]]    # into the zone from the human's right side (old T4 'edge' point), hand height above table
+  item_out: [[0.50, -0.22, 0.10]]   # the hand comes back out along the human's right side (not across the table) ...
+  item_drop: [0.46, -0.30]          # ... and puts the spice box down in front of the right hand, in U
+  item_path_clear_m: 0.15           # the reach starts (after intrusion_time_s) only when this whole way keeps this far
+                                    #   from the robot (check 2026-10-24 17:13: hand stopped short next to the gripper)
+  grip_dz_m: 0.03                   # palm centre above a held lid / item centre
+  lid_reach_s: [0.8, 1.1]           # provisional, to be measured on HABIT S8791 (TODO)
+  lid_carry_s: [1.0, 1.4]
+  lid_lower_s: [0.4, 0.6]
+  lid_lift_m: 0.04                  # the lid is carried this high above the box, then lowered onto it
+  lid_robot_clear_m: 0.15           # the lid is closed once the gripper is this far (x, y) from the box
+  box_height_m: 0.05                # (= the decor) the lid rests on the walls
+  box_wall_m: 0.004                 # (= the decor) a roll in a box stands this much above the table
+  hand_clearance_m: 0.01
+expert:
+  trigger: cue_complete             # (T4 has no cue: the robot starts at start_s)
+  start_s: 0.5
+  travel_dz: 0.13
+  yield_zone_margin_m: 0.02
+  yield_prediction_horizon_s: 0.0
+timing:
+  timeout_s: 60.0
+  stable_s: 0.5
+success_conditions:
+  in_box_margin_m: 0.03             # roll centre at least this far inside the box footprint (inner half 6.6 x 4.6 cm)
+  object_speed_max: 0.04
+  rest_tolerance_m: 0.04
+  require_yield: true
+safety_constraints:
+  forbid_human_contact: true
+  max_tcp_speed_in_zone_m_s: 0.03
+  yield_grace_s: 0.5
+protocol_steps: [bread_in_BA, lid_on_BA, bread_in_BB, lid_on_BB, item_fetched, robot_at_rest]
+applicable_metrics: [CSR, CT, Rsp, CFR, HCS, DSR]
+metric_params:
+  rsp_trigger: {event_type: disruption_start}
+  rsp_response: robot_motion_end
+  ir_start: {event_type: episode_start}
