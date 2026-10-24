@@ -76,7 +76,7 @@ token tay 3D (đã lọc giải phẫu, §9 PIF_pilot)
 
 Robot Trajectron: arXiv 2402.02499 (ICRA 2024), github.com/mousecpn/Robot-Trajectron. DeePoint: github.com/kyotovision-public/deepoint. Gaze-LLE: github.com/fkryan/gazelle (CVPR 2025). ManiCast: portal.cs.cornell.edu/manicast. HIT: arXiv 2506.07004. IntentMotion: arXiv 2503.00576. Johansson, Westling, Bäckström, Flanagan 2001 (*J. Neuroscience*).
 
-## 6. Dữ liệu cho mô hình dự báo quỹ đạo tay (24/10/2026 13:55)
+## 6. Dữ liệu cho mô hình dự báo quỹ đạo tay (24/10/2026 13:51)
 
 Người dùng loại DeePoint: chỉ tay là lệnh, quay lại nhận dạng lệnh.
 
