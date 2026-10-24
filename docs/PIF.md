@@ -1,11 +1,12 @@
 # PIF: mô hình ý định cho IntentACT
 
-**Phiên bản:** 25/10/2026 00:55. Lịch sử:
+**Phiên bản:** 25/10/2026 02:47. Lịch sử:
 - 23/10: gộp từ các file handoff.
 - 24/10 07:00: PIF v3 (ADR-001).
 - 24/10 13:44: thêm §0 kim chỉ nam.
 - 25/10 00:40: §2 viết lại thành bảng quyết định duy nhất; §7 trạng thái.
 - 25/10 00:55: dẫn nguồn ở `docs/references.md` mục D.
+- 25/10 02:47: §2 cách đưa ý định ManiCast vào D (FiLM từng tầng + image dropout, F1 không áp dụng); chia 80/20 bằng `--val-every 5`.
 
 Mọi bài được dùng đều có trong `docs/references.md` (tên, tác giả, năm, nơi đăng, mức đã kiểm).
 
@@ -83,7 +84,7 @@ Người dùng 25/10 00:3x: "ghi những gì đã chốt cho đàng hoàng, mấ
 | Dự báo chuyển động người | **ManiCast** (Kedia et al., CoRL 2023), **fine-tune trên chuyển động người v6 bằng đúng công thức của tác giả** (`pif/forecast_finetune.py`, checkpoint `outputs/forecast_ft/2026-10-24_23-44/best.pt`: cổ tay tại 1 s 60 mm so với 88 mm giữ tư thế, 92 mm bản gốc). Đóng băng khi dùng cho ACT. ⚠ mâu thuẫn với dòng "model có sẵn không fine-tune" cũ, xem §2.6 | đề xuất 24/10 18:2x, người dùng "làm nhanh lên" |
 | Đọc ra đích (cho expert, để đo) | **Lập kế hoạch ngược** trên đường đã đi + dự báo (Dragan, Lee, Srinivasa 2013; Baker, Saxe, Tenenbaum 2009), β = 1/sai số dự báo đo được; **tia ngón trỏ chỉ khi bàn tay ở dạng chỉ** (vMF, σ = 4.61° đo được); **thừa số dừng** cho đích người với tới được. **Không có ngưỡng belief tự đặt** (0.7 / 0.9 của DeePoint là cũ). Code `pif/v6_goal.py` | người dùng 24/10 ("0.7 là ngày xưa", "ừm làm nhanh lên"); kết quả §1d của tài liệu v6 |
 | Đầu vào ý định của D | **Dự báo ManiCast** (token motion). Ablation sau cổng: + belief, dual (dự báo + belief), token riêng so với nối vào state | 25/10 00:3x ("theo ý bạn") |
-| Cách đưa ý định vào ACT | Bắt đầu từ bản tốt nhất đã có: **FiLM + image-token dropout + F1** (D0 token thường đã bỏ qua ý định, 14–15/10) | INTENT_ACT_v3.2.md §5.3; 25/10 |
+| Cách đưa ý định vào ACT | Bắt đầu từ bản tốt nhất đã có: **FiLM + image-token dropout + F1** (D0 token thường đã bỏ qua ý định, 14–15/10). **25/10 02:47 (cách làm với ý định ManiCast):** ý định v6 nằm ở các cột `intent_pp` (13 token v2), mà FiLM từng tầng ResNet và image dropout trước chỉ có cho v3.2, nên thêm `--intent-film-stages` (FiLM từng tầng như v3.2, `IntentFiLMV32`) và cho `--image-p-drop` chạy với token v2. D = `--intent-film --intent-film-stages --image-p-drop 0.1`. **F1 không áp dụng**: F1 là thang khởi tạo của embedding *đích* (target), còn ý định ManiCast không có token đích (chỉ có dịch chuyển khớp dự báo; các trường khác trung tính) | INTENT_ACT_v3.2.md §5.3; 25/10 |
 | Dự báo tác động của người lên môi trường (vật sẽ ở đâu, đặt xuống, nắp đóng) | **Để sau** (hai mức (a) ghép có lý thuyết, (b) mô hình HOI học, đã ghi) | người dùng 25/10 |
 
 ### 2.3 Kịch bản và người trong sim
@@ -101,7 +102,7 @@ Người dùng 25/10 00:3x: "ghi những gì đã chốt cho đàng hoàng, mấ
 | Expert | **Không đặc quyền**: chỉ quyết định từ thông tin D cũng có. **Sớm** (B, D): hindsight optimization (Javdani et al. 2018) trên phân phối đích; commit khi chi phí kỳ vọng cam kết ≤ chi phí chờ (chi phí đo trong sim). **Muộn** (A): cùng belief, commit sau khi cử chỉ xong. Expert `cue_complete` hiện tại chỉ là chỗ tạm để kiểm scene | người dùng 24/10 ("robot chờ xong thì intent có ích gì"), 25/10 |
 | Demo | Thu **theo task** (không chia 6 nhóm); các tình huống (mơ hồ, rõ dần, đổi ý, chờ) tự có; gắn nhãn tình huống từng episode. Ý định "tự tin nhưng sai" kiểm lúc đánh giá (E1–E6) | người dùng 25/10 |
 | Trước khi thu lớn | Pilot 5–10 episode/task → **người dùng duyệt video**; đếm chunk cắt qua chuyển trạng thái (action leakage: Xu et al., CoRL 2026); **cổng D**: train trên pilot, D phải đi theo ý định khi che / tráo (`intent_reliance.py`, `intent_swap_test.py`) | quy tắc duyệt demo; 25/10 |
-| **Số demo và độ dài train** (25/10 01:25; người dùng: "phải đảm bảo số epi đủ… đọc bài train của chính ACT") | Theo bài và code ACT (Zhao et al., RSS 2023; github tonyzhaozh/act): **50 demo/task** (bài không có thí nghiệm số demo nên 50 chưa chắc đủ); sim **2000 epoch**, dữ liệu thật **≥ 5000 epoch**; batch 8, lr 1e-5, chunk 100, β 10; chia **80/20 theo episode**; chọn checkpoint loss val thấp nhất (README: độ thành công còn tăng sau khi loss phẳng). **"Epoch" của ACT = 1 mốc ngẫu nhiên mỗi episode** (`EpisodicDataset.__len__` = số episode), nên quy đổi: **mẫu train = epoch × số episode train**; 5 task × 50 demo → 200 episode train → 2000 epoch = 400k mẫu (12.5k bước batch 32), 5000 epoch = 1M mẫu (31k bước). **Đủ hay chưa phải đo**: thêm 1 lần train B với 25 demo/task, cùng bộ đánh giá; 25 ≈ 50 trong khoảng tin cậy thì 50 đủ, không thì thu 100. Đánh giá như ACT: nhiều seed eval cố định, rollout trên checkpoint tốt nhất + các mốc 2000 / 5000 epoch | bài ACT §IV-C, §V-B, Bảng III; README; `utils.py` (đọc 25/10) |
+| **Số demo và độ dài train** (25/10 01:25; người dùng: "phải đảm bảo số epi đủ… đọc bài train của chính ACT") | Theo bài và code ACT (Zhao et al., RSS 2023; github tonyzhaozh/act): **50 demo/task** (bài không có thí nghiệm số demo nên 50 chưa chắc đủ); sim **2000 epoch**, dữ liệu thật **≥ 5000 epoch**; batch 8, lr 1e-5, chunk 100, β 10; chia **80/20 theo episode** (`--val-every 5`: cứ 5 episode lấy 1 làm val); chọn checkpoint loss val thấp nhất (README: độ thành công còn tăng sau khi loss phẳng). **"Epoch" của ACT = 1 mốc ngẫu nhiên mỗi episode** (`EpisodicDataset.__len__` = số episode), nên quy đổi: **mẫu train = epoch × số episode train**; 5 task × 50 demo → 200 episode train → 2000 epoch = 400k mẫu (12.5k bước batch 32), 5000 epoch = 1M mẫu (31k bước). **Đủ hay chưa phải đo**: thêm 1 lần train B với 25 demo/task, cùng bộ đánh giá; 25 ≈ 50 trong khoảng tin cậy thì 50 đủ, không thì thu 100. Đánh giá như ACT: nhiều seed eval cố định, rollout trên checkpoint tốt nhất + các mốc 2000 / 5000 epoch | bài ACT §IV-C, §V-B, Bảng III; README; `utils.py` (đọc 25/10) |
 | Vòng 2 | **DAgger** (Ross, Gordon, Bagnell 2011), expert tự gắn nhãn lại; không dùng AutoIntervene | 25/10 |
 | Đánh giá | Riêng: khởi động (useful motion onset, chốt định nghĩa trước), thời gian hoàn thành, hồi phục, commit sai, an toàn | 25/10 |
 
