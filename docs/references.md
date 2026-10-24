@@ -1,5 +1,10 @@
 # Duyệt nguồn tham khảo
 
+**Phiên bản:** bản 3, 25/10/2026 00:55.
+- Bản 1, 23/10/2026: duyệt mục A / B.
+- Bản 2, 24/10/2026: thêm mục C (chương 2 khoá luận).
+- Bản 3, 25/10/2026: thêm mục D (kịch bản v6, ManiCast, expert sớm).
+
 Duyệt ngày 23/10/2026. Một nguồn được dùng làm **cơ sở lý thuyết** khi đạt cả hai điều kiện:
 1. Đọc được bản gốc, và điều mình dẫn có trong bài.
 2. Đã qua phản biện, đăng ở hội nghị hoặc tạp chí uy tín.
@@ -122,3 +127,33 @@ Khoá luận (`docs/thesis`) chỉ dẫn các nguồn ở mục A, cộng các p
 | Wiederhold et al. HOH (2023) | NeurIPS 2023 Datasets & Benchmarks | 2 720 lần trao vật, 136 vật |
 | Chao et al. HandoverSim (2022) | ICRA 2022, 6941–6947 | tương quan mô phỏng – thật |
 | Puig et al. Habitat 3.0 (2024) | ICLR 2024 (poster) | người ảo + robot, có người thật điều khiển |
+
+## D. Thêm cho kịch bản v6, ManiCast, suy đích, expert sớm (25/10/2026 00:55)
+
+Mức kiểm:
+- **code**: đã đọc code / README phát hành;
+- **tóm tắt + nơi đăng**: đã kiểm qua trang arXiv, nhà xuất bản hoặc chỉ mục, ngày 24–25/10.
+
+| Nguồn | Nơi đăng | Mức kiểm | Dùng cho (file) |
+|---|---|---|---|
+| Kedia, Dan, Bhardwaj, Choudhury. ManiCast: Collaborative Manipulation with Cost-Aware Human Forecasting (2023) | CoRL 2023 (PMLR 229) | code + README (`third_party/manicast`) | dự báo chuyển động người; công thức fine-tune (`src/finetune.py`); giao thức "detection advantage" (`eval/handover.py`); điểm đỏ trong video = cổ tay dự báo. `pif/forecast.py`, `pif/forecast_finetune.py`, `pif/v6_detection.py` |
+| Tencent Hunyuan 3D Digital Human Team. HY-Motion 1.0: Scaling Flow Matching Models for Text-To-Motion Generation (2025) | arXiv 2512.23464, **preprint**; code + weights phát hành | code (`local_infer.py`, `t2m_runtime.py`) + tóm tắt | thư viện chuyển động người v6: `configs/human_motion/hymotion_v6.yaml`, `workstation/rent/run_hymotion.sh`. Dùng như công cụ, không làm cơ sở lý thuyết |
+| Witkin, Popović. Motion Warping (1995) | SIGGRAPH '95, 105–108 | tóm tắt + nơi đăng | nắn đầu / cuối đoạn chuyển động về đích thật: `intent_policy/sim/motion_bank.py` |
+| Morasso. Spatial control of arm movements (1981) | *Exp. Brain Res.* 42(2) 223–227 | tóm tắt + nơi đăng | đường tay người gần thẳng → bỏ đoạn lệch > 25% (`motion_bank.max_dev_ratio`) |
+| Atkeson, Hollerbach. Kinematic features of unrestrained vertical arm movements (1985) | *J. Neurosci.* 5(9) 2318–2330 | tóm tắt + nơi đăng | như trên (đường tay có thể hơi cong, profile tốc độ bất biến) |
+| Bishop. Pattern Recognition and Machine Learning (2006) | sách, Springer, §9.2.1 | nơi đăng | fit bộ lọc PIF v3 suy biến trên keypoint không nhiễu (singularity của likelihood): `pif/v6_timing.py` |
+| Woods, Wyma, Yund, Herron, Reed. Factors influencing the latency of simple reaction time (2015) | *Front. Hum. Neurosci.* 9:131 | tóm tắt + nơi đăng | thời gian phản xạ 0.213 s khi người buông lon trả robot (T2 v6, `reaction_s`) |
+| Dragan, Lee, Srinivasa. Legibility and predictability of robot motion (2013) | HRI 2013 (đã ở mục A) | tóm tắt + nơi đăng | công thức xác suất đích P(G \| S→Q): `pif/v6_goal.py` |
+| Baker, Saxe, Tenenbaum. Action understanding as inverse planning (2009) | *Cognition* (đã ở mục A) | tóm tắt + nơi đăng | suy đích bằng lập kế hoạch ngược: `pif/v6_goal.py` |
+| Javdani, Admoni, Pellegrinelli, Srinivasa, Bagnell. Shared Autonomy via Hindsight Optimization for Teleoperation and Collaboration (2018) | *IJRR* 37(7) 717–742 (đã ở mục A; bản arXiv tên "...and Teaming") | tóm tắt + nơi đăng | expert sớm: hành động trên phân phối đích, cam kết theo chi phí kỳ vọng (PIF.md §2.4) |
+| Ross, Gordon, Bagnell. A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning (DAgger, 2011) | AISTATS 2011 (đã ở mục A) | tóm tắt + nơi đăng | vòng 2: expert gắn nhãn lại trạng thái của policy (PIF.md §2.4) |
+| Xu, Li, Cuellar, Hagenow. Learning to Assist: Collaborative VLAs for Implicit Human-Robot Collaboration (2026) | CoRL 2026 (theo trang arXiv 2606.12475) | tóm tắt + nơi đăng | "demonstration action leakage": chunk cắt qua chuyển trạng thái → kiểm trước khi thu lớn (PIF.md §2.4). Steering lúc chạy của bài **không dùng** (quyết định 24/10 15:02) |
+| Tang, Zhi. AutoIntervene: Calibrated Intervention for Action-Chunking Imitation Learning Policies (2026) | arXiv 2608.07065, **preprint** | tóm tắt | đã cân nhắc, **không dùng**: cần người vận hành; thay bằng DAgger |
+| Valls Mascaro, Sliwowski, Lee. HOI4ABOT: Human-Object Interaction Anticipation for Human Intention Reading Collaborative roBOTs (2023) | CoRL 2023 (PMLR 229) | tóm tắt + nơi đăng | hướng "dự báo tác động lên môi trường", **để sau** (PIF.md §2.2) |
+| Liu, Tripathi, Majumdar, Wang. Joint Hand Motion and Interaction Hotspots Prediction from Egocentric Videos (2022) | CVPR 2022 | **chưa kiểm lại** (nhớ từ trước) | như trên, để sau |
+| Weihs et al. Bridging the Imitation Gap by Adaptive Insubordination (2021) | NeurIPS 2021 | **chưa kiểm lại** | imitation gap: expert chỉ dùng thông tin D có |
+| Swamy, Choudhury, Bagnell, Wu. Sequence Model Imitation Learning with Unobserved Contexts (2022) | NeurIPS 2022 | **chưa kiểm lại** | như trên |
+| Zhao, Kumar, Levine, Finn. Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware (ACT, 2023) | RSS 2023 (đã ở mục A) | tóm tắt + nơi đăng | ACT; bài ghi dùng L1 cho phần tái tạo |
+| Kedia et al. InteRACT (2024) | ICRA 2024 (đã ở mục B / chương 2) | tóm tắt | người phản ứng theo robot (rủi ro H3), chưa xử lý |
+
+Còn thiếu (chưa dùng, nếu dùng phải kiểm): One Euro filter (làm mượt keypoint) cho phần nhiễu keypoint thật.

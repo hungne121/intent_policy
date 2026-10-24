@@ -1,5 +1,14 @@
 # PIF: mô hình ý định cho IntentACT
 
+**Phiên bản:** 25/10/2026 00:55. Lịch sử:
+- 23/10: gộp từ các file handoff.
+- 24/10 07:00: PIF v3 (ADR-001).
+- 24/10 13:44: thêm §0 kim chỉ nam.
+- 25/10 00:40: §2 viết lại thành bảng quyết định duy nhất; §7 trạng thái.
+- 25/10 00:55: dẫn nguồn ở `docs/references.md` mục D.
+
+Mọi bài được dùng đều có trong `docs/references.md` (tên, tác giả, năm, nơi đăng, mức đã kiểm).
+
 File duy nhất mô tả hướng hiện tại. Gộp ngày 23/10/2026 từ `HANDOFF_PIF.md`, `HANDOFF_PIF_NOTES.md`, `HANDOFF_PIF_LOCAL.md`, `HANDOFF_PIF_CORRECTIONS.md`; bốn file đó còn trong git (`git show e29ed0d:docs/requirements/HANDOFF_PIF.md`). Kết quả từng mốc ở `docs/reports/PIF_P*.md`.
 
 ## 0. Kim chỉ nam (đọc trước mọi quyết định; người dùng yêu cầu 24/10/2026 13:44)

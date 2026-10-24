@@ -1,5 +1,17 @@
 # Đề xuất kịch bản T1–T5 (v6), lấy cảm hứng từ HABIT
 
+**Phiên bản:** 25/10/2026 00:55. Lịch sử:
+
+| Ngày giờ | Nội dung |
+|---|---|
+| 24/10 15:50 | §1–6 đề xuất |
+| 24/10 16:44 | §7 kế hoạch triển khai M1–M6 |
+| 24/10 16:48–17:50 | tiến độ T1–T4, HY-Motion |
+| 24/10 18:00–25/10 00:00 | M5: đo thời điểm, ManiCast fine-tune, suy đích, dự báo vật |
+| 25/10 00:3x | §8 kế hoạch demo + train đã chốt |
+
+**Quyết định đang hiệu lực ghi ở `docs/PIF.md` §2** (file này chỉ giữ chi tiết và số đo). Nguồn: `docs/references.md` mục D.
+
 Viết 24/10/2026 15:50 (+07). **Đề xuất, chờ người dùng duyệt**, chưa sửa code. Căn cứ: `docs/PIF.md` §0 (mục tiêu chính: từ quan sát người, robot hành động **sớm, đúng vai, đúng việc**), ba pha thông tin (trước, trong, sau cử chỉ), 6 yêu cầu benchmark (khóa luận chương 2 §2.8.3), danh sách vấn đề D1–D8 / H1–H7 (`docs/reports/PIF_related_work.md` §6).
 
 ## 1. Vì sao kịch bản cũ "ngô nghê"
