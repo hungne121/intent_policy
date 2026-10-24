@@ -290,3 +290,12 @@ Còn: T3 2/8 cốc không nằm trên lót cốc, chưa xem.
 
 - Lần đầu T2/T3 ra y hệt nhau vì luật muộn lấy vật duy nhất ngay từ đầu. Đã sửa đúng định nghĩa A (PIF.md §2.1): A chờ người ra hiệu xong (chìa tay / đặt lót cốc) rồi mới bắt đầu.
 - Lỗi còn lại **giống nhau ở cả hai luật**, tức là do cơ chế expert / scene, không phải do luật: T1 chạm vật khác 3/12, T3 cốc lệch khỏi lót cốc 3/12, T4 chạm người 1/12. Phải sửa trước khi thu pilot.
+
+**Thu lần 1 (02:21) và sửa expert (02:2x–02:45)** (`outputs/datasets/v6_early|late`, lần 1):
+- Kết quả thu: sớm giữ 181/200, muộn giữ 166/200. T1 bị loại 16/50 ở mỗi bộ, đều do chạm bánh khác; muộn thêm T3 hết giờ 13/50.
+- Bộ điều khiển liên tục (0.39 m/s) làm lộ lỗi đọc đích. Ba thay đổi:
+  1. Cử chỉ coi là xong khi tay giữ yên ≥ 0.2 s: phân vị 5% thời gian giữ tay khi chỉ của người thật (bộ DP, 32 người, 5 927 lần chỉ). Riêng thay đổi này không sửa được lỗi T1.
+  2. Đích ngoài tầm với dùng **hướng** dịch chuyển của tay (vMF, σ 14° = atan 0.25, giới hạn lệch của đường tay), không dùng mức tiến lại gần: với tay về phía trước làm gần thêm cả 3 món (0.32 / 0.30 / 0.25 m).
+  3. "Với tới được" theo **tầm thoải mái** (cúi ≤ 30°, layout.yaml), không theo giới hạn cơ học 70° của người nộm. Trước đó thừa số "tay dừng ở đích" bị áp cho món ở xa.
+- Kiểm với bộ điều khiển liên tục, seed 300000–300019: T1 18/20, T2 19/20, T3 18/20.
+- Bộ lần 1 bị lệch (thiếu các lần vươn về món bên phải), nên **thu lại**.

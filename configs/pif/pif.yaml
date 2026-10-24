@@ -170,8 +170,22 @@ v6_expert:                  # non-privileged belief of the v6 experts (intent_po
                             # S = the wrist where the current motion started (Dragan 2013); at rest the belief of the
                             # last gesture is kept until the next motion (memory); T1 items open while the robot holds
                             # nothing, trays while it holds the item (task-protocol prior, as the v3.2 device)
-  still_fraction: 0.10      # movement end: speed < 10 % of the motion's peak
+  still_fraction: 0.10      # movement end: speed < 10 % of the motion's peak ...
+  reach_dir_sigma_deg: 14.0 # far goals (beyond the human's reach, T1 items): direction of the hand's displacement, vMF
+                            #   with this spread = atan(0.25): the sim's hand paths stray <= 25 % of their length
+                            #   (human_behavior.motion_bank.max_dev_ratio; Morasso 1981). Progress cannot tell far goals
+                            #   apart (25/10 02:3x: 0.32 / 0.30 / 0.25 m towards the three T1 items)
+  reach_tol_m: 0.01         # a goal is within reach if the comfortable reach (lean <= 30 deg, layout.yaml) gets this
+                            #   close. 0.05 (K1 / K2 within reach) mixed progress and direction terms in one set and
+                            #   dropped T3 to 9/20 (02:4x, continuous controller); 0.01: T1 18/20, T2 19/20, T3 18/20.
+                            #   Known limit: one set mixing near and far goals puts two score scales side by side
+  hold_min_s: 0.2           # ... held this long: the 5th percentile of real pointing holds (DP dataset, 32 people, 5927
+                            #   pointings, assets/human/dp_pointing_kinematics.json hold_s); shorter dips mid-motion are
+                            #   hesitations (HY-Motion reaches), they committed T1 too early (collection 25/10: 16/50 lost)
   moving_m: 0.05            # a motion starts once the wrist is 5 cm from where it rested
+                            # evidence about a target: a communicative hand shape (pointing, open palm), or a reach
+                            #   = the hand gets >= moving_m closer to a candidate AND >= moving_m farther from the
+                            #   shoulder (a withdrawal brings it back: 01:2x, T1 commit flipped on the way back)
   use_forecast: {object: false, zone: true}   # v6_goal 23:50: T1 items best without the forecast (1.00 vs 0.83); T2 hand
                                               #   zones / T3 spots / trays with it (T3 0.3 s earlier, T2 P(true) 0.81 -> 0.90)
   c_wait_s: 0.3             # C_wait: measured time from the motion start until the target stays the most probable

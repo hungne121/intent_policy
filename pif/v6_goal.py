@@ -22,12 +22,21 @@ NEED = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist']
 
 
 def posterior(S: np.ndarray, Q: np.ndarray, cand: np.ndarray, beta: float, ray=None, kappa: float = 0.0,
-              stopped=None, reachable=None) -> np.ndarray:
+              stopped=None, reachable=None, kappa_dir: float = 0.0) -> np.ndarray:
     """[T, K] goal posterior from progress d(S, G) - d(Q, G) (uniform prior); with `ray` = (base [T, 3], tip [T, 3])
     the pointing evidence kappa cos(angle(base -> tip, tip -> G)) (a vMF on the pointing direction) replaces the path
     term on the frames where ray[2] (the observable pointing hand shape) is set."""
     prog = np.linalg.norm(S[:, None] - cand[None], axis=2) - np.linalg.norm(Q[:, None] - cand[None], axis=2)
     z = beta * prog
+    if kappa_dir > 0 and reachable is not None and (~np.asarray(reachable)).any():
+        # goals beyond reach: a reach towards any far goal brings the hand closer to all of them (progress hardly
+        # tells them apart); the information is the direction of the hand's displacement, a vMF around G - S
+        far = ~np.asarray(reachable)
+        d = Q - S
+        d = d / (np.linalg.norm(d, axis=1, keepdims=True) + 1e-9)
+        u = cand[None] - S[:, None]
+        u = u / (np.linalg.norm(u, axis=2, keepdims=True) + 1e-9)
+        z = np.where(far[None], kappa_dir * np.einsum('tc,tkc->tk', d, u), z)
     if stopped is not None:                  # termination: a hand that stops (or is forecast to) stops at its goal,
         near = np.linalg.norm(Q[:, None, :2] - cand[None, :, :2], axis=2)      # p(stop at Q | G) ∝ exp(-beta d(Q, G))
         mask = stopped[:, None] & (np.ones(len(cand), bool) if reachable is None else reachable)[None]

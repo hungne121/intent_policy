@@ -39,6 +39,7 @@ class GoalBelief:
         self.every = int(round(1.0 / (self.fps * scenario.dt)))       # control ticks per belief frame (20 Hz -> 10 Hz)
         self.beta = 1000.0 / float(ve['beta_from_error_mm'])
         self.kappa = 1.0 / np.radians(float(ve['pointing_sigma_deg'])) ** 2
+        self.kappa_dir = 1.0 / np.radians(float(ve['reach_dir_sigma_deg'])) ** 2
         self.fc = ManiCastForecaster(dict(cfg, forecast=dict(cfg['forecast'], checkpoint_path=ve['checkpoint_path'])))
         self.t_out = np.arange(1, 11) / 10.0
         self.speed, self.travel_dz = float(speed), float(travel_dz)
@@ -63,7 +64,13 @@ class GoalBelief:
         self.obj_pos = np.asarray([sc.start_pos[k] for k in self.obj_keys], float).reshape(-1, 3)
         from intent_policy.scenarios.base_scenario import BaseScenario
         self.zone_pos = np.asarray([BaseScenario.zone_pos(sc, k) for k in self.zone_keys], float).reshape(-1, 3)
-        reach = lambda P: np.array([np.linalg.norm(sc.body_model.clamp(q) - q) < 0.01 for q in P], bool)
+        # within the human's comfortable reach (layout comfort_lean_deg 30, measured, configs/layout.yaml), not the
+        # mannequin's mechanical limit (70 deg): beyond it people indicate rather than reach (T1 items)
+        from intent_policy.sim.human_body import HumanBody
+        comfy = HumanBody({**sc.scene['human'], 'floor_z': sc.scene.get('floor_z', 0.0),
+                           'max_lean_deg': float(sc.layout['comfort_lean_deg'])})
+        tol = float(self.ve['reach_tol_m'])        # K1 / K2 are 1-4 cm beyond the comfortable reach (layout.yaml)
+        reach = lambda P: np.array([np.linalg.norm(comfy.clamp(q) - q) < tol for q in P], bool)
         self.obj_reach, self.zone_reach = reach(self.obj_pos), reach(self.zone_pos)
         self.b_star_obj = self._b_star(self.obj_pos)
         self.b_star_zone = self._b_star(self.zone_pos)
@@ -73,6 +80,7 @@ class GoalBelief:
         self.forecast = None                                         # [10, 3] wrist 0.1 .. 1.0 s ahead (world)
         self.moving, self.peak, self.moved_from, self.onset = False, 0.0, None, None
         self.after_motion = False                                    # the hand stopped after its latest motion
+        self.still_n = 0                                             # consecutive slow frames
         self.evidence = {}                                           # kind -> a gesture towards the candidates was seen
 
     def _b_star(self, P: np.ndarray) -> float:
@@ -120,7 +128,9 @@ class GoalBelief:
             self.moving, self.after_motion = True, False
             self.onset = self.moved_from                             # S of inverse planning = the motion's start
         self.peak = max(self.peak, v) if self.moving else 0.0
-        stopped = self.moving and v < float(self.ve['still_fraction']) * self.peak
+        slow = self.moving and v < float(self.ve['still_fraction']) * self.peak
+        self.still_n = self.still_n + 1 if slow else 0              # a stop = slow for >= hold_min_s (a shorter dip
+        stopped = slow and self.still_n >= int(round(float(self.ve['hold_min_s']) * self.fps)) + 1   # is a hesitation)
         f_stop = self._forecast_stopped(wrist[-1])                   # before the peak is reset below
         if stopped:                                                  # a motion ended: the gesture is complete
             self.after_motion = True
@@ -141,10 +151,13 @@ class GoalBelief:
                 continue
             Q = Q_fc if self.ve['use_forecast'][kind] else Q_obs
             prog = np.linalg.norm(S - pos, axis=1) - np.linalg.norm(Q - pos, axis=1)
-            if prog.max() < float(self.ve['moving_m']) and not self.pointing[-1]:
-                continue                     # not heading for any candidate (withdrawing): no evidence, keep the belief
+            sh = kp[-1, 1]                   # right shoulder: a reach extends the arm, a withdrawal brings the hand back
+            extend = float(np.linalg.norm(Q[0] - sh) - np.linalg.norm(S[0] - sh))
+            signal = self.pointing[-1] or self.sc.human.hand_shape == 'offer'   # a communicative hand shape (point /
+            if not signal and (prog.max() < float(self.ve['moving_m']) or extend < float(self.ve['moving_m'])):  # open palm)
+                continue                     # not a reach towards a candidate (withdrawing): no evidence, keep the belief
             st = np.array([stopped or (f_stop and self.ve['use_forecast'][kind])])   # observed stop always counts
-            b = posterior(S, Q, pos, self.beta, ray, self.kappa, st, reach)[0]
+            b = posterior(S, Q, pos, self.beta, ray, self.kappa, st, reach, self.kappa_dir)[0]
             if kind == 'object':
                 self.b_obj = b
             else:
