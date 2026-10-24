@@ -1,7 +1,7 @@
 """Keep, per training run, the checkpoint with the lowest val loss (ACT: Zhao et al. 2023) plus checkpoints/last; drop
 the optimizer state. Val loss is logged every log_every x 10 steps, checkpoints every --save-every-epochs: a checkpoint
 gets the first val loss logged at or after its step (the final step always has one).
-  python select_ckpt.py <run folder holding A/ B/ D/ B25/ ...>
+  python select_ckpt.py <folder holding A/ B/ D/ B25/ ...  or one run folder>
 """
 import json
 import shutil
@@ -9,7 +9,9 @@ import sys
 from pathlib import Path
 
 run = Path(sys.argv[1])
-for r in sorted(p for p in run.iterdir() if p.is_dir() and (p / 'train_log.jsonl').exists()):
+runs = [run] if (run / 'train_log.jsonl').exists() else \
+    sorted(p for p in run.iterdir() if p.is_dir() and (p / 'train_log.jsonl').exists())
+for r in runs:
     rows = [json.loads(l) for l in (r / 'train_log.jsonl').read_text().splitlines()]
     val = sorted((x['step'], x['val_loss']) for x in rows if 'val_loss' in x)
     ckpts = {int(p.name): p for p in (r / 'checkpoints').glob('[0-9]*')}
