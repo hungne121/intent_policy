@@ -91,3 +91,6 @@ Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outpu
   2. Tay người mang món đồ về đi xuyên qua robot đang đứng nhường; đổi sang rút ra theo lối bên phải người.
   3. Người với tay khi robot đang chắn lối, tay dừng giữa chừng mà vẫn "cầm" món đồ. Giờ người chỉ với khi cả lối đi cách robot ≥ 15 cm, và chỉ cầm khi tay đã tới món đồ.
 - **M1–M4 xong cho cả 4 task** (expert `cue_complete`): T1 16/16 (T5 12/12), T2 12/12, T3 8/8, T4 16/16.
+- 17:28–17:41: thư viện chuyển động người HY-Motion 1.0-Lite (người dùng duyệt thuê máy), 42 prompt × 4 mẫu = 168 đoạn, chạy trên A40 48 GB Secure ($0.59/giờ, khoảng 13 phút, khoảng $0.13). Kết quả ở `outputs/human_motion/hymotion_v6_2026-10-24/` (sha256 a86ee406…). Khoảng 10 s mỗi prompt, dùng 22.5 GB VRAM.
+  - Hai lỗi script đã sửa: regex lọc thư viện bỏ nhầm `torchdiffeq`; `tar --exclude` đặt sau đường dẫn.
+  - Đổi sang khung sim: `intent_policy/sim/motion_bank.py`. Đặt chân lên sàn, co giãn theo chiều cao người nộm, quay hướng mặt theo scene; lấy quỹ đạo lòng bàn tay, nắn đầu/cuối bằng motion warping (Witkin & Popović 1995).

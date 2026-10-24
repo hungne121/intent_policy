@@ -25,7 +25,7 @@ git log --oneline -1
 
 step "3/6 Python deps (the image's torch is kept; fbxsdkpy skipped: we save keypoints, not FBX)"
 python -c "import torch; print('torch', torch.__version__, torch.cuda.is_available())"
-grep -vE '^(torch|torchvision|fbxsdkpy|--extra-index-url)' requirements.txt > /tmp/req_hymotion.txt
+grep -vE '^(torch==|torchvision==|fbxsdkpy|--extra-index-url)' requirements.txt > /tmp/req_hymotion.txt
 python -m pip install -q -r /tmp/req_hymotion.txt
 
 step "4/6 Weights"
@@ -41,7 +41,7 @@ nvidia-smi --query-gpu=memory.used --format=csv
 
 step "6/6 Pack"
 TAR="$WORK/hymotion_v6_$(date +%F_%H-%M).tar.gz"
-tar czf "$TAR" -C "$WORK" hymotion_out --exclude hymotion_out/repo_npz
+tar czf "$TAR" -C "$WORK" --exclude hymotion_out/repo_npz hymotion_out   # GNU tar: --exclude before the paths
 cp "$LOG" "$WORK/hymotion_out/" || true
 ls -la "$TAR"; sha256sum "$TAR"
 echo "HYMOTION_DONE $TAR"
