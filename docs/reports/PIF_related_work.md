@@ -160,3 +160,32 @@ Bộ dự đoán lấy từ công trình đã công bố (ManiCast / MOSAIC, hư
 ManiCast arXiv 2310.13258 (CoRL 2023); MOSAIC arXiv 2402.18796 (CoRL 2024, PMLR 270); InteRACT arXiv 2311.12943 (ICRA 2024); HOI4ABOT arXiv 2309.16524 (CoRL 2023, PMLR 229); PACE MERL TR2025-064 (ICRA 2025); Diffusion Co-Policy arXiv 2305.12171 (RA-L 2024); Collaborative VLAs arXiv 2606.12475 (CoRL 2026); IDAGC arXiv 2507.04620 (preprint); Robot Trajectron arXiv 2402.02499 (ICRA 2024); Maeda et al. *IJRR* 36(13–14) 2017 và Campbell & Ben Amor CoRL 2017 (tóm tắt); Javdani et al. *IJRR* 2018 và Dragan & Srinivasa *IJRR* 2013 (đã có trong `docs/references.md`).
 
 Thêm cho §2–4 (đọc tóm tắt + nơi đăng): Weihs et al., *Bridging the Imitation Gap by Adaptive Insubordination*, NeurIPS 2021; Swamy, Choudhury, Bagnell, Wu, *Sequence Model Imitation Learning with Unobserved Contexts*, NeurIPS 2022; Chen, Zhou, Koltun, Krähenbühl, *Learning by Cheating*, CoRL 2019; trễ teleop: arXiv 2309.01952 (preprint); retime demo: arXiv 2607.25731 (preprint).
+
+## 6. Nếu dùng ý định tường minh: các vấn đề phải xử lý cùng lúc (24/10/2026 14:47)
+
+Người dùng yêu cầu: dùng ý định tường minh thì phải đồng thời xử lý các vấn đề đã được nghiên cứu chỉ ra, của học bắt chước (D1–D8, §3) **và** của HRI khi robot hành động theo dự đoán người (H1–H7 dưới đây).
+
+| # | Vấn đề HRI khi hành động theo dự đoán | Tài liệu | Cách xử lý trong bài |
+|---|---|---|---|
+| H1 | **Dự đoán sai gây va chạm / nguy hiểm** | ManiCast, InteRACT tự ghi; Lasota et al. 2017; ISO/TS 15066 | lớp an toàn độc lập với dự đoán (giám sát tốc độ – khoảng cách theo ISO/TS 15066), không để policy là lớp an toàn duy nhất |
+| H2 | **Mô hình người sai mà robot vẫn tin** | Fridovich-Keil et al., *Confidence-aware motion prediction for real-time collision avoidance*, IJRR 2019/2020: giữ belief trên độ "hợp lý" β, khi người làm khác mô hình thì tự giảm tin | belief của mình đã có hazard + mô hình ngoại lai; thêm: độ tin vào dự báo giảm khi sai số dự báo gần đây lớn (đúng ý tưởng của Fridovich-Keil) |
+| H3 | **Người phản ứng lại robot** làm phân phối hành vi người đổi; dự đoán học offline bị lệch | InteRACT 2024 ("con gà – quả trứng"); conformal prediction tương tác (arXiv 2502.06221, preprint) | đánh giá vòng kín (người phản ứng với robot trong sim; thật với người thật); có thể đưa hành động robot vào bộ dự báo như InteRACT nếu đo được lệch |
+| H4 | **Robot đổi qua đổi lại giữa các đích** khi belief dao động, gây khó hiểu cho người | Dragan, Lee, Srinivasa 2013 (dễ đọc / dễ đoán); nghiên cứu shared autonomy (Brooks & Szafir: người cần robot dễ đọc mới chịu nhường quyền) | expert và policy hành động theo phân phối (đi về hướng chung khi còn mơ hồ, Javdani 2018), cam kết khi belief qua ngưỡng có trễ (hysteresis); **đo** số lần đổi hướng |
+| H5 | **Độ tin không hiệu chỉnh** | Guo et al. 2017 | đo ECE của belief (đã có trong pilot) |
+| H6 | **Không tổng quát sang người khác** | CoMaD chỉ 2 người; ManiCast chỉ thử định tính 2 người mới | huấn luyện trước trên AMASS (hàng trăm người), tinh chỉnh CoMaD + HABIT (nhiều người); đánh giá trên người chưa thấy |
+| H7 | **Nhận thức hỏng khi bị che / ra khỏi khung** | MOSAIC tự ghi (người ra khỏi khung là hỏng); chẩn đoán của mình (§8 PIF_pilot) | cổng giải phẫu (đã chọn), coi frame lỗi là thiếu dữ liệu trong bộ lọc; hệ thật: mặt nạ robot từ động học |
+
+Danh sách cùng lúc phải xử lý: **D1** (expert không đặc quyền + oracle), **D3** (đo rò qua chunk), **D4** (bỏ chờ theo đồng hồ), **D5** (cross-fitting), **D6** (làm nhiễu belief kiểu DART), **D8** (episode thật), **H1** (lớp an toàn), **H2** (độ tin tự điều chỉnh), **H3** (đánh giá vòng kín), **H4** (đo đổi hướng, cam kết có trễ), **H5** (ECE), **H6** (người chưa thấy), **H7** (cổng giải phẫu, frame thiếu).
+
+## 7. ManiCast có dùng được cho môi trường / dữ liệu khác không
+
+| Câu hỏi | Bằng chứng | Kết luận |
+|---|---|---|
+| Kiến trúc có gắn với CoMaD không | STS-GCN là mạng đồ thị trên skeleton bất kỳ; ManiCast chỉ là **công thức huấn luyện** (huấn luyện trước, tinh chỉnh, tăng trọng số đoạn chuyển / cổ tay) | không gắn; train lại được |
+| Đã có ai dùng ở môi trường khác chưa | **MOSAIC (CoRL 2024)** dùng lại với **cảm biến khác** (MediaPipe + depth, một camera, bếp khác), tinh chỉnh + bơm nhiễu; ADE 29.9 mm trên CoMaD; trên robot: phản ứng 48.9 ms, không va chạm (0/10) | có một lần chuyển thành công, **cùng nhóm tác giả** |
+| Người khác | ManiCast: CoMaD 2 người, thêm 2 người mới chỉ đánh giá định tính | **yếu**; phải tự đo |
+| Code | repo có `pretrain.py`, `finetune.py`, checkpoint trong `model_checkpoints`; **không có hướng dẫn dữ liệu riêng**; **không ghi giấy phép** | dùng được nhưng phải tự viết loader; giấy phép phải hỏi |
+| Khớp với dữ liệu của mình | ManiCast: 7 khớp (cổ tay, khuỷu, vai, lưng trên), 0.4 s quá khứ → 1 s tương lai, 25 bước/s. Mình: có cổ tay, khuỷu, vai (thiếu lưng trên), **10 Hz** | phải train lại ở 10 Hz (hạ mẫu dữ liệu train, không nội suy); lưng trên thay bằng trung điểm hai vai (cần ghi rõ) |
+| "Theo chi phí" ở việc mới | phải định nghĩa "đoạn chuyển" theo việc (ManiCast: tay vào vùng robot, trao vật) | định nghĩa theo vai của mình: tay vào vùng robot (Coworker), tay chìa ra (Collaborator), tay hướng về vật (Supervisor) |
+
+**Kết luận:** ManiCast dùng được cho dữ liệu của mình dưới dạng **công thức + kiến trúc, train lại**, không phải "tải về chạy ngay". Bằng chứng tổng quát hóa sang người khác còn yếu, nên đo lệch miền và đánh giá trên người chưa thấy là bắt buộc.
