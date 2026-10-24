@@ -1,0 +1,61 @@
+# Đề xuất kịch bản T1–T5 (v6), lấy cảm hứng từ HABIT
+
+Viết 24/10/2026 15:50 (+07). **Đề xuất, chờ người dùng duyệt**, chưa sửa code. Căn cứ: `docs/PIF.md` §0 (mục tiêu chính: từ quan sát người, robot hành động **sớm, đúng vai, đúng việc**), ba pha thông tin (trước, trong, sau cử chỉ), 6 yêu cầu benchmark (khóa luận chương 2 §2.8.3), danh sách vấn đề D1–D8 / H1–H7 (`docs/reports/PIF_related_work.md` §6).
+
+## 1. Vì sao kịch bản cũ "ngô nghê"
+
+- Vật là khối vuông màu; đích chọn bằng **chỉ tay** (là **lệnh**, đúng thứ handoff muốn tránh làm tín hiệu chính).
+- T3 "cầm khối nào thì robot mang cốc cặp với khối đó" là luật tùy ý, không có trong đời thật.
+- Không có pha "trước khi người cử động" có nghĩa (người đứng chờ rồi ra lệnh).
+- Mỗi task một cử chỉ, chuyển động người là kịch bản thủ tục, ít đa dạng.
+
+## 2. Đối chiếu HABIT → kịch bản mới
+
+| Mới | Vai | HABIT tham khảo | Người làm gì | Robot làm đúng là | Sớm ở đâu (pha) |
+|---|---|---|---|---|---|
+| **T1 Chọn món** | Supervisor | "Provide the desired donut to the person", "Place the items the person wants into the basket" | đứng trước 3–4 món (có món giống nhau, đặt sát nhau), **nhìn / vươn tay về món muốn**, có lúc chỉ, có lúc chỉ vươn tay rồi rút; chọn khay (2 khay) | lấy đúng món, đặt lên đúng khay trước mặt người | **trong**: dự báo hướng tay; **sau**: nhớ món khi tay đã rút; **trước**: quy trình (sắp phải lấy một món) → chuẩn bị ở giữa các món |
+| **T2 Đưa đồ** | Collaborator | "Retrieve and hand over the desired beverage to the person" (S7045), S6760 (trao và nhận lại PCB) | **đang làm việc** (cầm vật bằng hai tay), làm xong thì **chìa tay** ở vị trí / độ cao thay đổi; dùng xong **đưa trả** | lấy đồ khi người **sắp xong** việc đang làm, gặp tay ở **chỗ dự báo**, thả khi người nắm; nhận lại khi người đưa trả | **trước**: tiến độ việc của người (kiểu PACE); **trong**: dự báo điểm trao (kiểu ManiCast) |
+| **T3 Đặt cốc lên lót cốc** | Collaborator | "Place coasters on the table and set cups on them" | **đặt lót cốc** ở chỗ tùy ý trong vùng chung (1–2 cái), có lúc **dời lót cốc** | đặt cốc lên lót cốc **ngay khi đoán được chỗ đặt** | **trong**: dự báo chỗ tay hạ lót cốc; **sau**: nhớ chỗ khi tay rút |
+| **T4 Làm việc cạnh nhau** | Coworker | "Place the bread into the airtight container" (S8791) | robot bỏ bánh vào lần lượt các hộp; người **đóng nắp hộp vừa có bánh**, có lúc **với lấy đồ** trong vùng robot (xâm nhập thật) hoặc **gần** (không xâm nhập) | tiếp tục việc của mình; **chọn hộp kế tiếp tránh tay người**; nhường **trước** khi tay vào đường đi | **trước**: quy trình (người sẽ đóng hộp vừa đầy); **trong**: dự báo vùng tay sắp chiếm |
+| **T5 Đổi ý và ý định sai** | biến thể của T1–T4 | "Move the N-th donut from the left to the tray" | **đổi món / đổi chỗ** giữa chừng; **bắt đầu về A rồi chuyển sang B**; **ngập ngừng** | đổi theo nhanh, không giật qua lại | đo thời gian robot đổi theo; làm sai belief có kiểm soát (câu hỏi 2) |
+
+## 3. Đáp ứng các yêu cầu
+
+| Yêu cầu | Đáp ứng |
+|---|---|
+| Mơ hồ có chủ đích | món giống nhau đặt sát (T1); 2 khay sát nhau; lót cốc gần nhau (T3); 2 hộp kề nhau (T4) |
+| Ba pha thông tin | mỗi task có pha "trước" thật: quy trình (T1, T4), tiến độ việc của người (T2) |
+| Không lấy chỉ tay làm tín hiệu chính | T1 trộn "chỉ" và "chỉ vươn tay"; T2–T4 không có chỉ tay |
+| Nhãn có thời điểm | onset, clear, chỗ / món đích, các mốc quy trình (đã có khung trong code) |
+| Ý định sai, đổi ý | T5 + làm sai belief có kiểm soát |
+| 3 vai (HABIT) | Supervisor (T1), Collaborator (T2, T3), Coworker (T4) |
+| Thật khoảng 100 episode | cùng 4 kịch bản với đồ thật (cốc, lót cốc, hộp có nắp, đồ ăn giả) |
+
+## 4. Demo sớm, không đặc quyền (D1)
+
+Expert quyết định **chỉ trên thông tin mà policy D cũng có**: belief + dự báo + trạng thái quy trình. Không đọc ground truth ý định.
+- **Sớm (B, D):** đi theo hướng chung khi còn mơ hồ (Javdani 2018), cam kết khi belief qua ngưỡng có trễ.
+- **Muộn (A):** cùng expert, chờ belief ≥ ngưỡng cao và cử chỉ đã xong.
+- Thêm **oracle** (expert / policy biết ý định thật) làm cận trên.
+- Bỏ mọi chờ theo đồng hồ (D4).
+
+## 5. Chuyển động người: thư viện HY-Motion (cần GPU ≥ 24 GB)
+
+Prompt tiếng Anh, mỗi prompt nhiều seed, 2–5 s, người đứng trước bàn:
+- T1: "a person standing at a table looks at the items, reaches the right hand toward an item on the left / center / right, then withdraws"; "... points at an item ..."; "... starts reaching toward one item, hesitates and reaches toward another".
+- T2: "a person holds an object with both hands and works on it, then extends an open right palm forward to receive something"; "... hands an object back across the table".
+- T3: "a person picks up a flat coaster and places it on the table in front / to the left / to the right"; "... slides the coaster to another spot".
+- T4: "a person closes the lid of a box on the table with one hand"; "... reaches across the table to grab an item and withdraws"; "... reaches near the middle of the table without crossing".
+- Chờ: "stands waiting with hands resting on the table", "looks around the table".
+
+HY-Motion **không nhắm theo vị trí**, nên cần **nắn chuyển động về vị trí thật** bằng IK ở điểm cuối (giữ dáng, sửa đích). Bước này cần thiết kế riêng.
+
+## 6. Khối lượng việc và thứ tự đề xuất
+
+1. Duyệt kịch bản (tài liệu này).
+2. Thêm vật: khay, lót cốc, hộp có nắp, đồ ăn giả (hình khối MuJoCo đơn giản).
+3. Hành vi người mới (thủ tục trước; HY-Motion sau khi có GPU ≥ 24 GB).
+4. Expert sớm / muộn không đặc quyền + oracle; nhãn.
+5. Thu demo, train B và D, rồi A.
+
+**Tự kiểm trôi hướng (PIF.md §0):** đo được trước lệnh ✓ (T2–T4 không có lệnh, T1 có pha vươn tay); 3 vai ✓; dự đoán tương lai ✓ (ManiCast, cần tinh chỉnh); phần chưa kiểm: thư viện HY-Motion và việc nắn chuyển động.
