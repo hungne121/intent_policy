@@ -76,23 +76,7 @@ for m in $MODELS; do echo "$m: $(grep -E 'step=' "$RUN/$m.log" | tail -1)"; done
 nvidia-smi --query-gpu=memory.used --format=csv
 
 step "5/5 Best (lowest val loss) + last checkpoint of each run, tar"
-"$INTENT_PYTHON" - "$RUN" <<'PY'
-import json, shutil, sys
-from pathlib import Path
-run = Path(sys.argv[1])
-for r in sorted(p for p in run.iterdir() if p.is_dir()):
-    rows = [json.loads(l) for l in (r / 'train_log.jsonl').read_text().splitlines()]
-    ckpts = {int(p.name): p for p in (r / 'checkpoints').glob('[0-9]*')}
-    val = {x['step']: x['val_loss'] for x in rows if 'val_loss' in x and x['step'] in ckpts}
-    best = min(val, key=val.get)
-    for s, p in ckpts.items():               # checkpoints/last = the final model (2000 epochs)
-        if s != best:
-            shutil.rmtree(p)
-        else:
-            (p / 'training_state.pt').unlink(missing_ok=True)
-    (r / 'best.json').write_text(json.dumps(dict(best_step=best, val_loss=val[best], val_by_step=val), indent=1))
-    print(r.name, 'best step', best, 'val', round(val[best], 4), 'last', max(ckpts), 'val', round(val[max(ckpts)], 4))
-PY
+"$INTENT_PYTHON" workstation/rent/select_ckpt.py "$RUN"
 cp "$LOG" "$RUN/"
 TAR="$ROOT/act_v6_$(date +%F_%H-%M).tar"
 tar cf "$TAR" "$RUN"
