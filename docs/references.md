@@ -104,3 +104,21 @@ Khoá luận chỉ dẫn các nguồn ở mục A. Mục B ghi các nguồn khô
 | Intel RealSense D435 datasheet | tài liệu kỹ thuật của hãng, không phải bài báo | dẫn như datasheet |
 
 Khoá luận (`docs/thesis`) chỉ dẫn các nguồn ở mục A, cộng các preprint ghi rõ ở mục B (HABIT, RTMW, LeJEPA, HRIBench, Huang 2026). Các mục cũ khác trong `references.bib` không được dẫn nên không in ra. Chưa duyệt: các trích dẫn trong `docs/intent_act/`.
+
+## C. Thêm khi viết lại chương 2 khóa luận (24/10/2026, mức kiểm: tóm tắt + nơi đăng, qua tìm kiếm)
+
+| Nguồn | Nơi đăng | Ghi chú |
+|---|---|---|
+| de Haan, Jayaraman, Levine. Causal Confusion in Imitation Learning (2019) | NeurIPS 2019 (oral) | thêm thông tin có thể làm nhân bản hành vi kém đi |
+| Kim et al. OpenVLA (2024) | CoRL 2024 (PMLR 270) | 7B tham số, 970k trình diễn |
+| Black et al. π0 (2024) | arXiv 2410.24164 | **preprint**, chưa xác nhận nơi đăng |
+| NVIDIA. GR00T N1 (2025) | arXiv 2503.14734 | **preprint** |
+| Wang et al. Inference-Time Policy Steering through Human Interactions (2025) | ICRA 2025 | lái chính sách sinh bằng tương tác người lúc chạy |
+| Onnasch, Roesler. A Taxonomy to Structure and Analyze Human–Robot Interaction (2021) | *Int. J. Social Robotics* 13(4) 833–849 | hệ phân loại tương tác |
+| Steinfeld et al. Common Metrics for Human-Robot Interaction (2006) | HRI 2006 | số trang mâu thuẫn giữa các nguồn, không ghi |
+| Dragan, Srinivasa. A Policy-Blending Formalism for Shared Control (2013) | *IJRR* 32(7) 790–805 | phân xử theo độ tin |
+| Fox, Sudderth, Jordan, Willsky. A Sticky HDP-HMM with Application to Speaker Diarization (2011) | *Ann. Appl. Stat.* 5(2A) 1020–1056 | thiên hướng tự giữ trạng thái |
+| Sampieri et al. Pose Forecasting in Industrial Human-Robot Collaboration (CHICO, 2022) | ECCV 2022 | 20 người, 7 hành động, 226 va chạm |
+| Wiederhold et al. HOH (2023) | NeurIPS 2023 Datasets & Benchmarks | 2 720 lần trao vật, 136 vật |
+| Chao et al. HandoverSim (2022) | ICRA 2022, 6941–6947 | tương quan mô phỏng – thật |
+| Puig et al. Habitat 3.0 (2024) | ICLR 2024 (poster) | người ảo + robot, có người thật điều khiển |

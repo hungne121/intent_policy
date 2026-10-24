@@ -1,60 +1,98 @@
 % !TEX root = ../main.tex
-\chapter{GIỚI THIỆU}
+\chapter{GIỚI THIỆU CHUNG}
 \label{chap:introduction}
 
-\section{Bối cảnh}
-\label{sec:motivation}
+Chương này trình bày tổng quan về học bắt chước cho robot thao tác, làm tiền đề cho bối cảnh nghiên cứu: robot làm việc cùng con người và vì sao robot cần đoán trước ý định của người. Tiếp theo, các hướng tiếp cận nhận biết ý định hiện nay được đưa vào thảo luận. Từ hạn chế của các hướng này, chương nêu động lực của khóa luận. Phần cuối là nội dung thực hiện và bố cục của khóa luận.
 
-Trong vài năm gần đây, học bắt chước (imitation learning) từ dữ liệu trình diễn đã trở thành một hướng tiếp cận chủ đạo để huấn luyện chính sách điều khiển tay máy. Các mô hình như ACT~\cite{zhao2023act}, Diffusion Policy~\cite{chi2023diffusion}, RT-1~\cite{brohan2023rt1} hay Octo~\cite{octo2024} cho thấy chỉ với vài chục tới vài nghìn lượt trình diễn, robot có thể học các kỹ năng thao tác tinh tế trực tiếp từ ảnh camera. Các thư viện mã nguồn mở như LeRobot~\cite{cadene2026lerobot} còn giúp những mô hình này dễ tái lập và triển khai hơn. Tuy vậy, phần lớn các kết quả trên được đánh giá trong bối cảnh robot làm việc \emph{một mình}: môi trường tĩnh, nhiệm vụ được chỉ định sẵn và không có con người tham gia vào vòng điều khiển.
+\section{Tổng quan về học bắt chước cho robot thao tác}
+\label{sec:intro-il}
 
-Khi robot bước vào không gian làm việc chung với con người, yêu cầu đặt ra thay đổi về chất. Robot không chỉ cần thực hiện đúng kỹ năng mà còn phải hiểu \emph{người đang muốn gì}, \emph{khi nào} cần hành động và \emph{khi nào} cần nhường. Các nghiên cứu về tương tác người -- robot (Human--Robot Interaction, HRI) đã chỉ ra rằng khả năng đoán trước ý định của người giúp robot phản hồi sớm hơn và làm cho sự phối hợp trôi chảy hơn~\cite{hoffman2007cost,huang2016anticipatory,hoffman2019fluency}. Ngược lại, khi con người xâm nhập vùng làm việc, robot phải phản ứng an toàn~\cite{lasota2017survey,iso15066}. Gần đây, HRIBench~\cite{liu2026hribench} đánh giá các chính sách thị giác -- ngôn ngữ -- hành động trên ba vai tương tác (người chỉ dẫn, người cộng tác, người xâm nhập) và cho thấy các mô hình nền tảng hiện tại gặp khó khăn rõ rệt ở các nhiệm vụ cộng tác. Trong khi đó, Xu và cộng sự~\cite{xu2026learning} quan sát thấy cơ chế phân đoạn hành động (action chunking) có thể khiến robot ``hỗ trợ sớm'' một cách sai lệch khi chuỗi trình diễn vắt qua thời điểm ý định của người thay đổi.
+\subsection{Học bắt chước và nhân bản hành vi}
 
-Từ những quan sát trên, có thể thấy các chính sách học bắt chước hiện tại gặp hai vấn đề khi đặt vào bối cảnh HRI. Thứ nhất, chúng phải tự suy ra ý định của người từ điểm ảnh, trong khi tín hiệu ý định (một cử chỉ chỉ tay, một bàn tay đang vươn ra) chỉ chiếm một phần nhỏ trong ảnh và thay đổi nhanh theo thời gian. Thứ hai, ngay cả khi suy ra được, chính sách không có cơ chế tường minh để biết \emph{bao lâu nữa} người sẽ hoàn thành hành động của mình. Vì vậy, robot khó phản hồi đúng lúc và khó phối hợp an toàn.
+Học bắt chước (imitation learning) huấn luyện chính sách điều khiển robot từ các lượt trình diễn của chuyên gia, thay vì lập trình từng hành vi bằng tay. Dạng đơn giản nhất là nhân bản hành vi (behavior cloning): học có giám sát một ánh xạ từ quan sát $o_t$ sang hành động $a_t$. Hạn chế cơ bản của nhân bản hành vi là lệch phân phối: khi chính sách mắc một lỗi nhỏ, nó đi vào những trạng thái mà chuyên gia chưa từng gặp, và lỗi tích lũy theo thời gian~\cite{ross2011dagger}. Hai hướng khắc phục phổ biến là thu thêm nhãn chuyên gia trên chính các trạng thái mà chính sách đi tới (DAgger~\cite{ross2011dagger}), hoặc bơm nhiễu vào hành động của chuyên gia ngay khi trình diễn để dữ liệu bao phủ cả các trạng thái lệch (DART~\cite{laskey2017dart}).
 
-\subsection{Giả thiết}
-\label{sec:hypothesis}
+\subsection{ACT và phân đoạn hành động}
 
-Khóa luận đặt ra giả thiết rằng: \emph{nếu làm giàu đầu vào của chính sách học bắt chước bằng các tín hiệu tường minh về ý định của con người, chính sách sẽ hành động chính xác hơn, phản hồi kịp thời hơn và an toàn hơn trong các tình huống tương tác}. Thông tin ý định ở đây được phân thành ba loại theo câu hỏi mà robot cần trả lời (Chương~\ref{chap:method}):
+ACT (Action Chunking with Transformers)~\cite{zhao2023act} là chính sách học bắt chước được dùng làm nền trong khóa luận. Mỗi bước, ACT nhận ảnh camera và trạng thái khớp, rồi dự đoán một \emph{đoạn} gồm $k$ hành động liên tiếp (action chunk) thay vì một hành động. Việc này làm giảm số lần ra quyết định và giảm lỗi tích lũy. ACT dùng bộ mã hóa ảnh ResNet18~\cite{he2016resnet}, một Transformer mã hóa -- giải mã~\cite{vaswani2017attention} và một bộ mã hóa CVAE~\cite{sohn2015cvae} để mô hình hóa sự khác nhau giữa các lần trình diễn. Khóa luận dùng bản cài đặt ACT của thư viện LeRobot~\cite{cadene2026lerobot}, với hành động liên tục gồm 6 góc khớp đích và độ mở tay kẹp, mỗi đoạn 40 bước (2\,s ở 20\,Hz).
+
+Điểm quan trọng với khóa luận là ACT ra quyết định chỉ từ \emph{quan sát hiện tại}. Độ dài đoạn hành động là chân trời ``danh nghĩa'', còn chân trời có nghĩa chỉ kéo tới chỗ mà frame hiện tại còn đủ thông tin để quyết định. Tăng độ dài đoạn hay tăng tần số không thêm được thông tin mà frame hiện tại không có.
+
+\section{Bối cảnh nghiên cứu: robot làm việc cùng con người}
+\label{sec:intro-context}
+
+\subsection{Các vai tương tác}
+
+Khi robot làm việc trong không gian chung với con người, nhiệm vụ không còn do robot quyết định một mình. Bộ dữ liệu HABIT~\cite{song2026habit}, gồm hơn 10\,000 episode thao tác hai tay có người tham gia, phân các tình huống thành ba vai của người:
 \begin{itemize}
-  \item \textbf{ngữ nghĩa}: nhiệm vụ là gì, ai sẽ thực hiện bước tiếp theo;
-  \item \textbf{không gian}: vật nào, ở đâu;
-  \item \textbf{thời gian}: khi nào người hoàn thành cử chỉ của mình.
+  \item \textbf{Supervisor}: người chỉ dẫn, robot thực hiện (ví dụ người chỉ vào hộp nào, robot bỏ bánh vào hộp đó);
+  \item \textbf{Collaborator}: người và robot cùng hoàn thành một việc (ví dụ trao và nhận lại một tấm mạch);
+  \item \textbf{Coworker}: mỗi bên làm việc riêng trong không gian chung (ví dụ robot bỏ bánh vào hộp, người đóng nắp hộp vừa có bánh).
 \end{itemize}
+HRIBench~\cite{liu2026hribench} cũng chia theo ba vai tương tự (Instructor, Collaborator, Intruder) và đề xuất các chỉ số về đồng bộ, khả năng phản hồi và an toàn. Đây là một bản preprint, nên khóa luận chỉ tham khảo cách chia vai và cách đo.
 
-Để kiểm chứng giả thiết một cách có kiểm soát, khóa luận tách hai yếu tố dễ bị lẫn vào nhau: \emph{có hay không có thông tin ý định}, và \emph{thời điểm phản hồi của dữ liệu trình diễn} (phản hồi khi ý định đã rõ hay phản hồi sớm). Từ đó hình thành bốn câu hỏi nghiên cứu, được trình bày chi tiết ở Mục~\ref{sec:research-questions}:
-\begin{enumerate}[label=\textbf{Q\arabic*.}, leftmargin=*, labelindent=0.5in]
-  \item Chính sách gốc (không có thông tin ý định) có học được cách phản ứng sớm với ý định của người hay không?
-  \item Thông tin ý định có cải thiện độ chính xác hành động của chính sách hay không?
-  \item Chính sách nhận thức ý định có phản ứng sớm tốt hơn chính sách gốc hay không?
-  \item Câu hỏi chính: thông tin ý định có cải thiện chính sách hành động gốc khi robot được kỳ vọng phản hồi sớm hay không?
+\subsection{Vì sao robot cần đoán trước ý định của người}
+
+Ở cả ba vai, phần tương lai của người làm thay đổi hành động tối ưu của robot: người sẽ chọn vật nào, sẽ đưa tay tới đâu, và khi nào. Nhiều nghiên cứu cho thấy đoán trước được điều này giúp phối hợp tốt hơn:
+\begin{itemize}
+  \item Hoffman và Breazeal~\cite{hoffman2007cost} chọn hành động theo kỳ vọng về bước tiếp theo của người, giúp cộng tác trôi chảy hơn;
+  \item Huang và Mutlu~\cite{huang2016anticipatory} dùng hướng nhìn để dự đoán vật người sắp yêu cầu, rút ngắn thời gian hoàn thành so với điều khiển chỉ phản ứng;
+  \item Pérez-D'Arpino và Shah~\cite{perezdarpino2015fast} đoán đúng đích của chuyển động vươn tay khoảng 70\% sau một phần ba quỹ đạo (dưới 500\,ms);
+  \item Javdani và cộng sự~\cite{javdani2018shared} chỉ ra rằng cách ``đoán xong mới hành động'' giúp được rất ít, vì thường phải tới gần cuối mới đoán chắc được mục tiêu. Robot nên hành động sao cho chi phí kỳ vọng trên \emph{phân phối} mục tiêu là nhỏ nhất, ngay cả khi chưa chắc.
+\end{itemize}
+Hoffman~\cite{hoffman2019fluency} hệ thống hóa các chỉ số khách quan của sự trôi chảy, trong đó thời gian người phải chờ và độ trễ phản hồi của robot là các chỉ số chính. Khóa luận ưu tiên nhóm chỉ số thời gian này.
+
+\section{Các hướng tiếp cận nhận biết ý định hiện nay}
+\label{sec:intro-approaches}
+
+Có thể chia các hướng tiếp cận thành bốn nhóm:
+\begin{enumerate}
+  \item \textbf{Nhận dạng cử chỉ và lệnh.} Nhận dạng cử chỉ chỉ tay và ước lượng hướng chỉ~\cite{nickel2007pointing,nakamura2023deepoint}. Kết quả là \emph{lệnh} của người, chỉ có sau khi người đã ra hiệu đủ rõ.
+  \item \textbf{Dự đoán đích của chuyển động.} Phân loại đích từ phần đầu của quỹ đạo tay~\cite{perezdarpino2015fast}, hoặc dự đoán chuyển động 3D của người có điều kiện theo ý định~\cite{laplaza2022context}.
+  \item \textbf{Suy luận mục tiêu kiểu Bayes.} Coi người là tác tử hành động có mục đích, nên chuyển động là bằng chứng về mục tiêu (inverse planning~\cite{baker2009inverse}). Robot giữ một phân phối niềm tin trên các mục tiêu và cập nhật theo thời gian~\cite{javdani2018shared}.
+  \item \textbf{Mô hình thế giới và biểu diễn dự đoán.} Học một trạng thái ẩn tóm tắt lịch sử, được huấn luyện bằng cách dự đoán tương lai: trạng thái ẩn liên tục hoặc rời rạc được lọc theo thời gian~\cite{hafner2019planet,hafner2021dreamerv2}, hoặc dự đoán trong không gian biểu diễn thay vì không gian ảnh (JEPA~\cite{assran2023ijepa}). Nhóm này không cần nhãn ý định.
 \end{enumerate}
 
-\section{Mục tiêu và phạm vi}
-\label{sec:scope}
+Bộ nhận biết ý định mà khóa luận xây dựng trước đây (gọi là bộ \emph{cũ}, dùng làm baseline) thuộc nhóm thứ nhất: mô hình DeePoint~\cite{nakamura2023deepoint} đo hướng chỉ tay, rồi một bộ luật quyết định đích.
 
-Mục tiêu của khóa luận là xây dựng và đánh giá một chính sách học bắt chước nhận thức ý định. Chính sách nhận thêm thông tin ý định của người bên cạnh ảnh camera và trạng thái robot, và được so sánh với chính sách gốc trên cùng dữ liệu, cùng kiến trúc và cùng ngân sách huấn luyện. Phạm vi nghiên cứu được giới hạn như sau:
+\section{Động lực cho nghiên cứu}
+\label{sec:intro-motivation}
+
+ACT gốc, vì chỉ nhìn một frame, gặp bốn lỗi điển hình trong tương tác với người:
+\begin{enumerate}
+  \item \textbf{quên lệnh}: khi người đã rút tay về, frame hiện tại không còn dấu vết của cử chỉ;
+  \item \textbf{đi về hướng trung bình}: ở đầu cử chỉ, robot chưa phân biệt được các đích, nên đi về phía giữa;
+  \item \textbf{không phân biệt tay đang tới hay đang lùi}: một frame không chứa vận tốc;
+  \item \textbf{bắt chước chính mình} (copycat~\cite{wen2020copycat}): khi có thêm lịch sử, chính sách dễ học cách lặp lại hành động trước đó thay vì phản ứng với người, nhất là khi người đổi ý.
+\end{enumerate}
+Bộ nhận biết ý định cũ giải quyết được một phần lỗi thứ nhất, nhưng nó là bộ \emph{nhận dạng lệnh}: chỉ cho ra đích khi người đã chỉ đủ rõ, nên không giúp robot đi sớm. Kiến trúc của nó cũng chắp vá, gồm nhiều luật và nhiều đầu ra riêng.
+
+Vì vậy, thông tin ý định đưa vào ACT phải bổ sung đúng ba thứ mà ACT không tự có: \textbf{bộ nhớ} về những gì người đã ra hiệu, \textbf{dự đoán sớm} trước khi cử chỉ kết thúc, và \textbf{tín hiệu chuyển động} của tay người. Khóa luận xây dựng một mô hình ý định thống nhất làm việc này, gọi là PIF (Predictive Intent Filter). PIF thuộc nhóm thứ tư nhưng có cấu trúc của nhóm thứ ba: trạng thái ẩn là một phân phối niềm tin trên các cặp (quan hệ, đối tượng), được lọc đệ quy theo thời gian và được học bằng cách dự đoán tương lai, không cần nhãn ý định.
+
+PIF được xây dựng và đánh giá \emph{trên dữ liệu người thật HABIT trước}, sau đó mới chuyển sang mô phỏng và hệ robot thật. Thứ tự này tránh rủi ro mô hình chỉ học được hành vi của người mô phỏng: một bộ đo hướng chỉ tay tinh chỉnh trên dữ liệu mô phỏng trước đây chỉ nhận đúng 0/6 lần chỉ tay của người thật, trong khi mô hình gốc nhận đúng 6/6 (Chương~\ref{chap:experiments}).
+
+\section{Nội dung thực hiện trong khóa luận}
+\label{sec:intro-content}
+
+Khóa luận trả lời ba câu hỏi nghiên cứu:
 \begin{itemize}
-  \item \textbf{Mô phỏng.} Toàn bộ thí nghiệm thực hiện trong môi trường mô phỏng MuJoCo~\cite{todorov2012mujoco} với tay máy UR3e. Con người là một mô hình người có chuyển động được lập trình sẵn và lặp lại được theo seed. Việc thử nghiệm với người thật nằm ngoài phạm vi; khóa luận chỉ chuẩn bị sẵn công cụ ghi dữ liệu người thật để đo nhiễu cảm biến.
-  \item \textbf{Không gian hành động rút gọn.} Để giảm độ bất định và đo tác động của ý định một cách rõ ràng nhất, chính sách xuất ra một trong 9 hành động cơ bản (tiến, lùi, trái, phải, lên, xuống, giữ yên, đóng và mở tay kẹp) thay vì quỹ đạo khớp liên tục.
-  \item \textbf{Nguồn thông tin ý định.} Thông tin ý định được cung cấp theo ba mức: \emph{hindsight} (biết trước tương lai, đóng vai trò cận trên), \emph{perfect} (nhân quả, cảm nhận hoàn hảo) và \emph{predicted} (có nhiễu và bộ phân loại học được). Huấn luyện một bộ dự đoán ý định hoàn chỉnh từ ảnh nằm ngoài phạm vi; khóa luận chỉ để sẵn giao diện cho các bộ dự đoán như InteRACT~\cite{kedia2024interact}.
+  \item \textbf{RQ1.1:} ACT có thật sự dùng thông tin ý định hay không? (kiểm bằng hoán đổi và loại bỏ ý định)
+  \item \textbf{RQ1.2:} thông tin ý định có cải thiện hiệu năng không? So sánh ba chính sách: A phản hồi khi ý định đã rõ, không có thông tin ý định; B phản hồi sớm, không có thông tin ý định; D phản hồi sớm, có thông tin ý định từ PIF. So D với B cho biết ý định có giúp phản hồi sớm hay không; so B với A cho biết ACT gốc có tự học được phản hồi sớm từ ảnh hay không.
+  \item \textbf{RQ2:} thông tin ý định cải thiện bằng cơ chế nào, loại thông tin nào có ích.
 \end{itemize}
 
-\section{Đóng góp và bố cục khóa luận}
-\label{sec:contributions}
-
-Khóa luận có ba đóng góp chính:
+Các nội dung đã thực hiện:
 \begin{enumerate}
-  \item \textbf{Chính sách học bắt chước nhận thức ý định.} Khóa luận định nghĩa một hợp đồng dữ liệu cố định cho thông tin ý định gồm các thành phần ngữ nghĩa, không gian và thời gian; xây dựng ba nguồn sinh thông tin theo hợp đồng này cùng một bộ nhớ mục tiêu dùng chung; và mở rộng ACT để nhận thông tin ý định dưới dạng token, kèm cơ chế dropout theo nhóm thông tin phục vụ phân tích tác động của từng loại.
-  \item \textbf{Bộ bối cảnh nhiệm vụ HRI.} Khóa luận xây dựng năm nhiệm vụ trong mô phỏng thuộc ba vai tương tác: \emph{Instructor} (robot thực thi theo chỉ dẫn bằng cử chỉ của người), \emph{Collaborator} (robot phối hợp cùng người: trao vật, hỗ trợ theo quy trình) và \emph{Intruder} (người xâm nhập vùng làm việc, robot phải dừng và tiếp tục an toàn), cùng biến thể người đổi ý. Các nhiệm vụ đi kèm bố trí bàn theo tầm với, danh sách kịch bản cân bằng và expert sinh dữ liệu trình diễn ở hai chế độ thời điểm.
-  \item \textbf{Quy trình đánh giá.} Khóa luận xây dựng quy trình đánh giá hai mức: kiểm tra ngoại tuyến xem chính sách có thực sự dùng thông tin ý định hay không (hoán đổi và loại bỏ theo nhóm thông tin), và đánh giá vòng kín bằng bộ chỉ số tương tác dựa trên sự kiện, lấy cảm hứng từ HRIBench~\cite{liu2026hribench}.
+  \item thiết kế đầu vào thống nhất cho mô hình ý định: token người, token đối tượng và token robot trong hệ tọa độ bàn, dùng chung cho mô phỏng, HABIT và hệ thật (Chương~\ref{chap:method});
+  \item xây dựng pipeline nhận thức chuyển video HABIT thành token 3D, chọn và kiểm chứng các mô hình bằng số đo (Chương~\ref{chap:method}, \ref{chap:experiments});
+  \item xây dựng luật suy nhãn đánh giá cho ba task HABIT và kiểm chứng trên video (Chương~\ref{chap:experiments});
+  \item cài đặt mô hình PIF: bộ mã hóa, bộ lọc niềm tin, bộ dự đoán và các hàm mất mát (Chương~\ref{chap:method});
+  \item chuẩn bị dữ liệu mô phỏng cho PIF: phát lại 559 episode để bổ sung vị trí vật, vật đang cầm và 11 khớp người (Chương~\ref{chap:experiments}).
 \end{enumerate}
 
 Phần còn lại của khóa luận được trình bày như sau.
 \begin{itemize}
-  \item Chương~\ref{chap:related} tổng quan các nghiên cứu liên quan về học bắt chước, điều kiện hóa chính sách, nhận biết ý định người và đánh giá HRI.
-  \item Chương~\ref{chap:task-suite} mô tả môi trường mô phỏng và bộ bối cảnh nhiệm vụ.
-  \item Chương~\ref{chap:method} trình bày chính sách nhận thức ý định: biểu diễn ý định, các nguồn thông tin và cách đưa vào ACT.
-  \item Chương~\ref{chap:experiments} trình bày thiết kế thí nghiệm $2\times2$ và quy trình đánh giá.
-  \item Chương~\ref{chap:results} báo cáo và thảo luận các kết quả đã có.
-  \item Chương~\ref{chap:conclusions} tổng kết khóa luận và nêu hướng phát triển.
+  \item Chương~\ref{chap:background} trình bày cơ sở lý thuyết theo mạch của các câu hỏi nghiên cứu: chính sách học bắt chước và những điểm yếu khi có người; ý định người và lợi ích của dự đoán ý định; ra quyết định khi ý định chưa chắc (POMDP, niềm tin); lọc Bayes; các vấn đề khi chính sách dùng ý định dự đoán và cơ sở để xử lý; benchmark và bộ dữ liệu cho tương tác người -- robot.
+  \item Chương~\ref{chap:method} trình bày hệ thống đề xuất: đầu vào thống nhất, mô hình PIF, pipeline nhận thức và cách nối PIF vào ACT.
+  \item Chương~\ref{chap:experiments} trình bày dữ liệu, các phép kiểm chứng, thiết kế đánh giá và các kết quả đã có.
+  \item Chương~\ref{chap:conclusions} tổng kết và nêu hướng phát triển.
 \end{itemize}
