@@ -196,6 +196,11 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - **Một phần** (G1 đạt, G2 hoặc G3 hỏng): lõi có thông tin nhưng chưa cạnh tranh. Báo cáo, người dùng chọn: thêm $q_\theta$ / nhãn, hoặc dùng III cho ACT và giữ v3 làm phân tích.
 - **No-go** (G1 hỏng): dừng tự xây; chuyển sang mô hình có giám sát (III) hoặc encoder pretrained + head có giám sát.
 
+**Cụ thể hoá trước khi chạy giai đoạn B (24/10/2026 07:16, chưa có kết quả HABIT nào):**
+- $t_{\text{leave}}$: thay "đo theo Botzer & Karniel" bằng quy tắc đã có trong `pif/eval.py` từ trước khi đặt tiêu chí: frame cuối trước khi bánh rời vị trí lúc kẹp quá 5 cm (`pilot.depart_m`). 5 cm lớn hơn 3 lần sai số p90 1.65 cm của khoảng cách hộp đo trên HABIT (`PIF_P1.md`). Lý do đổi: quy tắc cũ đã sẵn, đo trực tiếp lúc vật rời đĩa; MACC của Botzer & Karniel cần fit hồ sơ tốc độ, chưa cài.
+- "3 seed" của III: G2 và G3 phải đạt **với từng seed** (không gộp seed thành ensemble, vì ensemble làm III hiệu chỉnh tốt hơn một model đơn). Đây là cách hiểu chặt nhất với v3.
+- Chọn episode: giống `pif/eval.py` (nhãn tin cậy, đủ 4 hộp, có track bánh, hai nguồn nhãn khớp nhau). Số episode chấm thực tế có thể < 190.
+
 ### 6.4 Dự đoán đi kèm (báo cáo, không quyết go/no-go)
 
 | # | Dự đoán | Đo | Nếu bị bác bỏ thì sửa |

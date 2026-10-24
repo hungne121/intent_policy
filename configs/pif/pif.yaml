@@ -1,0 +1,70 @@
+# PIF central config (model of docs/PIF.md). Run: python -m pif.train --config configs/pif/pif.yaml [--set k=v ...]
+# The data domain, tasks, components and every parameter are chosen here; the code has no hidden defaults.
+include: [configs/pif/habit.yaml, configs/pif/sim.yaml]
+
+data:
+  domain: habit             # habit | sim   (user 23/10: HABIT first, sim later)
+  tasks: [S8789]            # HABIT sids (habit.tasks) or sim tasks (T1 T2 T3 T4 T4neg T5)
+  test_every: 5             # per task, every 5th episode (sorted) is held out
+
+fps: 10                     # docs/PIF.md §2: PIF at 10 Hz, time in seconds, never interpolated to 20 Hz
+seq_seconds: 4.0            # input window
+horizons_s: [0.5, 1.0, 2.0, 4.0]   # prediction targets
+
+tokens:
+  keypoints: [r_wrist, r_index_base, r_index_tip, l_wrist, l_index_base, l_index_tip,
+              r_shoulder, r_elbow, l_shoulder, l_elbow, head]           # J = 11 (docs/PIF.md §5)
+  object_types: [object, container, surface]                          # generic, no layout zone ids (docs/PIF.md §2)
+
+augment:                    # training inputs only; the future target frames stay clean
+  joint_drop: 0.1
+  frame_drop: 0.05
+  keypoint_noise_m: 0.005   # placeholder, to be replaced by the measured noise
+  shuffle_objects: true
+
+model:                      # docs/PIF.md §4
+  d_model: 128
+  encoder_layers: 2
+  heads: 4
+  num_relations: 8
+  predictor_hidden: 256
+  no_filter: false                  # ablation: belief from the current evidence only
+  predictor_sees_history: false     # ablation: the predictor also gets m_t
+
+loss:                       # docs/PIF.md §4
+  temperature: {t0: 1.0, t_min: 0.1, anneal_steps: 20000}
+  weights: {filter: 1.0, sigreg: 0.05, occ: 0.1, ent: 0.01, kl: 0.001}
+  sigreg_slices: 1024       # LeJEPA README example (Balestriero & LeCun 2025)
+  sigreg_max_samples: 1024  # SIGReg tests the embedding distribution on a random subset of the batch's vectors
+                            # (all ~15k object vectors x 1024 slices x 17 points need > 1 GB of GPU memory)
+  n_sample: 4               # input frames per window where all R x (K+1) codes are scored (memory of a 4 GB GPU)
+
+v3:                         # PIF v3 core (docs/PIF.md §4, pilot §6): rational emission + exact Bayes filter. Code: pif/filter.py
+  # candidate objects k of g = (robot-acts-on, k), plus "none". HABIT: by track name; sim: by token type.
+  candidates: {habit: {names: [airtight container]}, sim: {types: [object, container, surface]}}
+  # emission per hand: index-tip displacement N(beta sigma^2 u_k, sigma^2 I) + pointing direction (base -> tip)
+  # vMF(norm(a d_{t-1} + (1 - a) v_k), kappa); the acting hand is a 1/2 : 1/2 mixture (docs/PIF.md §4.3)
+  init: {sigma_m: 0.02, beta: 0.0, kappa: 5.0, a: 0.9, hazard: 0.01, w_none: 0.5}   # starting values of the fit, all learned
+  fit: {steps: 300, lr: 0.05, seed: 0}       # full-batch Adam on -log p(o_1:T) (forward algorithm)
+
+pilot:                      # docs/PIF.md §6 (pre-registered, commit 7ad563e)
+  folds: 5
+  bootstrap: 10000
+  ece_bins: 10              # Guo, Pleiss, Sun, Weinberger 2017
+  offsets_s: [-1.0, -0.5, 0.0]   # report times relative to t_leave (0 = last frame before the bread leaves the plate)
+  depart_m: 0.05            # bread moved > 5 cm from its grasp position = robot left the plate (> 3x the p90 2D-3D
+                            # box distance error 1.65 cm, docs/reports/PIF_P1.md)
+  gru: {hidden: 64, epochs: 40, lr: 3.0e-3, seeds: [0, 1, 2]}   # baseline III (supervised)
+
+train:
+  lr: 3.0e-4
+  weight_decay: 0.01
+  batch_size: 32            # handoff 64; 32 fits a 4 GB GPU
+  steps: 50000
+  warmup: 500
+  grad_clip: 1.0
+  log_every: 100
+  save_every: 2000
+  num_workers: 2
+  seed: 0
+  supervised_warmstart: false        # eval labels in training only with the user's permission (handoff §6)
