@@ -153,7 +153,7 @@ Mức kiểm:
 | Liu, Tripathi, Majumdar, Wang. Joint Hand Motion and Interaction Hotspots Prediction from Egocentric Videos (2022) | CVPR 2022 | **chưa kiểm lại** (nhớ từ trước) | như trên, để sau |
 | Weihs et al. Bridging the Imitation Gap by Adaptive Insubordination (2021) | NeurIPS 2021 | **chưa kiểm lại** | imitation gap: expert chỉ dùng thông tin D có |
 | Swamy, Choudhury, Bagnell, Wu. Sequence Model Imitation Learning with Unobserved Contexts (2022) | NeurIPS 2022 | **chưa kiểm lại** | như trên |
-| Zhao, Kumar, Levine, Finn. Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware (ACT, 2023) | RSS 2023 (đã ở mục A) | tóm tắt + nơi đăng | ACT; bài ghi dùng L1 cho phần tái tạo |
+| Zhao, Kumar, Levine, Finn. Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware (ACT, 2023) | RSS 2023 (đã ở mục A) | **toàn văn phần train** (arXiv html 25/10) + code (`utils.py`, README) | 50 demo/task, 2000 epoch sim / ≥ 5000 thật, batch 8, lr 1e-5, chunk 100, β 10, val loss thấp nhất; epoch = 1 mẫu mỗi episode; L1 (Algorithm 1 ghi MSE, văn bản ghi L1) |
 | Kedia et al. InteRACT (2024) | ICRA 2024 (đã ở mục B / chương 2) | tóm tắt | người phản ứng theo robot (rủi ro H3), chưa xử lý |
 
 Còn thiếu (chưa dùng, nếu dùng phải kiểm): One Euro filter (làm mượt keypoint) cho phần nhiễu keypoint thật.
