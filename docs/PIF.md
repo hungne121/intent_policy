@@ -58,6 +58,7 @@ Cách đo:
 |---|---|---|
 | Model ACT so sánh | **A, B, D** (bỏ C) | người dùng 24/10 |
 | Hành động của ACT | **Liên tục**: `configs/policy/act_continuous.yaml`, chunk 40 bước (2 s ở 20 Hz), action [7] = 6 joint target + gripper, loss L1 + KL, `n_action_steps: 1`, không temporal ensembling. Đầu `restricted` (9 hành động) là bản cũ, **không dùng** (sơ đồ trong ADR-001 ghi "1 trong 9 hành động" là sai) | người dùng 22–23/10 |
+| **Đưa ý định vào policy** | **Không lái policy lúc chạy** (inference-time steering kiểu Collaborative VLA / ITPS). So **B (ngầm)** với **D (ý định là đầu vào khi train)**; giữ **ACT**, không chuyển sang Diffusion Policy / flow matching | người dùng 24/10/2026 15:02 |
 | **Mô hình ý định** | **PIF v3**: HMM có cấu trúc, học được, belief bằng bộ lọc Bayes chính xác (mục 4). Thay v2 | ADR-001, người dùng 24/10 |
 | **Cách chứng minh model** | Không chọn kiến trúc bằng A/B. Kiểm các dự đoán P1–P9 do lý thuyết đưa ra. **Pilot có tiêu chí go/no-go đặt trước** (mục 6) trước khi cài đầy đủ | ADR-001; người dùng 24/10 |
 | Thứ tự làm | **PIF trên HABIT trước**, ổn rồi mới chỉnh sang sim. Video người dùng tự quay để sau | người dùng 22–23/10 |

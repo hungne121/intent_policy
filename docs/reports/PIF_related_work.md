@@ -223,3 +223,5 @@ Có **ba cách đưa ý định vào policy học bắt chước**:
 **Chỗ trống:** chưa bài nào lái bằng **ý định người được dự đoán**. Collaborative VLA lái bằng vùng chờ của robot và tự nhận phản ứng chậm đi; ITPS lái bằng tín hiệu người đưa trực tiếp. Lái bằng dự đoán người (belief đích, tay sẵn sàng sau x s) có thể giữ được ưu điểm "không giúp sớm sai" mà **không phải chậm đi**: chỉ cho chunk tiến tới khi dự báo nói người sắp sẵn sàng.
 
 Đề xuất thêm một nhánh thí nghiệm **D-steer**: policy ngầm (B) + lái lúc chạy bằng belief / dự báo. So **B / D (C1) / D-steer (C2)** trả lời luôn câu hỏi "đưa ý định vào bằng cách nào". Ràng buộc: cần policy sinh nhiều mode (Diffusion Policy, hoặc ACT với lấy mẫu z, nhưng ITPS cho thấy ACT khó lái), tức là **có thể phải đổi họ policy**. Cần người dùng quyết.
+
+**Quyết định 24/10/2026 15:02 (người dùng):** không lái policy lúc chạy. Bỏ nhánh D-steer; giữ ACT, so B (C0) với D (C1).
