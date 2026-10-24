@@ -189,3 +189,37 @@ Danh sách cùng lúc phải xử lý: **D1** (expert không đặc quyền + or
 | "Theo chi phí" ở việc mới | phải định nghĩa "đoạn chuyển" theo việc (ManiCast: tay vào vùng robot, trao vật) | định nghĩa theo vai của mình: tay vào vùng robot (Coworker), tay chìa ra (Collaborator), tay hướng về vật (Supervisor) |
 
 **Kết luận:** ManiCast dùng được cho dữ liệu của mình dưới dạng **công thức + kiến trúc, train lại**, không phải "tải về chạy ngay". Bằng chứng tổng quát hóa sang người khác còn yếu, nên đo lệch miền và đánh giá trên người chưa thấy là bắt buộc.
+
+## 8. Cách thứ ba: lái policy học bắt chước lúc chạy (đọc kỹ theo yêu cầu người dùng)
+
+### Collaborative VLA / "Learning to Assist" (CoRL 2026), đọc lại phần phương pháp
+- **Vấn đề:** policy ngầm (π0.5 tinh chỉnh) + chunk 16 bước. Đoạn hành động trong demo vắt qua chỗ chuyển ý định (trong 100 chunk lấy ở một vị trí trao vật, **cả 100** đều vắt qua), nên lúc chạy robot trôi dần rồi cam kết sớm sai.
+- **Thuật toán:** **Feynman–Kac steering** (Singhal et al.) lấy mẫu từ phân phối nghiêng $\pi_{\text{tilt}}(a\mid c)\propto\pi_\theta(a\mid c)\,e^{\lambda r(a)}$, λ = 2:
+  - 16 chunk ứng viên, lấy mẫu lại qua từng bước khử nhiễu, chọn chunk có thưởng cao nhất;
+  - thưởng $r=r_{\text{curr}}\,r_{\text{traj}}\,r_{\text{drift}}$ ưu tiên **ở lại "vùng chờ"** (basin = cụm MeanShift của các vị trí chờ trong demo), phạt trôi ra khỏi vùng;
+  - thêm **basin pull**: kéo nhẹ chunk đã chọn về vùng chờ.
+- **Tín hiệu lái:** **chỉ dùng vị trí tay robot so với vùng chờ, không dùng ước lượng nào về người.** Phản ứng với người vẫn hoàn toàn đến từ policy ngầm.
+- **Kết quả:**
+  - cam kết sớm sai 7 ± 4 → 0, trôi 0.99 m → 0.06 m (n = 2);
+  - **đổi lại phản ứng chậm hơn**: 0.403 s so với 0.285 s (50 lần trao);
+  - user study (16 người): ít reset, nhanh hơn, nhưng nhiều lỗi hơn và va chạm khi trao nhiều hơn (0.5 so với 0.06). Đây không phải ablation có / không có steering thuần túy.
+  - Tốn thêm khoảng 20 ms trên RTX 5090.
+
+### ITPS, Inference-Time Policy Steering (Wang et al., ICRA 2025)
+- **Ý tưởng:** giữ policy sinh đã train (đóng băng); lúc chạy dùng **tín hiệu từ người** (điểm, nét vẽ, sửa vật lý) làm hàm mục tiêu để chọn hoặc lái mẫu. So 6 cách; **stochastic sampling** (MCMC ủ nhiệt) cho cân bằng tốt nhất.
+- **Kết quả:** khớp ý người 38% → 71% nhưng thỏa ràng buộc 90% → 73% (bếp thật). **Đánh đổi khớp ý ↔ lệch phân phối.**
+- **Với ACT:** ACT (CVAE) gần như **đơn mode nên khó lái**; Diffusion Policy dễ hơn. Cần policy sinh có lấy mẫu.
+- **Hạn chế (tác giả tự ghi):** lấy mẫu tốn kém; định chưng cất thành policy có điều kiện tương tác.
+
+### Ý nghĩa cho bài
+Có **ba cách đưa ý định vào policy học bắt chước**:
+
+| Cách | Ví dụ | Mạnh | Yếu |
+|---|---|---|---|
+| **C0 ngầm** | ACT gốc (model B), Collaborative VLA trước steering | không cần định nghĩa ý định | không nhớ; rò qua chunk; không kiểm được |
+| **C1 ý định làm đầu vào khi train** | model D đề xuất | policy tự học cách dùng; nhanh lúc chạy | D1 người dạy đặc quyền, D5 đường tắt, D6 phải có demo sửa sai |
+| **C2 lái lúc chạy bằng tín hiệu ngoài** | Collaborative VLA (vùng chờ), ITPS (điểm / nét vẽ của người) | không train lại; bật / tắt được, nên **ablation sạch**; không có đường tắt D5 | chỉ chọn được trong những gì policy gốc làm được; đánh đổi khớp ý ↔ lệch phân phối; **cần policy sinh nhiều mode** (ACT khó lái); tốn tính toán |
+
+**Chỗ trống:** chưa bài nào lái bằng **ý định người được dự đoán**. Collaborative VLA lái bằng vùng chờ của robot và tự nhận phản ứng chậm đi; ITPS lái bằng tín hiệu người đưa trực tiếp. Lái bằng dự đoán người (belief đích, tay sẵn sàng sau x s) có thể giữ được ưu điểm "không giúp sớm sai" mà **không phải chậm đi**: chỉ cho chunk tiến tới khi dự báo nói người sắp sẵn sàng.
+
+Đề xuất thêm một nhánh thí nghiệm **D-steer**: policy ngầm (B) + lái lúc chạy bằng belief / dự báo. So **B / D (C1) / D-steer (C2)** trả lời luôn câu hỏi "đưa ý định vào bằng cách nào". Ràng buộc: cần policy sinh nhiều mode (Diffusion Policy, hoặc ACT với lấy mẫu z, nhưng ITPS cho thấy ACT khó lái), tức là **có thể phải đổi họ policy**. Cần người dùng quyết.
