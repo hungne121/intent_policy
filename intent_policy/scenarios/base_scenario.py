@@ -183,6 +183,16 @@ class BaseScenario:
         for eid in self.weld_id.values():
             d.eq_active[eid] = False
         self.human = make_human(self.scene, self.cfg.human_behavior, var)
+        mb = self.cfg.human_behavior.get('motion_bank')
+        if mb:                                           # generated hand motions (sim/motion_bank.py), loaded once
+            if getattr(self, '_bank', None) is None:
+                from intent_policy.sim.motion_bank import MotionBank
+                J = self.body_model.J
+                height = J['Head'][2] - min(J[k][2] for k in ('L_Ankle', 'R_Ankle', 'L_Foot', 'R_Foot'))
+                self._bank = MotionBank(mb['folder'], J['Pelvis'], float(self.scene['human'].get('facing_deg', 180.0)),
+                                        float(self.scene.get('floor_z', 0.0)), float(height))
+            self.human.bank, self.human.bank_rng = self._bank, np.random.default_rng([int(seed), 7])
+            self.human.bank_table_top = self.table_z
         self.body_model.reset_shape()
         self.human.reach = self.body_model.clamp          # the scripted palm never aims beyond the body's reach
         length = float(self.cfg.human_behavior.get('point_length_m', 0.35))

@@ -78,19 +78,20 @@ def segments(p: np.ndarray, min_len_m: float = 0.04) -> list[np.ndarray]:
 class MotionBank:
     """Palm motions per library key (prompt) from the npz files of gen_motions.py, in the scene's frame."""
 
-    def __init__(self, folder: str | Path, pelvis_world, facing_deg: float):
+    def __init__(self, folder: str | Path, pelvis_world, facing_deg: float, floor_z: float, height: float):
         self.motions: dict[str, list[np.ndarray]] = {}
         for f in sorted((ROOT / folder).glob('*.npz')):
             k3d = np.load(f)['keypoints3d']                # [B, L, 52, 3]
-            self.motions[f.stem] = [s for b in range(len(k3d))
-                                    for s in segments(palm_path(to_scene(k3d[b], pelvis_world, facing_deg)))]
+            self.motions[f.stem] = [s for b in range(len(k3d)) for s in
+                                    segments(palm_path(to_scene(k3d[b], pelvis_world, facing_deg, floor_z, height)))]
 
     def keys(self, prefix: str = '') -> list[str]:
         return [k for k, v in self.motions.items() if k.startswith(prefix) and v]
 
-    def draw(self, rng: np.random.Generator, keys: list[str]) -> np.ndarray:
-        pool = [m for k in keys for m in self.motions[k]]
-        return pool[int(rng.integers(len(pool)))]
+    def pool(self, keys: list[str]) -> list[np.ndarray]:
+        """Stored motions of the given library keys (a trailing '*' matches a key prefix)."""
+        names = [n for k in keys for n in (self.keys(k[:-1]) if k.endswith('*') else [k]) if n in self.motions]
+        return [m for n in dict.fromkeys(names) for m in self.motions[n]]
 
 
 def warp(motion: np.ndarray, p0, p1) -> np.ndarray:
@@ -108,3 +109,24 @@ def sample(path: np.ndarray, u: float) -> np.ndarray:
     x = float(np.clip(u, 0.0, 1.0)) * (len(path) - 1)
     i = min(int(x), len(path) - 2)
     return path[i] + (x - i) * (path[i + 1] - path[i])
+
+
+def fit(motion: np.ndarray, p0, p1, scale_range=(0.5, 2.0)) -> np.ndarray:
+    """A stored motion re-targeted from p0 to p1, its shape kept: turned about the vertical so its horizontal
+    direction is p0 -> p1 and its horizontal extent scaled to the distance (within `scale_range`), then the
+    remaining start / end offsets warped in (warp)."""
+    m = np.asarray(motion, float) - motion[0]
+    u, v = m[-1], np.asarray(p1, float) - np.asarray(p0, float)
+    nu, nv = np.linalg.norm(u[:2]), np.linalg.norm(v[:2])
+    if nu > 1e-3 and nv > 1e-3:
+        m = m @ rot_z(np.arctan2(v[1], v[0]) - np.arctan2(u[1], u[0])).T
+        m[:, :2] *= float(np.clip(nv / nu, *scale_range))
+    return warp(np.asarray(p0, float) + m, p0, p1)
+
+
+def above_table(path: np.ndarray, table_top: float, edge_y: float, margin: float) -> np.ndarray:
+    """The generated people do not see the table: palm points over it (y > edge_y) are kept `margin` above its top."""
+    p = path.copy()
+    over = p[:, 1] > edge_y
+    p[over, 2] = np.maximum(p[over, 2], table_top + margin)
+    return p

@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
 from intent_policy.sim.human_state import HumanState
+from intent_policy.sim.motion_bank import above_table, fit, sample, FPS
 
 
 def segment_distance(q, a, b) -> float:
@@ -35,12 +36,15 @@ class Segment:
     p1: np.ndarray
     label: str
     clearance: float | None = None   # cautious motion: stop if the robot is closer than this [m]
+    path: np.ndarray | None = None   # generated motion (sim/motion_bank.py), replayed at its own speed profile
 
     @property
     def end_t(self) -> float:
         return self.start_t + self.duration
 
     def position(self, t: float) -> np.ndarray:
+        if self.path is not None:
+            return sample(self.path, (t - self.start_t) / self.duration)
         return self.p0 + (self.p1 - self.p0) * min_jerk((t - self.start_t) / self.duration)
 
 
@@ -70,6 +74,10 @@ class ScriptedHuman:
         self.selected_target: str | None = None
         self.reach = None                        # optional palm-target clamp to the body's reach (set by the scenario)
         self.point_pose = None                   # table location -> pointing palm position (set by the scenario)
+        self.bank = None                         # MotionBank of generated motions (set by the scenario, optional)
+        self.bank_rng = None
+        self.bank_table_top = 0.0
+        self.last_ctx: dict = {}                 # the scenario context of the last update (robot pose for bank paths)
         self.reset()
 
     def reset(self) -> None:
@@ -123,13 +131,51 @@ class ScriptedHuman:
         """
         self._cancel_pending_evidence(self.segment)
         target = np.asarray(target, float) if self.reach is None else self.reach(target)
+        path = self._bank_path(label, target)
+        if path is not None:                     # a generated motion of this kind: its own duration and speed profile
+            duration, scale = (len(path) - 1) / FPS, True
         self.segment = Segment(t, max(duration / self.speed if scale else duration, 0.05), self.pos.copy(), target, label,
-                               clearance)
+                               clearance, path)
         self.emit('human_motion_start', label=label, target=np.round(target, 4).tolist(), duration=self.segment.duration,
                   target_key=key)
         if label in self.EVIDENCE_LABELS:
             self.add_evidence(t + self.evidence_fraction * self.segment.duration, self.EVIDENCE_LABELS[label],
                               self.segment, **self.evidence_payload(label))
+
+    def _bank_path(self, label: str, target: np.ndarray) -> np.ndarray | None:
+        """A generated motion for `label` (config human_behavior.motion_bank.labels: label -> library keys), drawn among
+        the stored motions heading the same way (horizontal cosine >= min_cos) and of a comparable extent, re-targeted
+        from the hand to `target` and kept above the table; None: no bank, label not mapped, or nothing fits (the
+        minimum-jerk line is used)."""
+        mb = self.behavior.get('motion_bank') or {}
+        keys = (mb.get('labels') or {}).get(label)
+        if self.bank is None or not keys:
+            return None
+        d = target - self.pos
+        dist = float(np.linalg.norm(d))
+        if dist < float(mb['min_dist_m']):
+            return None
+        pool = []
+        for m in self.bank.pool(keys):
+            u = m[-1] - m[0]
+            nu, nd = np.linalg.norm(u[:2]), np.linalg.norm(d[:2])
+            cos = float(u[:2] @ d[:2] / (nu * nd)) if nu > 1e-3 and nd > 1e-3 else 1.0
+            ratio = float(np.linalg.norm(u)) / dist
+            if cos >= float(mb['min_cos']) and mb['extent_ratio'][0] <= ratio <= mb['extent_ratio'][1]:
+                pool.append(m)
+        margin = float(mb['holding_margin_m'] if self.holding else mb['table_margin_m'])   # a held object hangs below
+        chain = list(self.last_ctx.get('robot_chain', [])) + ([self.last_ctx['tcp']] if 'tcp' in self.last_ctx else [])
+        robot = np.asarray([a + (b - a) * u for a, b in zip(chain, chain[1:]) for u in np.linspace(0, 1, 6)], float) \
+            if len(chain) > 1 else np.zeros((0, 3))     # points along the robot's links, not only its joints
+        line = lambda q: np.linalg.norm(q - (self.pos + np.clip((q - self.pos) @ d / dist ** 2, 0.0, 1.0)[:, None] * d),
+                                        axis=1)          # distance to the straight segment (also catches overshoot)
+        for i in self.bank_rng.permutation(len(pool)):   # the first drawn motion that fits (people avoid the arm; their
+            path = above_table(fit(pool[i], self.pos, target), self.bank_table_top, float(mb['table_edge_y']), margin)
+            if line(path).max() > float(mb['max_dev_ratio']) * dist:     # hand paths are nearly straight)
+                continue
+            if not len(robot) or np.min(np.linalg.norm(path[:, None] - robot[None], axis=2)) >= float(mb['robot_clear_m']):
+                return path
+        return None
 
     @property
     def hand_shape(self) -> str:
@@ -198,6 +244,7 @@ class ScriptedHuman:
     def update(self, t: float, dt: float, ctx: dict) -> None:
         """Advance the behaviour to time t. Consumes nothing; fills self.events/self.requests."""
         self.events, self.requests = [], []
+        self.last_ctx = ctx
         previous = self.pos.copy()
         self.behave(t, ctx)
         seg = self.segment

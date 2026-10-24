@@ -38,6 +38,26 @@ human_behavior:
   pick_wait_max_s: 15.0             # turn by turn: the place zone is shown once the robot has lifted the cube
   point_length_m: 0.50              # pointing palm: this far from the shoulder along the ray (arm nearly straight)
   speed_scale: [0.8, 1.25]
+  motion_bank:                      # generated hand motions (HY-Motion 1.0-Lite library, configs/human_motion/hymotion_v6.yaml,
+                                    #   sim/motion_bank.py): these motion labels use a library motion of the listed kinds
+    folder: outputs/human_motion/hymotion_v6_2026-10-24
+    min_dist_m: 0.08                # shorter moves keep the minimum-jerk line
+    min_cos: 0.3                    # the library motion heads within ~72 deg of the needed direction (horizontal) ...
+    extent_ratio: [0.4, 2.5]        # ... and its extent is comparable to the needed distance
+    table_edge_y: -0.36             # configs/layout.yaml table y min (the human's edge)
+    table_margin_m: 0.03            # the palm stays this far above the table top
+    holding_margin_m: 0.08          # ... this far while holding something (it hangs ~3 cm below the palm)
+    robot_clear_m: 0.15             # a library motion passing closer to the robot (along its links) is not used
+    max_dev_ratio: 0.25             # ... nor one straying from the straight line by more than this x the distance:
+                                    #   human hand paths are nearly straight, slightly curved (Spatial control of arm
+                                    #   movements - Morasso - 1981; Kinematic features of unrestrained vertical arm
+                                    #   movements - Atkeson, Hollerbach - 1985)
+    labels:
+      reach_object: [t1_reach_*]
+      point_object: [t1_point_*]
+      point_place: [t1_point_*]
+      return_rest: [t1_*, idle_*]
+      withdraw_change: [t1_switch, t1_hesitate, t1_reach_*]
 intention_change:                   # T5; `probability` > 0 adds random changes to random episodes (tests)
   probability: 0.0
   late_trigger_m: 0.15              # late change: TCP within this horizontal distance of the old target, no grasp yet

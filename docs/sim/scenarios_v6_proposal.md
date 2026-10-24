@@ -94,3 +94,8 @@ Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outpu
 - 17:28–17:41: thư viện chuyển động người HY-Motion 1.0-Lite (người dùng duyệt thuê máy), 42 prompt × 4 mẫu = 168 đoạn, chạy trên A40 48 GB Secure ($0.59/giờ, khoảng 13 phút, khoảng $0.13). Kết quả ở `outputs/human_motion/hymotion_v6_2026-10-24/` (sha256 a86ee406…). Khoảng 10 s mỗi prompt, dùng 22.5 GB VRAM.
   - Hai lỗi script đã sửa: regex lọc thư viện bỏ nhầm `torchdiffeq`; `tar --exclude` đặt sau đường dẫn.
   - Đổi sang khung sim: `intent_policy/sim/motion_bank.py`. Đặt chân lên sàn, co giãn theo chiều cao người nộm, quay hướng mặt theo scene; lấy quỹ đạo lòng bàn tay, nắn đầu/cuối bằng motion warping (Witkin & Popović 1995).
+- 17:50: người trong sim dùng thư viện HY-Motion: mỗi chuyển động có nhãn trong `human_behavior.motion_bank` lấy một đoạn tay của nhóm clip tương ứng.
+  - Cách nắn: xoay theo hướng cần đi, co giãn biên độ ngang (0.5–2 lần), motion warping đầu/cuối, giữ trên mặt bàn (3 cm; 8 cm khi đang cầm vật).
+  - Loại đoạn đi gần robot dưới 15 cm (đo dọc các khâu) hoặc lệch khỏi đoạn thẳng quá 25% quãng đường. Đường tay người gần thẳng, hơi cong: Morasso 1981; Atkeson & Hollerbach 1985.
+  - Thời lượng lấy theo chính đoạn đó, chia cho hệ số tốc độ của episode.
+  - Kết quả: expert 48/48 trên 4 task (`outputs/v6_check/2026-10-24_17-50`). Phần lớn chuyển động có nhãn đã dùng clip HY-Motion. Các ca còn min-jerk: rút tay ngay sau khi trao (robot còn sát tay) và các chuyển động ngắn dưới 8 cm.
