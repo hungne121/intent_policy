@@ -161,7 +161,7 @@ ManiCast arXiv 2310.13258 (CoRL 2023); MOSAIC arXiv 2402.18796 (CoRL 2024, PMLR 
 
 Thêm cho §2–4 (đọc tóm tắt + nơi đăng): Weihs et al., *Bridging the Imitation Gap by Adaptive Insubordination*, NeurIPS 2021; Swamy, Choudhury, Bagnell, Wu, *Sequence Model Imitation Learning with Unobserved Contexts*, NeurIPS 2022; Chen, Zhou, Koltun, Krähenbühl, *Learning by Cheating*, CoRL 2019; trễ teleop: arXiv 2309.01952 (preprint); retime demo: arXiv 2607.25731 (preprint).
 
-## 6. Nếu dùng ý định tường minh: các vấn đề phải xử lý cùng lúc (24/10/2026 14:47)
+## 6. Nếu dùng ý định tường minh: các vấn đề phải xử lý cùng lúc (24/10/2026 14:48)
 
 Người dùng yêu cầu: dùng ý định tường minh thì phải đồng thời xử lý các vấn đề đã được nghiên cứu chỉ ra, của học bắt chước (D1–D8, §3) **và** của HRI khi robot hành động theo dự đoán người (H1–H7 dưới đây).
 
