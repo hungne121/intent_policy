@@ -1,6 +1,18 @@
 # Khảo sát: bộ ý định từ các phương pháp đã công bố
 
-Viết 24/10/2026 13:55 (+07). Theo nguyên tắc ở `docs/PIF.md` §0: bộ ý định là công cụ, không cần tính mới; dùng phương pháp đã công bố, đã cho kết quả ổn, ưu tiên gần đây; chỉ cần đủ và đúng yêu cầu.
+Viết 24/10/2026 13:48 (+07). Theo nguyên tắc ở `docs/PIF.md` §0: bộ ý định là công cụ, không cần tính mới; dùng phương pháp đã công bố, đã cho kết quả ổn, ưu tiên gần đây; chỉ cần đủ và đúng yêu cầu.
+
+## 0. Mục tiêu chính (người dùng 13:48) và điều chỉnh khảo sát
+
+Cái chính là: **từ quan sát người, robot hành động trước, đúng vai trò, đúng hành động của mình**. Phân phối trên các đích chỉ là một phần nhỏ. Vì vậy đầu ra của bộ ý định phải là **những gì hành động của robot phụ thuộc vào, theo từng vai**:
+
+| Vai | Đại lượng robot cần | Phương pháp đã công bố cung cấp được |
+|---|---|---|
+| Supervisor | đích sắp được chỉ định | Robot Trajectron (mật độ quỹ đạo tại vật), DeePoint (chỉ tay); hành động khi còn mơ hồ: Javdani et al. 2018 |
+| Collaborator | **chỗ và lúc** tay người sẵn sàng trao / nhận | dự báo quỹ đạo tay tương lai: ManiCast (CoRL 2023, robot lập kế hoạch trao vật từ dự báo), Robot Trajectron; InteRACT (ICRA 2024) cho phụ thuộc vào hành động robot |
+| Coworker | **vùng và lúc** tay người sắp chiếm | dự báo quỹ đạo tay tương lai (cùng mô hình trên): vùng chiếm = các vị trí dự báo trong chân trời |
+
+Điểm chung: **một mô hình dự báo quỹ đạo tay người, train tự giám sát** (RT / ManiCast), cho ra cả quỹ đạo tương lai (chỗ, lúc, vùng chiếm) lẫn phân phối đích (mật độ tại vật). ManiCast còn cho thấy dự báo nên được chọn theo **chi phí của hành động robot**, đúng với "đúng hành động của mình". Thước đo cuối cùng là hành vi robot theo vai (đi sớm, đúng việc, không va chạm), đo trên policy, không phải độ chính xác đoán đích.
 
 ## 1. Yêu cầu (từ hướng gốc, handoff §B1–B4)
 

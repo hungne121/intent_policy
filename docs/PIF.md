@@ -4,6 +4,14 @@ File duy nhất mô tả hướng hiện tại. Gộp ngày 23/10/2026 từ `HAN
 
 ## 0. Kim chỉ nam (đọc trước mọi quyết định; người dùng yêu cầu 24/10/2026 13:44)
 
+**Mục tiêu chính (người dùng 24/10/2026 13:48):** từ **quan sát người**, robot **hành động trước**, **đúng vai trò** và **đúng hành động của mình**. Phân phối trên các đích chỉ là một chi tiết trung gian. Thước đo thành công là hành vi của robot (đi sớm, đúng việc theo vai), không phải độ chính xác đoán đích.
+
+| Vai | Robot cần biết trước | Hành động đúng của robot |
+|---|---|---|
+| Supervisor | vật / chỗ người sắp chỉ định | đi sớm về phía vật đó (hoặc hướng chung khi còn mơ hồ) |
+| Collaborator | chỗ và lúc người sẵn sàng trao / nhận | tới đúng chỗ trao, đúng lúc |
+| Coworker | vùng tay người sắp chiếm, lúc nào | nhường / tránh vùng đó, vẫn làm tiếp việc của mình |
+
 **Hướng đi gốc (handoff §B1–B4), không được trôi khỏi:**
 1. PIF là **dự đoán ý định**, không phải **nhận dạng lệnh**. Bộ cũ (DeePoint + luật) bị bỏ vì "chỉ cho ra đích khi người đã chỉ tay đủ rõ"; "chỉ tay là lệnh: người quyết định xong mới chỉ". Giá trị của PIF nằm ở chỗ đoán **trước** khi lệnh rõ, từ chuyển động.
 2. Dùng cho **cả ba vai**: Supervisor (vật / chỗ nào, lúc nào), Collaborator (người sắp tới đâu, lúc nào sẵn sàng), Coworker (tay người sắp chiếm vùng nào). Biến chung là cặp (quan hệ r, đối tượng k).
