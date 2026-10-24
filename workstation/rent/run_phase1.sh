@@ -67,21 +67,29 @@ python -m pif.perception.extract --tasks "$TASK" --episodes "$FIRST" --set habit
     --log-dir "$OUT/logs/extract_bench"
 
 step "7/9 Trích xuất toàn bộ $TASK ($SHARDS tiến trình) rồi dựng token"
+PIDS=()
 for i in $(seq 0 $((SHARDS - 1))); do
   python -m pif.perception.extract --tasks "$TASK" ${PER_TASK:+--per-task $PER_TASK} --shard "$i/$SHARDS" \
       --set habit.perception.pose.device="$POSE" --log-dir "$OUT/logs/extract_$i" &
+  PIDS+=($!)
 done
-wait
+# wait only for these jobs: a bare `wait` also waits for the `exec > >(tee ...)` process substitution and never
+# returns (24/10 on the rented pod: hung 45 min after the last episode)
+wait "${PIDS[@]}"
 python -m pif.perception.lift --tasks "$TASK" | tee "$OUT/lift.txt"
 
 CK=$(printf '%06d' "$STEPS")
 if [ "$TRAIN" = "1" ]; then
 step "8/9 Train 3 lần song song ($STEPS bước mỗi lần)"
+PIDS=()
 COMMON=(data.tasks="[$TASK]" train.steps="$STEPS" train.num_workers=4)
 python -m pif.train --name main --set "${COMMON[@]}" --log-dir "$OUT/train/main" &
+PIDS+=($!)
 python -m pif.train --name no_filter --set "${COMMON[@]}" model.no_filter=true --log-dir "$OUT/train/no_filter" &
+PIDS+=($!)
 python -m pif.train --name pred_history --set "${COMMON[@]}" model.predictor_sees_history=true --log-dir "$OUT/train/pred_history" &
-wait
+PIDS+=($!)
+wait "${PIDS[@]}"
 fi
 
 step "9/9 Đánh giá + đóng gói"
