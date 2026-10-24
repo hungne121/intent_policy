@@ -2,7 +2,7 @@
 
 File duy nhất mô tả hướng hiện tại. Gộp ngày 23/10/2026 từ `HANDOFF_PIF.md`, `HANDOFF_PIF_NOTES.md`, `HANDOFF_PIF_LOCAL.md`, `HANDOFF_PIF_CORRECTIONS.md`; bốn file đó còn trong git (`git show e29ed0d:docs/requirements/HANDOFF_PIF.md`). Kết quả từng mốc ở `docs/reports/PIF_P*.md`.
 
-## 0. Kim chỉ nam (đọc trước mọi quyết định; người dùng yêu cầu 24/10/2026 13:45)
+## 0. Kim chỉ nam (đọc trước mọi quyết định; người dùng yêu cầu 24/10/2026 13:44)
 
 **Hướng đi gốc (handoff §B1–B4), không được trôi khỏi:**
 1. PIF là **dự đoán ý định**, không phải **nhận dạng lệnh**. Bộ cũ (DeePoint + luật) bị bỏ vì "chỉ cho ra đích khi người đã chỉ tay đủ rõ"; "chỉ tay là lệnh: người quyết định xong mới chỉ". Giá trị của PIF nằm ở chỗ đoán **trước** khi lệnh rõ, từ chuyển động.
