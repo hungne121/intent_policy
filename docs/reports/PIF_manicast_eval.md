@@ -1,6 +1,6 @@
 # Đánh giá ManiCast (dùng nguyên bản) trên CoMaD, HABIT và sim
 
-Viết 24/10/2026 15:27 (+07). Code: `pif/forecast.py`, `pif/forecast_eval.py`; tham số `configs/pif/pif.yaml` `forecast`. ManiCast: github.com/portal-cornell/manicast (nhánh `release`, `third_party/manicast`, git bỏ qua), checkpoint `manicast` của tác giả, **không tinh chỉnh**.
+Viết 24/10/2026 15:26 (+07). Code: `pif/forecast.py`, `pif/forecast_eval.py`; tham số `configs/pif/pif.yaml` `forecast`. ManiCast: github.com/portal-cornell/manicast (nhánh `release`, `third_party/manicast`, git bỏ qua), checkpoint `manicast` của tác giả, **không tinh chỉnh**.
 
 ## 1. CoMaD (dataset của ManiCast), cổ tay, mm
 
