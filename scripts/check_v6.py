@@ -30,7 +30,7 @@ def main():
         for q in path:
             d = d.setdefault(q, {})
         d[last] = yaml.safe_load(v)
-    out = ROOT / 'outputs/v6_check' / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+    out = ROOT / 'outputs/v6_check' / datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     out.mkdir(parents=True, exist_ok=True)
     results, lines = [], [f'# v6 expert check {out.name}', '', f'overrides: {overrides}', '']
     for sid in args.scenarios:

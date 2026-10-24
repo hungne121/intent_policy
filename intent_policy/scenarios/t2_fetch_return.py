@@ -7,6 +7,10 @@ import numpy as np
 from intent_policy.scenarios.t2_handover import HandoverTask
 
 
+HAND_OUT = ('waiting_offer', 'take_object', 'pulling', 'wait_release', 'released_by_robot', 'withdraw_with_object',
+            'use', 'using', 'wait_robot_take', 'react')   # the receiving / giving-back hand is out (or holds the can)
+
+
 class FetchReturnTask(HandoverTask):
     v6_plan = 'fetch_return'                    # the expert's v6 plan (scripted_expert._task_steps)
     cue_complete_step = 'hand_ready'            # expert trigger cue_complete: the open hand is out
@@ -18,9 +22,19 @@ class FetchReturnTask(HandoverTask):
         if self.zones.get(key, {}).get('kind') != 'hand' or self.human is None:
             return p
         spec, prm = self.variation['spec'], self.human.params
+        if self.human.stage not in HAND_OUT:          # the actual hand is known only once it is out and still
+            return p                                  #   (observable); before that the nominal zone (non-privileged)
         if key == spec['return_hand'] and self.human.selected_target == key and 'object_transferred' in self.protocol_done:
             return p + np.r_[prm['return_offset'], float(self.cfg.human_behavior['return_dz_m'])]
         return p + np.r_[prm['hand_offset'], 0.0]
+
+    def human_context(self) -> dict:
+        """The human aims at the nominal zones and adds its own offsets (sim/scripted_human.WorkerReceiver); the robot
+        sees the offset hand through zone_pos only once the hand is out."""
+        from intent_policy.scenarios.base_scenario import BaseScenario
+        ctx = super().human_context()
+        ctx['zone_positions'] = {k: BaseScenario.zone_pos(self, k) for k in self.zones}
+        return ctx
 
     def returning(self) -> bool:
         return 'object_transferred' in self.protocol_done

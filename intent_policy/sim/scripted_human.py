@@ -936,8 +936,11 @@ class WorkerReceiver(HandoverReceiver):
         self.work_piece = self.spec['u_blocks'][0]
         self.returned = False
 
-    # the open hand / the give-back hand: ctx['zone_positions'] of the hand zones already hold the episode's offsets
-    # (people do not hold the hand at a marked spot; FetchReturnTask.zone_pos is the one place that adds them)
+    def palm_at_zone(self, ctx) -> np.ndarray:
+        """The open hand: the (nominal) hand zone plus this episode's offset (people do not hold the hand at a marked
+        spot). ctx['zone_positions'] are nominal here (FetchReturnTask.human_context); the robot's view adds the
+        offset only once the hand is out (FetchReturnTask.zone_pos)."""
+        return np.asarray(ctx['zone_positions'][self.selected_target], float) + np.r_[self.params['hand_offset'], 0.0]
 
     def work(self) -> list[Gesture]:
         p, b = self.params, self.behavior
@@ -953,7 +956,8 @@ class WorkerReceiver(HandoverReceiver):
 
     def give_back(self) -> list[Gesture]:
         p, b = self.params, self.behavior
-        back = lambda ctx: np.asarray(ctx['zone_positions'][self.spec['return_hand']], float)
+        back = lambda ctx: np.asarray(ctx['zone_positions'][self.spec['return_hand']], float) + \
+            np.r_[p['return_offset'], b['return_dz_m']]
         use = self.rest + np.asarray(b['use_offset'], float)
         robot_has = lambda t, ctx: ctx['robot_grasping'].get(self.selected_object, False)
         return [Gesture('move', 'use', target=lambda ctx: use, duration=p['use_move_s'], shape='grasp', palm_up=1.0),

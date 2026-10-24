@@ -162,3 +162,17 @@ v6_object_forecast:         # M5: can the future position of an object the human
   moving_m: 0.05            # 'moving' frames: the object moves > 5 cm within 1 s (as forecast.eval.moving_m)
   still_fraction: 0.10      # 'stops' variant: the forecast hand speed < 10 % of the recent peak (movement-end convention)
   observers: {released: null}   # + fine-tuned via --set; held object = wrist forecast + current wrist->object offset
+
+v6_expert:                  # non-privileged belief of the v6 experts (intent_policy/intent/goal_belief.py, PIF.md §2.4)
+  checkpoint_path: outputs/forecast_ft/2026-10-24_23-44/best.pt   # ManiCast fine-tuned on v6 motion, frozen
+  beta_from_error_mm: 59.0  # as v6_goal (the forecaster's measured 1 s wrist error)
+  pointing_sigma_deg: 4.61  # as v6_goal (intent_schema.yaml cone_sigma_deg)
+                            # S = the wrist where the current motion started (Dragan 2013); at rest the belief of the
+                            # last gesture is kept until the next motion (memory); T1 items open while the robot holds
+                            # nothing, trays while it holds the item (task-protocol prior, as the v3.2 device)
+  still_fraction: 0.10      # movement end: speed < 10 % of the motion's peak
+  moving_m: 0.05            # a motion starts once the wrist is 5 cm from where it rested
+  use_forecast: {object: false, zone: true}   # v6_goal 23:50: T1 items best without the forecast (1.00 vs 0.83); T2 hand
+                                              #   zones / T3 spots / trays with it (T3 0.3 s earlier, T2 P(true) 0.81 -> 0.90)
+  c_wait_s: 0.3             # C_wait: measured time from the motion start until the target stays the most probable
+                            #   (v6_goal 23:50: T1 item 0.40, T1 tray 0.08-0.10, T2 0.20, T3 0.30 s; ~0.3 s)

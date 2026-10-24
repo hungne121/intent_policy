@@ -72,8 +72,9 @@ HANDOVER_DZ = 0.025     # T2: the object crosses the open fingers (up to 2.4 cm 
                         # place in the palm, then goes straight down into it (H2 is at the edge of the arm's reach)
 TAKE_BACK_DZ = 0.035    # v6 T2: the open fingers come down on the held can from this high above its grasp point (as
                         # HANDOVER_DZ, + 1 cm; 8 cm was out of the UR3e's reach over H2, check 2026-10-24 17:01)
-TRIGGERS = ('cue_complete', 'cue_onset', 'evidence', 'device')
-BELIEF_TRIGGERS = ('device',)            # the belief expert on the measuring device (intent/device.py)
+TRIGGERS = ('cue_complete', 'cue_onset', 'evidence', 'device', 'goal')
+BELIEF_TRIGGERS = ('device', 'goal')     # belief experts: the DeePoint device (intent/device.py, v3.2) and the v6 goal
+                                         # belief (intent/goal_belief.py: ManiCast + inverse planning, PIF.md §2.4)
 # cue_complete: each sub-intention is acted on once its deictic gesture is complete (the pointing hand arrived)
 CUE_COMPLETE_STEP = {'T1': 'object_indicated', 'T2': 'target_indicated', 'T3': 'block_picked'}
 FOREVER = 10 ** 6
@@ -147,6 +148,17 @@ class ScriptedExpert:
             self.b_star, self.n_hold, self.stop_star = self.belief.thresholds()
             self.approach_star = self.belief.approach_star          # early 2026-10-18 rule; None: no approach
             self.pause_timeout = self.belief.pause_timeout_s      # calibrated with the episode's fold model
+            self._runs = {}
+        elif self.trigger == 'goal':
+            # v6 (PIF.md §2.4): non-privileged goal belief; expert.goal_rule early (B, D) | late (A)
+            from intent_policy.intent.goal_belief import GoalBelief
+            cont = getattr(self.mapper, 'continuous', False)
+            speed = float(self.mapper.cfg.continuous['tcp_speed']) if cont else float(np.max(self.mapper.step)) / sc.dt
+            self.belief = GoalBelief(sc, ecfg.get('goal_rule', 'early'), speed, self.travel - self.z0)
+            self.belief.reset()
+            self.b_star, self.n_hold, self.stop_star = self.belief.thresholds()
+            self.approach_star = self.belief.approach_star
+            self.pause_timeout = 0.0
             self._runs = {}
         else:
             self.approach_star = None
@@ -231,7 +243,7 @@ class ScriptedExpert:
             return steps + self._home_steps()
         if self.code in ('T1', 'T4'):
             await_zone = Step('wait', until=lambda: self.zone is not None, name='await_zone')
-            return grasp + [await_zone] + self._place_steps(obj) + self._home_steps()
+            return grasp + self._zone_hedge('place') + [await_zone] + self._place_steps(obj) + self._home_steps()
         if self.code == 'T2' and getattr(self.sc, 'v6_plan', None) == 'fetch_return':
             return grasp + self._handover_steps(obj)[:-2] + self._take_back_steps(obj) + self._home_steps()
         if self.code == 'T2':
@@ -242,7 +254,9 @@ class ScriptedExpert:
             hand_clear = lambda: float(np.linalg.norm(sc.human.pos[:2] - sc.zone_pos(self.zone)[:2])) >= GUARD_OCCUPIED_XY
             clear = Step('goto', lambda: np.r_[self.mapper.setpoint[0], max(self.mapper.setpoint[1], -R_SAFE - 0.005), self.travel],
                          name='clear_human')
-            return grasp + [Step('goto', lambda: np.r_[sc.zone_pos(self.zone)[:2] + self.tcp_obj_offset[:2], self.travel],
+            return grasp + self._zone_hedge('coaster') + [
+                            Step('wait', until=lambda: self.zone is not None, name='await_zone'),
+                            Step('goto', lambda: np.r_[sc.zone_pos(self.zone)[:2] + self.tcp_obj_offset[:2], self.travel],
                                  name='above_spot', guard=True),
                             Step('wait', until=lambda: sc.coaster_down() and hand_clear(), name='await_coaster')] + \
                 self._place_steps(obj) + [clear] + self._home_steps()
@@ -271,6 +285,23 @@ class ScriptedExpert:
                      name='await_hand_clear')] + \
                 self._grasp_steps(obj) + self._handover_steps(obj, via_staging=False)
         return grasp + self._place_steps(obj) + [clear] + self._home_steps()
+
+    def _zone_hedge(self, kind: str) -> list[Step]:
+        """Goal belief, early rule: while the zone is still open, carry the object over the belief-weighted point of the
+        zones of `kind` at travel height (reversible; Javdani et al. 2018), until a zone is committed."""
+        if self.trigger != 'goal' or self.belief.rule != 'early':
+            return []
+        sc = self.sc
+
+        def hedge():
+            b = self.belief.zones()
+            keys = [k for k in b if sc.zones[k]['kind'] == kind]
+            w = np.array([max(b[k], 0.0) for k in keys], float)
+            if not keys or w.sum() <= 0:
+                return np.r_[self.mapper.setpoint[:2], self.travel]
+            xy = (w[:, None] * np.asarray([sc.zone_pos(k)[:2] for k in keys])).sum(0) / w.sum()
+            return np.r_[xy + self.tcp_obj_offset[:2], self.travel]
+        return [Step('track', hedge, name='zone_hedge', guard=True, skip=lambda: self.zone is not None)]
 
     def _grasp_steps(self, key):
         sc = self.sc
@@ -372,8 +403,10 @@ class ScriptedExpert:
             ] + self._home_steps()
         return [
             # always via the staging point at handover height: the arm rises where it can (not next to the base or at
-            # the edge of its reach), then crosses over the open fingers, over the palm and straight down into it
-            Step('goto', staging, name='to_staging', guard=True),
+            # the edge of its reach), then crosses over the open fingers, over the palm and straight down into it.
+            # v6 T2: no guard here - the open hand waits next to the staging point, and a guarded robot and a waiting
+            # human wait for each other (goal expert, check 2026-10-25 00:52: 3/8 timeouts)
+            Step('goto', staging, name='to_staging', guard=getattr(sc, 'v6_plan', None) != 'fetch_return'),
             Step('wait', until=lambda: self.zone is not None, name='await_hand'),
             Step('goto', lambda: np.r_[present()[:2], over_z()], name='over_hand'),
             Step('settle', ticks=15, name='settle_over_hand'),
@@ -491,7 +524,8 @@ class ScriptedExpert:
     def _decide(self, name: str, probs: dict, current) -> str | None:
         """A candidate other than `current` whose belief has stayed >= b_star for exactly n_hold frames."""
         best = max(probs, key=probs.get) if probs else None
-        if best is None or probs[best] < self.b_star or best == current:
+        star = self.belief.commit_star(name) if hasattr(self.belief, 'commit_star') else self.b_star
+        if best is None or probs[best] < star or best == current:
             best = None
         return best if best is not None and self._run_length(name, best) == self.n_hold else None
 
@@ -510,7 +544,7 @@ class ScriptedExpert:
                 and self.obj is not None:
             self._pause()                       # the human takes back their choice (T3: carries the cube back): wait
                                                 # for the new target, keeping the old one so _redirect can undo it
-        late = self.trigger == 'device' and bel.rule == 'late'    # late: only once the gesture is complete (§0)
+        late = bel.rule == 'late'               # late: only once the gesture is complete (§0)
         if self.approach_star is not None and self.obj is None and self.stage == 'await_commit':
             b = bel.objects()                   # early 2026-10-18: start moving towards the candidates
             if b and max(b.values()) >= self.approach_star:
@@ -704,6 +738,10 @@ class ScriptedExpert:
             return True
         if float(np.linalg.norm(sc.human.pos - sc.tcp())) < SEPARATION_M or sc.human_distance < SEPARATION_GEOM_M:
             return True
+        if self.trigger == 'goal':                         # v6: early yields on the ManiCast forecast (the next 1 s
+            bel = self.belief                              #   of the wrist), late on the current hand only
+            return bel.rule == 'early' and bel.forecast is not None and \
+                any(sc.in_robot_zone(q, self.yield_margin) for q in bel.forecast)
         if self.yield_horizon <= 0:
             return False
         if self.trigger in BELIEF_TRIGGERS:                # causal: the observed hand at constant velocity
