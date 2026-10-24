@@ -401,7 +401,11 @@ def main():
     # own generator: creating a loader iterator must not consume the global torch RNG (dropout), or resume drifts
     train_loader = torch.utils.data.DataLoader(train_ds, sampler=sampler, generator=torch.Generator().manual_seed(seed),
                                                **loader_kw)
-    val_loader = torch.utils.data.DataLoader(val_ds, shuffle=False, generator=torch.Generator().manual_seed(seed),
+    if val_ds is not None:                       # evaluate() reads 20 batches: a fixed random subset of frames over all val
+        n_val = min(len(val_ds), 20 * batch_size)  # episodes (the first 20 batches in order were 2-3 episodes of one task)
+        val_idx = sorted(np.random.default_rng(seed).choice(len(val_ds), n_val, replace=False).tolist())
+        val_ds_eval = torch.utils.data.Subset(val_ds, val_idx)
+    val_loader = torch.utils.data.DataLoader(val_ds_eval, shuffle=False, generator=torch.Generator().manual_seed(seed),
                                              **loader_kw) if val_ds else None
 
     policy = HRIACTPolicy(cfg).to(args.device)

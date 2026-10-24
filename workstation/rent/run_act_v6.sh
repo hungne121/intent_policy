@@ -21,17 +21,23 @@ RUN="outputs/train_v6/$(date +%F_%H-%M)"
 
 step "1/5 GPU"
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
-CPUS=$(python3 -c "import os; q=open('/sys/fs/cgroup/cpu.max').read().split() if os.path.exists('/sys/fs/cgroup/cpu.max') else ['max']; print(int(int(q[0])/int(q[1])) if q[0]!='max' else os.cpu_count())")
+CPUS="${CPUS:-}"             # the pod's vCPU count (nproc shows the host's cores on RunPod)
+[ -n "$CPUS" ] || CPUS=$(python3 -c "import os; q=open('/sys/fs/cgroup/cpu.max').read().split() if os.path.exists('/sys/fs/cgroup/cpu.max') else ['max']; print(int(int(q[0])/int(q[1])) if q[0]!='max' else os.cpu_count())")
 echo "cpus $CPUS"; free -g | head -2; df -h "$ROOT" | tail -1
 
-step "2/5 Python 3.12 env (torch for the driver's CUDA, the rest pinned to the laptop)"
+step "2/5 Python 3.12 env (the laptop's versions: torch 2.11.0 from the PyTorch cu130 index; needs a host driver with CUDA >= 13.0)"
 if [ -z "${INTENT_PYTHON:-}" ]; then              # set: an existing env (local test of this script)
-    command -v ffmpeg >/dev/null || (apt-get update -qq && apt-get install -y -qq ffmpeg >/dev/null)
+    apt-get update -qq && apt-get install -y -qq ffmpeg libegl1 libgl1 libopengl0 >/dev/null   # MuJoCo EGL (run.sh sets MUJOCO_GL=egl; intent_policy imports mujoco)
     python3 -m pip install -q uv
     [ -x "$VENV/bin/python" ] || python3 -m uv venv -q -p 3.12 "$VENV"
-    python3 -m uv pip install -q -p "$VENV/bin/python" --torch-backend auto -c workstation/env/ur_bullet312.txt \
-        torch==2.11.0 torchvision==0.26.0 torchcodec==0.11.1 av==15.1.0 mujoco==3.3.7 pyyaml \
+    # the laptop's exact env; lerobot's own git metadata pulls the cu128 torch, so it goes in without its deps
+    grep -v '^lerobot' workstation/env/ur_bullet312.txt > /tmp/req_nolerobot.txt
+    python3 -m uv pip install -q -p "$VENV/bin/python" --torch-backend cu130 -r /tmp/req_nolerobot.txt
+    python3 -m uv pip install -q -p "$VENV/bin/python" --no-deps \
         "lerobot @ git+https://github.com/huggingface/lerobot.git@64b23178d5348609c266250d3e1f511eba4c33ff"
+    python3 -m uv pip install -q -p "$VENV/bin/python" mujoco==3.3.7   # in .deps on the laptop (workstation/setup.sh)
+    # torchcodec from the cu130 index is the CUDA build (needs libnppicc); the laptop runs PyPI's CPU build
+    python3 -m uv pip install -q -p "$VENV/bin/python" --reinstall --no-deps --index-url https://pypi.org/simple torchcodec==0.11.1
     export INTENT_PYTHON="$VENV/bin/python"
 fi
 VB=torchcodec
@@ -66,7 +72,7 @@ done
 FAIL=0
 for j in $(jobs -p); do wait "$j" || FAIL=1; done
 for m in $MODELS; do echo "$m: $(grep -E 'step=' "$RUN/$m.log" | tail -1)"; done
-[ $FAIL = 0 ] || { echo "a training failed"; tail -20 "$RUN"/*.log; false; }
+[ $FAIL = 0 ] || { echo "a training failed"; tail -n 20 "$RUN"/*.log; false; }
 nvidia-smi --query-gpu=memory.used --format=csv
 
 step "5/5 Best (lowest val loss) + last checkpoint of each run, tar"
