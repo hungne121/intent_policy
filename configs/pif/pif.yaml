@@ -53,11 +53,27 @@ v3:                         # PIF v3 core (docs/PIF.md §4, pilot §6): rational
 forecast:                   # ManiCast (CoRL 2023) as published: pif/forecast.py, docs/reports/PIF_survey.md
   repo: third_party/manicast           # github.com/portal-cornell/manicast branch release (cloned 2026-10-24)
   checkpoint: manicast                  # base | finetuned | manicast | manicastW | scratch (their model_checkpoints)
+  checkpoint_path: null                 # our fine-tuned weights (pif/forecast_finetune.py best.pt); null: `checkpoint`
   model: {input_n: 10, output_n: 25, rate_hz: 25, st_gcnn_dropout: 0.1, n_tcnn_layers: 4, tcnn_kernel_size: [3, 3],
           tcnn_dropout: 0.0}            # their utils/parser.py defaults; 0.4 s in, 1 s out at 25 Hz
   # marker offsets in CoMaD axes (+y up, faces -z, left -x), mean over CoMaD handover_0.json (Kushal), measured
   # 2026-10-24: BackTop - mid(L/RShoulderBack), WaistLBack - mid(L/RShoulderBack)
   offsets: {backtop_minus_shoulder_mid: [0.010, 0.038, 0.013], waist_minus_shoulder_mid: [-0.095, -0.422, 0.043]}
+  data:                                 # v6 sim human motion for fine-tuning (pif/v6_motion_data.py, M5 step 1)
+    scenarios: [t1_choose_item, t2_fetch_return, t3_coaster_cup, t4_coworker]
+    seeds: {train: [2000, 2048], val: [2048, 2054], test: [2054, 2060]}   # [a, b) per scenario, disjoint
+    out: outputs/human_motion/v6_sim_motion
+  finetune:                             # their recipe (third_party/manicast/src/finetune.py, utils/parser.py defaults):
+    init: manicast                      #   start from the released checkpoint; Adam lr_ft 1e-4, weight decay 1e-5, 50
+    lr: 1.0e-4                          #   epochs, batch 256, loss = weighted MPJPE on a batch of all windows + one of
+    weight_decay: 1.0e-5                #   transition windows; wrist weight 1 (their default --weight); best epoch on val
+    epochs: 50
+    batch: 256
+    wrist_weight: 1
+    stride: 2                           # every 2nd 25 Hz window start (all windows)
+    transition_after_s: 1.0             # transition window = a hand motion from its start to 1 s after its end (the
+                                        #   intervals CoMaD annotates around each interaction)
+    out: outputs/forecast_ft
   eval: {horizons_s: [0.5, 1.0], gate_arm_m: 0.632, moving_m: 0.05}   # moving: a wrist moves > 5 cm in 1 s; gate: wrist-shoulder > (0.186 + 0.146) x 1.90 m = invalid
                                                      # (Drillis & Contini ratios, PIF_pilot §9)
 
@@ -100,3 +116,17 @@ v6_timing:                  # M5 step 1 (docs/sim/scenarios_v6_proposal.md §7):
   keypoint_noise_m: 0.02    # Gaussian noise on every keypoint, as the robot's perception sees them: HABIT index-tip
                             #   step p50 ~2 cm per 0.1 s (docs/PIF.md 07:44); without it the fit collapses (sigma -> 0,
                             #   kappa -> 5e6 on exact sim keypoints: likelihood singularity, Bishop 2006 PRML §9.2.1)
+
+v6_detection:               # M5: ManiCast's own decision protocol on v6 gestures (third_party/manicast/eval/handover.py:
+                            # the forecast wrist at +1 s vs the current wrist entering the target's region); pif/v6_detection.py
+  episodes: {t1_choose_item: 24, t2_fetch_return: 16, t3_coaster_cup: 24}
+  seed0: 3000               # disjoint from the fine-tuning seeds (2000-2059)
+  sets:                     # region: point = horizontal radius half the nearest-neighbour spacing; angle = direction of
+    t1_item:  {region: angle}    #   the wrist's displacement from the gesture start (>= moving_m), half the nearest
+    t1_tray:  {region: angle}    #   angular spacing seen from there (the targets are beyond reach)
+    t2_hand:  {region: point}
+    t3_spot:  {region: point}
+  moving_m: 0.05            # forecast.eval.moving_m: a displacement below this has no direction
+  window_s: [-0.5, 1.0]     # scored from 0.5 s before the motion start to 1 s after its end
+  observers:                # forecast.checkpoint_path values (null: released `checkpoint`), plus constant velocity
+    released: null

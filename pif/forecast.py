@@ -37,7 +37,8 @@ class ManiCastForecaster:
         m = f['model']
         self.net = ManiCast(3, m['input_n'], m['output_n'], m['st_gcnn_dropout'], 7, m['n_tcnn_layers'],
                             m['tcnn_kernel_size'], m['tcnn_dropout'])
-        self.net.load_state_dict(torch.load(resolve(f['repo']) / 'model_checkpoints' / f['checkpoint'], map_location='cpu'))
+        ck = resolve(f['checkpoint_path']) if f.get('checkpoint_path') else resolve(f['repo']) / 'model_checkpoints' / f['checkpoint']
+        self.net.load_state_dict(torch.load(ck, map_location='cpu'))     # checkpoint_path: our fine-tuned weights
         self.net.eval()
         self.rate, self.input_n, self.output_n = float(m['rate_hz']), m['input_n'], m['output_n']
         self.back_off = np.asarray(f['offsets']['backtop_minus_shoulder_mid'], float)
