@@ -1,6 +1,6 @@
 # Các công trình dự đoán ý định người **cho hành động của robot**
 
-Viết 24/10/2026 14:20 (+07). Chỉ lấy các bài mà robot **dự đoán người rồi dùng dự đoán đó để quyết định hành động của chính nó**, không lấy các bài rút ý định từ demo để policy bắt chước. Mỗi bài đã đọc toàn văn phần phương pháp và kết quả (arXiv HTML / PDF), trừ khi ghi khác.
+Viết 24/10/2026 14:11 (+07). Chỉ lấy các bài mà robot **dự đoán người rồi dùng dự đoán đó để quyết định hành động của chính nó**, không lấy các bài rút ý định từ demo để policy bắt chước. Mỗi bài đã đọc toàn văn phần phương pháp và kết quả (arXiv HTML / PDF), trừ khi ghi khác.
 
 ## 1. Từng bài: động lực, phương pháp, kết quả, hạn chế
 
