@@ -170,3 +170,26 @@ Công thức: P(G) ∝ exp(β [d(S, G) − d(Q, G)]), với S = cổ tay 1 s tr�
 Nhận xét:
 - Cử chỉ người tự nhiên ngắn (khoảng 0.6 s), đích lộ ra ngay từ đầu đường đi. Dự báo 1 s của ManiCast hầu như không thêm gì vào việc **chọn đích**; giá trị của nó nhiều khả năng ở **khi nào / ở đâu** tay sẽ tới (gặp tay ở T2, nhường đường ở T4).
 - T1 không phân biệt được món, kể cả ở cuối cử chỉ (P(đúng) ≈ 0.39, ngang đoán bừa giữa 3 món): món ngoài tầm, các món chỉ cách nhau 5–10° nhìn từ vai. Cần tia ngón trỏ, hoặc giãn layout.
+
+### M5 bước 1d: suy đích hoàn chỉnh (23:25–23:50, `outputs/v6_goal/2026-10-24/23-50-10_m5`, keypoint sạch)
+
+Mô hình (`pif/v6_goal.py`):
+- **Tiến lại gần đích** trên đường đã đi + dự báo (Dragan 2013 / Baker 2009).
+- **Tia chỉ tay** (vMF, σ = 4.61° đo được) **chỉ khi bàn tay ở dạng chỉ** (nhìn thấy được); không gate thì phá T2/T3 (23:25).
+- **Thừa số dừng** p(dừng ở Q | G) ∝ exp(−β d(Q, G)) khi tay dừng hoặc được dự báo sẽ dừng, **chỉ cho đích người với tới được**. Thừa số này cần cho T3, nơi K3 nằm trên đường tới K1.
+- **Layout T1 giãn:** chỗ bánh I1–I3 cách nhau khoảng 14° nhìn từ vai, expert 12/12.
+- **ManiCast fine-tune lại** trên layout mới (`outputs/forecast_ft/2026-10-24_23-44`; transition, tại 1 s: 60 mm so với 88 mm nếu giữ tư thế).
+
+Kết quả theo cách tốt nhất cho mỗi nhóm, tính từ lúc tay bắt đầu đi:
+
+| Nhóm | Cử chỉ dài | Cách | Đúng | Chắc chắn từ |
+|---|---|---|---|---|
+| T1 món | 0.67 s | đường đã đi + tia chỉ tay (không dự báo) | 1.00 | 0.40 s |
+| T1 khay | 0.57 s | tia chỉ tay | 1.00 | 0.08–0.10 s |
+| T2 chỗ chìa tay | 0.65 s | đường đi (+ ManiCast nâng P(đúng) ở cuối 0.81 → 0.90) | 1.00 | 0.20 s |
+| T3 chỗ lót cốc | 0.68 s | + ManiCast | 0.79–0.83 | **0.30 s** |
+| T3 chỗ lót cốc | 0.68 s | chỉ đường đã đi | 0.88 | 0.60 s |
+
+- **Nơi ManiCast có ích:** dự báo **chỗ tay sẽ dừng**. T3 nhận đích sớm hơn 0.3 s (đổi lại độ đúng giảm 5–9 điểm); T2 tự tin hơn.
+- **Nơi ManiCast không có ích:** T1, vì cử chỉ ngắn, chân trời 1 s rơi vào lúc rút tay. Fine-tune lại trên layout mới không đổi (0.83), nên giả thuyết "dữ liệu cũ" sai.
+- **Chưa làm:** độ bền với nhiễu keypoint thật (cần đo nhiễu trên HABIT + làm mượt). Không ảnh hưởng demo sim, vì sim dùng keypoint sạch cho cả expert lẫn D, nhưng cần cho robot thật.
