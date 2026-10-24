@@ -131,3 +131,44 @@ Khoảng cách ngón trỏ – vai 0.93–1.23 m dài hơn một cánh tay ngư�
 3. **Chỉ coi hướng ngón tay là bằng chứng chỉ tay khi tay đang duỗi về phía bàn** (đúng tinh thần lập kế hoạch ngược: tay buông không phải hành động có mục đích tới hộp).
 4. Sau 1–3, mới tới **phương án A** (số hạng nhãn $\lambda_y$), để hazard và emission được kẹp theo ý định thật.
 5. Đánh giá bản sửa trên **dữ liệu chưa dùng** (S8789 buổi 260415/260418, hoặc task khác), với tiêu chí đặt trước mới.
+
+## 9. Xử lý lỗi theo quy trình 5 bước (24/10/2026 13:30)
+
+### Bước 1. Phát hiện lỗi
+Belief của v3 vào hộp đúng giảm từ 0.75 (đỉnh) xuống 0.52 lúc robot rời đĩa; 68/178 episode đúng ở đỉnh nhưng sai lúc $t_{\text{leave}}$ (§3, §8).
+
+### Bước 2. Nguyên nhân (từ số đo và video, §8)
+Sau cử chỉ, người **buông tay** và **cánh tay robot che tay người**. RTMW vẫn trả keypoint tay với score như bình thường (7.4), vị trí 3D sai về hình học (đầu ngón trỏ cách vai 0.93–1.23 m), và hướng ngón tay quét qua các hộp. Thành phần hướng chỉ tay biến các frame đó thành bằng chứng ngược (−4.84 nats).
+
+### Bước 3. Tài liệu có xác nhận nguyên nhân không
+
+| Hiện tượng | Tài liệu | Mức kiểm |
+|---|---|---|
+| Model pose vẫn **đưa ra vị trí cho keypoint bị che**; huấn luyện coi keypoint bị che như thấy được tạo tương quan giả với vật che | Sun et al., *Rethinking Visibility in Human Pose Estimation: Occluded Pose Reasoning via Transformers*, WACV 2024 | tóm tắt (toàn văn bị chặn 403) |
+| Ước lượng keypoint bị che không đáng tin, cần lọc trước khi dựng 3D | Cheng, Yang, Wang, Yan, Tan, *Occlusion-Aware Networks for 3D Human Pose Estimation in Video*, ICCV 2019 | tóm tắt + nơi đăng |
+| Depth đơn mắt sai ở biên che khuất: điểm ở biên lấy depth trung bình giữa vật trước và nền ("flying pixels") | các bài về depth sắc nét ở biên (đa số preprint, ví dụ arXiv 2110.05885, 2601.05246) | tóm tắt; **chưa có nguồn đã phản biện**, cần tìm thêm |
+| Trong cộng tác người – robot, **robot che người** làm ước lượng pose hỏng | Casalino, Guzman, Zanchettin, Rocco, *Human Pose Estimation in Presence of Occlusion Using Depth Camera Sensors, in Human-Robot Coexistence Scenarios*, IROS 2018; arXiv 2403.12538 (preprint, nói rõ che bởi cánh tay robot) | nơi đăng (IROS); nội dung lấy từ luận văn liên quan |
+
+Số đo của mình khớp với các hiện tượng này: score không đổi (7.4 so với 7.4) và 3D dài hơn cánh tay. **Nguyên nhân được xác nhận** ở mức hiện tượng. Phần "depth ở biên" mới có nguồn preprint.
+
+### Bước 4. Các phương pháp hiện có
+
+| # | Phương pháp | Nguồn | Cần gì | Hợp với mình? |
+|---|---|---|---|---|
+| 1 | Ngưỡng score keypoint | mặc định MMPose (đang dùng, `kpt_thr` 0.3) | có sẵn | **không**: score không phân biệt (7.4 / 7.4) |
+| 2 | Lọc bằng confidence heatmap + nhất quán optical flow | Cheng et al. ICCV 2019 | heatmap, tính optical flow (thêm một lượt GPU) | một phần: tốn trích xuất lại |
+| 3 | **Ràng buộc giải phẫu**: độ dài chi theo nhân trắc học, loại 3D không thể có | tỉ lệ đoạn chi Drillis & Contini (1966), trong Winter, *Biomechanics and Motor Control of Human Movement*; ràng buộc giải phẫu trong HRC: Casalino et al. IROS 2018, Guidolin et al. 2024 (mô hình cơ xương) | chỉ cần keypoint 3D đã có | **có**: rẻ, chạy trên laptop, không trích xuất lại |
+| 4 | Cổng kiểm định Kalman (khoảng cách Mahalanobis, ngưỡng χ²) / bộ lọc 1€ | Bar-Shalom (cổng kiểm định); Casiez et al. CHI 2012 | chuỗi keypoint | **không**: bắt bước nhảy, còn frame lỗi ở đây quét mượt (tỉ lệ bước nhảy lớn như nhau ở hai nhóm, §8) |
+| 5 | Mặt nạ robot: biết vùng robot thì đánh dấu tay trong vùng đó là bị che | mô hình robot / phát hiện robot (arXiv 2403.12538, preprint) | ngoại tham số robot – camera (HABIT không có) hoặc thêm prompt "robot arm" và trích xuất lại | để sau; **rất hợp cho hệ thật** (RealSense + robot đã hiệu chỉnh) |
+| 6 | Đa camera, ghép nhiều góc nhìn | arXiv 2408.15810 (preprint) | hiệu chỉnh camera (HABIT có 5 camera, không có thông số) | không phải lúc này |
+| 7 | Cảm biến khác (IMU, điện dung) | arXiv 2304.08379, 2406.19323 (preprint) | phần cứng | không có trong HABIT |
+| 8 | Model pose dự đoán visibility | Sun et al. WACV 2024 | huấn luyện / fine-tune | trái quy tắc "dùng nguyên weights" |
+
+### Bước 5. Lựa chọn
+**Chọn #3: cổng ràng buộc giải phẫu.** Frame có khoảng cách đầu ngón trỏ – vai vượt chiều dài chuỗi tay tối đa thì đánh dấu tay **không thấy**. Bộ lọc HMM xử lý frame thiếu đúng cách: bỏ bước cập nhật, chỉ giữ bước dự đoán (§4.4 PIF.md).
+- Ngưỡng: vai → đầu ngón tay ≈ (0.186 + 0.146 + 0.108) × chiều cao = 0.44 H (tỉ lệ cánh tay trên, cẳng tay, bàn tay của Drillis & Contini). Lấy H = 1.90 m làm cận trên (người cao), ra **0.84 m**. Giá trị H cần một nguồn phân vị chiều cao người lớn; trước mắt ghi rõ là giả định.
+- Ảnh hưởng đo được: trên toàn bộ frame tay S8789, chỉ **4.3%** vượt 0.84 m (p50 0.54 m, p90 0.66 m). Trong các frame "chống" ở §8, **hơn một nửa** vượt ngưỡng (trung vị 0.93 m). Cổng cắt đúng frame lỗi và giữ gần hết frame tốt.
+- Ngưỡng **không** chỉnh theo độ chính xác: nó đến từ nhân trắc học, và số 4.3% đo trước khi chạy model.
+- Kèm theo, cho hệ thật về sau: **#5** (mặt nạ robot từ động học), vì hệ thật biết vị trí robot so với camera.
+- Phần hazard (khoảng 1/3 lượng mất) để cho phương án A (số hạng nhãn).
+- Bản sửa được đánh giá trên **dữ liệu chưa dùng** (S8789 buổi 260415/260418 hoặc task khác) với tiêu chí đặt trước mới. Không chạy lại pilot trên 178 episode cũ để "chứng minh".
