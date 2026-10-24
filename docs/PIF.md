@@ -1,11 +1,12 @@
 # PIF: mô hình ý định cho IntentACT
 
-**Phiên bản:** 25/10/2026 04:01. Lịch sử:
+**Phiên bản:** 25/10/2026 06:51. Lịch sử:
 - 23/10: gộp từ các file handoff.
 - 24/10 07:00: PIF v3 (ADR-001).
 - 24/10 13:44: thêm §0 kim chỉ nam.
 - 25/10 00:40: §2 viết lại thành bảng quyết định duy nhất; §7 trạng thái.
 - 25/10 00:55: dẫn nguồn ở `docs/references.md` mục D.
+- 25/10 06:51: §2.4 đánh giá bằng temporal ensembling 0.01 (đo: B 0/40 → 8/40).
 - 25/10 04:01: §2.4 ghi lệch lr / batch so với ACT, cách tính val loss.
 - 25/10 02:47: §2 cách đưa ý định ManiCast vào D (FiLM từng tầng + image dropout, F1 không áp dụng); chia 80/20 bằng `--val-every 5`.
 
@@ -104,6 +105,7 @@ Người dùng 25/10 00:3x: "ghi những gì đã chốt cho đàng hoàng, mấ
 | Demo | Thu **theo task** (không chia 6 nhóm); các tình huống (mơ hồ, rõ dần, đổi ý, chờ) tự có; gắn nhãn tình huống từng episode. Ý định "tự tin nhưng sai" kiểm lúc đánh giá (E1–E6) | người dùng 25/10 |
 | Trước khi thu lớn | Pilot 5–10 episode/task → **người dùng duyệt video**; đếm chunk cắt qua chuyển trạng thái (action leakage: Xu et al., CoRL 2026); **cổng D**: train trên pilot, D phải đi theo ý định khi che / tráo (`intent_reliance.py`, `intent_swap_test.py`) | quy tắc duyệt demo; 25/10 |
 | **Số demo và độ dài train** (25/10 01:25; người dùng: "phải đảm bảo số epi đủ… đọc bài train của chính ACT") | Theo bài và code ACT (Zhao et al., RSS 2023; github tonyzhaozh/act): **50 demo/task** (bài không có thí nghiệm số demo nên 50 chưa chắc đủ); sim **2000 epoch**, dữ liệu thật **≥ 5000 epoch**; batch 8, lr 1e-5, chunk 100, β 10; chia **80/20 theo episode** (`--val-every 5`: cứ 5 episode lấy 1 làm val); chọn checkpoint loss val thấp nhất (README: độ thành công còn tăng sau khi loss phẳng). **"Epoch" của ACT = 1 mốc ngẫu nhiên mỗi episode** (`EpisodicDataset.__len__` = số episode), nên quy đổi: **mẫu train = epoch × số episode train**; 5 task × 50 demo → 200 episode train → 2000 epoch = 400k mẫu (12.5k bước batch 32), 5000 epoch = 1M mẫu (31k bước). **Đủ hay chưa phải đo**: thêm 1 lần train B với 25 demo/task, cùng bộ đánh giá; 25 ≈ 50 trong khoảng tin cậy thì 50 đủ, không thì thu 100. Đánh giá như ACT: nhiều seed eval cố định, rollout trên checkpoint tốt nhất + các mốc 2000 / 5000 epoch. **Lệch so với ACT (25/10 04:01, ghi rõ):** lần train này dùng lr 1e-4 (backbone 1e-5), batch 32, theo `configs/policy/act_continuous.yaml` có sẵn, còn ACT dùng lr 1e-5, batch 8. Chưa có căn cứ đo cho lựa chọn này; cả A, B, D, B25 dùng như nhau nên so sánh giữa chúng vẫn công bằng. Val loss tính trên 640 frame ngẫu nhiên cố định của mọi episode val (`train_policy.py`), mỗi 1000 bước | bài ACT §IV-C, §V-B, Bảng III; README; `utils.py` (đọc 25/10) |
+| Cách chạy policy khi đánh giá (25/10 06:51) | **Temporal ensembling m = 0.01** như bài ACT (Zhao et al. 2023), cho cả A, B, D, B25. Đo trên B (10 tập/task, seed 400000+): không ensembling (cấu hình `act_continuous.yaml` từ guide v3) **0/40**; m = 0.01 **8/40** (T1 5/10, T3 3/10, T2 0, T4 0). Quyết định cũ (guide v3) bỏ ensembling vì A phản ứng chậm ở T4 (did_not_yield 30/48); T4 v6 vẫn 0/10 với cả hai cách, cần xem riêng | ACT §IV; đo 25/10 06:46–06:50 |
 | Vòng 2 | **DAgger** (Ross, Gordon, Bagnell 2011), expert tự gắn nhãn lại; không dùng AutoIntervene | 25/10 |
 | Đánh giá | Riêng: khởi động (useful motion onset, chốt định nghĩa trước), thời gian hoàn thành, hồi phục, commit sai, an toàn | 25/10 |
 
