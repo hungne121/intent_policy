@@ -7,7 +7,7 @@ metrics per split, scenario and HRI role (no composite score).
 Without `--protocol` the experiment's `benchmark` section is used (one split). With a protocol file (Phase 2)
 every split is evaluated; `--condition` picks an oracle condition from the protocol (only for checkpoints that
 read oracle features). A split with `scenario_list` (configs/scenario_lists/eval_v1.jsonl, the same fixed episodes
-for every compared condition, scence_construct.md §5.3) is evaluated per list task (T1 ... T5, T4neg); otherwise
+for every compared condition, docs/sim/scene_construct.md §5.3) is evaluated per list task (T1 ... T5, T4neg); otherwise
 `scenarios` x seeds. `--workers` runs task/split jobs in parallel processes (each loads its own policy).
 
 Output (one folder per run, as LeRobot lays out runs): `--output-dir`, else outputs/eval/<date>/<time>_<experiment>_<agent>,
@@ -78,7 +78,7 @@ def build_agent(args_d: dict, eval_seeds: list[int], ctrl_cfg):
     from intent_policy.policies.policy_agent import PolicyAgent
     return PolicyAgent(resolve(args_d['checkpoint']), args_d['device'], args_d['oracle_condition'], eval_seeds, ctrl_cfg,
                        args_d['temporal_ensemble_coeff'], args_d.get('intent_keep'), bool(args_d.get('intent_swap')),
-                       args_d.get('ensemble_reset'))
+                       args_d.get('ensemble_reset'), args_d.get('intent_online'))
 
 
 def run_job(job: dict) -> dict:
@@ -152,12 +152,15 @@ def main():
                                    'configs/episode_lists/v5/val_list.jsonl')
     p.add_argument('--intent-keep', help="intent tokens kept: 'none' (all masked, the source is not run), 'all', or "
                                           "a comma list (default: the checkpoint's)")
+    p.add_argument('--intent-online', choices=['manicast'],
+                   help='closed-loop intent source of a v2-token checkpoint trained on dataset columns: manicast = v6 D '
+                        '(intent/manicast_intent.py, the same construction as scripts/add_manicast_intent.py)')
     p.add_argument('--intent-swap', action='store_true',
                    help='v3.2 swap test: give the policy p_target / c_target of the alternative the human did not choose '
                         '(twin / other cup, P1<->P2, H1<->H2; T1-T3), the scene unchanged (INTENT_ACT_v3.2.md §5.3)')
     p.add_argument('--ensemble-reset', type=float, metavar='STAR',
                    help='v3.2: clear the ensembling buffer when the decision rebuilt from the given belief (share of its '
-                        'target kind >= STAR, the condition rule: early 0.7) switches target (research_collab.md K9)')
+                        'target kind >= STAR, the condition rule: early 0.7) switches target (research_collab.md [removed, git e29ed0d] K9)')
     p.add_argument('--no-temporal-ensemble', action='store_true',
                    help='no ACT temporal ensembling: execute the first action of every new chunk (guide v3)')
     args = p.parse_args()
@@ -210,7 +213,7 @@ def main():
                              args=dict(expert=args.expert, checkpoint=args.checkpoint, device=args.device,
                                        oracle_condition=oracle_condition, temporal_ensemble_coeff=ensemble,
                                        intent_keep=intent_keep, intent_swap=args.intent_swap,
-                                       ensemble_reset=args.ensemble_reset)))
+                                       ensemble_reset=args.ensemble_reset, intent_online=args.intent_online)))
     if args.workers > 1:
         with mp.get_context('spawn').Pool(args.workers) as pool:
             blocks = pool.map(run_job, jobs, chunksize=1)

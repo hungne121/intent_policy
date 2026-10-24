@@ -1,10 +1,8 @@
 """Add D's intent input to a v6 dataset, in place: the ManiCast forecast (docs/PIF.md §2.2).
 
 Columns `intent_pp.<field>` of the v2 contract (intent/contract.py) with configs/intent_schema_v6.yaml:
-  xi (M, J, 3)  the forecast displacement of the 6 arm joints at (m + 1) / M x 1 s, from the frozen ManiCast fine-tuned
-                on v6 motion (configs/pif/pif.yaml v6_expert.checkpoint_path), causal: the last 0.4 s of the recorded
-                `human.keypoints` (frames before the start repeat the first one)
-  the other fields neutral (none / rest / zero occupancy): D is trained with --intent-keep motion
+  built by intent_policy/intent/manicast_intent.py (the same code the closed-loop evaluation uses): xi = the ManiCast
+  forecast displacement of the 6 arm joints from the recorded `human.keypoints`, the other fields neutral
 plus `hri.task_id` (T1-T4), `hri.instr_*` = 0 and meta/intent_schema.json, as scripts/build_intent_labels.py writes them,
 so scripts/train_policy.py reads the dataset unchanged (--intent-source perfect).
   ./run.sh -m scripts.add_manicast_intent --dataset-root outputs/datasets/v6_early
@@ -16,30 +14,14 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-from pif.config import load_config
-from pif.forecast import ManiCastForecaster
 from scripts.build_intent_labels import TASK_ID, data_files, load_episodes, write_parquet
-from intent_policy.intent.contract import FIELDS, confidence, dataset_features, one_hot, validate_intent
+from intent_policy.intent.contract import FIELDS, dataset_features, validate_intent
+from intent_policy.intent.manicast_intent import MANICAST, forecast_xi, horizons, load_forecaster, neutral_contract
 from intent_policy.intent.instruction import INSTR_DEST, INSTR_OBJECT
 from intent_policy.intent.labels import load_schema
 from intent_policy.utils import resolve
 
 PREFIX = 'intent_pp'
-MANICAST = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist']   # pif/forecast.py OUR_JOINTS[1:]
-
-
-def forecast_xi(kp: np.ndarray, fc: ManiCastForecaster, fps: float, t_out: np.ndarray) -> np.ndarray:
-    """kp [T, 6, 3] (MANICAST order, world) -> xi [T, M, 6, 3]: forecast joint position - current position."""
-    n = int(round(0.4 * fps)) + 1                                   # 0.4 s of history (ManiCast's input)
-    pad = np.concatenate([np.repeat(kp[:1], n - 1, 0), kp])
-    mk, waist = fc.to_comad({j: pad[:, i] for i, j in enumerate(MANICAST)})
-    H = np.stack([mk[t:t + n] for t in range(len(kp))])
-    W = np.stack([waist[t:t + n] for t in range(len(kp))])
-    t_hist = np.arange(-(n - 1), 1) / fps
-    out = np.concatenate([fc.forecast(H[a:a + 512], W[a:a + 512], t_hist, t_out) for a in range(0, len(H), 512)])
-    fut = fc.from_comad(out[:, :, 1:7])                             # markers 1..6 = MANICAST joints, [T, M, 6, 3]
-    now = fc.from_comad(H[:, -1, 1:7])                              # the same markers now (offsets cancel)
-    return (fut - now[:, None]).astype(np.float32)
 
 
 def main():
@@ -49,8 +31,7 @@ def main():
     ap.add_argument('--val-every', type=int, default=10)
     args = ap.parse_args()
     root, schema = resolve(args.dataset_root), load_schema(args.schema)
-    cfg = load_config('configs/pif/pif.yaml', [])
-    fc = ManiCastForecaster(dict(cfg, forecast=dict(cfg['forecast'], checkpoint_path=cfg['v6_expert']['checkpoint_path'])))
+    fc = load_forecaster()
     exp = json.loads((root / 'meta/hri_experiment_config.json').read_text())
     recorded = list(exp['intent']['keypoints'])
     sel = [recorded.index(j) for j in MANICAST]
@@ -59,20 +40,14 @@ def main():
     info_path = root / 'meta/info.json'
     info = json.loads(info_path.read_text())
     fps = float(info['fps'])
-    M = int(schema['n_waypoints'])
-    t_out = (np.arange(M) + 1) / M * float(schema['horizon_s'])
-    K, W, P = len(schema['targets']), len(schema['who']), len(schema['phases'])
+    t_out = horizons(schema)
     episodes = load_episodes(root)
     meta = {m['episode_index']: m for m in map(json.loads, (root / 'meta/hri_episodes.jsonl').read_text().splitlines())}
     out = {}
     for e, ep in episodes.items():
         T = len(ep['state'])
         xi = forecast_xi(ep['keypoints'][:, sel], fc, fps, t_out)
-        p_who, p_target = np.tile(one_hot(0, W), (T, 1)), np.tile(one_hot(0, K), (T, 1))
-        d = dict(p_who=p_who, p_target=p_target, c_who=p_who.copy(), c_target=p_target.copy(),
-                 occupancy=np.zeros((T, 7), np.float32), tte=np.zeros((T, 1), np.float32),
-                 tte_std=np.zeros((T, 1), np.float32), phase=np.tile(one_hot(0, P), (T, 1)), xi=xi,
-                 confidence=confidence(p_target, p_who))
+        d = neutral_contract(schema, xi)
         validate_intent(d, schema, batched=True)
         out[e] = d
         print(f'episode {e}: {T} frames, |xi| max {np.abs(xi).max():.3f} m', flush=True)

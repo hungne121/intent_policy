@@ -14,6 +14,8 @@ intent:
                                      #   arm joints + the pointing ray + head; world frame, as rendered (human.keypoints)
 benchmark:
   scenarios: [t1_choose_item, t2_fetch_return, t3_coaster_cup, t4_coworker]
+  eval_seed_start: 400000             # held out: the demos use 300000-300199
+  eval_episodes_per_scenario: 50      # ACT (Zhao et al. 2023) reports 50 trials per task
 observation:
   cameras: [high, wrist, top]
   width: 256

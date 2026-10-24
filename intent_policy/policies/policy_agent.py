@@ -41,7 +41,8 @@ def load_policy(checkpoint: str | Path, device: str | None = None):
 class PolicyAgent(Agent):
     def __init__(self, checkpoint: str | Path, device: str | None = None, oracle_condition: dict | None = None,
                  eval_seeds: list[int] | None = None, controller_cfg=None, temporal_ensemble_coeff: float | str | None = 'config',
-                 intent_keep: list[str] | None = None, intent_swap: bool = False, ensemble_reset: float | None = None):
+                 intent_keep: list[str] | None = None, intent_swap: bool = False, ensemble_reset: float | None = None,
+                 intent_online: str | None = None):
         """`intent_keep`: the intent tokens kept at evaluation (None: the checkpoint's; [] masks all of them, and the
         v3.2 source - the measuring device - is then not run: the preliminary 2x2's no-intent conditions, §4.2i).
         `intent_swap` (v3.2 swap test, INTENT_ACT_v3.2.md §5.3): p_target and c_target given to the policy are those of
@@ -53,6 +54,7 @@ class PolicyAgent(Agent):
             cfg.intent_keep = list(intent_keep)
         self.tokens = cfg.use_intent and cfg.intent_arch == 'tokens'
         self.online_intent = None
+        self.manicast = intent_online == 'manicast'
         self.intent_v32 = self.tokens and cfg.intent_version == 'v32'
         self.intent_off = self.intent_v32 and not cfg.intent_keep     # every token masked: no source needed
         self.intent_swap = bool(intent_swap)
@@ -65,10 +67,15 @@ class PolicyAgent(Agent):
             raise ValueError('intent_swap needs an intent v3.2 policy with intent tokens kept')
         self.swap = {}
         if self.tokens and not self.intent_v32:
-            if cfg.intent_source != 'hindsight':
+            if intent_online == 'manicast':      # v6 D: the ManiCast forecast (intent/manicast_intent.py), as trained
+                from intent_policy.intent.manicast_intent import OnlineManiCast
+                self.online_intent = OnlineManiCast(cfg.intent_schema)
+            elif cfg.intent_source != 'hindsight':
                 raise NotImplementedError(f'closed-loop intent source {cfg.intent_source!r}: only hindsight (online '
-                                          'from the simulator plan, intent/online.py) is implemented')
-            self.online_intent = OnlineHindsight(cfg.intent_schema)
+                                          'from the simulator plan, intent/online.py) and --intent-online manicast '
+                                          'are implemented')
+            else:
+                self.online_intent = OnlineHindsight(cfg.intent_schema)
         if temporal_ensemble_coeff != 'config':          # inference-time setting of the evaluation protocol
             self.policy.set_temporal_ensemble(temporal_ensemble_coeff)
         self.action_mode = self.policy.config.action_mode
@@ -125,6 +132,8 @@ class PolicyAgent(Agent):
                     T = self.policy.config.intent_schema['targets']
                     intent = dict(intent, p_target=permute_targets(intent['p_target'], self.swap, T),
                                   c_target=permute_targets(intent['c_target'], self.swap, T))
+            elif self.manicast:
+                intent = self.online_intent.observe(self.scenario)
             else:
                 intent = self.online_intent.observe(self.scenario, self.step_index, float(np.asarray(obs['observation.state'])[6]))
         if intent is not None and not (self.intent_v32 and self.intent_off):
