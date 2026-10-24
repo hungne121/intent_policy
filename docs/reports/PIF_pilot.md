@@ -86,3 +86,48 @@ Cách kiểm: xem belief từng frame trên các episode v3 sai lúc $t_{\text{l
 | C. Chẩn đoán trước rồi mới quyết | làm bước kiểm từng frame ở §3 (khoảng 1–2 giờ, laptop) | biết vì sao v3 quên, chọn A/B có cơ sở | chậm hơn |
 
 Mình đề xuất **C rồi A**: chẩn đoán vì sao belief giảm (rẻ, trên laptop), sau đó thử bản lai A. Bản A đánh giá trên các buổi chưa dùng của S8789 với tiêu chí đặt trước mới.
+
+## 8. Chẩn đoán: vì sao belief giảm (phương án C, 24/10/2026 13:20)
+
+Script: `pif/diagnose.py` (dùng tham số đã fit của từng fold, không fit lại). Số liệu: `docs/reports/PIF_pilot/diagnose.json`. Mọi phép "tắt thành phần" dưới đây chỉ để chẩn đoán, không phải kết quả.
+
+**Bước 1. Bộ lọc có nhận ra ý định không?** Có. Lúc belief đạt đỉnh (trong 10 s trước $t_{\text{leave}}$), argmax đúng ở **172/178** episode, belief đỉnh trung vị 0.99. Có **68** episode đúng ở đỉnh nhưng sai ở $t_{\text{leave}}$; 6 episode sai ngay từ đầu.
+
+**Bước 2. Log-odds (hộp đúng so với hộp thắng sai) mất ở đâu, trong 68 episode bị mất?** Trung vị −8.6 nats từ đỉnh tới $t_{\text{leave}}$ (khoảng 5.7 s), gồm:
+
+| Phần | Trung vị (nats) |
+|---|---|
+| bước chuyển (hazard kéo về prior) | −2.6 |
+| bằng chứng emission ròng | −4.5 (âm −9.6, dương +5.5) |
+
+Phép thử phản thực tế: giảm hazard xuống 0.003 / 0.0003 thì độ chính xác tại $t_{\text{leave}}$ 0.584 → 0.657 / 0.697. Hazard góp phần, nhưng **phần chính là bằng chứng ngược**.
+
+**Bước 3. Bằng chứng ngược đến từ đâu?**
+
+| | Nhóm bị mất (68) | Nhóm giữ được (104) |
+|---|---|---|
+| thành phần **hướng chỉ tay** (log-odds đúng − thắng, đỉnh → $t_{\text{leave}}$) | **−4.84** | +6.95 |
+| thành phần độ dời | −0.06 | +0.18 |
+
+Trong nhóm bị mất, bằng chứng ngược của thành phần hướng **khi tay gần như đứng yên** (< 2 cm/0.1 s) chỉ −0.15, **khi tay chuyển động** là −4.09. Tỉ lệ bước nhảy > 10 cm ở hai nhóm như nhau (0.22 và 0.19), nên ngoại lai kiểu nhảy không phải nguyên nhân. Hai giả thuyết ban đầu (ngoại lai nhảy, ngón tay đứng yên chĩa nhầm) **bị bác bỏ**.
+
+**Bước 4. Hình học của các frame đó.** So frame cho bằng chứng **ủng hộ** hộp đúng (quanh đỉnh, n = 285) với frame cho bằng chứng **chống** (đỉnh → $t_{\text{leave}}$, n = 386), lấy tay có score cao hơn:
+
+| | Ủng hộ | Chống |
+|---|---|---|
+| score RTMW (trung vị) | 7.49 | 7.39 |
+| khoảng cách đầu ngón trỏ – vai (trung vị, p75) | 0.50 m, 0.81 m | **0.93 m, 1.23 m** |
+| độ cao đầu ngón trỏ so với mặt bàn (trung vị) | −0.05 m | −0.14 m |
+
+Khoảng cách ngón trỏ – vai 0.93–1.23 m dài hơn một cánh tay người, nên vị trí 3D ở các frame "chống" **không thể là thật**. Score RTMW không phân biệt được (7.4 ở cả hai nhóm), đúng với ghi chú `PIF_P1.md` rằng score không dùng để lọc được.
+
+**Bước 5. Video** (`docs/reports/PIF_pilot/diagnose_ep*.jpg`, ep 2795, 2815, 2820, 2794). Cùng một kịch bản: người **chỉ rõ** vào hộp ở đầu (lúc belief đạt đỉnh), rồi **buông tay xuôi**, và **cánh tay robot quét ngang phía trước người** khi đi gắp bánh. Tay người bị che một phần hoặc toàn bộ, nhưng keypoint vẫn được báo "visible" (≈ 100%) với vị trí 3D sai.
+
+**Kết luận chẩn đoán.** Belief giảm chủ yếu vì **thành phần hướng chỉ tay nhận các frame tay đã buông hoặc bị robot che làm bằng chứng chỉ tay**. Ở các frame đó, vị trí 3D sai về hình học (tay dài hơn cánh tay), score không báo được, và hướng ngón tay quét qua các hộp khi robot di chuyển. Hazard học bằng likelihood (≈ 0.03/frame) góp phần nhỏ hơn. GRU có giám sát học được cách bỏ qua các frame này nhờ nhãn; v3 không nhãn thì không.
+
+**Hệ quả cho bước tiếp theo (đề xuất, chờ duyệt):**
+1. **Lọc theo hình học** trước khi tính bằng chứng: frame có đầu ngón trỏ cách vai xa hơn chiều dài cánh tay (cần nguồn nhân trắc học cho ngưỡng) hoặc ngón trỏ dài bất thường thì coi là không thấy. Đây là sửa nhận thức, có nguồn, không chỉnh theo kết quả.
+2. **Che bởi robot:** đánh dấu tay không thấy khi bbox tay người trùng vùng robot (đã có detection gripper trong pipeline).
+3. **Chỉ coi hướng ngón tay là bằng chứng chỉ tay khi tay đang duỗi về phía bàn** (đúng tinh thần lập kế hoạch ngược: tay buông không phải hành động có mục đích tới hộp).
+4. Sau 1–3, mới tới **phương án A** (số hạng nhãn $\lambda_y$), để hazard và emission được kẹp theo ý định thật.
+5. Đánh giá bản sửa trên **dữ liệu chưa dùng** (S8789 buổi 260415/260418, hoặc task khác), với tiêu chí đặt trước mới.
