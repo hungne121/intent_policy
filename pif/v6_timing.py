@@ -49,10 +49,13 @@ def record(sid: str, seed: int, sets: dict, kps: list[str], overrides: dict | No
     my = {n: s for n, s in sets.items() if s['scenario'] == sid}
     keys = {n: candidates(sc, s['kind']) for n, s in my.items()}
     pos = {n: cand_pos(sc, keys[n]) for n in my}
+    reach = {n: np.array([np.linalg.norm(sc.body_model.clamp(q) - q) < 0.01 for q in pos[n]]) for n in my}  # the palm can
+    #                                                                       be put there (lean <= max_lean_deg)
     frames, tick = [], 0
     while not sc.done:
         if tick % SKIP == 0:
-            frames.append(dict(t=sc.time, kp=sc.human_keypoints(kps), holding=sc.human.holding is not None))
+            frames.append(dict(t=sc.time, kp=sc.human_keypoints(kps), holding=sc.human.holding is not None,
+                               pointing=sc.human.hand_shape == 'point'))     # the rendered hand shape (observable)
         sc.step(mapper.map(ag.act(None).action_id).joint_target)
         tick += 1
     gestures = []
@@ -66,8 +69,9 @@ def record(sid: str, seed: int, sets: dict, kps: list[str], overrides: dict | No
                                      t0=e['timestamp'], t1=e['timestamp'] + p['duration']))
     T = len(frames)
     ep = dict(human_pos=np.stack([f['kp'] for f in frames]), human_vis=np.ones((T, len(kps)), bool),
-              holding=np.array([f['holding'] for f in frames]), t=np.array([f['t'] for f in frames]))
-    return dict(sid=sid, seed=seed, ep=ep, keys=keys, pos=pos, gestures=gestures, success=sc.success)
+              holding=np.array([f['holding'] for f in frames]), t=np.array([f['t'] for f in frames]),
+              pointing=np.array([f['pointing'] for f in frames]))
+    return dict(sid=sid, seed=seed, ep=ep, keys=keys, pos=pos, reach=reach, gestures=gestures, success=sc.success)
 
 
 record.cache = {}

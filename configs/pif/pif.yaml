@@ -142,6 +142,13 @@ v6_goal:                    # M5: goal posterior by inverse planning on the obse
   lookback_s: 1.0           # S = the wrist 1 s ago (a person still for 1 s gives a uniform posterior)
   beta_from_error_mm: 59.0  # beta = 1 / the fine-tuned ManiCast wrist error at 1 s on transition windows (test, 18:50)
   forecast_steps: 10        # forecast read at 0.1 .. 1.0 s
+  still_fraction: 0.10      # termination term: on frames where the hand is stopped (observed) / forecast to stop (its
+                            #   speed at 0.9->1.0 s), speed < 10 % of the gesture's peak (movement-end convention, as
+                            #   v6_detection), p(stop at Q | G) ∝ exp(-beta d_xy(Q, G)) multiplies the posterior
+  pointing_sigma_deg: 4.61  # + pointing evidence: log P(G) += kappa cos(angle(index ray base->tip, tip->G)), vMF with
+                            #   kappa = 1/sigma^2, sigma = the measured pointing-ray error (intent_schema.yaml cone_sigma_deg)
+                            #   used only while the hand has the pointing shape (observable); otherwise the path term
+                            #   (v6_goal 23:25: pointing gestures 0.29 -> 1.00 with it, reaching 1.00 -> 0.30 with it)
   episodes: {t1_choose_item: 24, t2_fetch_return: 16, t3_coaster_cup: 24}
   seed0: 3000
   sets: [t1_item, t1_tray, t2_hand, t3_spot]   # candidate sets of v6_timing

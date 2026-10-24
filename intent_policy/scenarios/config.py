@@ -162,7 +162,7 @@ def _slots_for(rng, scene: dict, keys: list[str], slots: list[str]) -> dict:
 def random_spec(cfg: ScenarioConfig, rng) -> dict:
     """Random discrete episode spec (used when no scenario list is given)."""
     sv, objs, scene = cfg.scene_variation, cfg.scene['objects'], cfg.scene
-    slots = zones_of(scene, 'slot')
+    slots = zones_of(scene, sv.get('slot_kind', 'slot'))       # v6 T1: the wider item spots I1-I3
     code = cfg.task_code
     spec: dict = {'task': code}
     if code == 'T4' and sv.get('variant') == 'coworker':      # v6: two rolls on slots, the item on its slot, lids in U
@@ -224,7 +224,7 @@ def validate_spec(cfg: ScenarioConfig, spec: dict) -> None:
     if code != cfg.task_code:
         raise ValueError(f"spec task {code} does not match scenario {cfg.id} ({cfg.task_code})")
     layout = spec['layout']
-    slots = set(zones_of(scene, 'slot'))
+    slots = set(zones_of(scene, cfg.scene_variation.get('slot_kind', 'slot')))
     if not set(layout) <= set(objs) or not set(layout.values()) <= slots or len(set(layout.values())) != len(layout):
         raise ValueError(f'bad slot layout {layout}')
     if spec['target'] not in layout:

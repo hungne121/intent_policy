@@ -21,10 +21,24 @@ from pif.v6_timing import record
 NEED = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist']
 
 
-def posterior(S: np.ndarray, Q: np.ndarray, cand: np.ndarray, beta: float) -> np.ndarray:
-    """[T, K] goal posterior from progress d(S, G) - d(Q, G) (uniform prior)."""
+def posterior(S: np.ndarray, Q: np.ndarray, cand: np.ndarray, beta: float, ray=None, kappa: float = 0.0,
+              stopped=None, reachable=None) -> np.ndarray:
+    """[T, K] goal posterior from progress d(S, G) - d(Q, G) (uniform prior); with `ray` = (base [T, 3], tip [T, 3])
+    the pointing evidence kappa cos(angle(base -> tip, tip -> G)) (a vMF on the pointing direction) replaces the path
+    term on the frames where ray[2] (the observable pointing hand shape) is set."""
     prog = np.linalg.norm(S[:, None] - cand[None], axis=2) - np.linalg.norm(Q[:, None] - cand[None], axis=2)
     z = beta * prog
+    if stopped is not None:                  # termination: a hand that stops (or is forecast to) stops at its goal,
+        near = np.linalg.norm(Q[:, None, :2] - cand[None, :, :2], axis=2)      # p(stop at Q | G) ∝ exp(-beta d(Q, G))
+        mask = stopped[:, None] & (np.ones(len(cand), bool) if reachable is None else reachable)[None]
+        z = z - beta * near * mask           # goals beyond reach: the hand stops at its reach limit whatever the goal
+    if ray is not None:
+        d = ray[1] - ray[0]
+        d = d / (np.linalg.norm(d, axis=1, keepdims=True) + 1e-9)
+        u = cand[None] - ray[1][:, None]
+        u = u / (np.linalg.norm(u, axis=2, keepdims=True) + 1e-9)
+        pointing = ray[2][:, None] if len(ray) > 2 else 1.0           # only while the hand has the pointing shape
+        z = np.where(pointing, kappa * np.einsum('tc,tkc->tk', d, u), z)  #   (the ray then replaces the path term)
     z -= z.max(1, keepdims=True)
     p = np.exp(z)
     return p / p.sum(1, keepdims=True)
@@ -52,6 +66,7 @@ def main():
     t_hist = np.arange(-4, 1) / fps
     t_out = np.arange(1, int(vg['forecast_steps']) + 1) / int(vg['forecast_steps'])
     fcs = {n: ManiCastForecaster(dict(cfg, forecast=dict(cfg['forecast'], checkpoint_path=p))) for n, p in vg['observers'].items()}
+    kappa = 1.0 / np.radians(float(vg['pointing_sigma_deg'])) ** 2
     names = ['observed only'] + list(fcs) + ['constant velocity']
     rows = []
     for r in recs:
@@ -73,19 +88,34 @@ def main():
         Q = wrist.copy()
         Q[idx] = wrist[idx] + (wrist[idx] - wrist[idx - 4]) / (4 / fps)
         Qs['constant velocity'] = Q
+        speed = {'observed only': np.r_[0.0, np.linalg.norm(np.diff(wrist, axis=0), axis=1) * fps]}
+        for n, fc in fcs.items():                                          # forecast speed at its end (0.9 -> 1.0 s)
+            p = np.concatenate([fc.forecast(H[a:a + 256], W[a:a + 256], t_hist, t_out[-2:]) for a in range(0, len(H), 256)])
+            v = speed['observed only'].copy()
+            v[idx] = np.linalg.norm(fc.from_comad(p[:, 1, 6]) - fc.from_comad(p[:, 0, 6]), axis=1) / (t_out[-1] - t_out[-2])
+            speed[n] = v
+        speed['constant velocity'] = speed['observed only']
         for g in r['gestures']:
             cand = r['pos'][g['set']]
             a = max(int(np.searchsorted(tt, g['t0'] + vg['window_s'][0])), 0)
             z = min(int(np.searchsorted(tt, g['t1'] + vg['window_s'][1])), T - 1)
             row = dict(set=g['set'], label=g['label'], seed=r['seed'], K=len(cand), dur=round(g['t1'] - g['t0'], 2))
-            for n in names:
-                P = posterior(S[a:z + 1], Qs[n][a:z + 1], cand, beta)
+            ray = (e['human_pos'][a:z + 1, J['r_index_base']], e['human_pos'][a:z + 1, J['r_index_tip']], e['pointing'][a:z + 1])
+            peak = np.maximum.accumulate(speed['observed only'][a:z + 1])     # observed peak speed of the gesture so far
+            for n in names + ['observed + pointing', 'fine-tuned + pointing']:
+                base_n = {'observed + pointing': 'observed only', 'fine-tuned + pointing': 'fine-tuned'}.get(n, n)
+                if base_n not in Qs:
+                    continue
+                stopped = speed[base_n][a:z + 1] < vg['still_fraction'] * np.maximum(peak, 1e-6)
+                P = posterior(S[a:z + 1], Qs[base_n][a:z + 1], cand, beta, ray if n.endswith('+ pointing') else None, kappa,
+                              stopped, r['reach'][g['set']])
                 ok = np.argmax(P, 1) == g['target']
                 bad = np.flatnonzero(~ok)
                 k = 0 if not len(bad) else (bad[-1] + 1 if bad[-1] + 1 < len(ok) else None)
                 row[f'{n}_stable_s'] = None if k is None else round(tt[a + k] - g['t0'], 2)
                 row[f'{n}_p_end'] = round(float(P[-1, g['target']]), 3)
             rows.append(row)
+    names = [n for n in names + ['observed + pointing', 'fine-tuned + pointing'] if f'{n}_p_end' in rows[0]]
     (out / 'results.json').write_text(json.dumps(rows, indent=1))
     by = defaultdict(list)
     for r in rows:

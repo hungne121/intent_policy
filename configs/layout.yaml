@@ -51,6 +51,12 @@ zones:
   K1: {kind: coaster, xy: [0.22, -0.07], marker: false}
   K2: {kind: coaster, xy: [0.36, -0.07], marker: false}
   K3: {kind: coaster, xy: [0.29, -0.17], marker: false}
+  # v6 T1 item spots (2026-10-24 19:xx, user: widen T1): seen from the human's right shoulder (0.46, -0.53) at 126.0 /
+  # 111.6 / 97.4 deg, ~14 deg apart = 3x the pointing-ray error (cone_sigma_deg 4.61, intent_schema.yaml); the S slots
+  # span only ~20 deg (items 5-10 deg apart: not identifiable from the hand, v6_goal 23:15). Robot reach 0.31-0.42 m
+  I1: {kind: item, xy: [-0.12, 0.28], marker: false}
+  I2: {kind: item, xy: [0.13, 0.32], marker: false}
+  I3: {kind: item, xy: [0.37, 0.20], marker: false}
   BA: {kind: box, xy: [0.17, -0.06], size: [0.14, 0.10], marker: false}
   BB: {kind: box, xy: [0.40, -0.06], size: [0.14, 0.10], marker: false}
 # robot zone for T4 (interrupt): table region the human cannot reach comfortably (the S rows), where the robot must

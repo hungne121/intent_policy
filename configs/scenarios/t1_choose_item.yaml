@@ -17,6 +17,7 @@ scene:
     - {name: tray_P1, type: box, xy: [0.24, -0.03], size: [0.055, 0.05, 0.004], color: tray}
     - {name: tray_P2, type: box, xy: [0.36, -0.03], size: [0.055, 0.05, 0.004], color: tray2}
 scene_variation:                    # random episodes when no scenario-list spec is given (tests, ad-hoc runs);
+  slot_kind: item                   # the donuts stand on I1-I3 (configs/layout.yaml, ~14 deg apart from the human)
   n_objects: 3                      # the balanced lists come from scripts/generate_scenarios.py
   pair_probability: 0.333           # identical pair B1 + B1' on the table, the target one of them (§5.2 rule 3)
   object_jitter_m: 0.008
