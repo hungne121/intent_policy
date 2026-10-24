@@ -9,6 +9,10 @@
   under an intent the person acts towards k on a fraction rho of the frames and is still / retracting on the others,
   so a retracted hand does not cancel a held intent (stage A found hazard -> 0.985 without this term: the filter had
   no memory). A hand that is not seen at t or t - 1 contributes 1 (missing data).
+  Outliers: estimated 3D keypoints have heavy tails (HABIT S8789: index-tip step p50 2 cm, p99 0.4-0.9 m, max 5 m per
+  0.1 s), so dp is an inlier / outlier mixture (1 - eps) N(mu, sigma^2) + eps N(0, sigma_out^2) and d a mixture
+  (1 - eps_d) vMF + eps_d / 4pi (Gaussian inliers + broad outliers: MLESAC, Torr & Zisserman 2000). The outlier parts do
+  not depend on g, so an outlier frame carries almost no evidence; both stay normalised densities.
   Transition: b^-_t = (1 - h) b_{t-1} + h pi,  pi = [w_none, (1 - w_none) / K, ...]; b_0 = pi (docs/PIF.md §4.4).
 Emission uses only frames t and t - 1; all other history goes through b_{t-1} (no double counting).
 Episodes are batched: time is padded with log e = 0 (the predicted belief is normalised, so padding adds 0 to the
@@ -45,11 +49,15 @@ class Params(torch.nn.Module):
         self.log_kappa, self.logit_a = f(math.log(init['kappa'])), f(logit(init['a']))
         self.logit_h, self.logit_w0 = f(logit(init['hazard'])), f(logit(init['w_none']))
         self.logit_rho = f(logit(init['act_prob']))
+        self.logit_eps, self.log_sigma_out = f(logit(init['outlier'])), f(math.log(init['sigma_out_m']))
+        self.logit_eps_d = f(logit(init['outlier_dir']))
 
     def values(self) -> dict:
         return dict(sigma_m=self.log_sigma.exp().item(), beta=self.beta.item(), kappa=self.log_kappa.exp().item(),
                     a=torch.sigmoid(self.logit_a).item(), hazard=torch.sigmoid(self.logit_h).item(),
-                    w_none=torch.sigmoid(self.logit_w0).item(), act_prob=torch.sigmoid(self.logit_rho).item())
+                    w_none=torch.sigmoid(self.logit_w0).item(), act_prob=torch.sigmoid(self.logit_rho).item(),
+                    outlier=torch.sigmoid(self.logit_eps).item(), sigma_out_m=self.log_sigma_out.exp().item(),
+                    outlier_dir=torch.sigmoid(self.logit_eps_d).item())
 
 
 def batch(eps: list[dict], cands: list[list[int]], keypoints: list[str]) -> dict:
@@ -80,10 +88,14 @@ def log_emission(x: dict, p: Params) -> torch.Tensor:
     ok = (vis[:, 1:] & vis[:, :-1]).double()                                   # [B, T-1, H]
     d_now, d_prev = _unit(tip[:, 1:] - base[:, 1:]), _unit(tip[:, :-1] - base[:, :-1])
     u = _unit(cand[:, :-1, None] - tip[:, :-1, :, None])                       # [B, T-1, H, K, 3]
-    gauss = lambda r2: -r2 / (2 * sigma ** 2) - 3 * torch.log(sigma) - 1.5 * math.log(2 * math.pi)
-    idle = gauss((dp ** 2).sum(-1)) + log_vmf3((d_now * d_prev).sum(-1), kappa)
+    s_out, eps, eps_d = p.log_sigma_out.exp(), torch.sigmoid(p.logit_eps), torch.sigmoid(p.logit_eps_d)
+    gauss = lambda r2, s: -r2 / (2 * s ** 2) - 3 * torch.log(s) - 1.5 * math.log(2 * math.pi)
+    out_dp = torch.log(eps) + gauss((dp ** 2).sum(-1), s_out)                  # outlier part, same for every g
+    robust = lambda r2: torch.logaddexp(torch.log1p(-eps) + gauss(r2, sigma), out_dp if r2.dim() == out_dp.dim() else out_dp[..., None])
+    rdir = lambda cos: torch.logaddexp(torch.log1p(-eps_d) + log_vmf3(cos, kappa), torch.log(eps_d) - math.log(4 * math.pi))
+    idle = robust((dp ** 2).sum(-1)) + rdir((d_now * d_prev).sum(-1))
     mean_d = _unit(a * d_prev[..., None, :] + (1 - a) * u)
-    act = gauss(((dp[..., None, :] - p.beta * sigma ** 2 * u) ** 2).sum(-1)) + log_vmf3((d_now[..., None, :] * mean_d).sum(-1), kappa)
+    act = robust(((dp[..., None, :] - p.beta * sigma ** 2 * u) ** 2).sum(-1)) + rdir((d_now[..., None, :] * mean_d).sum(-1))
     idle, act = idle * ok, act * ok[..., None]                                 # unseen hand -> factor 1
     comp = act + (idle.sum(2, keepdim=True) - idle)[..., None]                 # hand h acts, the other is idle
     tgt = torch.logsumexp(comp, dim=2) - math.log(comp.shape[2])               # [B, T-1, K]
@@ -104,8 +116,10 @@ def log_prior(cmask: torch.Tensor, p: Params) -> torch.Tensor:
     return torch.cat([torch.log(w0).expand(len(cmask), 1), rest], 1)
 
 
-def forward(log_e: torch.Tensor, cmask: torch.Tensor, p: Params) -> tuple[torch.Tensor, torch.Tensor]:
-    """Exact filter in log space: (log b_t [B, T, 1 + K], log p(o_1:T) per episode [B])."""
+def forward(log_e: torch.Tensor, cmask: torch.Tensor, p: Params, inject: tuple | None = None) -> tuple[torch.Tensor, torch.Tensor]:
+    """Exact filter in log space: (log b_t [B, T, 1 + K], log p(o_1:T) per episode [B]).
+    inject = (t [B] long, log_b [B, 1 + K]): replace each episode's filtered belief at its frame t (corrupted-belief test
+    P4, docs/PIF.md §6.4); t < 0 = no injection for that episode."""
     h = torch.sigmoid(p.logit_h)
     lp = log_prior(cmask, p)
     out, ll, prev = [], log_e.new_zeros(len(log_e)), lp
@@ -113,6 +127,8 @@ def forward(log_e: torch.Tensor, cmask: torch.Tensor, p: Params) -> tuple[torch.
         joint = log_e[:, t] + torch.logaddexp(torch.log1p(-h) + prev, torch.log(h) + lp)
         z = torch.logsumexp(joint, 1, keepdim=True)
         ll, prev = ll + z[:, 0], joint - z
+        if inject is not None:
+            prev = torch.where((inject[0] == t)[:, None], inject[1], prev)
         out.append(prev)
     return torch.stack(out, 1), ll
 
@@ -134,6 +150,6 @@ def fit(x: dict, init: dict, steps: int, lr: float, seed: int) -> tuple[Params, 
 
 
 @torch.no_grad()
-def belief(x: dict, p: Params) -> np.ndarray:
+def belief(x: dict, p: Params, inject: tuple | None = None) -> np.ndarray:
     """[B, T, 1 + K] filtered belief (none first)."""
-    return forward(log_emission(x, p), x['cmask'], p)[0].exp().numpy()
+    return forward(log_emission(x, p), x['cmask'], p, inject)[0].exp().numpy()

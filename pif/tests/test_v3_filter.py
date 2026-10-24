@@ -7,7 +7,8 @@ import torch
 
 from pif.filter import Params, batch, belief, fit, forward, log_vmf3
 
-INIT = dict(sigma_m=0.02, beta=0.0, kappa=5.0, a=0.9, hazard=0.05, w_none=0.3, act_prob=0.5)
+INIT = dict(sigma_m=0.02, beta=0.0, kappa=5.0, a=0.9, hazard=0.05, w_none=0.3, act_prob=0.5,
+            outlier=0.1, sigma_out_m=0.3, outlier_dir=0.1)
 
 
 def test_forward_matches_enumeration():
@@ -37,6 +38,16 @@ def test_forward_matches_enumeration():
                 w *= A[seq[s - 1], seq[s]] * e[s, seq[s]]
             f[seq[-1]] += w
         np.testing.assert_allclose(log_b[0, t].detach().exp().numpy(), f / f.sum(), rtol=1e-9)
+
+
+def test_injection_replaces_the_belief():
+    p = Params(INIT)
+    log_e = torch.zeros(2, 6, 3, dtype=torch.float64)
+    cmask = torch.ones(2, 2, dtype=torch.bool)
+    v = torch.log(torch.tensor([[0.05, 0.9, 0.05]] * 2, dtype=torch.float64))
+    log_b, _ = forward(log_e, cmask, p, (torch.tensor([3, -1]), v))
+    np.testing.assert_allclose(log_b[0, 3].detach().exp().numpy(), [0.05, 0.9, 0.05])
+    assert log_b[1, 3].detach().exp()[1] < 0.9                            # t = -1: untouched
 
 
 def test_vmf_is_normalised():

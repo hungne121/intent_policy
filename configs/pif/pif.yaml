@@ -45,7 +45,9 @@ v3:                         # PIF v3 core (docs/PIF.md §4, pilot §6): rational
   # emission per hand: index-tip displacement N(beta sigma^2 u_k, sigma^2 I) + pointing direction (base -> tip)
   # vMF(norm(a d_{t-1} + (1 - a) v_k), kappa); the acting hand is a 1/2 : 1/2 mixture (docs/PIF.md §4.3)
   # act_prob = rho: under intent k the person acts towards k on a fraction rho of the frames, else still / retracting
-  init: {sigma_m: 0.02, beta: 0.0, kappa: 5.0, a: 0.9, hazard: 0.01, w_none: 0.5, act_prob: 0.5}   # fit start, all learned
+  # outlier / sigma_out_m / outlier_dir: inlier-outlier mixtures for the heavy-tailed estimated keypoints (MLESAC-style)
+  init: {sigma_m: 0.02, beta: 0.0, kappa: 5.0, a: 0.9, hazard: 0.01, w_none: 0.5, act_prob: 0.5,
+         outlier: 0.1, sigma_out_m: 0.3, outlier_dir: 0.1}   # fit start, all learned
   fit: {steps: 300, lr: 0.05, seed: 0}       # full-batch Adam on -log p(o_1:T) (forward algorithm)
 
 pilot:                      # docs/PIF.md §6 (pre-registered, commit 7ad563e)
@@ -56,6 +58,7 @@ pilot:                      # docs/PIF.md §6 (pre-registered, commit 7ad563e)
   depart_m: 0.05            # bread moved > 5 cm from its grasp position = robot left the plate (> 3x the p90 2D-3D
                             # box distance error 1.65 cm, docs/reports/PIF_P1.md)
   gru: {hidden: 64, epochs: 40, lr: 3.0e-3, seeds: [0, 1, 2]}   # baseline III (supervised)
+  p4: {confidence: 0.9, inject_s: 2.0}   # report only: wrong container forced with b = 0.9, 2 s before t_leave
 
 train:
   lr: 3.0e-4

@@ -143,7 +143,7 @@ def run_habit(cfg: dict, out) -> dict:
     point = np.full((len(cases), len(offs)), np.nan)
     curve_rel = np.arange(-100, 11)                                  # frames relative to t_leave for the curve
     curve = {m: np.full((len(cases), len(curve_rel)), np.nan) for m in ('v3', 'III_s0')}
-    fitted = []
+    fitted, p4 = [], []
     for f in range(pc['folds']):
         tr, te = [i for i in range(len(cases)) if fold[i] != f], [i for i in range(len(cases)) if fold[i] == f]
         t0 = time.time()
@@ -153,6 +153,25 @@ def run_habit(cfg: dict, out) -> dict:
         print(f'fold {f}: v3 fit {fitted[-1]}', flush=True)
         x_te = batch([cases[i]['ep'] for i in te], [cases[i]['cand'] for i in te], kp)
         b = belief(x_te, p)[..., 1:]
+        # P4 (report only): belief forced onto a wrong container with confidence c, `inject_s` before t_leave
+        c4, d4 = pc['p4']['confidence'], int(round(pc['p4']['inject_s'] * cfg['fps']))
+        t_inj, log_inj = [], []
+        for i in te:
+            c = cases[i]
+            wrong = (c['target'] + 1) % 4
+            v = np.full(5, (1 - c4) / 4)
+            v[1 + wrong] = c4
+            t_inj.append(c['t_leave'] - d4 if c['t_leave'] - d4 >= 1 else -1)
+            log_inj.append(np.log(v))
+        b4 = belief(x_te, p, (torch.as_tensor(t_inj), torch.as_tensor(np.array(log_inj))))[..., 1:]
+        for j, i in enumerate(te):
+            c, t0_ = cases[i], t_inj[j]
+            if t0_ < 0:
+                continue
+            T = len(c['ep']['holding'])
+            ok = np.flatnonzero(b4[j, t0_ + 1:T].argmax(-1) == c['target'])
+            p4.append(dict(episode=c['episode'], recovered=bool(len(ok)), frames=int(ok[0]) + 1 if len(ok) else None,
+                           by_t_leave=bool(len(ok) and t0_ + 1 + ok[0] <= c['t_leave'])))
         nets = {s: train_gru([cases[i] for i in tr], feats, pc['gru'], s) for s in seeds}
         for j, i in enumerate(te):
             c, T = cases[i], len(cases[i]['ep']['holding'])
@@ -197,6 +216,11 @@ def run_habit(cfg: dict, out) -> dict:
     g2 = all(v[2] >= 0 for v in at0['diff_v3_minus_III'].values())
     g3 = all(v[1] >= 0 or v[1] <= 0 <= v[2] for v in at0['diff_ece_III_minus_v3'].values())
     res['criteria'] = dict(G1=g1, G2=g2, G3=g3, verdict='go' if g1 and g2 and g3 else ('partial' if g1 else 'no-go'))
+    fr = [r['frames'] for r in p4 if r['recovered']]
+    res['p4'] = dict(confidence=pc['p4']['confidence'], inject_s_before_t_leave=pc['p4']['inject_s'], n=len(p4),
+                     recovered=sum(r['recovered'] for r in p4), recovered_by_t_leave=sum(r['by_t_leave'] for r in p4),
+                     frames_median=float(np.median(fr)) if fr else None,
+                     frames_p90=float(np.percentile(fr, 90)) if fr else None, rows=p4)
     res['curve'] = dict(frames_rel=curve_rel.tolist(), **{m: np.nanmean(v, 0).round(4).tolist() for m, v in curve.items()},
                         n=np.sum(~np.isnan(curve['v3']), 0).tolist())
     np.savez_compressed(out / 'predictions.npz', episodes=[c['episode'] for c in cases], target=y, fold=fold, point=point,
@@ -235,6 +259,10 @@ def report(res: dict) -> str:
         lines.append('\n| vs | v3 - III accuracy | ECE(III) - ECE(v3) |\n|---|---|---|')
         for m in r['diff_v3_minus_III']:
             lines.append(f"| {m} | {f(r['diff_v3_minus_III'][m])} | {f(r['diff_ece_III_minus_v3'][m])} |")
+    q = res['p4']
+    lines.append(f"\n## P4 self-correction (report only)\n\nBelief forced onto a wrong container with b = {q['confidence']}, "
+                 f"{q['inject_s_before_t_leave']} s before t_leave: recovered in {q['recovered']}/{q['n']} episodes, "
+                 f"{q['recovered_by_t_leave']}/{q['n']} by t_leave; frames to recover median {q['frames_median']}, p90 {q['frames_p90']} (10 Hz).")
     lines.append('\n## Fitted v3 parameters per fold\n')
     for x in res['fitted']:
         lines.append(f"- fold {x['fold']}: " + ', '.join(f'{k} {v:.4g}' for k, v in x['params'].items()) + f" (NLL {x['nll_first']:.3f} -> {x['nll_last']:.3f})")
