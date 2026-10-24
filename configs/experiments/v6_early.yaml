@@ -1,0 +1,34 @@
+# v6 pilot demonstrations for B and D (same demos; D adds the ManiCast forecast computed from human.keypoints) (docs/PIF.md §2.4, 25/10/2026): the non-privileged goal expert
+# (intent_policy/intent/goal_belief.py), rule `early`. v6_early / v6_late are identical except the rule and use the same
+# seeds (paired). No DART (the ACT paper uses none). T5 (change of mind) is added once the goal expert handles it.
+experiment: v6_early
+phase: intent_act
+seed: 0
+policy:
+  config: configs/policy/act_continuous.yaml
+  use_task_token: true
+  use_instruction: false
+intent:
+  keypoints: [l_shoulder, r_shoulder, l_elbow, r_elbow, l_wrist, r_wrist, r_index_base, r_index_tip, head]   # ManiCast
+                                     #   arm joints + the pointing ray + head; world frame, as rendered (human.keypoints)
+benchmark:
+  scenarios: [t1_choose_item, t2_fetch_return, t3_coaster_cup, t4_coworker]
+observation:
+  cameras: [high, wrist, top]
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+scenario_overrides:
+  all:
+    expert: {trigger: goal, goal_rule: early, grasp_settle_ticks: 0}
+data:
+  repo_id: local/v6_early
+  root: outputs/datasets/v6_early
+  seed_start: 300000
+  splits: [{name: main, episodes_per_scenario: 50}]   # ACT: 50 demos per task (PIF.md §2.4); the first 10 per task = the pilot the user reviews
+training:
+  batch_size: 32
+  num_workers: 2
+  log_every: 100
+  amp: false
+  keep_last: 0

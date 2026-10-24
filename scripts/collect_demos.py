@@ -9,7 +9,7 @@ Per frame (20 Hz, one control decision):
 With `intent.provider: oracle` (Phase 2) every frame also stores the oracle fields
 (`observation.oracle.*`, intent/representation.py: target identity/validity/position, current and
 future hand position/velocity; never an input of the No-Information policy) and `hri.seed`,
-`hri.scenario_index`, `hri.noise_injected`. With `intent.schema` (intent tokens, INTENT_ACT_GUIDE.md) every frame
+`hri.scenario_index`, `hri.noise_injected`. With `intent.schema` (intent tokens, INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]) every frame
 stores `human.keypoints` [J, 3] (world-frame ground truth of the schema's keypoints, as rendered) and
 `hri.holding_gt` (the simulator's grasp state, only to evaluate the gripper-based holding detector); the intent
 fields are added afterwards by scripts/build_intent_labels.py.
@@ -20,7 +20,7 @@ goes to meta/hri_episodes.jsonl for inspection. View with `lerobot-dataset-viz` 
 `scripts/view_dataset.py`.
 
 Episodes come from a balanced scenario list (`data.scenario_list`, scripts/generate_scenarios.py; one entry =
-task, scenario, seed, discrete spec; docs/requirements/scence_construct.md §5) or, without a list, from
+task, scenario, seed, discrete spec; docs/sim/scene_construct.md §5) or, without a list, from
 `data.splits` x `benchmark.scenarios` x seeds (random specs). `--tasks` / `--per-task` select a subset of the list
 (e.g. a preview). Experiment configs may set `scenario_overrides` (deep-merged into the scenario YAMLs) and
 `data.noise` (DART-style perturbation of a fraction of the episodes; the recorded labels stay the expert's clean
@@ -239,7 +239,7 @@ def main():
     horizons = tuple(intent.get('horizons_s', (0.5, 1.0))) if intent.get('provider') == 'oracle' else None
     provider = OracleIntentProvider(horizons) if horizons is not None else None
     schema = load_schema(intent['schema']) if intent.get('schema') else None
-    keypoints = list(schema['keypoints']) if schema else None
+    keypoints = list(intent['keypoints']) if intent.get('keypoints') else list(schema['keypoints']) if schema else None
     noise_cfg = data.get('noise') or {}
     ds = LeRobotDataset.create(repo_id=data['repo_id'], fps=20, features=features(obs_cfg, horizons, keypoints), root=root,
                                robot_type='ur3e_susgrip', use_videos=True, image_writer_threads=4)
