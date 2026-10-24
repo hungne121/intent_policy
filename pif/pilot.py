@@ -242,13 +242,17 @@ def report(res: dict) -> str:
 
 
 # ------------------------------------------------------------------ stage A
-def run_sim(cfg: dict, out, tasks: list[str], max_eps: int) -> dict:
-    """Debugging only (scripted human): fit on sim episodes, accuracy of argmax at each gesture's 'clear' frame."""
+def run_sim(cfg: dict, out, tasks: list[str], max_eps: int, noise_m: float) -> dict:
+    """Debugging only (scripted human): fit on sim episodes, accuracy of argmax at each gesture's 'clear' frame and
+    1 / 2 s later. `noise_m`: Gaussian noise added to the keypoints (sim keypoints are exact, HABIT's are not)."""
     from pif.data.sim import read_dataset
     types = cfg['v3']['candidates']['sim']['types']
     tid = [cfg['tokens']['object_types'].index(t) for t in types]
     eps, labs = read_dataset(cfg, tasks)
     eps, labs = eps[:max_eps], labs[:max_eps]
+    rng = np.random.default_rng(0)
+    for e in eps:
+        e['human_pos'] = e['human_pos'] + rng.normal(0, noise_m, e['human_pos'].shape)
     cands = [[k for k in range(len(e['obj_type'])) if e['obj_type'][k] in tid] for e in eps]
     x = batch(eps, cands, cfg['tokens']['keypoints'])
     p, hist = fit(x, cfg['v3']['init'], **cfg['v3']['fit'])
@@ -260,14 +264,21 @@ def run_sim(cfg: dict, out, tasks: list[str], max_eps: int) -> dict:
                 n_none += 1
                 continue
             if g['target'] in cands[i]:
-                bk = b[i, g['clear'], 1:len(cands[i]) + 1]
-                hits.append(dict(task=lab['task'], label=g['label'], correct=bool(int(np.argmax(bk)) == cands[i].index(g['target'])),
-                                 chance=1 / len(cands[i])))
+                k = cands[i].index(g['target'])
+                row = dict(task=lab['task'], label=g['label'], chance=1 / len(cands[i]))
+                for name, d in (('clear', 0), ('clear+1s', 10), ('clear+2s', 20)):   # memory: intent still held per label
+                    t = g['clear'] + d
+                    if t < len(e['holding']) and lab['intent_object'][t] == g['target']:
+                        row[name] = bool(int(np.argmax(b[i, t, 1:len(cands[i]) + 1])) == k)
+                hits.append(row)
     acc = {}
     for h in hits:
-        acc.setdefault(h['task'], []).append(h['correct'])
-    return dict(params=p.values(), nll_first=hist[0], nll_last=hist[-1], episodes=len(eps), gestures_scored=len(hits),
-                gestures_without_object_target=n_none, accuracy_at_clear={k: round(float(np.mean(v)), 3) for k, v in acc.items()},
+        for name in ('clear', 'clear+1s', 'clear+2s'):
+            if name in h:
+                acc.setdefault(f"{h['task']} {name}", []).append(h[name])
+    return dict(noise_m=noise_m, params=p.values(), nll_first=hist[0], nll_last=hist[-1], episodes=len(eps), gestures_scored=len(hits),
+                gestures_without_object_target=n_none,
+                accuracy={k: dict(acc=round(float(np.mean(v)), 3), n=len(v)) for k, v in acc.items()},
                 chance_mean=round(float(np.mean([h['chance'] for h in hits])), 3) if hits else None)
 
 
@@ -278,9 +289,11 @@ def main():
     ap.add_argument('--set', nargs='*', default=[])
     ap.add_argument('--sim-tasks', nargs='*', default=['T1'])
     ap.add_argument('--sim-max-episodes', type=int, default=120)
+    ap.add_argument('--sim-noise-m', type=float, default=0.0)
     args = ap.parse_args()
     cfg = load_config(args.config, args.set)
-    out = log_run(run_dir('pilot', args.stage), 'pif.pilot')
+    out = run_dir('pilot', args.stage)
+    log_run(out, 'pif.pilot')
     torch.set_num_threads(4)
     if args.stage == 'habit':
         res = run_habit(cfg, out)
@@ -288,7 +301,7 @@ def main():
         plot_curve(res, out)
         print(report(res))
     else:
-        res = run_sim(cfg, out, args.sim_tasks, args.sim_max_episodes)
+        res = run_sim(cfg, out, args.sim_tasks, args.sim_max_episodes, args.sim_noise_m)
         print(json.dumps(res, indent=1))
     (out / 'results.json').write_text(json.dumps(res, indent=1))
     print(f'-> {out}')

@@ -44,7 +44,8 @@ v3:                         # PIF v3 core (docs/PIF.md §4, pilot §6): rational
   candidates: {habit: {names: [airtight container]}, sim: {types: [object, container, surface]}}
   # emission per hand: index-tip displacement N(beta sigma^2 u_k, sigma^2 I) + pointing direction (base -> tip)
   # vMF(norm(a d_{t-1} + (1 - a) v_k), kappa); the acting hand is a 1/2 : 1/2 mixture (docs/PIF.md §4.3)
-  init: {sigma_m: 0.02, beta: 0.0, kappa: 5.0, a: 0.9, hazard: 0.01, w_none: 0.5}   # starting values of the fit, all learned
+  # act_prob = rho: under intent k the person acts towards k on a fraction rho of the frames, else still / retracting
+  init: {sigma_m: 0.02, beta: 0.0, kappa: 5.0, a: 0.9, hazard: 0.01, w_none: 0.5, act_prob: 0.5}   # fit start, all learned
   fit: {steps: 300, lr: 0.05, seed: 0}       # full-batch Adam on -log p(o_1:T) (forward algorithm)
 
 pilot:                      # docs/PIF.md §6 (pre-registered, commit 7ad563e)

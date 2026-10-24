@@ -7,7 +7,7 @@ import torch
 
 from pif.filter import Params, batch, belief, fit, forward, log_vmf3
 
-INIT = dict(sigma_m=0.02, beta=0.0, kappa=5.0, a=0.9, hazard=0.05, w_none=0.3)
+INIT = dict(sigma_m=0.02, beta=0.0, kappa=5.0, a=0.9, hazard=0.05, w_none=0.3, act_prob=0.5)
 
 
 def test_forward_matches_enumeration():

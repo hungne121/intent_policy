@@ -5,8 +5,10 @@
     idle hand / none:       dp ~ N(0, sigma^2 I),                  d_t ~ vMF(d_{t-1}, kappa)
   u_k = norm(c_k - p_{t-1}) (object position at t - 1: causal). Every term is a normalised density whose constant does
   not depend on g, so -log p(o_1:T) from the forward algorithm is a proper likelihood (docs/PIF.md §4.3, fix 1).
-  p(o_t | k) = 1/2 sum_h [act_h(k) prod_{h' != h} idle_h'],  p(o_t | none) = prod_h idle_h; a hand that is not seen at t
-  or t - 1 contributes 1 (missing data).
+  p(o_t | k) = rho * 1/2 sum_h [act_h(k) prod_{h' != h} idle_h'] + (1 - rho) prod_h idle_h,  p(o_t | none) = prod_h idle_h:
+  under an intent the person acts towards k on a fraction rho of the frames and is still / retracting on the others,
+  so a retracted hand does not cancel a held intent (stage A found hazard -> 0.985 without this term: the filter had
+  no memory). A hand that is not seen at t or t - 1 contributes 1 (missing data).
   Transition: b^-_t = (1 - h) b_{t-1} + h pi,  pi = [w_none, (1 - w_none) / K, ...]; b_0 = pi (docs/PIF.md §4.4).
 Emission uses only frames t and t - 1; all other history goes through b_{t-1} (no double counting).
 Episodes are batched: time is padded with log e = 0 (the predicted belief is normalised, so padding adds 0 to the
@@ -42,11 +44,12 @@ class Params(torch.nn.Module):
         self.log_sigma, self.beta = f(math.log(init['sigma_m'])), f(float(init['beta']))
         self.log_kappa, self.logit_a = f(math.log(init['kappa'])), f(logit(init['a']))
         self.logit_h, self.logit_w0 = f(logit(init['hazard'])), f(logit(init['w_none']))
+        self.logit_rho = f(logit(init['act_prob']))
 
     def values(self) -> dict:
         return dict(sigma_m=self.log_sigma.exp().item(), beta=self.beta.item(), kappa=self.log_kappa.exp().item(),
                     a=torch.sigmoid(self.logit_a).item(), hazard=torch.sigmoid(self.logit_h).item(),
-                    w_none=torch.sigmoid(self.logit_w0).item())
+                    w_none=torch.sigmoid(self.logit_w0).item(), act_prob=torch.sigmoid(self.logit_rho).item())
 
 
 def batch(eps: list[dict], cands: list[list[int]], keypoints: list[str]) -> dict:
@@ -84,7 +87,10 @@ def log_emission(x: dict, p: Params) -> torch.Tensor:
     idle, act = idle * ok, act * ok[..., None]                                 # unseen hand -> factor 1
     comp = act + (idle.sum(2, keepdim=True) - idle)[..., None]                 # hand h acts, the other is idle
     tgt = torch.logsumexp(comp, dim=2) - math.log(comp.shape[2])               # [B, T-1, K]
-    out = torch.cat([idle.sum(2)[..., None], tgt], -1)
+    none = idle.sum(2)[..., None]
+    rho = torch.sigmoid(p.logit_rho)
+    tgt = torch.logaddexp(torch.log(rho) + tgt, torch.log1p(-rho) + none)     # acting or still under intent k
+    out = torch.cat([none, tgt], -1)
     out = torch.cat([out.new_zeros(B, 1, 1 + K), out], 1)
     live = (torch.arange(T)[None] < x['tlen'][:, None]).double()[..., None]
     out = out * live

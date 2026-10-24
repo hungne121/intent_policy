@@ -201,6 +201,12 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - "3 seed" của III: G2 và G3 phải đạt **với từng seed** (không gộp seed thành ensemble, vì ensemble làm III hiệu chỉnh tốt hơn một model đơn). Đây là cách hiểu chặt nhất với v3.
 - Chọn episode: giống `pif/eval.py` (nhãn tin cậy, đủ 4 hộp, có track bánh, hai nguồn nhãn khớp nhau). Số episode chấm thực tế có thể < 190.
 
+**Giai đoạn A, ghi chép gỡ lỗi (24/10/2026 07:17, trước kết quả HABIT):** sim T1, 100 episode, `outputs/pilot/2026-10-24/`.
+- Bản đầu: hazard học được 0.985, tức belief reset về prior gần mỗi frame (không có trí nhớ). Nguyên nhân: emission dưới đích $k$ buộc tay luôn đi về $k$; người chỉ xong rồi rút tay, nên model giải thích việc rút tay bằng đổi ý. **Sửa dạng emission** (trước giai đoạn B): dưới $k$, mỗi frame người "đang hành động" với xác suất $\rho$ hoặc "đứng yên / rút tay" với xác suất $1-\rho$, $\rho$ học được (`v3.init.act_prob`). Vẫn là mật độ có chuẩn hoá.
+- Sau sửa (keypoint sim không nhiễu): hazard 0.31, κ ≈ 1245, độ chính xác lúc cử chỉ rõ / +1 s / +2 s = 0.64 / 1.00 / 0.71 (ngẫu nhiên 0.167). κ rất lớn vì keypoint sim chính xác tuyệt đối: thay đổi nhỏ của hướng ngón tay thành bằng chứng hàng trăm nats. Đây là dạng tự tin quá mức của P2, do sim quá sạch.
+- Thêm nhiễu Gauss 2 cm vào keypoint sim (cỡ nhiễu HABIT, `PIF_P1.md`), 07:17: hazard 0.028 (ý định giữ trung bình ~3.6 s), κ 5.8, $\rho$ 0.72; độ chính xác lúc rõ / +1 s / +2 s = 0.49 / 0.61 / 0.58 (ngẫu nhiên 0.167). Bộ lọc giữ được ý định sau cử chỉ.
+- Không dùng để quyết định (người sim là scripted).
+
 ### 6.4 Dự đoán đi kèm (báo cáo, không quyết go/no-go)
 
 | # | Dự đoán | Đo | Nếu bị bác bỏ thì sửa |
