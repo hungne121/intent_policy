@@ -249,3 +249,44 @@ Hiện tại phần "đặt vật xuống" vẫn kém (xem mục dự báo vật
 | Vòng 2 | DAgger: expert tự gắn nhãn lại các trạng thái policy đi tới (Ross, Gordon, Bagnell 2011), thay vì AutoIntervene (cần người vận hành) | |
 | Ablation sau | Lấy mẫu theo transition (cách ManiCast); data scaling 10/20/40; cấu hình chunk / temporal ensembling lúc chạy | |
 | Đánh giá | Riêng: khởi động (**useful motion onset**, chốt định nghĩa trước), thời gian hoàn thành, hồi phục, commit sai; bộ test làm hỏng ý định E1–E6 (trễ, nhiễu, sai rồi sửa) | |
+
+### M5 bước 3: expert không đặc quyền (25/10 00:40–00:57)
+
+`intent_policy/intent/goal_belief.py` dùng cùng interface với thiết bị v3.2, nên nhánh belief của expert (đi về điểm trung gian, cam kết, đổi đích) được dùng lại.
+
+Bên trong:
+- S = cổ tay lúc **bắt đầu** chuyển động (Dragan 2013).
+- Đứng yên thì **giữ** belief của cử chỉ vừa xong; rút tay (không tiến về ứng viên nào) không tính là bằng chứng.
+- **Pha quy trình** (quan sát được):
+  - T1: món mở khi robot chưa cầm gì, khay mở khi robot đang cầm;
+  - T2: chỗ chìa tay mở khi bàn tay ngửa mở;
+  - T3: chỗ đặt mở khi lót cốc đã rời U.
+- **Cam kết:**
+  - trong lúc cử chỉ còn diễn ra: b ≥ b* = C_sai / (C_sai + C_chờ). C_sai = (2·travel_dz + khoảng cách tới ứng viên kề bên) / tốc độ TCP; C_chờ = 0.3 s đo được. Ra khoảng 0.86–0.90;
+  - khi cử chỉ đã xong: chờ không còn thêm thông tin, nên cam kết đích có xác suất cao nhất;
+  - luật muộn (A): chỉ trường hợp đã xong.
+- **T4:** sớm thì nhường khi cổ tay dự báo (1 s tới) vào vùng robot; muộn thì nhường theo tay hiện tại.
+
+Lỗi đã sửa trong quá trình (mỗi lỗi kiểm bằng trace):
+1. Belief món và khay chạy cùng lúc, nên khi chỉ khay robot trả bánh lại.
+2. Không có trí nhớ.
+3. Không cam kết sau cử chỉ vươn tay (0.62 < 0.9, robot chờ mãi).
+4. Cử chỉ với lấy lót cốc làm cam kết chỗ.
+5. Thừa số dừng bị tắt do reset tốc độ đỉnh trước khi tính (bug).
+6. Nét làm việc ở T2 bị coi là chọn chỗ.
+7. Robot có guard và người đang chờ chờ nhau mãi ở điểm chờ T2.
+8. Luật muộn không cam kết vật duy nhất.
+
+Còn: T3 2/8 cốc không nằm trên lót cốc, chưa xem.
+
+**Sớm và muộn trên cùng seed 100–111** (01:03; `outputs/v6_check/2026-10-25_00-58-26` sớm, `…_00-59-55` / `…_01-02-09` muộn), thời gian hoàn thành, chỉ các cặp thành công cả hai:
+
+| Task | Sớm | Muộn | Sớm nhanh hơn |
+|---|---|---|---|
+| T1 (9) | 12.0 s | 14.9 s | 2.8 s (trung vị 2.25) |
+| T2 (12) | 24.1 s | 29.0 s | 4.9 s (2.9–6.6) |
+| T3 (9) | 10.0 s | 12.2 s | 2.2 s (1.8–2.8) |
+| T4 | ≈ | ≈ | ≈ 0: T4 đo bằng nhường / an toàn, không bằng thời gian |
+
+- Lần đầu T2/T3 ra y hệt nhau vì luật muộn lấy vật duy nhất ngay từ đầu. Đã sửa đúng định nghĩa A (PIF.md §2.1): A chờ người ra hiệu xong (chìa tay / đặt lót cốc) rồi mới bắt đầu.
+- Lỗi còn lại **giống nhau ở cả hai luật**, tức là do cơ chế expert / scene, không phải do luật: T1 chạm vật khác 3/12, T3 cốc lệch khỏi lót cốc 3/12, T4 chạm người 1/12. Phải sửa trước khi thu pilot.

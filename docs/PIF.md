@@ -310,7 +310,7 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - Giai đoạn A: laptop, CPU.
 - Giai đoạn B: thuê GPU trích xuất S8789 (67 082 frame). Ước tính trên RTX A5000 chưa đo; đo 1 episode trước. Fit model: laptop.
 
-## 7. Trạng thái (25/10/2026 00:40)
+## 7. Trạng thái (25/10/2026 01:00)
 
 | Mốc | Trạng thái |
 |---|---|
@@ -318,7 +318,8 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 | ManiCast | đánh giá bản gốc xong; fine-tune trên v6 xong (`outputs/forecast_ft/2026-10-24_23-44`) |
 | Đọc ra đích (M5 bước 1) | xong trên keypoint sạch: T1 100% từ 0.4 s, T2 100% từ 0.2 s, T3 ~80% từ 0.3 s (có ManiCast); chưa kiểm keypoint có nhiễu |
 | Dự báo vật đang cầm | đo xong: tốt khi đang mang (T4 78 vs 173 mm); kém khi đặt xuống; phần mở rộng để sau |
-| **Tiếp theo** | expert sớm (HO) + expert muộn (A) → pilot demo → người dùng duyệt → kiểm leakage → train trên pilot → cổng D |
+| Expert không đặc quyền (25/10 00:57) | `intent_policy/intent/goal_belief.py` + trigger `goal` (`goal_rule: early` cho B/D, `late` cho A). Seed 100–111, sớm nhanh hơn muộn: T1 2.8 s, T2 4.9 s, T3 2.2 s, T4 ≈ 0. Lỗi chung cả hai luật: T1 chạm vật 3/12, T3 cốc lệch 3/12, T4 chạm người 1/12 |
+| **Tiếp theo** | sửa 3 lỗi chung → pilot demo (5–10/task) → người dùng duyệt video → kiểm leakage → train A/B/D trên pilot (laptop) → cổng D |
 | PIF v3 trên HABIT | pilot "một phần" (24/10 12:55); tạm dừng, chờ xác nhận §2.6 |
 
 Chi tiết từng bước và số đo: `docs/sim/scenarios_v6_proposal.md`.
