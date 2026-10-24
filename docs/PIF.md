@@ -2,6 +2,24 @@
 
 File duy nhất mô tả hướng hiện tại. Gộp ngày 23/10/2026 từ `HANDOFF_PIF.md`, `HANDOFF_PIF_NOTES.md`, `HANDOFF_PIF_LOCAL.md`, `HANDOFF_PIF_CORRECTIONS.md`; bốn file đó còn trong git (`git show e29ed0d:docs/requirements/HANDOFF_PIF.md`). Kết quả từng mốc ở `docs/reports/PIF_P*.md`.
 
+## 0. Kim chỉ nam (đọc trước mọi quyết định; người dùng yêu cầu 24/10/2026 13:45)
+
+**Hướng đi gốc (handoff §B1–B4), không được trôi khỏi:**
+1. PIF là **dự đoán ý định**, không phải **nhận dạng lệnh**. Bộ cũ (DeePoint + luật) bị bỏ vì "chỉ cho ra đích khi người đã chỉ tay đủ rõ"; "chỉ tay là lệnh: người quyết định xong mới chỉ". Giá trị của PIF nằm ở chỗ đoán **trước** khi lệnh rõ, từ chuyển động.
+2. Dùng cho **cả ba vai**: Supervisor (vật / chỗ nào, lúc nào), Collaborator (người sắp tới đâu, lúc nào sẵn sàng), Coworker (tay người sắp chiếm vùng nào). Biến chung là cặp (quan hệ r, đối tượng k).
+3. Học bằng **dự đoán tương lai** của vật và tay người (họ JEPA), **không cần nhãn ý định**; nhãn chỉ để đánh giá.
+4. Cung cấp cho ACT đúng thứ ACT thiếu: **bộ nhớ**, **dự đoán sớm**, **tín hiệu chuyển động**; cho phép đổi ý; xử lý khi dự đoán sai.
+
+**Cách làm phải giữ (người dùng duyệt 24/10):** thiết kế suy ra từ lý thuyết (ADR-001: POMDP → belief, lọc Bayes chính xác, emission có chuẩn hoá); ghi dự đoán và tiêu chí **trước** khi chạy; gặp lỗi thì làm đủ 5 bước (phát hiện → nguyên nhân từ số đo → kiểm nguyên nhân trong tài liệu → các phương pháp hiện có → chọn); ưu tiên model đã công bố, dùng nguyên weights.
+
+**Tự kiểm trước mỗi thiết kế / thí nghiệm** (trả lời trong báo cáo):
+- Thí nghiệm này có đo được dự đoán **trước lệnh / trước khi ý định rõ** không, hay chỉ đo nhận dạng lệnh?
+- Có trên vai nào ngoài Supervisor không?
+- Số hạng dự đoán tương lai (JEPA) có được dùng và kiểm không?
+- Nếu thu hẹp phạm vi (ví dụ chỉ "lõi"), có ghi rõ phần nào của hướng gốc **chưa** được kiểm không?
+
+**Bài học trôi hướng (24/10):** pilot v3 dùng phạm vi "lõi" ($\lambda_J=0$) trên S8789 (task ra lệnh bằng chỉ tay). Kết quả: gần như toàn bộ thông tin đến từ hướng ngón trỏ (tắt hướng thì belief không bao giờ > 0.5; tắt độ dời thì không đổi), tức là đã đo **nhận dạng lệnh + bộ nhớ**, gần với DeePoint + luật. Phần dự đoán trước lệnh chưa được kiểm. Từ 24/10/2026 quay về hướng gốc, giữ cách lập luận của ADR-001.
+
 **Cập nhật 24/10/2026 07:00 (+07):** chuyển sang **PIF v3** theo ADR-001 (người dùng duyệt "ok triển khai", có 5 sửa bắt buộc + 4 sửa nên có, mục 4.8). Người dùng thêm: tự xây model là mạo hiểm, nên **chạy pilot có tiêu chí đặt trước** (mục 6) rồi mới đầu tư tiếp. Bản v2 (JEPA latent thuần, GRU làm nguồn bằng chứng) còn trong git ở commit `f9c2aab`.
 
 ## 1. Đề tài và câu hỏi
