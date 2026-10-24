@@ -50,6 +50,17 @@ v3:                         # PIF v3 core (docs/PIF.md §4, pilot §6): rational
          outlier: 0.1, sigma_out_m: 0.3, outlier_dir: 0.1}   # fit start, all learned
   fit: {steps: 300, lr: 0.05, seed: 0}       # full-batch Adam on -log p(o_1:T) (forward algorithm)
 
+forecast:                   # ManiCast (CoRL 2023) as published: pif/forecast.py, docs/reports/PIF_survey.md
+  repo: third_party/manicast           # github.com/portal-cornell/manicast branch release (cloned 2026-10-24)
+  checkpoint: manicast                  # base | finetuned | manicast | manicastW | scratch (their model_checkpoints)
+  model: {input_n: 10, output_n: 25, rate_hz: 25, st_gcnn_dropout: 0.1, n_tcnn_layers: 4, tcnn_kernel_size: [3, 3],
+          tcnn_dropout: 0.0}            # their utils/parser.py defaults; 0.4 s in, 1 s out at 25 Hz
+  # marker offsets in CoMaD axes (+y up, faces -z, left -x), mean over CoMaD handover_0.json (Kushal), measured
+  # 2026-10-24: BackTop - mid(L/RShoulderBack), WaistLBack - mid(L/RShoulderBack)
+  offsets: {backtop_minus_shoulder_mid: [0.010, 0.038, 0.013], waist_minus_shoulder_mid: [-0.095, -0.422, 0.043]}
+  eval: {horizons_s: [0.5, 1.0], gate_arm_m: 0.632, moving_m: 0.05}   # moving: a wrist moves > 5 cm in 1 s; gate: wrist-shoulder > (0.186 + 0.146) x 1.90 m = invalid
+                                                     # (Drillis & Contini ratios, PIF_pilot §9)
+
 pilot:                      # docs/PIF.md §6 (pre-registered, commit 7ad563e)
   folds: 5
   bootstrap: 10000
