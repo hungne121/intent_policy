@@ -127,6 +127,8 @@ v6_detection:               # M5: ManiCast's own decision protocol on v6 gesture
     t2_hand:  {region: point}
     t3_spot:  {region: point}
   moving_m: 0.05            # forecast.eval.moving_m: a displacement below this has no direction
+  still_fraction: 0.10      # 'stopped' = speed below 10 % of the gesture's peak speed (the movement-end convention of
+                            #   the pointing kinematics, INTENT_ACT_v3.2.md §4.2c-d; DeviceBelief.STILL_FRACTION)
   window_s: [-0.5, 1.0]     # scored from 0.5 s before the motion start to 1 s after its end
   observers:                # forecast.checkpoint_path values (null: released `checkpoint`), plus constant velocity
     released: null

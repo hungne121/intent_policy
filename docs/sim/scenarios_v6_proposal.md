@@ -133,3 +133,25 @@ Thiết kế:
 6. **Pha trước cử chỉ (T2–T4):** tín hiệu quy trình / tiến độ, quan sát trực tiếp.
 
 Bước 1: thu dữ liệu chuyển động người v6 → fine-tune → đánh giá.
+
+### M5 bước 1b: ManiCast fine-tune + giao thức phát hiện của ManiCast (18:45–18:57)
+
+**Fine-tune** (`pif/forecast_finetune.py`, công thức của họ; dữ liệu `pif/v6_motion_data.py`: 4 task × 48/6/6 episode train/val/test, khoảng 60 phút chuyển động train). Sai số cổ tay trên cửa sổ transition của tập test, `outputs/forecast_ft/2026-10-24_18-45`:
+
+| Bộ dự báo | ADE | Tại 1 s |
+|---|---|---|
+| fine-tune | **35 mm** | **59 mm** |
+| giữ tư thế hiện tại | 55 mm | 88 mm |
+| ManiCast gốc | 54 mm | 92 mm |
+| vận tốc không đổi | 69 mm | 132 mm |
+
+**Giao thức phát hiện** (`pif/v6_detection.py`, theo `eval/handover.py` của họ): đích = vùng nơi cổ tay **dừng** (tốc độ < 10% đỉnh), cổ tay dự báo +1 s so với cổ tay hiện tại. Bản đầu dùng "vùng đầu tiên tay đi vào" là sai: tay đi ngang vùng khác trên đường. Keypoint sạch, `outputs/v6_detection/2026-10-24/18-54-46_m5`:
+
+| Nhóm | Muộn (cổ tay hiện tại): đúng / t | ManiCast fine-tune: đúng / t / sớm hơn (n) |
+|---|---|---|
+| T2 chỗ chìa tay | 0.75 / 0.82 s | **0.91 / 0.40 s / 0.40 s (23)** |
+| T3 chỗ đặt lót cốc | 1.00 / 0.82 s | 0.29: dự báo sai chỗ dừng |
+| T1 món / khay | 0.33 / 0.58 | 0.38 / 0.58: cách đọc sai, xem dưới |
+
+- Với nhiễu 2 cm i.i.d., mọi thứ sụp: nhiễu tạo tốc độ ảo ≥ 0.2 m/s nên không khung nào được coi là "dừng".
+- T1: bánh và khay nằm ngoài tầm với, người chỉ hoặc vươn tay một đoạn. Hướng dịch chuyển cổ tay tính từ chỗ bắt đầu không phải hướng chỉ; phải đọc bằng tia chỉ tay hoặc cánh tay (vai → cổ tay → ngón trỏ).

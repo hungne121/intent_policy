@@ -2,7 +2,9 @@
 third_party/manicast/eval/handover.py): a target is detected when the wrist enters its region; the forecast detects
 with the wrist forecast 1 s ahead (the last forecast frame), the late reference with the current wrist. Detection
 advantage = t(current) - t(forecast) for gestures where both pick the right target. No belief threshold: regions come
-from the layout (half the nearest-neighbour spacing, as distance or, for targets beyond reach, as direction).
+from the layout (half the nearest-neighbour spacing, as distance or, for targets beyond reach, as direction). As in
+their handover (the goal = where the hand ends), a region counts only where the wrist stops: speed below
+`still_fraction` of the gesture's peak speed so far (current wrist) / at the end of the forecast (forecast).
 Episodes / candidates / gestures as pif/v6_timing.py (its sets), with its keypoint noise.
   ./run.sh -m pif.v6_detection [--set "v6_detection.observers={ft: outputs/forecast_ft/<run>/best.pt}"]
   -> outputs/v6_detection/<date>/<time>_m5/{results.json, report.md}
@@ -69,7 +71,7 @@ def main():
         r['ep']['human_pos'] = r['ep']['human_pos'] + rng.normal(0, vt['keypoint_noise_m'], r['ep']['human_pos'].shape)
     J = {k: i for i, k in enumerate(kps)}
     fps = float(cfg['fps'])
-    t_hist, t_out = np.arange(-4, 1) / fps, np.array([1.0])
+    t_hist, t_out = np.arange(-4, 1) / fps, np.array([1.0 - 1.0 / fps, 1.0])   # end position + end speed
     observers = {}
     for name, path in vd['observers'].items():
         observers[name] = ManiCastForecaster(dict(cfg, forecast=dict(cfg['forecast'], checkpoint_path=path)))
@@ -83,15 +85,17 @@ def main():
         idx = np.arange(4, len(tt))
         H = np.stack([mk[j - 4:j + 1] for j in idx])
         W = np.stack([waist[j - 4:j + 1] for j in idx])
-        fut = {}
+        fut, cur_speed = {}, np.r_[0.0, np.linalg.norm(np.diff(wrist, axis=0), axis=1) * fps]
         for name, o in observers.items():
-            f = np.full((len(tt), 3), np.nan)
-            if o is None:                                                  # their CVM baseline, 1 s ahead
-                f[idx] = wrist[idx] + (wrist[idx] - wrist[idx - 4]) / (4 / fps) * 1.0
+            f, v = np.full((len(tt), 3), np.nan), np.full(len(tt), np.nan)
+            if o is None:                                                  # their CVM baseline, 1 s ahead (constant
+                vel = (wrist[idx] - wrist[idx - 4]) / (4 / fps)            #   velocity never stops: speed = current)
+                f[idx], v[idx] = wrist[idx] + vel * 1.0, np.linalg.norm(vel, axis=1)
             else:
                 p = np.concatenate([o.forecast(H[a:a + 256], W[a:a + 256], t_hist, t_out) for a in range(0, len(H), 256)])
-                f[idx] = o.from_comad(p[:, 0, 6])
-            fut[name] = f
+                f[idx] = o.from_comad(p[:, 1, 6])
+                v[idx] = np.linalg.norm(o.from_comad(p[:, 1, 6]) - o.from_comad(p[:, 0, 6]), axis=1) * fps
+            fut[name] = (f, v)
         for g in r['gestures']:
             s = sets[g['set']]
             pos = r['pos'][g['set']]
@@ -100,19 +104,21 @@ def main():
             origin = wrist[int(np.searchsorted(tt, g['t0']))]
             size = regions(pos, s['region'], origin)
 
-            def detect(track):
+            peak = np.maximum.accumulate(cur_speed[a:z + 1])                # observed peak speed of the gesture so far
+
+            def detect(track, speed):
                 for j in range(a, z + 1):
-                    if np.isnan(track[j]).any():
-                        continue
+                    if np.isnan(track[j]).any() or speed[j] >= vd['still_fraction'] * max(peak[j - a], 1e-6):
+                        continue                                           # not (predicted to be) stopped there
                     k = inside(track[j], pos, size, s['region'], origin, vd['moving_m'])
                     if k is not None:
                         return tt[j], k
                 return None, None
-            tc, kc = detect(wrist)
+            tc, kc = detect(wrist, cur_speed)
             row = dict(set=g['set'], label=g['label'], seed=r['seed'], K=len(pos), dur=round(g['t1'] - g['t0'], 2),
                        current_t=None if tc is None else round(tc - g['t0'], 2), current_ok=kc == g['target'])
-            for name, f in fut.items():
-                tf, kf = detect(f)
+            for name, (f, v) in fut.items():
+                tf, kf = detect(f, v)
                 row[f'{name}_t'] = None if tf is None else round(tf - g['t0'], 2)
                 row[f'{name}_ok'] = kf == g['target']
                 row[f'{name}_adv'] = round(tc - tf, 2) if (kf == g['target'] and kc == g['target']) else None
