@@ -20,7 +20,7 @@ from intent_policy.scenarios.config import ScenarioConfig, sample_variation, lay
 
 LIFT_HEIGHT = 0.03          # [m] above rest height => object counts as lifted by the robot
 GRASP_DEBOUNCE = 2          # consecutive ticks required before grasp/release events
-# robot_target_commit (agent-independent; docs/requirements/INTENT_ACT_v3.2.md §7, user decision 2026-10-09): the
+# robot_target_commit (agent-independent; docs/intent_act/INTENT_ACT_v3.2.md §7, user decision 2026-10-09): the
 # irreversible part of acting on a target has begun: the TCP is within COMMIT_RADIUS (horizontally) of a candidate's
 # commit point (where the TCP grasps / places) and at most COMMIT_DZ above it, i.e. it is descending onto that object /
 # into that zone. Moving at travel height (hedging between candidates, passing over one) is not a commit.
@@ -132,6 +132,10 @@ class BaseScenario:
         """p (xy) inside the zone's tape square shrunk by `margin`."""
         half = np.broadcast_to(self.zones[zone].get('size', self.layout['marker_size']), 2) / 2 - margin
         return bool(np.all(np.abs(np.asarray(p)[:2] - np.asarray(self.zones[zone]['xy'])) <= half))
+
+    def place_dz(self, key: str) -> float:
+        """Height of a place location above the table where an object is set down there (v6: a coaster)."""
+        return 0.0
 
     def in_robot_zone(self, p: np.ndarray, margin: float = 0.0) -> bool:
         return bool(np.all(np.asarray(p) >= self.robot_zone_lo - margin) and np.all(np.asarray(p) <= self.robot_zone_hi + margin))

@@ -876,11 +876,62 @@ class Interrupter(GestureHuman):
         self.run_queue(t, ctx)
 
 
+class CoasterPlacer(GestureHuman):
+    """v6 T3 (HABIT 'Place coasters on the table and set cups on them'): take the coaster from U, carry it to a spot of
+    the person's choice in the shared area (K1-K3 + a small offset), put it down, withdraw and wait for the robot to set
+    the cup on it. No pointing: the carrying motion is the intention cue (its evidence: the spot)."""
+
+    EVIDENCE_LABELS = {**GestureHuman.EVIDENCE_LABELS, 'carry_coaster': 'target_zone'}
+
+    def __init__(self, scene, behavior, variation):
+        super().__init__(scene, behavior, variation)
+        self.coaster = self.spec['u_blocks'][0]
+        self.grip_dz = float(behavior['grip_dz_m'])          # palm above the coaster centre while holding it
+
+    def spot_xy(self, ctx) -> np.ndarray:
+        return np.asarray(ctx['zone_positions'][self.selected_target], float)[:2] + np.asarray(self.params['spot_offset'])
+
+    def placing(self) -> list[Gesture]:
+        p, b = self.params, self.behavior
+        c = self.coaster
+        on_coaster = lambda ctx: np.asarray(ctx['object_positions'][c], float) + [0.0, 0.0, self.grip_dz]
+        put = lambda ctx: np.r_[self.spot_xy(ctx), ctx['table_top_z'] + ctx['object_half_height'][c] + 0.001 + self.grip_dz]
+        return [Gesture('move', 'reach_coaster', target=on_coaster, duration=p['take_reach_s'], shape='grasp', key=c),
+                self.G_call(self._take),
+                Gesture('move', 'carry_coaster', target=lambda ctx: put(ctx) + [0.0, 0.0, b['carry_height_m']],
+                        duration=p['carry_s'], shape='grasp', key=lambda: self.selected_target),
+                Gesture('move', 'lower_coaster', target=put, duration=p['lower_s'], shape='grasp', key=lambda: self.selected_target),
+                self.G_call(self._put),
+                self.G_rest('withdraw'), self.G_call(lambda t, ctx: self.goto('done', t))]
+
+    def _take(self, t, ctx):
+        if self.first_indicated_t is None:
+            self.first_indicated_t = t
+        self.requests.append(('attach', self.coaster))
+        self.holding = self.coaster
+        self.emit('object_grasp', object=self.coaster, actor='human')
+        self.emit('protocol_step_complete', step='coaster_taken', object=self.coaster)
+
+    def _put(self, t, ctx):
+        self.requests.append(('detach', self.coaster))
+        self.holding = None
+        self.emit('object_release', object=self.coaster, actor='human')
+        self.emit('protocol_step_complete', step='coaster_placed', zone=self.selected_target)
+
+    def behave(self, t, ctx):
+        if not self.started and t >= self.params['cue_onset_s']:
+            self.started = True
+            self.emit('human_cue_onset', modality='human_place', selected_zone=self.selected_target)
+            self.queue = self.placing()
+        self.run_queue(t, ctx)
+
+
 BEHAVIORS = {
     't1_instructor': PickPlaceInstructor,
     't2_receiver': HandoverReceiver,
     't3_requester': AssistRequester,
     't4_intruder': Interrupter,
+    't3_coaster': CoasterPlacer,
 }
 
 

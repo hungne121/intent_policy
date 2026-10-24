@@ -34,14 +34,14 @@ Scenario config `expert` block (teacher settings only):
                          constant velocity (causal).
   travel_dz: travel height above the table
   T2 staging_offset: holding point (x, y) w.r.t. the centre of the hand zones, at handover height
-  T2 handover_mode (TRIAL 2026-10-18, docs/discussions/handover_som_va_intent_sai.md §2; device trigger only):
+  T2 handover_mode (TRIAL 2026-10-18, docs/intent_act/lit_early_handover.md §2; device trigger only):
            staging_wait  (default) wait at the staging point until the hand zone is decided, then over the palm,
                          settle, down into it
            anticipate    once the device sees the palm-up gesture, track the belief-weighted point over the hand zones
                          (Javdani et al. 2018: act on the goal distribution); over the decided zone, settle; go down
                          when the device sees the open hand still, or when the predicted time to ready
                          (ready_s - time since the palm-up onset) is within descent_s
-           ready_s       1.35: median device palm-up onset -> hand in place, measured (scripts/unified_intent_eval.py,
+           ready_s       1.35: median device palm-up onset -> hand in place, measured (scripts/unified_intent_eval.p [removed 2026-10-23, git e29ed0d]y,
                          outputs/dp_prediction/2026-10-18); descent_s 0.70: median to_handover -> robot_at_handover of
                          the device experts' T2 eval episodes (16)
   T4 yield_zone_margin_m / yield_prediction_horizon_s: hold while the (predicted) hand is in the robot zone
@@ -133,7 +133,7 @@ class ScriptedExpert:
         self.stop_seen = self.change_seen = False
         self.belief = None
         if self.trigger == 'device':
-            # the multi-gesture DeePoint on the sensor camera (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g): the belief
+            # the multi-gesture DeePoint on the sensor camera (docs/intent_act/INTENT_ACT_v3.2.md §4.2e-g): the belief
             # expert, its thresholds from the device rule (late: belief >= 0.95; early: belief >= 0.7)
             from intent_policy.intent.device import DeviceBelief
             from intent_policy.intent.labels import load_schema
@@ -174,6 +174,8 @@ class ScriptedExpert:
         sc = self.sc
         if self.t3_handover:                    # T3 new: the hand zone of the handover (the cup spot is fixed)
             return sc.variation['hand_zone'] if self.trigger == 'cue_onset' or 'hand_ready' in sc.protocol_done else None
+        if getattr(sc, 'v6_plan', None) == 'coaster':   # v6 T3: the spot is the intention, known once the coaster is down
+            return sc.variation['target_zone'] if self.trigger == 'cue_onset' or sc.coaster_down() else None
         if self.code in ('T3', 'T4') or self.trigger == 'cue_onset':
             return sc.variation['target_zone']
         if self.code == 'T1':
@@ -225,6 +227,16 @@ class ScriptedExpert:
             return grasp + [await_zone] + self._place_steps(obj) + self._home_steps()
         if self.code == 'T2':
             return grasp + self._handover_steps(obj)
+        if getattr(self.sc, 'v6_plan', None) == 'coaster':
+            # v6 T3: carry the cup to above the spot, set it on the coaster once it is down and the hand has left it
+            sc = self.sc
+            hand_clear = lambda: float(np.linalg.norm(sc.human.pos[:2] - sc.zone_pos(self.zone)[:2])) >= GUARD_OCCUPIED_XY
+            clear = Step('goto', lambda: np.r_[self.mapper.setpoint[0], max(self.mapper.setpoint[1], -R_SAFE - 0.005), self.travel],
+                         name='clear_human')
+            return grasp + [Step('goto', lambda: np.r_[sc.zone_pos(self.zone)[:2] + self.tcp_obj_offset[:2], self.travel],
+                                 name='above_spot', guard=True),
+                            Step('wait', until=lambda: sc.coaster_down() and hand_clear(), name='await_coaster')] + \
+                self._place_steps(obj) + [clear] + self._home_steps()
         # T3: the cup stands right in front of the human: first move away from them (+y, not into the base band)
         clear = Step('goto', lambda: np.r_[self.mapper.setpoint[0], max(self.mapper.setpoint[1], -R_SAFE - 0.005), self.travel],
                      name='clear_human')
@@ -274,7 +286,7 @@ class ScriptedExpert:
         drop = 0.003 if cup else 0.012
         zk = (lambda: zone) if zone is not None else (lambda: self.zone)
         above = lambda: np.r_[sc.zone_pos(zk())[:2] + self.tcp_obj_offset[:2], self.travel]
-        place = lambda: np.r_[sc.zone_pos(zk())[:2], sc.rest_height[obj] + drop] + self.tcp_obj_offset
+        place = lambda: np.r_[sc.zone_pos(zk())[:2], sc.rest_height[obj] + sc.place_dz(zk()) + drop] + self.tcp_obj_offset
         return [
             Step('goto', above, name='transport', guard=True),
             Step('goto', place, name='lower', guard=True),

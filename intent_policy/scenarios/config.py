@@ -191,6 +191,9 @@ def random_spec(cfg: ScenarioConfig, rng) -> dict:
             spec['hold_s'] = float(_pick(rng, list(sv['hold_s'])))
             spec['negative'] = bool(rng.random() < float(sv.get('negative_probability', 0.0)))
             spec['neg_target'] = _pick(rng, list(sv['negative_targets'])) if spec['negative'] else None
+    elif code == 'T3' and sv.get('variant') == 'coaster':   # v6: one cup on a slot, the coaster in U, a spot K
+        spec.update(target=sv['cup'], layout=_slots_for(rng, scene, [sv['cup']], slots), u_blocks=[sv['coaster']],
+                    spot=_pick(rng, zones_of(scene, 'coaster')))
     elif code == 'T3':                              # two cubes in U, their paired cups on two slots
         pairs = sv['pairs']
         blocks, cups = list(pairs), [pairs[k] for k in pairs]
@@ -224,7 +227,10 @@ def validate_spec(cfg: ScenarioConfig, spec: dict) -> None:
             raise ValueError(f'{field_} must be one of {zones_of(scene, kind)}')
     if code == 'T2' and spec.get('timing') not in ('early', 'on_time', 'late', 'free'):
         raise ValueError('T2 timing must be early | on_time | late | free')
-    if code == 'T3':
+    if code == 'T3' and cfg.scene_variation.get('variant') == 'coaster':
+        if spec.get('spot') not in zones_of(scene, 'coaster') or spec.get('u_blocks') != [cfg.scene_variation['coaster']]:
+            raise ValueError(f'T3 coaster needs a spot in {zones_of(scene, "coaster")} and the coaster in U')
+    elif code == 'T3':
         pairs = cfg.scene_variation['pairs']
         if sorted(spec.get('u_blocks') or []) != sorted(pairs) or sorted(layout) != sorted(pairs.values()):
             raise ValueError(f'T3 needs the cubes {list(pairs)} in U and their paired cups {list(pairs.values())} on slots')
@@ -266,10 +272,10 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
     var['on_table'] = list(xy)
     var['robot_home_offset'] = (rng.uniform(-1, 1, 6) * sv['robot_home_jitter_rad']).tolist()
     var['target_object'] = spec['target']
-    var['target_zone'] = spec.get('place') or spec.get('hand') or \
+    var['target_zone'] = spec.get('place') or spec.get('hand') or spec.get('spot') or \
         (next(k for k, z in lay.items() if z['kind'] == 'support') if spec['task'] == 'T3' else None)
     var['change'] = {**spec['change'], 'late_trigger_m': float(ic['late_trigger_m'])} if spec.get('change') else None
-    if spec['task'] == 'T3':
+    if spec['task'] == 'T3' and 'pairs' in sv:
         var['pairs'] = dict(sv['pairs'])            # cube in U -> its cup
 
     # Human timing / trajectory variant (fixed draw order; unused fields are still drawn).
@@ -287,6 +293,10 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
     elif t == 't4_intruder':
         human.update(trigger_delay_s=_uniform(rng, hb['trigger_delay_s']), approach_s=_uniform(rng, hb['approach_s']),
                      withdraw_s=_uniform(rng, hb['withdraw_s']))
+    elif t == 't3_coaster':                          # v6: take the coaster, carry it to the spot, put it down
+        human.update(take_reach_s=_uniform(rng, hb['take_reach_s']), carry_s=_uniform(rng, hb['carry_s']),
+                     lower_s=_uniform(rng, hb['lower_s']),
+                     spot_offset=(rng.uniform(-1, 1, 2) * float(hb['spot_jitter_m'])).tolist())
     elif t != 't1_instructor':
         raise ValueError(f'unknown human behaviour {t!r}')
     # early change (T5): the first pointing gesture is held only briefly ("ngay sau ra hiệu đầu")
