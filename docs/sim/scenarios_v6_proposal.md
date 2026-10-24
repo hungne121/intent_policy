@@ -193,3 +193,20 @@ Kết quả theo cách tốt nhất cho mỗi nhóm, tính từ lúc tay bắt �
 - **Nơi ManiCast có ích:** dự báo **chỗ tay sẽ dừng**. T3 nhận đích sớm hơn 0.3 s (đổi lại độ đúng giảm 5–9 điểm); T2 tự tin hơn.
 - **Nơi ManiCast không có ích:** T1, vì cử chỉ ngắn, chân trời 1 s rơi vào lúc rút tay. Fine-tune lại trên layout mới không đổi (0.83), nên giả thuyết "dữ liệu cũ" sai.
 - **Chưa làm:** độ bền với nhiễu keypoint thật (cần đo nhiễu trên HABIT + làm mượt). Không ảnh hưởng demo sim, vì sim dùng keypoint sạch cho cả expert lẫn D, nhưng cần cho robot thật.
+
+### M5: dự báo vị trí vật người đang cầm (00:00, `pif/v6_object_forecast.py`, `outputs/v6_object_forecast/2026-10-24/23-5*`)
+
+Câu hỏi của người dùng: khi tay người tác động vào vật (mang đi), có dự đoán được vật sẽ ở đâu không?
+
+ManiCast chỉ dự báo cánh tay. Vật đang cầm = cổ tay dự báo + độ lệch tay–vật hiện tại (giả định cứng). Sai số trung bình (mm), ManiCast fine-tune `2026-10-24_23-44`:
+
+| Task | Khung | Tầm | Vật đứng yên | Vận tốc không đổi | ManiCast + độ lệch | + "dừng khi tay dừng" |
+|---|---|---|---|---|---|---|
+| T2 lon | đang cầm, di chuyển | 1.0 s | 170 | 215 | **133** | 139 |
+| T3 lót cốc | đang cầm, di chuyển | 1.0 s | 160 | 169 | **123** | 127 |
+| T4 nắp / hộp gia vị | đang cầm, di chuyển | 1.0 s | 173 | 186 | **78** | 95 |
+| T2 / T3 / T4 | sắp thả trong 1 s | 1.0 s | **61 / 48 / 45** | 61 / 211 / 187 | 80 / 86 / 67 | 65 / 71 / 55 |
+
+- **Đang mang vật:** dự đoán được. ManiCast + độ lệch tốt nhất ở cả 3 task (ở T4 giảm hơn một nửa sai số).
+- **Sắp đặt vật xuống:** quy tắc "vật đi theo tay" sai, vì vật dừng còn tay đi tiếp. "Dừng khi tay được dự báo dừng" giúp một phần nhưng vẫn kém "vật đứng yên".
+- Hướng sửa (chưa làm): chỗ đặt = đích suy được (như chỗ lót cốc T3), vật tới đó rồi dừng.

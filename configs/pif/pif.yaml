@@ -154,3 +154,11 @@ v6_goal:                    # M5: goal posterior by inverse planning on the obse
   sets: [t1_item, t1_tray, t2_hand, t3_spot]   # candidate sets of v6_timing
   window_s: [-0.5, 0.0]     # scored from 0.5 s before the motion start to its end
   observers: {released: null}                   # + observed only, constant velocity; add fine-tuned via --set
+
+v6_object_forecast:         # M5: can the future position of an object the human carries be predicted? (pif/v6_object_forecast.py)
+  episodes: {t2_fetch_return: 12, t3_coaster_cup: 16, t4_coworker: 12}
+  seed0: 3100               # disjoint from the fine-tuning seeds
+  horizons_s: [0.5, 1.0]
+  moving_m: 0.05            # 'moving' frames: the object moves > 5 cm within 1 s (as forecast.eval.moving_m)
+  still_fraction: 0.10      # 'stops' variant: the forecast hand speed < 10 % of the recent peak (movement-end convention)
+  observers: {released: null}   # + fine-tuned via --set; held object = wrist forecast + current wrist->object offset
