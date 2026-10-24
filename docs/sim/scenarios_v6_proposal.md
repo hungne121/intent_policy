@@ -218,3 +218,22 @@ ManiCast chỉ dự báo chuyển động người. Mở rộng sang "người s
 - **(b)** mô hình học dự báo người–vật chung (HOI4ABOT, Mascaro et al. 2023; Liu et al. 2022): hướng tương lai.
 
 Hiện tại phần "đặt vật xuống" vẫn kém (xem mục dự báo vật đang cầm). Tiếp theo: expert sớm (M5 bước 3) trên phần suy đích đã có.
+
+## 8. Kế hoạch thu demo + train đã chốt (25/10 00:36, người dùng: "vẫn làm A, chưa làm bộ giám sát, nói chung theo ý bạn")
+
+Đã đối chiếu với hai đề xuất bên ngoài (6 nhóm demo, supervisor, belief token; bài đã kiểm: Learning to Assist, Xu et al. CoRL 2026; AutoIntervene, Tang & Zhi 2026).
+
+| Hạng mục | Chốt | Lý do |
+|---|---|---|
+| Mô hình | **A** (muộn, không ý định), **B** (sớm, không ý định), **D** (sớm + ý định), **oracle** (D với đích thật) | Thiếu A thì không chứng minh được sớm > muộn; oracle tách lỗi bộ dự đoán khỏi lỗi policy |
+| Bộ giám sát commit chạy sau ACT | **Không** | Quyết định 24/10 15:02 (không lái lúc chạy); thời điểm commit học từ demo |
+| Đầu vào ý định của D | **Dự báo ManiCast** (token motion), ManiCast đóng băng | Mục tiêu theo vai: T2 cần tay tới đâu / lúc nào, T4 cần vùng tay sắp chiếm; b_t không có |
+| Ablation đầu vào | D + b_t; D dual (dự báo + b_t); token riêng so với nối vào state | Đề xuất bên ngoài, làm sau cổng |
+| Cách đưa ý định vào ACT | FiLM + image-token dropout + F1 (bản tốt nhất 15/10) | D0 (token thường) đã bỏ qua ý định |
+| Expert | Không đặc quyền: suy đích () + hindsight optimization (Javdani 2018). Còn mơ hồ: đi về điểm có lợi cho mọi khả năng. Commit khi b* ≥ C_sai/(C_sai + C_chờ), chi phí đo trong sim. A: cùng belief, commit sau khi cử chỉ xong | Thầy dùng đúng thông tin trò có (imitation gap) |
+| Demo | Thu theo task; các tình huống mơ hồ / rõ dần / đổi ý / chờ tự có trong v6; ghi nhãn tình huống cho từng episode | Người dùng: không chia 6 nhóm |
+| Kiểm trước khi train lớn | Pilot 5–10 episode/task, người dùng duyệt video; **đếm chunk cắt qua chuyển trạng thái** (action leakage, Learning to Assist / D3) | |
+| Cổng D | Train trên pilot;  (che) +  (tráo): D phải **đi theo** ý định | Rủi ro lớn nhất |
+| Vòng 2 | DAgger: expert tự gắn nhãn lại các trạng thái policy đi tới (Ross, Gordon, Bagnell 2011), thay vì AutoIntervene (cần người vận hành) | |
+| Ablation sau | Lấy mẫu theo transition (cách ManiCast); data scaling 10/20/40; cấu hình chunk / temporal ensembling lúc chạy | |
+| Đánh giá | Riêng: khởi động (**useful motion onset**, chốt định nghĩa trước), thời gian hoàn thành, hồi phục, commit sai; bộ test làm hỏng ý định E1–E6 (trễ, nhiễu, sai rồi sửa) | |
