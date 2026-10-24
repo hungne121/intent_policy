@@ -1,0 +1,56 @@
+# Human motion library for the v6 scenarios (docs/sim/scenarios_v6_proposal.md §5), generated with HY-Motion 1.0-Lite
+# (Tencent Hunyuan, github.com/Tencent-Hunyuan/HY-Motion-1.0) on a rented 24 GB GPU (workstation/rent/run_hymotion.sh).
+# The clips give natural, varied body motion (posture, timing, curvature, idle sway); they are NOT aimed at our
+# objects: the end points are re-targeted to the scene by IK in the simulator (later step). Each prompt < 30 words and
+# <= 5 s (the repo's low-VRAM advice). Durations in s (30 fps output). `seeds`: samples per prompt.
+model: HY-Motion-1.0-Lite
+cfg_scale: 5.0
+seeds: 4
+prompts:
+  # ---------------------------------------------------------------- T1 choose an item (instructor)
+  t1_reach_left:   {d: 3.5, text: "A person standing at a table reaches the right hand forward toward an item on the left side, holds it there briefly, then pulls the hand back."}
+  t1_reach_center: {d: 3.5, text: "A person standing at a table reaches the right hand straight forward toward an item, holds it there briefly, then pulls the hand back."}
+  t1_reach_right:  {d: 3.5, text: "A person standing at a table reaches the right hand forward toward an item on the right side, holds it there briefly, then pulls the hand back."}
+  t1_reach_slow:   {d: 4.5, text: "A person at a table slowly and carefully reaches the right hand forward toward something, then slowly lowers it."}
+  t1_reach_quick:  {d: 2.5, text: "A person at a table quickly reaches out with the right hand toward something in front of them and pulls back."}
+  t1_point_left:   {d: 3.5, text: "A person standing at a table points with the right index finger at an object on the left, then lowers the arm."}
+  t1_point_center: {d: 3.5, text: "A person standing at a table points with the right index finger at an object straight ahead, then lowers the arm."}
+  t1_point_right:  {d: 3.5, text: "A person standing at a table points with the right index finger at an object on the right, then lowers the arm."}
+  t1_point_down:   {d: 3.0, text: "A person standing at a table points down at a spot on the table close in front of them with the right hand."}
+  t1_switch:       {d: 4.5, text: "A person at a table starts reaching toward one item with the right hand, hesitates, then reaches toward a different item instead."}
+  t1_hesitate:     {d: 4.0, text: "A person at a table lifts the right hand to point, pauses unsure, then points somewhere else."}
+  t1_look:         {d: 4.0, text: "A person stands at a table looking over the items in front of them, deciding which one to choose."}
+  # ---------------------------------------------------------------- T2 work, receive, use, give back (collaborator)
+  t2_work_both:    {d: 4.5, text: "A person standing at a table works on a small object with both hands, turning it and adjusting it."}
+  t2_work_right:   {d: 4.5, text: "A person standing at a table screws something on a small object with the right hand while holding it with the left."}
+  t2_work_finish:  {d: 5.0, text: "A person at a table finishes working on an object with both hands, slows down, then extends the open right palm forward."}
+  t2_palm_up:      {d: 3.0, text: "A person standing at a table holds out the right hand palm up in front of them, waiting to receive something."}
+  t2_palm_reach:   {d: 3.0, text: "A person at a table reaches the open right hand forward, palm up, to take something being handed to them."}
+  t2_receive_pull: {d: 3.0, text: "A person takes a small object from someone with the right hand and brings it close to their body."}
+  t2_drink:        {d: 4.5, text: "A person holds a small can in the right hand, takes a sip from it, and lowers it."}
+  t2_inspect:      {d: 4.0, text: "A person holds a small object in the right hand and looks at it closely, turning it."}
+  t2_give_back:    {d: 3.5, text: "A person standing at a table hands a small object forward with the right hand and holds it out, waiting for it to be taken."}
+  t2_give_let_go:  {d: 3.5, text: "A person holds an object out with the right hand, someone takes it, and the person lets go and lowers the hand."}
+  # ---------------------------------------------------------------- T3 coaster (collaborator)
+  t3_coaster_left:   {d: 4.0, text: "A person standing at a table picks up a flat coaster with the right hand and puts it down on the table to their left."}
+  t3_coaster_center: {d: 4.0, text: "A person standing at a table picks up a flat coaster with the right hand and puts it down on the table in front of them."}
+  t3_coaster_right:  {d: 4.0, text: "A person standing at a table picks up a flat coaster with the right hand and puts it down on the table to their right."}
+  t3_coaster_far:    {d: 4.0, text: "A person at a table picks up a small flat object and places it far forward on the table, leaning slightly."}
+  t3_slide:          {d: 3.5, text: "A person at a table slides a coaster across the table with the right hand to a new spot."}
+  t3_place_careful:  {d: 4.5, text: "A person carefully places a flat object on the table with the right hand, adjusts it, and pulls the hand back."}
+  # ---------------------------------------------------------------- T4 coworker
+  t4_close_lid:      {d: 3.5, text: "A person standing at a table picks up a lid with the right hand and closes a box on the table with it."}
+  t4_press_lid:      {d: 3.0, text: "A person at a table presses down on the lid of a box with the right hand to close it."}
+  t4_reach_far:      {d: 4.0, text: "A person leans over a table and reaches far forward with the right hand to grab a small item, then brings it back."}
+  t4_reach_across:   {d: 4.0, text: "A person at a table reaches across to the far side with the right hand, picks something up, and pulls it back."}
+  t4_reach_stop:     {d: 3.5, text: "A person at a table reaches toward the middle of the table, stops halfway, and pulls the hand back."}
+  t4_reach_near:     {d: 3.0, text: "A person at a table reaches to an item close in front of them with the right hand and moves it aside."}
+  t4_put_down:       {d: 3.0, text: "A person at a table puts a small object down on the table in front of them with the right hand."}
+  # ---------------------------------------------------------------- idle / between gestures (every task)
+  idle_hands_table:  {d: 5.0, text: "A person stands at a table with both hands resting on the table, waiting."}
+  idle_look_around:  {d: 5.0, text: "A person stands at a table and looks around, then back at the table."}
+  idle_shift:        {d: 5.0, text: "A person stands at a table, shifting their weight from one foot to the other."}
+  idle_arms_crossed: {d: 4.0, text: "A person stands at a table with arms crossed, waiting patiently."}
+  idle_scratch:      {d: 3.5, text: "A person standing at a table scratches their head with the right hand, then lowers it."}
+  idle_lean:         {d: 4.5, text: "A person leans on a table with both hands, watching something in front of them."}
+  idle_glance:       {d: 4.0, text: "A person stands at a table and glances to the side, then looks forward again."}
