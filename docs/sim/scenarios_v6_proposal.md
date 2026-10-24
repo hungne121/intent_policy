@@ -59,3 +59,21 @@ HY-Motion **không nhắm theo vị trí**, nên cần **nắn chuyển động 
 5. Thu demo, train B và D, rồi A.
 
 **Tự kiểm trôi hướng (PIF.md §0):** đo được trước lệnh ✓ (T2–T4 không có lệnh, T1 có pha vươn tay); 3 vai ✓; dự đoán tương lai ✓ (ManiCast, cần tinh chỉnh); phần chưa kiểm: thư viện HY-Motion và việc nắn chuyển động.
+## 7. Triển khai (duyệt 24/10/2026 16:20; kế hoạch viết 16:44)
+
+Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outputs/scenario_v6_preview/2026-10-24_16-12/`) và duyệt: "ok triển khai".
+
+**Nguyên tắc:** cắm v6 vào pipeline thật đang có (scene_builder, ScriptedHuman, BaseScenario, ScriptedExpert, benchmark events, video). Kịch bản cũ (`t1_pick_place` … `t4_interrupt`) **giữ nguyên** để tái lập các kết quả cũ. v6 có id mới.
+
+| Mốc | Nội dung | Kiểm tra |
+|---|---|---|
+| M1 | Vật mới trong `objects_catalog`: bánh (cặp giống nhau), lon, lót cốc, bánh mì, nắp, món đồ. `decor` tĩnh: khay, hộp, khay nướng. Vùng mới trong `layout.yaml`: chỗ lót cốc, hộp (không dán băng). `grasp_dz` theo vật. | ảnh scene |
+| M2 | Người: T1 vươn tay / chỉ (rút thăm theo episode); T2 làm việc → chìa tay → dùng → đưa trả; T3 đặt lót cốc; T4 đóng nắp + xâm nhập (dùng lại Interrupter) | video người |
+| M3 | Scenario + điều kiện thành công: `t1_choose_item` (T1, T5), `t2_fetch_return`, `t3_coaster_cup`, `t4_coworker` | |
+| M4 | Expert oracle (`cue_onset`) chạy được mọi task | `scripts/check_expert.py`, tỉ lệ thành công |
+| M5 | Thiết bị đo không đặc quyền: bộ lọc PIF v3 (`pif/filter.py`) + ManiCast trên keypoint người nộm, cùng interface `DeviceBelief` → expert sớm (B, D) / muộn (A) | so belief với nhãn |
+| M6 | Demo xem trước kiểu LeRobot cho người dùng duyệt (chưa thu quy mô lớn, chưa train) | người dùng duyệt |
+
+**Quyết định khi triển khai:**
+- T2 chỉ có **một** vật cần đưa. Trong bản xem trước có thêm lon xanh, nhưng không có tín hiệu nào cho robot biết người muốn lon nào: đó là ý định không quan sát được. T2 kiểm **khi nào** và **ở đâu** (tiến độ việc, chỗ chìa tay H1 / H2 + lệch ngẫu nhiên). **Chọn vật** đã có ở T1.
+- Chỗ chìa tay, chỗ lót cốc, hộp là ứng viên rời rạc, có lệch ngẫu nhiên. Belief cần ứng viên rời rạc (bộ lọc PIF v3).
