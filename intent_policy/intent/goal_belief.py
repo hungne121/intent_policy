@@ -92,8 +92,10 @@ class GoalBelief:
         """b* while the gesture goes on (waiting still brings evidence, C_wait = c_wait_s); once it is complete waiting
         brings nothing more (C_wait -> inf, b* -> 0): commit to the most probable candidate if there was evidence.
         Late rule (A): only the complete case."""
-        if len(self.obj_keys if kind == 'object' else self.zone_keys) < 2:
-            return 0.0                       # one candidate: nothing to choose
+        if kind == 'object' and len(self.obj_keys) == 1:   # one always-needed object (T2 can, T3 cup): early fetches
+            return 0.0 if self.rule == 'early' or self.complete('object') else 2.0   # it at once, late (A) only once the
+        if len(self.zone_keys if kind == 'zone' else self.obj_keys) < 2:          #   human's request is complete
+            return 0.0                       # one candidate: nothing to choose (PIF.md §2.1: A responds when it is clear)
         if self.after_motion and self.evidence.get(kind):
             return 0.0
         if self.rule == 'late':
@@ -180,8 +182,8 @@ class GoalBelief:
     def complete(self, kind: str) -> bool:
         """Late rule: the current gesture has ended (the hand stopped after its latest motion and has not moved off
         again). A single, always-needed object (T2 can, T3 cup) needs no gesture."""
-        if kind == 'object' and len(self.obj_keys) == 1:
-            return True
+        if kind == 'object' and len(self.obj_keys) == 1:   # the request for the one object is the zone gesture
+            return not self.zone_keys or (self.after_motion and bool(self.evidence.get('zone')))
         return self.after_motion and bool(self.evidence.get(kind))
 
     @property
