@@ -90,3 +90,32 @@ Người dùng loại DeePoint: chỉ tay là lệnh, quay lại nhận dạng l
 | Khác (đã kiểm nơi đăng) | HOH (NeurIPS 2023 D&B, 2 720 lần trao vật, có skeleton, xin qua email); CHICO (ECCV 2022, người + cobot, 3D pose) | thêm dữ liệu trao vật / làm việc cạnh cobot nếu cần |
 
 **Đề xuất:** làm đúng công thức ManiCast: **huấn luyện trước trên CoMaD** (mocap sạch, có trao vật, có người – robot), rồi **tinh chỉnh trên HABIT + sim** cho đúng camera và đúng nhiễu của mình. Rủi ro: lệch miền giữa mocap và keypoint ước lượng từ video, cần đo.
+
+## 7. Các bài giống ManiCast: quan sát người → robot hành động sớm, đúng việc (24/10/2026 14:00)
+
+| Bài | Nơi đăng | Quan sát gì | Robot làm gì với nó | Đánh giá | Code / dữ liệu |
+|---|---|---|---|---|---|
+| **ManiCast** (Kedia et al.) | CoRL 2023 | dự báo chuyển động thân trên, chọn theo chi phí của kế hoạch robot | planner dùng dự báo cho khuấy theo người, trao vật, dọn bàn | robot thật 7 bậc | code + CoMaD |
+| **MOSAIC** (Wang et al., Cornell) | CoRL 2024 | module dự báo chuyển động người (STS-GCN, huấn luyện trước AMASS, tinh chỉnh CoMaD, theo bản tóm tắt thứ cấp) | **kỹ năng visuomotor có điều kiện theo dự báo** trong nấu ăn cộng tác | 60 lần chạy đầu cuối, 60 episode dự báo | trang dự án |
+| **InteRACT** (Kedia et al.) | ICRA 2024 | ý định (chuyển động tương lai) có điều kiện theo hành động tương lai của robot | lập kế hoạch cộng tác | người – robot thật | code + CoMaD |
+| **HOI4ABOT** (Mascaro, Sliwowski, Lee) | CoRL 2023 | **dự đoán trước tương tác người – vật** (người sắp làm gì với vật nào) từ video, nhiều chân trời | robot (Franka) hỗ trợ kịp thời | VidHOI; chạy thời gian thực, nhanh 15.4 lần | — |
+| **Robot Trajectron** (Song et al.) | ICRA 2024 | dự báo quỹ đạo → đích | điều khiển chia sẻ | người dùng thật (10 người) | code |
+| **PACE** (De Lazzari et al., MERL) | ICRA 2025 | ước lượng **tiến độ hành động** của người từ chuyển động tay (DTW) | chính sách RL từ ít demo, **canh thời điểm** hành động robot | 12 người: trôi chảy hơn, chờ ít hơn | — |
+| Laplaza, Moreno-Noguer, Sanfeliu | IROS 2022 | dự báo chuyển động 3D có ý định, khi trao vật | trao vật | — | — |
+| Mainprice & Berenson | IROS 2013 | dự đoán sớm chuyển động người | lập kế hoạch tránh vùng người sắp chiếm | kinh điển | — |
+
+Bài **giống khóa luận nhất là MOSAIC**: dự báo người được đưa vào **một chính sách visuomotor** (giống đưa vào ACT), trong việc cộng tác thật. ManiCast và InteRACT cùng nhóm, cùng dữ liệu CoMaD. PACE trả lời phần "**lúc nào**" (canh thời điểm), HOI4ABOT trả lời phần "**với vật nào**".
+
+## 8. ManiCast (dự báo trong không gian tư thế) so với JEPA (dự báo trong không gian ẩn)
+
+| Tiêu chí | ManiCast / MOSAIC | JEPA |
+|---|---|---|
+| Bằng chứng đã phản biện trong cộng tác người – robot | có: CoRL 2023, ICRA 2024, CoRL 2024, đều chạy robot thật | **không thấy**. V-JEPA (TMLR 2024) là biểu diễn video; S-JEPA (ECCV 2024) là nhận dạng hành động skeleton; V-JEPA 2 (dự đoán hành động, robot tự lập kế hoạch) và Human-JEPA là preprint |
+| Đầu ra dùng được ngay cho robot | **có**: tư thế tương lai → chỗ / lúc / vùng tay sắp tới (cả 3 vai) | không: là embedding, phải tự thiết kế thêm đầu ra (trái nguyên tắc "dùng phương pháp đã công bố") |
+| Cần nhãn ý định | không (tự giám sát) | không |
+| Chịu nhiễu keypoint | yếu hơn về lý thuyết (dự báo cả nhiễu); bù bằng huấn luyện trước trên mocap sạch + cổng giải phẫu | mạnh hơn về lý thuyết (S-JEPA: bỏ qua tọa độ nhiễu) |
+| Dữ liệu sẵn có | CoMaD, AMASS | phải huấn luyện trước lớn; weights V-JEPA chạy trên pixel, lệch sim – thật |
+| Kiểm được "ai sửa sai" (câu hỏi 2) | dễ: dự báo tường minh + bộ lọc Bayes | khó: biểu diễn ẩn |
+| Khớp hướng gốc | khớp **yêu cầu** "dự đoán tương lai, không nhãn"; **khác** chữ "họ JEPA" của handoff | khớp chữ "họ JEPA" |
+
+**Kết luận đề xuất:** dùng **ManiCast** (pipeline như MOSAIC: huấn luyện trước, tinh chỉnh, đưa dự báo vào policy) làm bộ ý định chính. JEPA chỉ giữ làm ablation tùy thời gian. Lý do: có bằng chứng đã phản biện trong đúng bài toán, đầu ra dùng thẳng cho cả 3 vai, có dữ liệu, kiểm được câu hỏi 2. Điểm cần người dùng chấp thuận: bỏ chữ "họ JEPA" của handoff, giữ yêu cầu gốc (dự đoán tương lai, không nhãn).
