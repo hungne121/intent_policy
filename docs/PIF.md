@@ -226,14 +226,14 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - Giai đoạn A: laptop, CPU.
 - Giai đoạn B: thuê GPU trích xuất S8789 (67 082 frame). Ước tính trên RTX A5000 chưa đo; đo 1 episode trước. Fit model: laptop.
 
-## 7. Trạng thái (24/10/2026 07:00)
+## 7. Trạng thái (24/10/2026 12:56)
 
 | Mốc | Trạng thái |
 |---|---|
 | P0 đọc code, chọn dữ liệu | xong (`PIF_P0.md`) |
 | P1 dữ liệu và token | sim xong; HABIT xong pipeline, mới trích xuất 3 episode S8789 (`PIF_P1.md`) |
 | PIF v2 (P2–P4 bản thử) | thay bằng v3; code v2 còn trong `pif/model.py`, `pif/losses.py` |
-| **PIF v3** | thiết kế xong (mục 4), **chờ người dùng duyệt tiêu chí pilot (mục 6) rồi mới code** |
+| **PIF v3** | lõi đã cài (`pif/filter.py`, `pif/pilot.py`). **Pilot giai đoạn B xong 24/10 12:55: "một phần"** (G1 đạt: 0.584 [0.511, 0.657] không nhãn; G2, G3 không đạt: GRU có giám sát 0.84–0.94). Tự sửa P4: 177/178, trung vị 1.9 s. Belief lên 0.75 rồi giảm còn 0.52. Báo cáo `docs/reports/PIF_pilot.md`; **chờ người dùng chọn hướng** |
 | P5 export cho ACT | chưa |
 
 Câu hỏi còn mở:

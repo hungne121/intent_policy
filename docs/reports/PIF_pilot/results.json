@@ -1,0 +1,1855 @@
+{
+ "n_episodes": 178,
+ "folds": 5,
+ "fitted": [
+  {
+   "fold": 0,
+   "params": {
+    "sigma_m": 0.013138722865096982,
+    "beta": 19.354065418297438,
+    "kappa": 472.07100568685047,
+    "a": 0.8280671601719007,
+    "hazard": 0.0283709556607547,
+    "w_none": 0.38054247793515966,
+    "act_prob": 0.29882770080297916,
+    "outlier": 0.16042258950165209,
+    "sigma_out_m": 0.2911012070519059,
+    "outlier_dir": 0.16753522554411374
+   },
+   "nll_first": -12.110016740466438,
+   "nll_last": -17.106726695987263,
+   "seconds": 92.0
+  },
+  {
+   "fold": 1,
+   "params": {
+    "sigma_m": 0.012887589476479536,
+    "beta": 18.715091482767637,
+    "kappa": 465.0306251980047,
+    "a": 0.8269544786028178,
+    "hazard": 0.030637558862290082,
+    "w_none": 0.393594539705951,
+    "act_prob": 0.3066398261540036,
+    "outlier": 0.16124010470997044,
+    "sigma_out_m": 0.2705561985749395,
+    "outlier_dir": 0.16700601956160702
+   },
+   "nll_first": -12.244064583837973,
+   "nll_last": -17.236757247809813,
+   "seconds": 93.9
+  },
+  {
+   "fold": 2,
+   "params": {
+    "sigma_m": 0.013024917835514033,
+    "beta": 19.26061300880726,
+    "kappa": 469.1708549883413,
+    "a": 0.8290497675686364,
+    "hazard": 0.03018947295500845,
+    "w_none": 0.3966791118353735,
+    "act_prob": 0.30406620716620947,
+    "outlier": 0.1607477500863709,
+    "sigma_out_m": 0.2858719905895882,
+    "outlier_dir": 0.16677508624096074
+   },
+   "nll_first": -12.159643355209333,
+   "nll_last": -17.163298248731028,
+   "seconds": 91.6
+  },
+  {
+   "fold": 3,
+   "params": {
+    "sigma_m": 0.013122639469782033,
+    "beta": 19.179820980964553,
+    "kappa": 469.09673424419503,
+    "a": 0.8299056153733909,
+    "hazard": 0.031134079066130114,
+    "w_none": 0.39201814967490584,
+    "act_prob": 0.3039328815664715,
+    "outlier": 0.15759497243867357,
+    "sigma_out_m": 0.2910905571804112,
+    "outlier_dir": 0.16592821431922214
+   },
+   "nll_first": -12.178177378551599,
+   "nll_last": -17.18171253413792,
+   "seconds": 82.7
+  },
+  {
+   "fold": 4,
+   "params": {
+    "sigma_m": 0.013071954970283444,
+    "beta": 18.84038557427565,
+    "kappa": 456.733223187391,
+    "a": 0.8256273423161673,
+    "hazard": 0.03093222865177666,
+    "w_none": 0.4043249813049717,
+    "act_prob": 0.3077065383445902,
+    "outlier": 0.15864327563813516,
+    "sigma_out_m": 0.28471881975992475,
+    "outlier_dir": 0.16467291908763076
+   },
+   "nll_first": -12.18809031179917,
+   "nll_last": -17.175535768861515,
+   "seconds": 95.1
+  }
+ ],
+ "offsets_s": [
+  -1.0,
+  -0.5,
+  0.0
+ ],
+ "per_offset": [
+  {
+   "offset_s": -1.0,
+   "accuracy": {
+    "v3": [
+     0.6067415730337079,
+     0.5337078651685393,
+     0.6797752808988764
+    ],
+    "III_s0": [
+     0.949438202247191,
+     0.9157303370786517,
+     0.9775280898876404
+    ],
+    "III_s1": [
+     0.8539325842696629,
+     0.8033707865168539,
+     0.9044943820224719
+    ],
+    "III_s2": [
+     0.9325842696629213,
+     0.8932584269662921,
+     0.9662921348314607
+    ]
+   },
+   "ece": {
+    "v3": 0.17644166428728175,
+    "III_s0": 0.022872977712181167,
+    "III_s1": 0.05924525438399797,
+    "III_s2": 0.026026205065545045
+   },
+   "pointing": [
+    0.29775280898876405,
+    0.2303370786516854,
+    0.3651685393258427,
+    178
+   ],
+   "diff_v3_minus_III": {
+    "III_s0": [
+     -0.3426966292134831,
+     -0.4213483146067416,
+     -0.2640449438202248
+    ],
+    "III_s1": [
+     -0.247191011235955,
+     -0.3314606741573034,
+     -0.1629213483146067
+    ],
+    "III_s2": [
+     -0.3258426966292134,
+     -0.398876404494382,
+     -0.2528089887640449
+    ]
+   },
+   "diff_ece_III_minus_v3": {
+    "III_s0": [
+     -0.1535686865751006,
+     -0.2229256695611032,
+     -0.08468672852734833
+    ],
+    "III_s1": [
+     -0.11719640990328378,
+     -0.1856292944638847,
+     -0.04880100649997636
+    ],
+    "III_s2": [
+     -0.1504154592217367,
+     -0.2180491638906325,
+     -0.08813530321419684
+    ]
+   }
+  },
+  {
+   "offset_s": -0.5,
+   "accuracy": {
+    "v3": [
+     0.5955056179775281,
+     0.5224719101123596,
+     0.6685393258426966
+    ],
+    "III_s0": [
+     0.949438202247191,
+     0.9157303370786517,
+     0.9775280898876404
+    ],
+    "III_s1": [
+     0.8651685393258427,
+     0.8146067415730337,
+     0.9101123595505618
+    ],
+    "III_s2": [
+     0.9382022471910112,
+     0.898876404494382,
+     0.9719101123595506
+    ]
+   },
+   "ece": {
+    "v3": 0.1881893510818288,
+    "III_s0": 0.02853348583317881,
+    "III_s1": 0.046672851014673,
+    "III_s2": 0.022565734855244678
+   },
+   "pointing": [
+    0.2752808988764045,
+    0.21348314606741572,
+    0.34269662921348315,
+    178
+   ],
+   "diff_v3_minus_III": {
+    "III_s0": [
+     -0.3539325842696629,
+     -0.4269662921348315,
+     -0.2808988764044943
+    ],
+    "III_s1": [
+     -0.2696629213483146,
+     -0.3539325842696629,
+     -0.1853932584269663
+    ],
+    "III_s2": [
+     -0.3426966292134831,
+     -0.4157303370786517,
+     -0.2696629213483146
+    ]
+   },
+   "diff_ece_III_minus_v3": {
+    "III_s0": [
+     -0.15965586524865,
+     -0.22525602641408818,
+     -0.09358739124816699
+    ],
+    "III_s1": [
+     -0.1415165000671558,
+     -0.20380226613607405,
+     -0.06379751881545917
+    ],
+    "III_s2": [
+     -0.1656236162265841,
+     -0.22643999085812697,
+     -0.10050928975994403
+    ]
+   }
+  },
+  {
+   "offset_s": 0.0,
+   "accuracy": {
+    "v3": [
+     0.5842696629213483,
+     0.5112359550561798,
+     0.6573033707865169
+    ],
+    "III_s0": [
+     0.9438202247191011,
+     0.9101123595505618,
+     0.9775280898876404
+    ],
+    "III_s1": [
+     0.8426966292134831,
+     0.7865168539325843,
+     0.8932584269662921
+    ],
+    "III_s2": [
+     0.9325842696629213,
+     0.8932584269662921,
+     0.9662921348314607
+    ]
+   },
+   "ece": {
+    "v3": 0.16710144817013334,
+    "III_s0": 0.027403481220931107,
+    "III_s1": 0.06675752176997368,
+    "III_s2": 0.030740446086679953
+   },
+   "pointing": [
+    0.2696629213483146,
+    0.20786516853932585,
+    0.33707865168539325,
+    178
+   ],
+   "diff_v3_minus_III": {
+    "III_s0": [
+     -0.3595505617977528,
+     -0.4382022471910112,
+     -0.2808988764044944
+    ],
+    "III_s1": [
+     -0.2584269662921348,
+     -0.348314606741573,
+     -0.17401685393258629
+    ],
+    "III_s2": [
+     -0.348314606741573,
+     -0.4213483146067416,
+     -0.2752808988764045
+    ]
+   },
+   "diff_ece_III_minus_v3": {
+    "III_s0": [
+     -0.13969796694920222,
+     -0.21853381175186612,
+     -0.08626653365878098
+    ],
+    "III_s1": [
+     -0.10034392640015966,
+     -0.17691748429804618,
+     -0.040571632755545664
+    ],
+    "III_s2": [
+     -0.1363610020834534,
+     -0.2150113264856311,
+     -0.08561336495013805
+    ]
+   }
+  }
+ ],
+ "criteria": {
+  "G1": true,
+  "G2": false,
+  "G3": false,
+  "verdict": "partial"
+ },
+ "p4": {
+  "confidence": 0.9,
+  "inject_s_before_t_leave": 2.0,
+  "n": 178,
+  "recovered": 177,
+  "recovered_by_t_leave": 98,
+  "frames_median": 19.0,
+  "frames_p90": 45.400000000000006,
+  "rows": [
+   {
+    "episode": 2698,
+    "recovered": true,
+    "frames": 13,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2703,
+    "recovered": true,
+    "frames": 42,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2708,
+    "recovered": true,
+    "frames": 41,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2713,
+    "recovered": true,
+    "frames": 27,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2719,
+    "recovered": true,
+    "frames": 46,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2724,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2730,
+    "recovered": true,
+    "frames": 36,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2735,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2741,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2746,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2751,
+    "recovered": true,
+    "frames": 11,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2757,
+    "recovered": true,
+    "frames": 7,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2762,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2768,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2773,
+    "recovered": true,
+    "frames": 65,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2779,
+    "recovered": true,
+    "frames": 44,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2784,
+    "recovered": true,
+    "frames": 35,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2789,
+    "recovered": true,
+    "frames": 5,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2794,
+    "recovered": true,
+    "frames": 36,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2800,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2806,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2811,
+    "recovered": true,
+    "frames": 48,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2816,
+    "recovered": true,
+    "frames": 51,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2821,
+    "recovered": true,
+    "frames": 45,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2829,
+    "recovered": true,
+    "frames": 10,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2835,
+    "recovered": true,
+    "frames": 9,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2840,
+    "recovered": true,
+    "frames": 39,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2845,
+    "recovered": true,
+    "frames": 32,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2850,
+    "recovered": true,
+    "frames": 30,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2855,
+    "recovered": true,
+    "frames": 26,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2860,
+    "recovered": true,
+    "frames": 16,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2865,
+    "recovered": true,
+    "frames": 14,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2870,
+    "recovered": true,
+    "frames": 5,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2875,
+    "recovered": true,
+    "frames": 10,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2880,
+    "recovered": true,
+    "frames": 28,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2885,
+    "recovered": true,
+    "frames": 27,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2699,
+    "recovered": true,
+    "frames": 3,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2704,
+    "recovered": true,
+    "frames": 26,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2709,
+    "recovered": true,
+    "frames": 12,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2714,
+    "recovered": true,
+    "frames": 11,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2720,
+    "recovered": true,
+    "frames": 33,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2725,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2731,
+    "recovered": true,
+    "frames": 13,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2737,
+    "recovered": true,
+    "frames": 32,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2742,
+    "recovered": true,
+    "frames": 33,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2747,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2752,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2758,
+    "recovered": true,
+    "frames": 5,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2763,
+    "recovered": true,
+    "frames": 5,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2769,
+    "recovered": true,
+    "frames": 13,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2774,
+    "recovered": true,
+    "frames": 65,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2780,
+    "recovered": true,
+    "frames": 35,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2785,
+    "recovered": true,
+    "frames": 40,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2790,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2795,
+    "recovered": true,
+    "frames": 47,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2801,
+    "recovered": true,
+    "frames": 14,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2807,
+    "recovered": true,
+    "frames": 46,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2812,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2817,
+    "recovered": true,
+    "frames": 34,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2822,
+    "recovered": true,
+    "frames": 33,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2830,
+    "recovered": true,
+    "frames": 36,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2836,
+    "recovered": true,
+    "frames": 41,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2841,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2846,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2851,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2856,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2861,
+    "recovered": true,
+    "frames": 22,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2866,
+    "recovered": true,
+    "frames": 29,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2871,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2876,
+    "recovered": true,
+    "frames": 1,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2881,
+    "recovered": true,
+    "frames": 5,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2886,
+    "recovered": true,
+    "frames": 40,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2700,
+    "recovered": true,
+    "frames": 7,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2705,
+    "recovered": true,
+    "frames": 36,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2710,
+    "recovered": true,
+    "frames": 4,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2716,
+    "recovered": true,
+    "frames": 10,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2721,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2726,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2732,
+    "recovered": true,
+    "frames": 14,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2738,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2743,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2748,
+    "recovered": true,
+    "frames": 9,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2754,
+    "recovered": true,
+    "frames": 9,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2759,
+    "recovered": true,
+    "frames": 15,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2765,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2770,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2776,
+    "recovered": true,
+    "frames": 46,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2781,
+    "recovered": true,
+    "frames": 52,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2786,
+    "recovered": true,
+    "frames": 60,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2791,
+    "recovered": true,
+    "frames": 42,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2797,
+    "recovered": true,
+    "frames": 43,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2802,
+    "recovered": true,
+    "frames": 47,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2808,
+    "recovered": true,
+    "frames": 45,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2813,
+    "recovered": true,
+    "frames": 1,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2818,
+    "recovered": true,
+    "frames": 51,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2823,
+    "recovered": false,
+    "frames": null,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2831,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2837,
+    "recovered": true,
+    "frames": 61,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2842,
+    "recovered": true,
+    "frames": 44,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2847,
+    "recovered": true,
+    "frames": 9,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2852,
+    "recovered": true,
+    "frames": 33,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2857,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2862,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2867,
+    "recovered": true,
+    "frames": 25,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2872,
+    "recovered": true,
+    "frames": 17,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2877,
+    "recovered": true,
+    "frames": 3,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2882,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2887,
+    "recovered": true,
+    "frames": 16,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2701,
+    "recovered": true,
+    "frames": 11,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2706,
+    "recovered": true,
+    "frames": 26,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2711,
+    "recovered": true,
+    "frames": 1,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2717,
+    "recovered": true,
+    "frames": 22,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2722,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2728,
+    "recovered": true,
+    "frames": 6,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2733,
+    "recovered": true,
+    "frames": 42,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2739,
+    "recovered": true,
+    "frames": 37,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2744,
+    "recovered": true,
+    "frames": 40,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2749,
+    "recovered": true,
+    "frames": 4,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2755,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2760,
+    "recovered": true,
+    "frames": 3,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2766,
+    "recovered": true,
+    "frames": 3,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2771,
+    "recovered": true,
+    "frames": 6,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2777,
+    "recovered": true,
+    "frames": 47,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2782,
+    "recovered": true,
+    "frames": 44,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2787,
+    "recovered": true,
+    "frames": 3,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2792,
+    "recovered": true,
+    "frames": 46,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2798,
+    "recovered": true,
+    "frames": 29,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2803,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2809,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2814,
+    "recovered": true,
+    "frames": 12,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2819,
+    "recovered": true,
+    "frames": 6,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2825,
+    "recovered": true,
+    "frames": 16,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2832,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2838,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2843,
+    "recovered": true,
+    "frames": 35,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2848,
+    "recovered": true,
+    "frames": 41,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2853,
+    "recovered": true,
+    "frames": 4,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2858,
+    "recovered": true,
+    "frames": 1,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2863,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2868,
+    "recovered": true,
+    "frames": 19,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2873,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2878,
+    "recovered": true,
+    "frames": 12,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2883,
+    "recovered": true,
+    "frames": 24,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2702,
+    "recovered": true,
+    "frames": 23,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2707,
+    "recovered": true,
+    "frames": 12,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2712,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2718,
+    "recovered": true,
+    "frames": 17,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2723,
+    "recovered": true,
+    "frames": 26,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2729,
+    "recovered": true,
+    "frames": 15,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2734,
+    "recovered": true,
+    "frames": 15,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2740,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2745,
+    "recovered": true,
+    "frames": 3,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2750,
+    "recovered": true,
+    "frames": 10,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2756,
+    "recovered": true,
+    "frames": 8,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2761,
+    "recovered": true,
+    "frames": 31,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2767,
+    "recovered": true,
+    "frames": 15,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2772,
+    "recovered": true,
+    "frames": 11,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2778,
+    "recovered": true,
+    "frames": 34,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2783,
+    "recovered": true,
+    "frames": 45,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2788,
+    "recovered": true,
+    "frames": 4,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2793,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2799,
+    "recovered": true,
+    "frames": 18,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2805,
+    "recovered": true,
+    "frames": 48,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2810,
+    "recovered": true,
+    "frames": 41,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2815,
+    "recovered": true,
+    "frames": 41,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2820,
+    "recovered": true,
+    "frames": 72,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2826,
+    "recovered": true,
+    "frames": 17,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2834,
+    "recovered": true,
+    "frames": 54,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2839,
+    "recovered": true,
+    "frames": 10,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2844,
+    "recovered": true,
+    "frames": 36,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2849,
+    "recovered": true,
+    "frames": 31,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2854,
+    "recovered": true,
+    "frames": 21,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2859,
+    "recovered": true,
+    "frames": 4,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2864,
+    "recovered": true,
+    "frames": 7,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2869,
+    "recovered": true,
+    "frames": 20,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2874,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   },
+   {
+    "episode": 2879,
+    "recovered": true,
+    "frames": 33,
+    "by_t_leave": false
+   },
+   {
+    "episode": 2884,
+    "recovered": true,
+    "frames": 2,
+    "by_t_leave": true
+   }
+  ]
+ },
+ "curve": {
+  "frames_rel": [
+   -100,
+   -99,
+   -98,
+   -97,
+   -96,
+   -95,
+   -94,
+   -93,
+   -92,
+   -91,
+   -90,
+   -89,
+   -88,
+   -87,
+   -86,
+   -85,
+   -84,
+   -83,
+   -82,
+   -81,
+   -80,
+   -79,
+   -78,
+   -77,
+   -76,
+   -75,
+   -74,
+   -73,
+   -72,
+   -71,
+   -70,
+   -69,
+   -68,
+   -67,
+   -66,
+   -65,
+   -64,
+   -63,
+   -62,
+   -61,
+   -60,
+   -59,
+   -58,
+   -57,
+   -56,
+   -55,
+   -54,
+   -53,
+   -52,
+   -51,
+   -50,
+   -49,
+   -48,
+   -47,
+   -46,
+   -45,
+   -44,
+   -43,
+   -42,
+   -41,
+   -40,
+   -39,
+   -38,
+   -37,
+   -36,
+   -35,
+   -34,
+   -33,
+   -32,
+   -31,
+   -30,
+   -29,
+   -28,
+   -27,
+   -26,
+   -25,
+   -24,
+   -23,
+   -22,
+   -21,
+   -20,
+   -19,
+   -18,
+   -17,
+   -16,
+   -15,
+   -14,
+   -13,
+   -12,
+   -11,
+   -10,
+   -9,
+   -8,
+   -7,
+   -6,
+   -5,
+   -4,
+   -3,
+   -2,
+   -1,
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
+  "v3": [
+   0.2709,
+   0.2726,
+   0.2676,
+   0.2738,
+   0.2845,
+   0.2917,
+   0.2865,
+   0.288,
+   0.2976,
+   0.2963,
+   0.3108,
+   0.3055,
+   0.3156,
+   0.3187,
+   0.3329,
+   0.3419,
+   0.3589,
+   0.3677,
+   0.3856,
+   0.3997,
+   0.4211,
+   0.4539,
+   0.4699,
+   0.4892,
+   0.5082,
+   0.5385,
+   0.5757,
+   0.592,
+   0.6084,
+   0.617,
+   0.6316,
+   0.6453,
+   0.6441,
+   0.6503,
+   0.6601,
+   0.6652,
+   0.6772,
+   0.6948,
+   0.7138,
+   0.7238,
+   0.7212,
+   0.7282,
+   0.7223,
+   0.7156,
+   0.7226,
+   0.7322,
+   0.7336,
+   0.7455,
+   0.75,
+   0.746,
+   0.7501,
+   0.7402,
+   0.7318,
+   0.7176,
+   0.7119,
+   0.7069,
+   0.6958,
+   0.7038,
+   0.684,
+   0.6581,
+   0.6541,
+   0.6608,
+   0.659,
+   0.6545,
+   0.6444,
+   0.6424,
+   0.6267,
+   0.616,
+   0.6017,
+   0.6002,
+   0.5833,
+   0.5689,
+   0.5595,
+   0.557,
+   0.5448,
+   0.5206,
+   0.5174,
+   0.5185,
+   0.5139,
+   0.5095,
+   0.5127,
+   0.5269,
+   0.5155,
+   0.5217,
+   0.5173,
+   0.5373,
+   0.5195,
+   0.5137,
+   0.5262,
+   0.5327,
+   0.5406,
+   0.5421,
+   0.5287,
+   0.5304,
+   0.531,
+   0.5274,
+   0.5294,
+   0.5246,
+   0.5274,
+   0.5237,
+   0.5186,
+   0.5103,
+   0.4744,
+   0.47,
+   0.4821,
+   0.4722,
+   0.4779,
+   0.475,
+   0.4815,
+   0.4887,
+   0.4845
+  ],
+  "III_s0": [
+   0.4283,
+   0.4316,
+   0.4369,
+   0.4398,
+   0.4463,
+   0.4525,
+   0.4572,
+   0.4596,
+   0.4617,
+   0.4679,
+   0.4759,
+   0.4807,
+   0.4865,
+   0.4967,
+   0.506,
+   0.5177,
+   0.5261,
+   0.5425,
+   0.5585,
+   0.5691,
+   0.5899,
+   0.6152,
+   0.6383,
+   0.6628,
+   0.6897,
+   0.7164,
+   0.7411,
+   0.7675,
+   0.787,
+   0.802,
+   0.8124,
+   0.8212,
+   0.825,
+   0.8308,
+   0.8366,
+   0.8406,
+   0.8486,
+   0.8598,
+   0.8664,
+   0.8669,
+   0.8739,
+   0.8771,
+   0.88,
+   0.8882,
+   0.8922,
+   0.8914,
+   0.8944,
+   0.899,
+   0.898,
+   0.8997,
+   0.8998,
+   0.9017,
+   0.9009,
+   0.9023,
+   0.9007,
+   0.8993,
+   0.8998,
+   0.9018,
+   0.903,
+   0.9025,
+   0.9057,
+   0.9063,
+   0.9051,
+   0.9051,
+   0.9022,
+   0.9005,
+   0.8989,
+   0.8987,
+   0.8989,
+   0.8975,
+   0.8977,
+   0.8968,
+   0.896,
+   0.8963,
+   0.8963,
+   0.8963,
+   0.8968,
+   0.8966,
+   0.8971,
+   0.8974,
+   0.8981,
+   0.8974,
+   0.8971,
+   0.8981,
+   0.8992,
+   0.8998,
+   0.8992,
+   0.8995,
+   0.9001,
+   0.8999,
+   0.9002,
+   0.8998,
+   0.8993,
+   0.9001,
+   0.9017,
+   0.9016,
+   0.9004,
+   0.8999,
+   0.8986,
+   0.8984,
+   0.8967,
+   0.8945,
+   0.8924,
+   0.8888,
+   0.8872,
+   0.8855,
+   0.8874,
+   0.8874,
+   0.8924,
+   0.8968,
+   0.9016
+  ],
+  "n": [
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178,
+   178
+  ]
+ }
+}
