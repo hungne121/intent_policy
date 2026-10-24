@@ -1,0 +1,241 @@
+# PIF: mô hình ý định cho IntentACT
+
+File duy nhất mô tả hướng hiện tại. Gộp ngày 23/10/2026 từ `HANDOFF_PIF.md`, `HANDOFF_PIF_NOTES.md`, `HANDOFF_PIF_LOCAL.md`, `HANDOFF_PIF_CORRECTIONS.md`; bốn file đó còn trong git (`git show e29ed0d:docs/requirements/HANDOFF_PIF.md`). Kết quả từng mốc ở `docs/reports/PIF_P*.md`.
+
+**Cập nhật 24/10/2026 07:00 (+07):** chuyển sang **PIF v3** theo ADR-001 (người dùng duyệt "ok triển khai", có 5 sửa bắt buộc + 4 sửa nên có, mục 4.8). Người dùng thêm: tự xây model là mạo hiểm, nên **chạy pilot có tiêu chí đặt trước** (mục 6) rồi mới đầu tư tiếp. Bản v2 (JEPA latent thuần, GRU làm nguồn bằng chứng) còn trong git ở commit `f9c2aab`.
+
+## 1. Đề tài và câu hỏi
+
+Khoá luận (tiếng Việt): *Learning human intention aware robot policy model*. Policy học bắt chước ACT (LeRobot) được bổ sung ý định của người, cho tương tác người–robot trên bàn.
+
+Ba câu hỏi chính (người dùng nhắc lại 24/10):
+1. Policy nhận ý định **dự đoán** có hoàn thành task và phối hợp với người **sớm hơn, nhanh hơn** không? Đo bằng metric thời gian (TSync, AM, độ trễ phản hồi) trước, CSR sau.
+2. Khi ý định dự đoán **sai**, hệ có sửa được không, và **ai sửa: bộ dự đoán tự sửa hay policy sửa**?
+3. Một **bộ dataset/benchmark HRI** đánh giá policy robot theo yếu tố ý định người: đa số trong mô phỏng, khoảng **100 episode thật**.
+
+Cách đo:
+- **RQ1.1:** ACT có dùng intent không? Đo bằng swap/drop intent, chỉ số ICR và CGR.
+- **RQ1.2 (câu 1):** **Ba model A, B, D** (người dùng xác nhận 24/10/2026: **bỏ C**):
+  - A: phản hồi khi ý định đã rõ, không intent;
+  - B: phản hồi sớm, không intent (baseline ngầm, chỉ có pixel);
+  - D: phản hồi sớm, có intent (tường minh).
+
+  So D với B để trả lời intent có giúp phản hồi sớm không; so B với A để xem ACT gốc có tự học được phản hồi sớm không.
+- **Câu 2:** làm sai belief có kiểm soát; đo thời gian bộ lọc tự sửa (dự đoán P4, mục 6) và khả năng ACT phục hồi (P8).
+- **RQ2:** cải thiện bằng cơ chế nào, loại thông tin nào giúp.
+
+## 2. Quyết định đang hiệu lực
+
+| Chủ đề | Quyết định | Nguồn |
+|---|---|---|
+| Model ACT so sánh | **A, B, D** (bỏ C) | người dùng 24/10 |
+| Hành động của ACT | **Liên tục**: `configs/policy/act_continuous.yaml`, chunk 40 bước (2 s ở 20 Hz), action [7] = 6 joint target + gripper, loss L1 + KL, `n_action_steps: 1`, không temporal ensembling. Đầu `restricted` (9 hành động) là bản cũ, **không dùng** (sơ đồ trong ADR-001 ghi "1 trong 9 hành động" là sai) | người dùng 22–23/10 |
+| **Mô hình ý định** | **PIF v3**: HMM có cấu trúc, học được, belief bằng bộ lọc Bayes chính xác (mục 4). Thay v2 | ADR-001, người dùng 24/10 |
+| **Cách chứng minh model** | Không chọn kiến trúc bằng A/B. Kiểm các dự đoán P1–P9 do lý thuyết đưa ra. **Pilot có tiêu chí go/no-go đặt trước** (mục 6) trước khi cài đầy đủ | ADR-001; người dùng 24/10 |
+| Thứ tự làm | **PIF trên HABIT trước**, ổn rồi mới chỉnh sang sim. Video người dùng tự quay để sau | người dùng 22–23/10 |
+| Task HABIT | **S8789** Supervisor (4 hộp kín giống nhau, người chỉ một hộp), **S8791** Coworker (người đóng nắp hộp robot vừa bỏ bánh), **S6760** Collaborator (trao và nhận lại tấm PCB) | người dùng 23/10; `PIF_P0.md` §8 |
+| Tần số | PIF chạy **10 Hz**, thời gian tính bằng giây. Sim lấy mỗi 2 frame một. Không nội suy HABIT. ACT 20 Hz, giữ nguyên belief giữa hai lần cập nhật | người dùng 23/10 |
+| Token | **3D trong hệ bàn** (người dùng 24/10: "3D cũng được"). Hệ thật dùng RealSense. HABIT dùng 3D ước lượng (MoGe-2), coi là kết quả bi quan. Ablation 2D vs 3D làm lại được từ `outputs/habit/extract` | người dùng 23–24/10 |
+| Đối tượng | Token chỉ gồm thứ thấy được, nhúng loại chung (object / container / surface). Không có id vùng, không có K cố định. Đích "tay người" lấy từ token người | người dùng 23/10 |
+| Tự cài PIF | Được, **nếu người dùng duyệt chi tiết thiết kế** | người dùng 23/10 |
+| Model có sẵn | Dùng nguyên code + weights đã công bố, không fine-tune, không chỉnh tham số theo kết quả mong muốn | quy tắc chung |
+| Máy thuê | Chỉ thuê GPU cho **tầng trích xuất** (nặng, chung cho mọi phương án). PIF v3 có ít tham số, fit trên laptop/workstation. Card đề xuất: RTX A5000 Secure ($0.27/h, đọc lúc 24/10 06:12); đo tốc độ 1 episode trước khi chạy hết. Ngân sách $15 | người dùng 24/10 |
+
+## 3. Vì sao cần mô hình ý định riêng
+
+- Bộ intent cũ (DeePoint + luật, v3.2) là **nhận dạng lệnh**: chỉ ra đích khi người đã chỉ tay đủ rõ.
+- ACT gốc nhìn một frame, nên quên lệnh khi tay người đã rút; đầu cử chỉ thì đi về hướng "trung bình"; không phân biệt tay tới hay lùi; bám theo vị trí robot (copycat, Wen et al. 2020).
+- Robot không cần chờ chắc chắn mới hành động: hành động tốt là hành động tối thiểu chi phí kỳ vọng trên phân phối mục tiêu (Javdani et al. 2018). Chuyển động là bằng chứng về mục tiêu (Baker, Saxe, Tenenbaum 2009).
+
+## 4. Mô hình PIF v3 (Probabilistic Intent Filter)
+
+Suy ra từ lý thuyết theo từng bước. Mỗi bước là một giả định; nếu giả định sai thì biết thành phần nào phải đổi. Nguồn ở `docs/references.md` (mục A, nhóm "PIF v3").
+
+### 4.1 Bài toán là POMDP quan sát hỗn hợp, giao diện với ACT là belief
+
+Trạng thái gồm cảnh $x_t$ và ý định $g_t$ của người (ẩn). Chi phí của robot phụ thuộc $g_t$.
+- **Giả định A1:** $x_t$ quan sát được đủ (vị trí vật, trạng thái robot); chỉ $g_t$ ẩn. Đây là POMDP quan sát hỗn hợp (MOMDP; Ong, Png, Hsu, Lee 2010).
+- Dưới A1, belief $b_t(g)=p(g_t=g\mid o_{1:t})$ là thống kê đủ của lịch sử, và chính sách tối ưu là hàm của $(x_t,b_t)$ (Kaelbling, Littman, Cassandra 1998, §3.4: "Because the belief state is a sufficient statistic, the optimal policy is the solution of a continuous space belief MDP"; Åström 1965).
+- **A1 không đúng hoàn toàn**: ACT nhìn pixel, vật có thể bị che, belief chỉ xấp xỉ khi model sai dạng. Vì vậy "ACT cần đúng $b_t$" là **giả định cần kiểm** (P3, P6), không phải định lý.
+- Hệ quả: ACT nhận $b_t$, không nhận lịch sử thô (tránh copycat), không nhận argmax (mất độ bất định, P7).
+
+### 4.2 Không gian ý định: chỉ phân biệt những gì đổi hành động của robot
+
+$g=(r,k)$: $r$ là quan hệ, $k\in\{1..K\}\cup\{\varnothing\}$ là con trỏ tới token đối tượng.
+- Hai ý định cho cùng hành động tối ưu thì gộp (bisimulation: Givan, Dean, Greig 2003; Ferns, Panangaden, Precup 2004; value equivalence: Grimm et al. 2020).
+- $r$ **được định nghĩa trước** theo vai, không để model tự học: $r\in\{$robot-làm-trên, người-lấy, người-chiếm-vùng$\}$ + "không có ý định / việc riêng". Đây là cách đáp lại Locatello et al. 2019 (không có thiên kiến quy nạp thì học không giám sát không tách đúng yếu tố): đưa cấu trúc vào model.
+- Bất biến hoán vị theo đối tượng, số đối tượng thay đổi bằng mask (Deep Sets, Zaheer et al. 2017).
+- $|G|\approx R(K+1)$: vài chục, nên mọi tổng trên $G$ tính chính xác được.
+
+### 4.3 Emission: người gần hợp lý, **có chuẩn hoá** (sửa bắt buộc 1)
+
+Người hành động có mục đích nhưng không hoàn hảo: xác suất một chuyển động tỉ lệ mũ của mức tiến về mục tiêu (Boltzmann-rational; Baker et al. 2009; Ziebart, Maas, Bagnell, Dey 2008; Dragan, Lee, Srinivasa 2013).
+
+Mỗi thành phần emission là một **mật độ có chuẩn hoá tường minh** (ADR gốc viết $\beta\Delta V+\ell_\theta-\log Z$ với $Z$ là tích phân trên keypoint liên tục, không tính được và có thể phụ thuộc $g$; bỏ $Z$ thì likelihood suy biến và bộ lọc sai):
+- **Độ dời tay** $\Delta p_t$ (cổ tay, đầu ngón trỏ). Gauss gốc nhân số hạng hợp lý, $u_k$ = vector đơn vị từ tay tới đối tượng $k$ (xấp xỉ bậc một của mức giảm khoảng cách):
+  $$p(\Delta p_t\mid g)\;\propto\;\mathcal N(\Delta p_t;0,\sigma^2 I)\,e^{\beta_r u_k\cdot\Delta p_t}\;=\;\mathcal N(\Delta p_t;\ \beta_r\sigma^2 u_k,\ \sigma^2 I).$$
+  Hằng số chuẩn hoá có dạng đóng và không phụ thuộc $k$. Với $k=\varnothing$: trung bình 0.
+- **Hướng chỉ tay** $d_t$ (gốc → đầu ngón trỏ), von Mises–Fisher **tự hồi quy** để tư thế giữ yên không cộng bằng chứng mãi: $d_t\sim\mathrm{vMF}\big(\mathrm{norm}(a\,d_{t-1}+(1-a)\,\mu_k),\ \kappa_r\big)$, $\mu_k$ = hướng từ gốc ngón tới $k$. Chuẩn hoá chỉ phụ thuộc $\kappa_r$.
+- **Sự kiện đối tượng** (nhấc, đặt, tay vào vùng): phân phối rời rạc $p(e_t\mid g)$. Đây là nguồn phân biệt $r$. Cần trạng thái `has_item` / `done` (mục 5; **HABIT chưa có**).
+- **Phần dư học được** (dùng sau pilot, chỉ khi P1 hỏng): hỗn hợp $p=(1-\epsilon_r)\,p_{\text{rational}}+\epsilon_r\,q_\theta$, với $q_\theta$ là mật độ có chuẩn hoá (hỗn hợp Gauss hoặc flow; Papamakarios et al. 2021). Giữ $q_\theta$ nhỏ vì rủi ro sụp hậu nghiệm (mục 4.8, P9).
+- Emission chỉ dùng bước hiện tại, có điều kiện theo bước trước (input-output HMM, Bengio & Frasconi 1994). Mọi lịch sử khác đi qua $b_{t-1}$.
+
+### 4.4 Bộ lọc: Bayes chính xác, không đếm hai lần
+
+$$b_t(g)\;\propto\;p(o_t\mid g,o_{t-1},x_t)\sum_{g'}T_t(g\mid g')\,b_{t-1}(g'),\qquad T_t(g\mid g')=(1-h)\,\mathbb 1[g=g']+h\,\pi_{\text{wf}}(g\mid x_t).$$
+- Hazard $h$: xác suất người đổi ý mỗi bước, theo mô hình điểm đổi trực tuyến (Fearnhead & Liu 2007). Adams & MacKay 2007 là preprint, chỉ dẫn như mô tả thuật toán.
+- $\pi_{\text{wf}}$: prior đích mới theo workflow (vật nào còn, subtask nào xong).
+- Frame mất tay: bỏ emission, chỉ dự đoán theo $T$ (cách HMM xử lý dữ liệu thiếu; Rabiner 1989).
+- Log-space (logsumexp). $T$ là đơn vị + hạng 1, nên mỗi bước $O(|G|)$.
+- Bản v2 tính bằng chứng từ GRU $\mathbf m_t$ (đã chứa lịch sử) rồi nhân với $b_{t-1}$ (cũng chứa lịch sử): **đếm hai lần**. v3 bỏ GRU khỏi đường bằng chứng.
+
+### 4.5 Học
+
+$$\mathcal L=-\log p_\theta(o_{1:T})\;+\;\lambda_J\,\mathcal L_{\text{JEPA}}\;-\;\lambda_y\!\!\sum_{t\in\text{có nhãn}}\!\!\log p_\theta(g_t=y_t\mid o_{1:T}).$$
+- Số hạng 1: likelihood chính xác, khả vi, tính bằng thuật toán forward (Baum–Welch bằng gradient; Rabiner 1989). Có nghĩa **vì** emission đã chuẩn hoá (mục 4.3).
+- Số hạng 2 (JEPA): dự đoán nhúng tương lai của đối tượng $k$ và của tay từ $(g,\text{frame hiện tại})$. Cho tín hiệu dài hạn để nhận diện $r$. Dự đoán trong không gian ẩn để không phải mô hình hoá nhiễu (S-JEPA, Abdelfattah & Alahi 2024; V-JEPA, Bardes et al. 2024).
+- Số hạng 3: kẹp $g_t$ về nhãn ở frame có nhãn (bán giám sát). Mặc định $\lambda_y=0$; bật cần người dùng đồng ý (`supervised_warmstart` trong `configs/pif/pif.yaml`).
+- Huang 2026 (Bảng 8, 5 seed): HMM + chưng cất bộ lọc / bản lai tốt hơn JEPA thuần (ARI 0.9945 / 0.9905 so với 0.9802; lỗi ma trận chuyển 0.0105 / 0.0103 so với 0.0191). **Bằng chứng rất yếu**: dữ liệu sinh từ chính một HMM 4 trạng thái Gauss, nên mục tiêu HMM thắng là dễ hiểu; bài là preprint. Chỉ dẫn như bằng chứng phụ.
+
+### 4.6 Số frame cần: kiểm định tuần tự (đã sửa, sửa bắt buộc 3)
+
+Log-odds giữa đích thật $g^\star$ và đích cạnh tranh $g'$ tăng mỗi bước trung bình bằng $D_t=\mathrm{KL}\big(p(o_t\mid g^\star)\,\|\,p(o_t\mid g')\big)$ (kiểm định tỉ số tuần tự, Wald 1945). Vì $D_t\approx0$ trước onset rồi mới tăng, **không dùng KL trung bình**. Định nghĩa:
+$$N_\alpha(g^\star,g')=\min\Big\{t:\ \sum_{s\le t}D_s\ \ge\ \log\tfrac{1-\alpha}{\alpha}-\log\tfrac{b_0(g^\star)}{b_0(g')}\Big\}.$$
+- Hazard $h>0$ đặt **trần** cho log-odds (mỗi bước luôn có xác suất $h$ chuyển đích). Nếu ngưỡng $1-\alpha$ cao hơn trần thì $N=\infty$. Trần chính xác suy ra khi cài, có test số.
+- Đích kề nhau → emission gần giống → $D_t$ nhỏ → cần nhiều frame. Prior workflow tốt → ít frame hơn.
+- Thời gian tự sửa sau khi belief bị đổi sai với độ tin $c$: cùng công thức, prior odds $c/(1-c)$.
+- Trả lời có lý thuyết cho câu hỏi của thầy "predictor cần tối thiểu bao nhiêu frame".
+
+### 4.7 Expert và ACT
+
+- Expert sinh demo: $a_t=\arg\min_a\sum_g b_t(g)\,Q_g(x_t,a)$ (QMDP / hindsight optimization; Littman, Cassandra, Kaelbling 1995; Javdani et al. 2018), $b_t$ tính bằng cùng bộ lọc trên quan sát của sim. Expert reactive theo cấu trúc.
+- Ánh xạ sang A, B, D: chi phí chờ cao → demo cho **A**; chi phí chờ thấp → demo cho **B** và **D**; chỉ **D** nhận $b_t$.
+- Belief trong demo được làm nhiễu có kiểm soát (kiểu DART, Laskey et al. 2017) để ACT học phục hồi.
+- **Việc lớn**: phải **thu lại demo sim** với expert QMDP và nhiễu belief. Chỉ làm sau khi pilot (mục 6) đạt.
+
+### 4.8 Sửa so với ADR-001 (người dùng duyệt 24/10)
+
+| # | Sửa | Loại |
+|---|---|---|
+| 1 | Emission có chuẩn hoá tường minh (mục 4.3) | bắt buộc |
+| 2 | Rủi ro sụp hậu nghiệm: emission tự hồi quy + $q_\theta$ mạnh có thể giải thích $o_t$ mà bỏ qua $g$ (đã ghi nhận ở model biến ẩn có decoder mạnh: Bowman et al. 2016; Chen et al. 2017). Giữ $q_\theta$ nhỏ, thêm P9 | bắt buộc |
+| 3 | $N_\alpha$ theo KL tích luỹ, có trần do $h$ (mục 4.6) | bắt buộc |
+| 4 | ACT liên tục, không phải 9 hành động | bắt buộc |
+| 5 | Bước 1 là giả định A1 (MOMDP), không phải định lý | bắt buộc |
+| 6 | HABIT chưa có sự kiện, `has_item`/`done`, $\pi_{\text{wf}}$; tia chỉ tay từ ngón trỏ 3D ước lượng thì nhiễu | ghi việc cần làm (mục 5) |
+| 7 | Đổi tên phương án I–IV để không trùng model A, B, D; ghi ánh xạ expert (mục 4.7) | đã làm |
+| 8 | Thu lại demo sim là việc lớn | đã ghi (mục 4.7) |
+| 9 | Kiểm nguồn ⚠ của ADR: xong, ghi ở `docs/references.md` | đã làm |
+
+Các phương án đã cân nhắc (đổi tên theo sửa 7): **I** PIF v2 (JEPA thuần), **II** PIF v3 (chọn), **III** GRU phân loại có giám sát (mốc so sánh), **IV** bộ lọc Bayes tham số tay (= II với $q_\theta=0$, tham số cố định; đối chứng).
+
+## 5. Dữ liệu và token (code: `pif/data/`, `pif/perception/`)
+
+Mỗi frame có ba nhóm token:
+- **người:** 11 keypoint (cổ tay, gốc và đầu ngón trỏ ×2, vai ×2, khuỷu ×2, đầu); vị trí 3D, vận tốc (sai phân lùi), cờ `visible`;
+- **đối tượng:** vị trí 3D, `has_item`, `done`, `visible`, loại;
+- **robot:** `holding`. Không đưa vị trí tay robot vào (chống copycat). Lựa chọn này phải phản biện được: ý định của người phụ thuộc hành động robot (InteRACT, Kedia et al. 2024).
+
+Nhân quả tuyệt đối: đầu vào tại t chỉ dùng dữ liệu ≤ t; tương lai chỉ làm mục tiêu train. Nhãn chỉ dùng để đánh giá (trừ khi người dùng bật số hạng 3, mục 4.5).
+
+**Còn thiếu (ghi theo sửa 6):**
+
+| Thiếu | Ảnh hưởng | Việc |
+|---|---|---|
+| `has_item` / `done` của HABIT = 0 (`pif/perception/lift.py`) | không có sự kiện, không có $\pi_{\text{wf}}$; S8791 gần như không suy được | suy từ gripper + vị trí vật (cần thiết kế) |
+| Hướng đầu / ánh mắt (chỉ có mũi) | mất tín hiệu sớm nhất: mắt tới đích trước tay (Johansson, Westling, Bäckström, Flanagan 2001) | để sau pilot |
+| Vận tốc = sai phân thô trên 3D ước lượng | nhiễu vài cm/frame → nhiễu vận tốc cỡ 0.4 m/s (`PIF_P1.md`) | v3 dùng độ dời trong emission Gauss, $\sigma$ học được, hấp thụ nhiễu |
+| Ngón trỏ 3D ước lượng | hướng chỉ tay nhiễu | $\kappa$ học được; báo cáo riêng |
+
+**HABIT** (`configs/pif/habit.yaml`). Hai tầng:
+1. `pif.perception.extract`: nặng, chạy mỗi frame. RTMW (keypoint), MoGe-2 ViT-S mức 3 (depth + tiêu cự), Grounding DINO (vật). Lưu `outputs/habit/extract/<task>/episode_*.npz`.
+2. `pif.perception.lift`: nhẹ. Fit mặt bàn (RANSAC), hệ bàn, 3D, tracking, `holding`. Làm lại được bất cứ lúc nào từ tầng 1.
+
+Kết quả tầng 1 phải **tải về trước khi xoá máy thuê** (`run_phase1.sh` đóng gói `outputs/habit/extract`).
+
+Luật nhãn (`pif.data.habit labels`):
+- S8789: hộp đích = chỗ robot thả bánh. Chỉ chắc cho buổi thu 260414 (190/208 episode).
+- S8791: hộp người sắp đóng = hộp vừa có bánh.
+- S6760: chuỗi đóng/mở gripper của hai tay.
+- Robot được teleop và phản ứng ngay, nên dự đoán sớm phải đánh giá trên các frame **trước khi robot rời đĩa đi về phía hộp** (`habit.motion_onset`; ngưỡng tốc độ chưa đo, đo theo Botzer & Karniel 2009).
+
+**Sim** (`configs/pif/sim.yaml`, `pif.data.sim`): replay 559 episode của `intent_act_late_v5` bằng code ở commit `b5d0c8e`. Có sẵn ở `outputs/pif/sim_replay/`. Token đối tượng = vật trên bàn + vạch dán P1/P2/U.
+
+## 6. Pilot: PIF v3 có triển vọng không
+
+Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đầy đủ (phần dư $q_\theta$, số hạng JEPA, expert QMDP, thu lại demo). Tiêu chí ghi ở đây **trước khi chạy**, commit vào git, không sửa sau khi thấy kết quả.
+
+### 6.1 Phạm vi
+
+- Chỉ kiểm **lõi**: emission hợp lý có chuẩn hoá (mục 4.3, không $q_\theta$) + bộ lọc chính xác (4.4) + học vài tham số ($\beta,\sigma,h,\kappa,a$) bằng likelihood forward (4.5, $\lambda_J=\lambda_y=0$).
+- Task: **HABIT S8789** (190 episode có nhãn chắc, buổi 260414; 4 hộp; một quan hệ "robot-làm-trên" + "không có ý định"). Số hạng JEPA để nhận diện $r$ chỉ cần khi có nhiều quan hệ (S8791, S6760), nên **không** nằm trong pilot.
+- Giai đoạn A (laptop, không thuê máy): cùng lõi trên **token sim** (559 episode, ground truth). Chỉ để gỡ lỗi và kiểm cài đặt. Người sim là scripted nên kết quả có thể "quá tốt"; **không dùng giai đoạn A để quyết định**.
+- Giai đoạn B (quyết định): HABIT S8789. Cần trích xuất 190 episode (thuê GPU, mục 2).
+
+### 6.2 Thiết kế để kết quả đáng tin
+
+- **Kiểm chéo 5 fold theo episode**, mọi model cùng fold. Mọi 190 episode đều được dùng để đánh giá đúng một lần.
+- **Mốc so sánh** (cùng token, cùng fold):
+  - ngẫu nhiên: 1/4;
+  - luật tia chỉ tay: hộp gần tia gốc → đầu ngón trỏ nhất (Nickel & Stiefelhagen 2007), không học;
+  - **III**: GRU phân loại có giám sát, train bằng nhãn của 4 fold, **3 seed**.
+- **Mốc thời gian** (đều trước khi robot đi, tránh lộ đáp án từ chuyển động robot): $t_{\text{leave}}$ = lúc robot rời đĩa về phía hộp; báo cáo thêm $t_{\text{leave}}-1$ s, $t_{\text{leave}}-0.5$ s và đường độ chính xác theo thời gian.
+- **Khoảng tin cậy 95% bootstrap** theo episode (10 000 lần lấy mẫu lại); so sánh model dùng **bootstrap ghép cặp** trên cùng episode.
+- Độ chính xác cỡ 0.5 với n = 190 có nửa khoảng tin cậy khoảng ±0.07, đủ để phân biệt với mức ngẫu nhiên 0.25.
+- Điều kiện trước: đo ngưỡng $t_{\text{leave}}$ (Botzer & Karniel 2009) và chốt trước khi chạy model.
+
+### 6.3 Tiêu chí go / no-go (tại $t_{\text{leave}}$)
+
+| # | Tiêu chí | Đạt khi |
+|---|---|---|
+| G1 | Lõi v3 (không nhãn) nhận ra đích tốt hơn ngẫu nhiên | cận dưới khoảng tin cậy của độ chính xác > 0.25 |
+| G2 | Không kém mốc có giám sát III | cận trên khoảng tin cậy của (v3 − III) ≥ 0 |
+| G3 | Belief hiệu chỉnh không kém III | cận dưới khoảng tin cậy của (ECE$_{\text{III}}$ − ECE$_{\text{v3}}$) ≥ 0, hoặc khoảng chứa 0 (ECE theo Guo, Pleiss, Sun, Weinberger 2017) |
+
+- **Go** (cài đầy đủ v3): G1, G2, G3 đều đạt.
+- **Một phần** (G1 đạt, G2 hoặc G3 hỏng): lõi có thông tin nhưng chưa cạnh tranh. Báo cáo, người dùng chọn: thêm $q_\theta$ / nhãn, hoặc dùng III cho ACT và giữ v3 làm phân tích.
+- **No-go** (G1 hỏng): dừng tự xây; chuyển sang mô hình có giám sát (III) hoặc encoder pretrained + head có giám sát.
+
+### 6.4 Dự đoán đi kèm (báo cáo, không quyết go/no-go)
+
+| # | Dự đoán | Đo | Nếu bị bác bỏ thì sửa |
+|---|---|---|---|
+| P1 | Belief hiệu chỉnh: $b_t=0.7$ thì đúng khoảng 70% | biểu đồ độ tin cậy, ECE | emission sai dạng: thêm $q_\theta$, xem lại điều kiện theo $o_{t-1}$ |
+| P2 | Số frame cần khớp $N_\alpha$ (mục 4.6) | hồi quy N đo được theo N dự đoán, tách cặp hộp kề / xa | quan sát không độc lập có điều kiện: tăng bậc tự hồi quy |
+| P4 | Thời gian tự sửa khớp $N_\alpha$ với prior odds $c/(1-c)$ | tiêm sai belief, đo số frame tới khi argmax về đích thật | $h$ sai |
+| P5 | Trước onset, belief ≈ prior | KL$(b_t\,\|\,\pi_{\text{wf}})$ theo thời gian trước onset | rò rỉ thông tin hoặc dùng tương lai |
+| P9 | Belief rời prior sau onset (không sụp hậu nghiệm) | KL$(b_t\,\|\,\pi_{\text{wf}})$ sau onset > 0 rõ | giảm năng lực emission tự hồi quy |
+
+Đối chứng giữ lại: emission **không** điều kiện theo $o_{t-1}$ (dự đoán: ECE xấu, tự tin quá sớm; kiểm trực tiếp lỗi đếm hai lần). P3 (belief là thống kê đủ), P6–P8 (ACT) kiểm sau pilot.
+
+### 6.5 Chi phí
+
+- Giai đoạn A: laptop, CPU.
+- Giai đoạn B: thuê GPU trích xuất S8789 (67 082 frame). Ước tính trên RTX A5000 chưa đo; đo 1 episode trước. Fit model: laptop.
+
+## 7. Trạng thái (24/10/2026 07:00)
+
+| Mốc | Trạng thái |
+|---|---|
+| P0 đọc code, chọn dữ liệu | xong (`PIF_P0.md`) |
+| P1 dữ liệu và token | sim xong; HABIT xong pipeline, mới trích xuất 3 episode S8789 (`PIF_P1.md`) |
+| PIF v2 (P2–P4 bản thử) | thay bằng v3; code v2 còn trong `pif/model.py`, `pif/losses.py` |
+| **PIF v3** | thiết kế xong (mục 4), **chờ người dùng duyệt tiêu chí pilot (mục 6) rồi mới code** |
+| P5 export cho ACT | chưa |
+
+Câu hỏi còn mở:
+- camera D435 hay D435i;
+- luật `visible` cho keypoint nằm ngoài khung;
+- luật nhãn S8789 cho buổi 260415 / 260418;
+- cách suy `has_item` / `done` cho HABIT.
+
+## 8. Quy tắc làm việc
+
+- Báo cáo bằng tiếng Việt, câu ngắn, thuật ngữ giữ tiếng Anh. Ghi giờ thật (`date`).
+- Chỉ làm đúng việc được giao. Hết mỗi mốc thì dừng chờ duyệt. Không tự chạy job dài nếu chưa được đồng ý.
+- Mọi quyết định và tham số phải có nguồn hoặc số đo, ghi vào config và tài liệu. Trích dẫn: tên bài, tác giả, năm.
+- Có bằng chứng rồi mới nêu nguyên nhân. Claim cần kết quả của policy đã học.
+- Sửa 2–3 lần cho cùng một lỗi mà không xong thì dừng và báo cáo.
+- Commit **không** có dòng Co-Authored-By.
+- Job nặng chạy trên máy trạm (`workstation/`) hoặc máy thuê (`workstation/rent/`). Trên laptop giữ ≥ 3 GB RAM trống, chạy job dưới `choom`.
+- Không sửa `lerobot/`. Tổ chức theo config: thêm hoặc đổi thành phần thì chỉ sửa config.
