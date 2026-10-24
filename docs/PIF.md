@@ -10,6 +10,8 @@ File duy nhất mô tả hướng hiện tại. Gộp ngày 23/10/2026 từ `HAN
 3. Học bằng **dự đoán tương lai** của vật và tay người (họ JEPA), **không cần nhãn ý định**; nhãn chỉ để đánh giá.
 4. Cung cấp cho ACT đúng thứ ACT thiếu: **bộ nhớ**, **dự đoán sớm**, **tín hiệu chuyển động**; cho phép đổi ý; xử lý khi dự đoán sai.
 
+**Nguyên tắc triển khai (người dùng 24/10/2026 13:47):** bộ ý định là **công cụ** để trả lời câu hỏi của khóa luận, **không cần tính mới**. Triển khai theo **phương pháp đã công bố và đã cho kết quả ổn**, **ưu tiên công trình gần đây**, áp dụng thẳng; chỉ cần **đủ và đúng yêu cầu**. Tự thiết kế chỉ khi không có phương pháp công bố nào đáp ứng, và phải nói rõ lý do.
+
 **Cách làm phải giữ (người dùng duyệt 24/10):** thiết kế suy ra từ lý thuyết (ADR-001: POMDP → belief, lọc Bayes chính xác, emission có chuẩn hoá); ghi dự đoán và tiêu chí **trước** khi chạy; gặp lỗi thì làm đủ 5 bước (phát hiện → nguyên nhân từ số đo → kiểm nguyên nhân trong tài liệu → các phương pháp hiện có → chọn); ưu tiên model đã công bố, dùng nguyên weights.
 
 **Tự kiểm trước mỗi thiết kế / thí nghiệm** (trả lời trong báo cáo):
