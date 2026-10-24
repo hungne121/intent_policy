@@ -151,7 +151,9 @@ class PolicyAgent(Agent):
         if cfg.use_task_token:
             task, obj, dest = instruction_of(self.scenario.variation['spec'], self.scenario.cfg.id, cfg.intent_schema) \
                 if cfg.use_instruction else (cfg.intent_schema['tasks'].index(
-                    cfg.intent_schema['task_of_scenario'][self.scenario.cfg.id]), 0, 0)
+                    cfg.intent_schema['task_of_scenario'].get(self.scenario.cfg.id, self.scenario.cfg.task_code)), 0, 0)
+            # v6 checkpoints trained without --intent-schema store the old map (no v6 scenario ids); the scenario's own
+            # task code is what labelled their hri.task_id (configs/intent_schema_v6.yaml, same task list T1-T4)
             batch['hri.task_id'] = torch.tensor([task], device=self.device)
             if cfg.use_instruction:
                 batch[INSTR_OBJECT], batch[INSTR_DEST] = torch.tensor([obj], device=self.device), torch.tensor([dest], device=self.device)
