@@ -114,3 +114,22 @@ Giả thuyết (chưa kiểm):
 1. **Nhiễu 2 cm i.i.d. trên từng keypoint quá bi quan cho hướng ngón tay.** Tia gốc → đầu ngón chỉ dài vài cm, nên lệch hướng lên tới hàng chục độ. Trong khi 3 bánh T1 chỉ cách nhau khoảng 5–10° nhìn từ vai (`min_ray_angle_deg` 5). Số 2 cm là độ dời mỗi 0.1 s, **gồm cả chuyển động thật**, chưa phải nhiễu lúc tay đứng yên.
 2. **Mô hình emission (hướng chuyển động tới ứng viên) không hợp với cử chỉ đặt vật.** Ở T3, cuối cử chỉ tay đi xuống thẳng đứng trên chỗ đặt, nên hướng không phân biệt được.
 3. **ManiCast không dự báo điểm cuối của cú với.** Đánh giá trước đây trên sim đã thấy nó không hơn "giữ tư thế hiện tại" ở các khung đang chuyển động.
+
+### M5 thiết kế lại theo ManiCast (24/10 18:2x; người dùng: "0.7 là ngày xưa, qua ManiCast phải thiết kế lại cho đúng")
+
+Ngưỡng belief 0.7 / 0.9 thuộc thiết bị DeePoint cũ (v3.2). Bê nguyên sang ManiCast là trôi hướng. Bài ManiCast (Kedia et al., CoRL 2023) không dùng ngưỡng belief:
+- thước đo "detection advantage" (`third_party/manicast/eval/handover.py`) = thời điểm cổ tay **dự báo** đi vào vùng đích − thời điểm cổ tay **hiện tại** đi vào cùng vùng đó;
+- robot lập kế hoạch thẳng trên quỹ đạo dự báo.
+
+Thiết kế:
+1. **Bộ dự báo:** ManiCast fine-tune trên chuyển động người v6 (theo `src/finetune.py` của họ: lr 1e-4, MPJPE có trọng số), chia train/val/test theo seed. Đánh giá ADE/FDE so với "giữ tư thế hiện tại" và CVM, như `PIF_manicast_eval.md`.
+2. **Đọc ý định không cần ngưỡng tự đặt:**
+   - mỗi ứng viên có vùng tương tác suy từ layout, bán kính = nửa khoảng cách tới ứng viên gần nhất (các vùng không chồng nhau);
+   - bánh T1 nằm ngoài tầm với: vùng góc quanh tia vai → cổ tay, nửa góc tới món kề bên;
+   - đích = ứng viên có vùng mà quỹ đạo dự báo đi vào.
+3. **Sớm / muộn cùng một luật:** expert muộn (A) áp lên cổ tay hiện tại, expert sớm (B, D) áp lên cổ tay dự báo. Khác biệt giữa hai bên = detection advantage, không tham số tự đặt.
+4. **Đổi ý (T5):** dự báo đi vào vùng khác thì đổi đích.
+5. **Đầu vào ý định của D:** quỹ đạo dự báo + vùng đã khớp; B không có.
+6. **Pha trước cử chỉ (T2–T4):** tín hiệu quy trình / tiến độ, quan sát trực tiếp.
+
+Bước 1: thu dữ liệu chuyển động người v6 → fine-tune → đánh giá.
