@@ -35,7 +35,9 @@ fi
 python -m pip install -q -r workstation/rent/requirements.txt
 python -m pip install -q --no-deps rtmlib==0.0.16 "git+https://github.com/microsoft/MoGe.git" \
     "git+https://github.com/EasternJournalist/utils3d.git" "git+https://github.com/rbalestr-lab/lejepa.git"
-python -m pip install -q onnxruntime-gpu coloredlogs flatbuffers protobuf sympy || python -m pip install -q onnxruntime coloredlogs flatbuffers protobuf sympy
+# onnxruntime-gpu >= 1.31 on PyPI is built for CUDA 13 and silently falls back to CPU with a CUDA 12 torch (24/10: 1.82 s/frame,
+# GPU idle); 1.22.0 uses the CUDA 12 libraries of torch (checked: CUDAExecutionProvider on det + pose)
+python -m pip install -q "onnxruntime-gpu==1.22.0" coloredlogs flatbuffers protobuf sympy || python -m pip install -q onnxruntime coloredlogs flatbuffers protobuf sympy
 POSE=cpu
 if python - <<'EOF' >/dev/null 2>&1
 import numpy as np, onnxruntime as ort
