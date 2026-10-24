@@ -155,3 +155,18 @@ Bước 1: thu dữ liệu chuyển động người v6 → fine-tune → đánh
 
 - Với nhiễu 2 cm i.i.d., mọi thứ sụp: nhiễu tạo tốc độ ảo ≥ 0.2 m/s nên không khung nào được coi là "dừng".
 - T1: bánh và khay nằm ngoài tầm với, người chỉ hoặc vươn tay một đoạn. Hướng dịch chuyển cổ tay tính từ chỗ bắt đầu không phải hướng chỉ; phải đọc bằng tia chỉ tay hoặc cánh tay (vai → cổ tay → ngón trỏ).
+
+### M5 bước 1c: suy đích bằng lập kế hoạch ngược (`pif/v6_goal.py`, 23:15, `outputs/v6_goal/2026-10-24/23-15-57_m5`)
+
+Công thức: P(G) ∝ exp(β [d(S, G) − d(Q, G)]), với S = cổ tay 1 s trước, Q = cổ tay dự báo 1 s tới, β = 1/59 mm (sai số đo được của ManiCast fine-tune) (Dragan, Lee, Srinivasa 2013; Baker, Saxe, Tenenbaum 2009). Không có ngưỡng. Thước đo: thời điểm sớm nhất mà từ đó trở đi đích đúng luôn có xác suất cao nhất. Keypoint sạch.
+
+| Nhóm | Chỉ đường đã đi: đúng / thời điểm | + ManiCast fine-tune |
+|---|---|---|
+| T2 chỗ chìa tay | 1.00 / 0.17 s | 0.97 / 0.15 s |
+| T3 chỗ đặt lót cốc | 0.62 / −0.15 s | 0.67 / 0.02 s |
+| T1 món | 0.58 | 0.46 |
+| T1 khay | 0.42 | 0.42 |
+
+Nhận xét:
+- Cử chỉ người tự nhiên ngắn (khoảng 0.6 s), đích lộ ra ngay từ đầu đường đi. Dự báo 1 s của ManiCast hầu như không thêm gì vào việc **chọn đích**; giá trị của nó nhiều khả năng ở **khi nào / ở đâu** tay sẽ tới (gặp tay ở T2, nhường đường ở T4).
+- T1 không phân biệt được món, kể cả ở cuối cử chỉ (P(đúng) ≈ 0.39, ngang đoán bừa giữa 3 món): món ngoài tầm, các món chỉ cách nhau 5–10° nhìn từ vai. Cần tia ngón trỏ, hoặc giãn layout.

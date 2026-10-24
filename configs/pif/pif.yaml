@@ -132,3 +132,18 @@ v6_detection:               # M5: ManiCast's own decision protocol on v6 gesture
   window_s: [-0.5, 1.0]     # scored from 0.5 s before the motion start to 1 s after its end
   observers:                # forecast.checkpoint_path values (null: released `checkpoint`), plus constant velocity
     released: null
+
+v6_goal:                    # M5: goal posterior by inverse planning on the observed + forecast hand path (pif/v6_goal.py)
+                            # P(G | S->Q) ∝ exp(-C(S->Q) - C*(Q->G)) / exp(-C*(S->G)) (Legibility and predictability of
+                            # robot motion - Dragan, Lee, Srinivasa - 2013; Action understanding as inverse planning -
+                            # Baker, Saxe, Tenenbaum - 2009); C = beta x path length, C* = beta x straight distance, so
+                            # P(G) ∝ exp(beta [d(S, G) - d(Q, G)]): the progress made towards G. Q = the forecast wrist 1 s
+                            # ahead (observed only: the current wrist)
+  lookback_s: 1.0           # S = the wrist 1 s ago (a person still for 1 s gives a uniform posterior)
+  beta_from_error_mm: 59.0  # beta = 1 / the fine-tuned ManiCast wrist error at 1 s on transition windows (test, 18:50)
+  forecast_steps: 10        # forecast read at 0.1 .. 1.0 s
+  episodes: {t1_choose_item: 24, t2_fetch_return: 16, t3_coaster_cup: 24}
+  seed0: 3000
+  sets: [t1_item, t1_tray, t2_hand, t3_spot]   # candidate sets of v6_timing
+  window_s: [-0.5, 0.0]     # scored from 0.5 s before the motion start to its end
+  observers: {released: null}                   # + observed only, constant velocity; add fine-tuned via --set
