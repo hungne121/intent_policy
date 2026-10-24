@@ -51,7 +51,8 @@ intention_change:                   # T5; `probability` > 0 adds random changes 
   stop_s: [0.6, 0.9]                # the 'wait' hand moves out ... # x1.5 (2026-10-13, INTENT_ACT_v3.2.md §4.2j): deliberate robot-directed gesture
   stop_hold_s: [0.4, 0.8]           # ... and is held this long
 expert:                             # demonstrator only (never a policy input)
-  trigger: cue_onset                # oracle until the v6 measuring device exists (M5)             # cue_complete (act once the instruction is complete) | evidence | cue_onset
+  trigger: cue_complete             # until the v6 measuring device exists (M5); cue_onset (clairvoyant) fails
+                                    #   T5 changes of mind in the old T1 too (6/12, check 2026-10-24 16:52)             # cue_complete (act once the instruction is complete) | evidence | cue_onset
   travel_dz: 0.13                   # travel height above the table (cubes only)
 timing:
   timeout_s: 45.0

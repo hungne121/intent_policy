@@ -36,7 +36,8 @@ intention_change:
   probability: 0.0
   late_trigger_m: 0.15
 expert:
-  trigger: cue_onset                # oracle until the v6 measuring device exists (M5)
+  trigger: cue_complete             # until the v6 measuring device exists (M5); cue_onset (clairvoyant) fails
+                                    #   T5 changes of mind in the old T1 too (6/12, check 2026-10-24 16:52)
   travel_dz: 0.20                   # the cup (8.5 cm) is carried above the 15 cm hand height of the old T3
 timing:
   timeout_s: 45.0

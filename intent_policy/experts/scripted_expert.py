@@ -160,7 +160,7 @@ class ScriptedExpert:
             self._set_plan([Step('hold', ticks=FOREVER, name='await_commit')])   # no motion before the first commit
         else:
             cue = (lambda: sc.logger.count(E.HUMAN_CUE_ONSET) > 0) if self.trigger == 'cue_onset' \
-                else (lambda: CUE_COMPLETE_STEP[self.code] in sc.protocol_done)
+                else (lambda: (getattr(sc, 'cue_complete_step', None) or CUE_COMPLETE_STEP[self.code]) in sc.protocol_done)
             self._set_plan([Step('wait', until=cue, name='wait_cue'), Step('call', target=self._start_known, name='start')])
 
     def _start_known(self) -> None:

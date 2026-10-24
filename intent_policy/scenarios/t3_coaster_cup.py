@@ -9,6 +9,7 @@ from intent_policy.sim.scene_builder import object_half_height
 
 class CoasterCupTask(BaseScenario):
     v6_plan = 'coaster'                         # the expert's v6 plan (scripted_expert._task_steps)
+    cue_complete_step = 'coaster_placed'        # expert trigger cue_complete: act once the coaster is down
 
     def on_reset(self):
         self.coaster = self.variation['spec']['u_blocks'][0]

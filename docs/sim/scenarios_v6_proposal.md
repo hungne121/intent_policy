@@ -77,3 +77,8 @@ Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outpu
 **Quyết định khi triển khai:**
 - T2 chỉ có **một** vật cần đưa. Trong bản xem trước có thêm lon xanh, nhưng không có tín hiệu nào cho robot biết người muốn lon nào: đó là ý định không quan sát được. T2 kiểm **khi nào** và **ở đâu** (tiến độ việc, chỗ chìa tay H1 / H2 + lệch ngẫu nhiên). **Chọn vật** đã có ở T1.
 - Chỗ chìa tay, chỗ lót cốc, hộp là ứng viên rời rạc, có lệch ngẫu nhiên. Belief cần ứng viên rời rạc (bộ lọc PIF v3).
+
+**Tiến độ** (thời gian thật):
+- 16:48: T1 v6 `t1_choose_item` xong, expert 16/16 (`outputs/v6_check/2026-10-24_16-48`). Sửa sau lần thử đầu: lần đầu tay vươn tới tận tầm với, người cúi qua bàn và chắn đường robot (seed 2: robot đứng chờ khoảng 6 s; seed 5: chạm robot). Sửa thành vươn một đoạn tới độ sâu thoải mái 0.28 m (`reach_max_y`).
+- 16:50: T3 v6 `t3_coaster_cup` xong, expert 8/8.
+- 16:52: T5 trên T1 v6 (đổi ý): 12/12 với trigger `cue_complete`, nhưng 7/12 với `cue_onset`. T1 **cũ** với `cue_onset` cũng chỉ 6/12, nên đây là giới hạn có sẵn của expert oracle khi người đổi ý, không phải lỗi của v6. v6 tạm dùng `cue_complete`. Expert sớm/muộn không đặc quyền ở M5 sẽ thay thế.
