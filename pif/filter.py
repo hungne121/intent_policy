@@ -11,7 +11,8 @@
   no memory). A hand that is not seen at t or t - 1 contributes 1 (missing data).
   Outliers: estimated 3D keypoints have heavy tails (HABIT S8789: index-tip step p50 2 cm, p99 0.4-0.9 m, max 5 m per
   0.1 s), so dp is an inlier / outlier mixture (1 - eps) N(mu, sigma^2) + eps N(0, sigma_out^2) and d a mixture
-  (1 - eps_d) vMF + eps_d / 4pi (Gaussian inliers + broad outliers: MLESAC, Torr & Zisserman 2000). The outlier parts do
+  (1 - eps_d) vMF + eps_d / 4pi (inlier / outlier likelihood as in MLESAC, Torr & Zisserman 2000, which uses uniform outliers; a broad Gaussian here
+  because a uniform density on R^3 needs bounds). The outlier parts do
   not depend on g, so an outlier frame carries almost no evidence; both stay normalised densities.
   Transition: b^-_t = (1 - h) b_{t-1} + h pi,  pi = [w_none, (1 - w_none) / K, ...]; b_0 = pi (docs/PIF.md §4.4).
 Emission uses only frames t and t - 1; all other history goes through b_{t-1} (no double counting).

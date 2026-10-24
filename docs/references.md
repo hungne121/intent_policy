@@ -81,7 +81,7 @@ Khoá luận chỉ dẫn các nguồn ở mục A. Mục B ghi các nguồn khô
 | Johansson, Westling, Bäckström, Flanagan. Eye–Hand Coordination in Object Manipulation (2001) | *J. Neuroscience* 21(17), 6917–6932 | nơi đăng; nội dung "mắt tới trước tay" lấy từ trang lab Flanagan, chưa đọc tóm tắt | hướng nhìn là tín hiệu sớm (mục 5) |
 | Zhao et al. TNT: Target-driveN Trajectory Prediction (2020) | CoRL 2020 | tóm tắt + nơi đăng | đích tường minh tốt hơn ý định ẩn lấy mẫu |
 | Bardes et al. Revisiting Feature Prediction for Learning Visual Representations from Video (V-JEPA, 2024) | TMLR 2024 | **toàn văn** Bảng 1 (feature hơn pixel), Bảng 7 (ít nhãn) | JEPA (4.5) |
-| Torr, Zisserman. MLESAC: A New Robust Estimator with Application to Estimating Image Geometry (2000) | *Computer Vision and Image Understanding* 78(1) | nơi đăng (tự biết, chưa kiểm lại trong phiên này) | inlier Gauss + ngoại lai rộng trong emission (`pif/filter.py`) |
+| Torr, Zisserman. MLESAC: A New Robust Estimator with Application to Estimating Image Geometry (2000) | *Computer Vision and Image Understanding* 78(1), 138–156 | nơi đăng (Oxford ORA, 24/10). MLESAC dùng ngoại lai **đều**; `pif/filter.py` dùng Gauss rộng học được (đều trên $\mathbb R^3$ không chuẩn hoá được nếu không có biên) | likelihood inlier + ngoại lai trong emission |
 | Kedia, Bhardwaj, Dan, Choudhury. InteRACT: Transformer Models for Human Intent Prediction Conditioned on Robot Actions (2024) | ICRA 2024 | tóm tắt + nơi đăng; có code, chưa thấy weights | ý định người phụ thuộc hành động robot (mục 5) |
 
 ## B. Không đạt
