@@ -5,14 +5,14 @@ the ACT pre/post-processors (normalisation from dataset stats), ACTPolicy.get_op
 and save_pretrained. The only project-specific pieces are carrying the restricted label
 (`restricted_action`, not an ACT input/output feature) around the preprocessor and, when the
 policy config sets `use_intent`, declaring the oracle intention features as extra inputs (fusion) or carrying the
-intent contract around the preprocessor (intent tokens, docs/requirements/INTENT_ACT_GUIDE_v2.md §5.2):
+intent contract around the preprocessor (intent tokens, INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §5.2):
   --[no-]use-task-token    task token T1-T4 (default: experiment `policy.use_task_token`, else off)
   --[no-]use-instruction   add the task instruction (object / destination kind) to the task token (default: experiment
                            `policy.use_instruction`, else off; needs hri.instr_* from scripts/build_intent_labels.py)
   --use-intent             intent tokens (default off: the dataset's intent_* columns are ignored)
   --intent-source          hindsight | perfect | predicted (columns intent_hs / intent_pp / intent_pr<r>, read as intent.*)
                            | device (contract v3.2 from the measuring device, columns intent_pd, 6 tokens + mask;
-                           docs/requirements/INTENT_ACT_v3.2.md; its defaults: --p-drop-group 0.1 (one token)
+                           docs/intent_act/INTENT_ACT_v3.2.md; its defaults: --p-drop-group 0.1 (one token)
                            --p-drop-all 0.2, never in the CVAE; the dataset's device settings go into the model config)
   --intent-source-mix      e.g. predicted:0.7,perfect:0.3 (source drawn per sample; predicted: replica drawn uniformly)
   --noise-scale-range      must match the range the predicted replicas were built with (schema predicted.*)
@@ -230,7 +230,7 @@ def xi_stats(ds: LeRobotDataset, prefix: str = 'intent_hs', field: str = 'xi') -
 
 
 def guide_overrides(args) -> dict:
-    """INTENT_ACT_GUIDE_v2.md §5.2 flags -> policy config fields (only the flags that were given)."""
+    """INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §5.2 flags -> policy config fields (only the flags that were given)."""
     out = {}
     if args.use_intent:
         out.update(use_intent=True, intent_arch='tokens', intent_schema=load_schema(args.intent_schema))
@@ -247,7 +247,7 @@ def guide_overrides(args) -> dict:
     for flag, key in (('intent_source', 'intent_source'), ('intent_source_mix', 'intent_source_mix'),
                       ('intent_in_cvae', 'intent_in_cvae'), ('p_drop_group', 'intent_p_drop_group'),
                       ('p_drop_all', 'intent_p_drop_all'), ('intent_film', 'intent_film'), ('image_p_drop', 'image_p_drop'),
-                      ('intent_target_init', 'intent_target_init'),
+                      ('intent_target_init', 'intent_target_init'), ('intent_film_stages', 'intent_film_stages'),
                       ('n_action_steps', 'n_action_steps')):
         if getattr(args, flag, None) is not None:
             out[key] = getattr(args, flag)
@@ -290,14 +290,19 @@ def main():
     p.add_argument('--seed', type=int, help='override experiment seed (training seed)')
     p.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     p.add_argument('--val-every', type=int, default=10, help='every k-th episode is held out for validation')
+    p.add_argument('--episodes-per-task', type=int,
+                   help='keep only the first N episodes of each task before the split (data-sufficiency runs)')
     p.add_argument('--exclude-tasks', nargs='*', default=[],
                    help='list tasks left out of training and validation, e.g. T5 (plan v5: optional_t5 episodes)')
     p.add_argument('--save-every', type=int, help='override training.save_every')
+    p.add_argument('--act-epochs', type=int, help='length in ACT epochs (Zhao et al. 2023, imitate_episodes.py: one random '
+                   'sample per training episode): steps = ceil(epochs x train episodes / batch); overrides --steps')
+    p.add_argument('--save-every-epochs', type=int, help='with --act-epochs: a checkpoint every this many ACT epochs')
     p.add_argument('--keep-last', type=int, help='numbered checkpoints to keep (0: all; default training.keep_last or 2)')
     p.add_argument('--amp', action=argparse.BooleanOptionalAction, default=None, help='fp16 autocast (default: training.amp)')
     p.add_argument('--video-backend', help='LeRobot video backend (torchcodec | pyav)')
     p.add_argument('--resume', action='store_true', help='continue from the newest checkpoint in --output-dir')
-    g = p.add_argument_group('task / intent tokens (docs/requirements/INTENT_ACT_GUIDE_v2.md §5.2)')
+    g = p.add_argument_group('task / intent tokens (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §5.2)')
     g.add_argument('--use-task-token', '--use_task_token', action=argparse.BooleanOptionalAction, default=None,
                    help='task token T1-T4 (default: experiment policy.use_task_token, else off)')
     g.add_argument('--use-instruction', '--use_instruction', action=argparse.BooleanOptionalAction, default=None,
@@ -323,8 +328,10 @@ def main():
     g.add_argument('--intent-target-init', '--intent_target_init', choices=['small', 'type'],
                    help="v3.2 F1: initial scale of the target embeddings ('small' = std 0.02, 'type' = N(0,1) as the "
                         "type embedding; default small)")
+    g.add_argument('--intent-film-stages', '--intent_film_stages', action=argparse.BooleanOptionalAction, default=None,
+                   help='v2 tokens: FiLM every ResNet stage as v3.2 (default: off = last feature map)')
     g.add_argument('--image-p-drop', '--image_p_drop', type=float,
-                   help='v3.2: probability of masking all image tokens of a training sample (default 0)')
+                   help='probability of masking all image tokens of a training sample (default 0)')
     g.add_argument('--n-action-steps', '--n_action_steps', type=int, help='override the policy n_action_steps')
     g.add_argument('--ckpt-rule', '--ckpt_rule', default='last', choices=['last'],
                    help='checkpoint selection rule recorded in the metadata (never chosen on test results)')
@@ -353,10 +360,10 @@ def main():
         raise SystemExit('--resume continues a run: pass its folder as --output-dir')
     out = run_dir('train', args.job_name or exp['experiment'], args.output_dir)
     log_run(out, 'scripts.train_policy')
-    steps = args.steps or tr['steps']
+    steps = args.steps or tr.get('steps')
     batch_size = args.batch_size or tr['batch_size']
     num_workers = tr['num_workers'] if args.num_workers is None else args.num_workers
-    save_every = args.save_every or tr['save_every']
+    save_every = args.save_every or tr.get('save_every')
     keep_last = args.keep_last if args.keep_last is not None else int(tr.get('keep_last', 2))
     amp = (tr.get('amp', False) if args.amp is None else args.amp) and args.device == 'cuda'
     seed = int(exp['seed'] if args.seed is None else args.seed)
@@ -367,12 +374,24 @@ def main():
     cfg = build_config(policy_yaml, meta, args.device, exp['observation']['cameras'])
     label_key = cfg.restricted_label_key
     delta = {k: [i / meta.fps for i in range(cfg.chunk_size)] for k in ('action', label_key)}
-    train_eps, val_eps = split_episodes(meta.total_episodes, args.val_every)
+    ep_meta = {m['episode_index']: m for m in map(json.loads, (root / 'meta/hri_episodes.jsonl').read_text().splitlines())}
+    tasks = {e: m.get('list_task') for e, m in ep_meta.items()}
+    episodes = list(range(meta.total_episodes))
+    if args.episodes_per_task:                   # the first N per scenario (episodes are stored in seed order)
+        count: dict = {}
+        for e in episodes:
+            count[ep_meta[e]['scenario_id']] = count.get(ep_meta[e]['scenario_id'], 0) + 1
+            ep_meta[e]['_n'] = count[ep_meta[e]['scenario_id']]
+        episodes = [e for e in episodes if ep_meta[e]['_n'] <= args.episodes_per_task]
+    train_eps, val_eps = (list(map(episodes.__getitem__, ix)) for ix in split_episodes(len(episodes), args.val_every))
     if args.exclude_tasks:
-        tasks = {m['episode_index']: m.get('list_task') for m in
-                 map(json.loads, (root / 'meta/hri_episodes.jsonl').read_text().splitlines())}
         drop = set(args.exclude_tasks)
         train_eps, val_eps = [e for e in train_eps if tasks.get(e) not in drop], [e for e in val_eps if tasks.get(e) not in drop]
+    if args.act_epochs:
+        steps = -(-args.act_epochs * len(train_eps) // batch_size)
+        if args.save_every_epochs:
+            save_every = max(1, args.save_every_epochs * len(train_eps) // batch_size)
+    save_every = save_every or steps                 # no checkpoint interval configured: only the final model
     ds_kw = dict(root=root, delta_timestamps=delta, **({'video_backend': args.video_backend} if args.video_backend else {}))
     train_ds = LeRobotDataset(repo_id, episodes=train_eps, **ds_kw)
     val_ds = LeRobotDataset(repo_id, episodes=val_eps, **ds_kw) if val_eps else None
@@ -426,7 +445,7 @@ def main():
         return dict(experiment=exp, experiment_config_path=str(args.config), policy_config_path=str(policy_cfg_path),
                     policy_config=json.loads(json.dumps(asdict(cfg), default=str)), dataset_root=str(root),
                     dataset_repo_id=repo_id, dataset_episodes=meta.total_episodes, dataset_frames=meta.total_frames,
-                    train_episodes=train_eps, val_episodes=val_eps, excluded_tasks=list(args.exclude_tasks), seed=seed, step=tag_step, steps_total=steps,
+                    train_episodes=train_eps, val_episodes=val_eps, excluded_tasks=list(args.exclude_tasks), episodes_per_task=args.episodes_per_task, act_epochs=args.act_epochs, seed=seed, step=tag_step, steps_total=steps,
                     batch_size=batch_size, amp=amp, num_workers=num_workers, last_log=last_info,
                     created=datetime.now(timezone.utc).isoformat(),
                     versions=dict(python=platform.python_version(), torch=torch.__version__,

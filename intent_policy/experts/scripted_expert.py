@@ -524,7 +524,7 @@ class ScriptedExpert:
     def _decide(self, name: str, probs: dict, current) -> str | None:
         """A candidate other than `current` whose belief has stayed >= b_star for exactly n_hold frames."""
         best = max(probs, key=probs.get) if probs else None
-        star = self.belief.commit_star(name) if hasattr(self.belief, 'commit_star') else self.b_star
+        star = self.belief.commit_star(name) if callable(getattr(self.belief, 'commit_star', None)) else self.b_star
         if best is None or probs[best] < star or best == current:
             best = None
         return best if best is not None and self._run_length(name, best) == self.n_hold else None

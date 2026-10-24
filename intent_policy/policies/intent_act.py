@@ -1,4 +1,4 @@
-"""LeRobot ACT with task and intent tokens (docs/requirements/INTENT_ACT_GUIDE_v2.md §4.1, §4.5).
+"""LeRobot ACT with task and intent tokens (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §4.1, §4.5).
 
 Changes to LeRobot's `ACT` (the original ACT's detr_vae.py / transformer.py changes of the guide):
   * transformer encoder input  [latent, robot_state, (env_state), TASK, WHO, TARGET, C_TARGET, OCC, TIME, XI_1..M,
@@ -6,7 +6,7 @@ Changes to LeRobot's `ACT` (the original ACT's detr_vae.py / transformer.py chan
   * CVAE encoder input         [cls, robot_state, extra tokens, action_sequence] when `in_cvae` and the VAE is used
     (the restricted head trains without the VAE: the CVAE part is then unused, logged by train_policy),
   * optional FiLM of every camera's backbone feature map by the intent tokens (`film`).
-  * intent v3.2 (`intent_cfg['version'] == 'v32'`, docs/requirements/INTENT_ACT_v3.2.md §5): 6 tokens from
+  * intent v3.2 (`intent_cfg['version'] == 'v32'`, docs/intent_act/INTENT_ACT_v3.2.md §5): 6 tokens from
     IntentEncoderV32 with a key padding mask applied in the encoder self-attention and in the decoder cross-attention
     (`decode_masked`, LeRobot's ACTDecoder with the mask); never in the CVAE encoder. v3.2 conditioning study (§5.3):
     `film` modulates every ResNet stage by the intent tokens (IntentFiLMV32), `config.image_p_drop` drops all image
@@ -99,11 +99,12 @@ class IntentACT(ACT):
             n_vae = 1 + bool(config.robot_state_feature) + self.n_extra + config.chunk_size
             self.register_buffer('vae_encoder_pos_enc', create_sinusoidal_pos_embedding(n_vae, d).unsqueeze(0))
         film = self.use_intent and cfg.get('film') and config.image_features
+        stages = self.intent_v32 or bool(cfg.get('film_stages'))          # v2 tokens may use the per-stage FiLM too
         self.intent_film = IntentFiLM(d, self.encoder_img_feat_input_proj.in_channels) \
-            if film and not self.intent_v32 else None
+            if film and not stages else None
         self.intent_film_v32 = IntentFiLMV32(d, self.intent_encoder.n_tokens, {
             name: getattr(m[-1], 'conv3', m[-1].conv2).out_channels
-            for name, m in self.backbone.items() if name.startswith('layer')}) if film and self.intent_v32 else None
+            for name, m in self.backbone.items() if name.startswith('layer')}) if film and stages else None
         self.image_p_drop = float(getattr(config, 'image_p_drop', 0.0))
 
     def extra_tokens(self, batch: dict) -> tuple[Tensor, Tensor | None, Tensor | None]:
@@ -150,6 +151,8 @@ class IntentACT(ACT):
 
         batch_size = batch[OBS_IMAGES][0].shape[0] if OBS_IMAGES in batch else batch[OBS_ENV_STATE].shape[0]
         extra_tok, intent_tok, extra_mask = self.extra_tokens(batch)                          # (B, N, D)
+        if extra_mask is None and (self.intent_film_v32 is not None or (self.training and self.image_p_drop > 0)):
+            extra_mask = torch.zeros(batch_size, extra_tok.shape[1], dtype=torch.bool, device=extra_tok.device)
 
         if self.config.use_vae and ACTION in batch and self.training:
             cls_embed = einops.repeat(self.vae_encoder_cls_embed.weight, '1 d -> b 1 d', b=batch_size)

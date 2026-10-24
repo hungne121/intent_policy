@@ -3,7 +3,7 @@
 Everything ACT-related (backbone, transformer, chunking, VAE, normalisation, optimiser preset)
 is inherited unchanged from LeRobot. Project-specific fields select the action head and how intention
 information enters the policy: `fusion` (Phase 2: oracle feature branches fused with the ACT latent) or
-`tokens` (docs/requirements/INTENT_ACT_GUIDE.md: intent labels {obj, act, tau, xi} as transformer tokens).
+`tokens` (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]: intent labels {obj, act, tau, xi} as transformer tokens).
 """
 from dataclasses import dataclass, field
 
@@ -35,7 +35,7 @@ class HRIACTConfig(ACTConfig):
     continuous_aux_weight: float = 0.0
     # Intention information. intent_arch 'fusion' (Phase 2+): numeric oracle features grouped into branches, each
     # with its own encoder; the branch embeddings are fused with the ACT latent h before the action heads.
-    # 'tokens' (INTENT_ACT_GUIDE_v2.md): the intent contract (dataset keys intent_<src>.*, read as intent.*) encoded as
+    # 'tokens' (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]): the intent contract (dataset keys intent_<src>.*, read as intent.*) encoded as
     # extra tokens of the ACT transformer encoder and of the CVAE encoder (policies/intent_act.py).
     use_intent: bool = False
     intent_arch: str = 'fusion'
@@ -58,13 +58,16 @@ class HRIACTConfig(ACTConfig):
     # v3.2 conditioning study (INTENT_ACT_v3.2.md §5.3): intent_film = FiLM of every ResNet stage by the intent tokens;
     # image_p_drop = probability of masking all image tokens of a training sample (modality dropout, ModDrop).
     image_p_drop: float = 0.0
+    # v2 tokens (v6 ManiCast intent, scripts/add_manicast_intent.py): FiLM of every ResNet stage as v3.2 (IntentFiLMV32)
+    # instead of the last feature map, so D keeps the D_film_vdrop conditioning chosen on 2026-10-14 (docs/PIF.md §2)
+    intent_film_stages: bool = False
     # F1 (§5.3): initial scale of the target embeddings E_target / committed: 'small' = std 0.02 (D0), 'type' = N(0,1),
     # the scale of the token type embedding (nn.Embedding default) they are summed with.
     intent_target_init: str = 'small'
     # v3.2 contract encoded as the 6 tokens ('tokens') or as ONE token u_t from the device's output only ('unified':
     # target belief + hold, policies/intent_encoder_v32.IntentEncoderUnified; trial of 2026-10-18)
     intent_repr: str = 'tokens'
-    # Contract / token layout: 'v2' (13 tokens, INTENT_ACT_GUIDE_v2.md) or 'v32' (6 tokens + key padding mask,
+    # Contract / token layout: 'v2' (13 tokens, INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]) or 'v32' (6 tokens + key padding mask,
     # INTENT_ACT_v3.2.md §5; source `device`). v32: intent_p_drop_group drops single tokens, intent_keep lists tokens.
     intent_version: str = 'v2'
     # Task token (T1-T4, §4.1): conditions every model on the task id when set (needs intent_schema['tasks']).
@@ -96,8 +99,10 @@ class HRIACTConfig(ACTConfig):
                 raise ValueError("intent_target_init is 'small' or 'type' (intent v3.2 only)")
             if self.intent_repr not in ('tokens', 'unified') or (self.intent_repr != 'tokens' and self.intent_version != 'v32'):
                 raise ValueError("intent_repr is 'tokens' or 'unified' (intent v3.2 only)")
-            if not 0.0 <= self.image_p_drop < 1.0 or (self.image_p_drop and self.intent_version != 'v32'):
-                raise ValueError('image_p_drop needs intent v3.2 and lies in [0, 1)')
+            if not 0.0 <= self.image_p_drop < 1.0:
+                raise ValueError('image_p_drop lies in [0, 1)')
+            if self.intent_film_stages and not self.intent_film:
+                raise ValueError('intent_film_stages needs intent_film')
             if self.intent_source not in INTENT_SOURCES:
                 raise ValueError(f'intent_source must be one of {INTENT_SOURCES}')
             if self.intent_mask:
@@ -131,7 +136,7 @@ class HRIACTConfig(ACTConfig):
         out = dict(n_targets=len(s['targets']), n_who=len(s['who']), n_phases=len(s['phases']),
                    n_waypoints=int(s['n_waypoints']), n_joints=len(s['keypoints']), kp_dim=int(s['keypoint_dim']),
                    in_cvae=self.intent_in_cvae, film=self.intent_film, tte_max=float(s['tte_max_s']),
-                   version=self.intent_version)
+                   version=self.intent_version, film_stages=self.intent_film_stages)
         if self.intent_version == 'v32':
             from intent_policy.intent.contract import HAND_HIST
             out.update(n_gestures=len(s['gestures']) + 1, hand_hist=HAND_HIST,

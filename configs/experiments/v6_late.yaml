@@ -9,6 +9,7 @@ policy:
   use_task_token: true
   use_instruction: false
 intent:
+  provider: manicast                 # v6: D's intent = the ManiCast forecast (intent_pp.xi, scripts/add_manicast_intent.py)
   keypoints: [l_shoulder, r_shoulder, l_elbow, r_elbow, l_wrist, r_wrist, r_index_base, r_index_tip, head]   # ManiCast
                                      #   arm joints + the pointing ray + head; world frame, as rendered (human.keypoints)
 benchmark:
