@@ -1,8 +1,8 @@
 """Scenario configuration contract and deterministic per-episode variation.
 
 Nothing here knows about any policy. An episode is defined by a discrete *spec* (task code, target, slot layout,
-place / hand zone, identical pair, timing variant, T3 cube order in U, interrupt phase, change of mind; docs/requirements/
-scence_construct.md §4-5) plus continuous draws from the seed (position jitter, human timing). Specs come from the
+place / hand zone, identical pair, timing variant, T3 cube order in U, interrupt phase, change of mind;
+docs/sim/scene_construct.md §4-5) plus continuous draws from the seed (position jitter, human timing). Specs come from the
 balanced scenario lists (scripts/generate_scenarios.py) or, without a list, are drawn from the seed
 (`random_spec`). A variation is a plain JSON-serialisable dict stored in the episode record and replayed exactly.
 """
@@ -42,7 +42,7 @@ class ScenarioConfig:
     applicable_metrics: list[str]
     metric_params: dict = field(default_factory=dict)
     task: str = ''                     # natural-language LeRobot `task` (generic; never names the episode's target)
-    task_code: str = ''                # T1..T4 (scence_construct.md §4.4); T5 = T1-T3 with a `change` spec
+    task_code: str = ''                # T1..T4 (docs/sim/scene_construct.md §4.4); T5 = T1-T3 with a `change` spec
     # Demonstrator settings (teacher only, never a policy input). trigger: cue_complete | evidence | cue_onset.
     expert: dict = field(default_factory=dict)
     # Change of mind (T5): timing parameters; `probability` > 0 adds changes to random (list-free) episodes.
@@ -94,7 +94,8 @@ class ScenarioConfig:
 
 # ---------------------------------------------------------------------------------------------- episode specs
 TASK_CODES = ('T1', 'T2', 'T3', 'T4')
-TWINS = (('B1', 'B1p'), ('B2', 'B2p'), ('B3', 'B3p'), ('C1', 'C2'))   # identical-looking pairs (§3.1; B2', B3': plan v5)
+TWINS = (('B1', 'B1p'), ('B2', 'B2p'), ('B3', 'B3p'), ('C1', 'C2'),    # identical-looking pairs (§3.1; B2', B3': plan v5)
+         ('D1', 'D1p'), ('D2', 'D2p'), ('D3', 'D3p'))                      # v6 donuts
 CHANGE_TIMINGS = ('early', 'late', 'free')     # free: the delay comes from intention_change.delay_s / the spec's delay_range
 
 
@@ -323,8 +324,15 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
         hands = list(hb.get('hand_zones') or sorted(k for k, z in lay.items() if z['kind'] == 'hand'))
         var['hand_zone'] = spec.get('hand') or hands[int(g.integers(len(hands)))]
         human['reach_out_s'] = _uniform(g, hb['reach_out_s'])
+    if hb.get('object_gestures'):   # v6 T1 (2026-10-24): point at the item or reach towards it, own generator (the
+        g = np.random.default_rng([int(seed), 5])        # draws above are unchanged); a list spec may fix it
+        gestures = dict(hb['object_gestures'])
+        names = sorted(gestures)
+        w = np.asarray([float(gestures[k]) for k in names])
+        human['object_gesture'] = spec.get('object_gesture') or names[int(g.choice(len(names), p=w / w.sum()))]
+        human['reach_object_s'] = _uniform(g, hb['reach_object_s'])
     kin = hb.get('kinematics')
-    if kin:      # (2026-10-12) pointing calibrated on real people (DP dataset, docs/requirements/INTENT_ACT_v3.2.md §4.2d),
+    if kin:      # (2026-10-12) pointing calibrated on real people (DP dataset, docs/intent_act/INTENT_ACT_v3.2.md §4.2d),
         k = _kinematics(kin)             # drawn last: the earlier draws of the episode are unchanged
         frac = float(k['minjerk_fraction_above_frac'])     # measured duration (10 % of peak speed) -> minimum-jerk T
         pick = lambda key: float(k['samples'][key][int(rng.integers(len(k['samples'][key])))])

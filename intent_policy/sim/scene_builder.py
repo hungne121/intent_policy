@@ -38,7 +38,7 @@ def object_half_height(obj: dict) -> float:
     shape, size = obj['shape'], obj['size']
     if shape == 'cup':
         return float(size[1]) / 2
-    return float(size[-1] if shape in ('box', 'cylinder', 'cross') else size[0])
+    return float(size[-1] if shape in ('box', 'cylinder', 'cross', 'ellipsoid') else size[0])
 
 
 def object_geoms(key: str, obj: dict) -> list[dict]:
@@ -98,6 +98,24 @@ def _add_zone_markers(world, layout: dict, top: float) -> None:
         for i, (dx, dy, hx, hy) in enumerate(((0, sy, sx, t / 2), (0, -sy, sx, t / 2), (sx, 0, t / 2, sy), (-sx, 0, t / 2, sy))):
             _sub(world, 'geom', name=f'marker_{name}_{i}', type='box', size=[hx, hy, h], pos=[x + dx, y + dy, top + h],
                  rgba=rgba, contype='0', conaffinity='0')
+
+
+def _add_decor(world, decor: list, palette: dict, top: float) -> None:
+    """Static scene furniture (v6: trays, open boxes, a baking sheet), physical so objects rest on it. `xy` is the
+    footprint centre on the table (x, y); `open_box` = bottom + 4 walls (half: outer half size x / y, height, wall)."""
+    for d in decor:
+        rgba = resolve_color(d['color'], palette)
+        x, y = d['xy']
+        if d['type'] == 'open_box':
+            (hx, hy), h, w = d['half'], float(d['height']), float(d['wall'])
+            parts = [([hx, hy, w / 2], [x, y, top + w / 2]),
+                     ([hx, w / 2, h / 2], [x, y + hy - w / 2, top + h / 2]), ([hx, w / 2, h / 2], [x, y - hy + w / 2, top + h / 2]),
+                     ([w / 2, hy, h / 2], [x + hx - w / 2, y, top + h / 2]), ([w / 2, hy, h / 2], [x - hx + w / 2, y, top + h / 2])]
+        else:
+            parts = [(d['size'], [x, y, top + float(d['size'][-1])])]
+        for i, (size, pos) in enumerate(parts):
+            _sub(world, 'geom', name=f"decor_{d['name']}_{i}", type='box', size=size, pos=pos, rgba=rgba,
+                 contype='1', conaffinity='1', friction=d.get('friction', '1.0 0.01 0.001'))
 
 
 def human_mesh_name(segment: str, variant: str | None = None) -> str:
@@ -219,7 +237,9 @@ def build_scene_xml(scene: dict) -> str:
         tpos[:2], tsize[:2] = [(x0 + x1) / 2, (y0 + y1) / 2], [(x1 - x0) / 2, (y1 - y0) / 2]
         table.set('pos', _fmt(tpos))
         table.set('size', _fmt(tsize))
-        _add_zone_markers(world, layout, top)
+        if scene.get('zone_markers', True):         # v6 scenes: real trays / boxes instead of tape
+            _add_zone_markers(world, layout, top)
+    _add_decor(world, scene.get('decor', []), palette, top)
     under = tpos[2] - tsize[2]
     for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
         _sub(world, 'geom', name=f'table_leg_{i}', type='box', size=[0.025, 0.025, (under - floor_z) / 2],

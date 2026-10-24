@@ -1,6 +1,6 @@
 """Map scenario ids to environment implementations. Selects environments, never policies.
 
-Tasks of docs/requirements/scence_construct.md §4.4: T1-T4 are scenarios; T5 (change of mind) is T1-T3 with a
+Tasks of docs/sim/scene_construct.md §4.4: T1-T4 are scenarios; T5 (change of mind) is T1-T3 with a
 `change` spec and T4-neg is T4 with `negative: true` (scenario lists, scripts/generate_scenarios.py).
 """
 from pathlib import Path
@@ -15,6 +15,7 @@ SCENARIOS = {
     't2_handover': HandoverTask,
     't3_assist': AssistTask,
     't4_interrupt': InterruptTask,
+    't1_choose_item': PickPlaceTask,        # v6 (docs/sim/scenarios_v6_proposal.md): donuts on slots, two trays
 }
 TASK_SCENARIOS = tuple(SCENARIOS)
 SCENARIO_OF_TASK = {'T1': 't1_pick_place', 'T2': 't2_handover', 'T3': 't3_assist', 'T4': 't4_interrupt'}

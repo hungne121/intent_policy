@@ -1,4 +1,4 @@
-"""Deterministic, scripted human behaviours for the tasks T1-T5 (docs/requirements/scence_construct.md §4.4).
+"""Deterministic, scripted human behaviours for the tasks T1-T5 (docs/sim/scene_construct.md §4.4).
 
 The human is a palm target driven by minimum-jerk segments (the mannequin follows it, sim/human_body.py). A
 behaviour is a queue of gestures (point at a location, move the hand, wait for a condition, pause, call) that
@@ -261,7 +261,8 @@ class GestureHuman(ScriptedHuman):
     """Behaviour = queue of gestures; `stage` is the current gesture's label ('idle' before the cue)."""
 
     EVIDENCE_LABELS = {'point_object': 'target_object', 'point_place': 'target_zone', 'reach_out': 'target_zone',
-                       'intrude': 'intrusion', 'withdraw_change': 'target_withdrawn', 'stop_signal': 'stop'}
+                       'intrude': 'intrusion', 'withdraw_change': 'target_withdrawn', 'stop_signal': 'stop',
+                       'reach_object': 'target_object'}
 
     def __init__(self, scene, behavior, variation):
         super().__init__(scene, behavior, variation)
@@ -318,11 +319,31 @@ class GestureHuman(ScriptedHuman):
 
     def G_point_object(self, key_fn, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
         """Point at the (current) selected object; key_fn() -> object key at the time the gesture starts. `hold`: keep
-        pointing (looking at the target) until the robot's hand is above it, at most point_hold_max_s."""
+        pointing (looking at the target) until the robot's hand is above it, at most point_hold_max_s. v6 episodes
+        with `object_gesture: reach` indicate the object by reaching towards it instead (G_reach_object)."""
+        if self.params.get('object_gesture') == 'reach':
+            return self.G_reach_object(key_fn, dwell, hold, steps)
         dur, scale = self._point_kinematics()
         return Gesture('point', 'point_object', target=lambda ctx: np.asarray(ctx['object_positions'][key_fn()], float),
                        duration=dur, dwell=dwell, key=key_fn, scale=scale,
                        hold=self.until_robot_above(key_fn) if hold else None, hold_max=self.params.get('point_hold_max_s', 0.0),
+                       on_arrive=self.arrive_steps(*steps) if steps else None)
+
+    def G_reach_object(self, key_fn, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
+        """v6 T1 (HABIT 'Provide the desired donut'): the open hand reaches out towards the wanted item, no pointing.
+        The item stands in the robot's area, beyond comfortable reach: the palm moves from rest along the line to
+        `reach_height_m` above the item and stops at depth `reach_max_y` (the edge of the shared area), so the hand
+        shows the direction without entering the robot's area; then it is held like a pointing."""
+        b = self.behavior
+        lift, y_max = float(b.get('reach_height_m', 0.10)), float(b['reach_max_y'])
+
+        def target(ctx):
+            goal = np.asarray(ctx['object_positions'][key_fn()], float) + [0.0, 0.0, lift]
+            u = 1.0 if goal[1] <= y_max else (y_max - self.rest[1]) / (goal[1] - self.rest[1])
+            return self.rest + u * (goal - self.rest)
+        return Gesture('move', 'reach_object', target=target, duration=self.params['reach_object_s'], dwell=dwell,
+                       key=key_fn, shape='relaxed', hold=self.until_robot_above(key_fn) if hold else None,
+                       hold_max=self.params.get('point_hold_max_s', 0.0),
                        on_arrive=self.arrive_steps(*steps) if steps else None)
 
     def G_point_zone(self, zone, dwell, hold: bool = False, steps: tuple = ()) -> Gesture:
@@ -346,7 +367,7 @@ class GestureHuman(ScriptedHuman):
 
     # -- queue ------------------------------------------------------------------------------
     def evidence_payload(self, label):
-        if label == 'point_object':
+        if label in ('point_object', 'reach_object'):
             return dict(object=self.selected_object)
         if label in ('point_place', 'reach_out'):
             return dict(zone=self.selected_target)
@@ -521,7 +542,8 @@ class PickPlaceInstructor(GestureHuman):
 
     def cue(self, t, ctx) -> None:
         self.started = True
-        self.emit('human_cue_onset', modality='pointing', selected_object=self.selected_object, selected_zone=self.selected_target)
+        self.emit('human_cue_onset', modality='reaching' if self.params.get('object_gesture') == 'reach' else 'pointing',
+                  selected_object=self.selected_object, selected_zone=self.selected_target)
         self.queue = self.instruction()
 
     def behave(self, t, ctx):

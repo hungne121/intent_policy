@@ -1,4 +1,4 @@
-# Table layout by reach (docs/requirements/scence_construct.md §3). World frame: robot base at the origin,
+# Table layout by reach (docs/sim/scene_construct.md §3). World frame: robot base at the origin,
 # +X forward from the robot, +Y the robot's left, table top z = 0.62. The human stands at the robot's right-hand
 # table edge (y = -0.36), facing +Y (90-degree arrangement, configs/scene/common.yaml `human`), at x = 0.30 with the
 # U / H / P rows centred on the human (user request 2026-09-30).
@@ -45,6 +45,14 @@ zones:
   # stands the cup (the former support zone A; no tape of its own)
   U:  {kind: human_store, xy: [0.30, -0.26], size: [0.30, 0.08], blocks: [[0.35, -0.26], [0.41, -0.26]]}
   U_cup: {kind: support, xy: [0.205, -0.26], size: [0.10, 0.08], marker: false}
+  # v6 (docs/sim/scenarios_v6_proposal.md, 2026-10-24), no tape: T3 coaster spots in the shared area (12-14 cm apart,
+  # robot reach 0.23-0.37 m < R_eff; human depth from the table edge 0.19-0.29 m, within the comfortable 0.25-0.30 m
+  # except K1/K2 by 1-4 cm, a short lean) and T4's two open boxes (outer 14 x 10 cm, centres 0.18 / 0.40 m from the base)
+  K1: {kind: coaster, xy: [0.22, -0.07], marker: false}
+  K2: {kind: coaster, xy: [0.36, -0.07], marker: false}
+  K3: {kind: coaster, xy: [0.29, -0.17], marker: false}
+  BA: {kind: box, xy: [0.17, -0.06], size: [0.14, 0.10], marker: false}
+  BB: {kind: box, xy: [0.40, -0.06], size: [0.14, 0.10], marker: false}
 # robot zone for T4 (interrupt): table region the human cannot reach comfortably (the S rows), where the robot must
 # stop while the hand is inside (x/y box on the table, up to `z_top` above it)
 robot_zone: {x: [-0.20, 0.50], y: [0.07, 0.48], z_top: 0.45}

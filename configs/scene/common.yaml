@@ -1,7 +1,7 @@
 # Shared scene layout for all HRI scenarios. World frame = robot base_link frame shifted by
 # table height: +X points from the robot towards the human, +Y to the robot's left, +Z up.
 base_model: assets/scene.xml        # UR3e + SusGrip + table; builder removes demo cube/receiver
-layout: configs/layout.yaml         # table extents, zones S/P/H/U and their tape markers (scence_construct.md §3)
+layout: configs/layout.yaml         # table extents, zones S/P/H/U and their tape markers (docs/sim/scene_construct.md §3)
 table_top_z: 0.62
 robot_servo:                        # arm joint position-servo gains (base asset: kp 600 / kv 50 lags ~3 cm
   kp: 2000                          # at 0.2 m/s and shakes grasped objects loose); gripper unchanged
@@ -15,10 +15,19 @@ palette:                            # named RGBA colours referenced by scenario 
   purple: [0.60, 0.20, 0.85, 0.9]
   orange: [0.98, 0.50, 0.08, 1.0]
   white:  [0.93, 0.93, 0.93, 1.0]
+  pink:   [0.95, 0.55, 0.70, 1.0]       # v6 objects and furniture (docs/sim/scenarios_v6_proposal.md)
+  brown:  [0.50, 0.30, 0.14, 1.0]
+  tan:    [0.86, 0.66, 0.40, 1.0]
+  cork:   [0.62, 0.45, 0.28, 1.0]
+  tray:   [0.70, 0.82, 0.95, 1.0]
+  tray2:  [0.82, 0.82, 0.85, 1.0]
+  sheet:  [0.55, 0.55, 0.58, 1.0]
+  box:    [0.92, 0.92, 0.95, 0.55]
+  lid:    [0.30, 0.55, 0.85, 0.9]
 
 floor_z: -0.23                      # floor below the table top: a 0.85 m standing workbench (table top z=0.62)
 
-objects_catalog:                    # scence_construct.md §3.1; scenario configs list the keys they use. Objects not on
+objects_catalog:                    # docs/sim/scene_construct.md §3.1; scenario configs list the keys they use. Objects not on
                                     # the table in an episode are parked out of sight (3-4 objects per episode).
   B1:  {shape: box, size: [0.02, 0.02, 0.02], color: red, label: "B1 red cube"}
   B2:  {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: "B2 blue cube"}
@@ -31,6 +40,24 @@ objects_catalog:                    # scence_construct.md §3.1; scenario config
   C1:  {shape: cup, size: [0.036, 0.085], color: white, label: "C1 white cup"}
   C2:  {shape: cup, size: [0.036, 0.085], color: white, label: "C2 white cup, identical to C1"}
   C3:  {shape: cup, size: [0.036, 0.085], color: green, label: "C3 green cup"}
+  # v6 (2026-10-24): donuts as low cylinders the size of the cubes (4 cm tall, so the cube grasp height fits), twins
+  # of every colour as in plan v5; T2's can is grasped near its top (grasp_dz: TCP above the centre, fingertips ~3 cm
+  # below the TCP); coasters / lids / the item are handled by the human only; bread rolls are ellipsoids
+  D1:  {shape: cylinder, size: [0.028, 0.02], color: pink, label: "D1 pink donut"}
+  D1p: {shape: cylinder, size: [0.028, 0.02], color: pink, label: "D1' pink donut, identical to D1"}
+  D2:  {shape: cylinder, size: [0.028, 0.02], color: brown, label: "D2 chocolate donut"}
+  D2p: {shape: cylinder, size: [0.028, 0.02], color: brown, label: "D2' chocolate donut, identical to D2"}
+  D3:  {shape: cylinder, size: [0.028, 0.02], color: yellow, label: "D3 yellow donut"}
+  D3p: {shape: cylinder, size: [0.028, 0.02], color: yellow, label: "D3' yellow donut, identical to D3"}
+  CAN: {shape: cylinder, size: [0.026, 0.05], color: red, grasp_dz: 0.038, label: "red can"}
+  WP:  {shape: box, size: [0.05, 0.035, 0.02], color: orange, mass: 0.3, label: "work piece"}
+  CO1: {shape: cylinder, size: [0.045, 0.003], color: cork, label: "coaster 1"}
+  CO2: {shape: cylinder, size: [0.045, 0.003], color: cork, label: "coaster 2"}
+  BR1: {shape: ellipsoid, size: [0.028, 0.021, 0.02], color: tan, label: "bread roll 1"}
+  BR2: {shape: ellipsoid, size: [0.028, 0.021, 0.02], color: tan, label: "bread roll 2"}
+  LA:  {shape: box, size: [0.075, 0.055, 0.004], color: lid, label: "lid of box A"}
+  LB:  {shape: box, size: [0.075, 0.055, 0.004], color: lid, label: "lid of box B"}
+  IT:  {shape: box, size: [0.025, 0.025, 0.03], color: yellow, label: "spice box (the item the human fetches)"}
 parking: {x: -2.5, y0: -1.0, dy: 0.25}   # parked objects stand on the floor here (outside every camera view)
 
 human:                              # HY-Motion 1.0 wooden mannequin (1.73 m), posed from the scripted palm
