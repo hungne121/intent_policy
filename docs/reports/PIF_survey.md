@@ -75,3 +75,18 @@ token tay 3D (đã lọc giải phẫu, §9 PIF_pilot)
 ## Nguồn
 
 Robot Trajectron: arXiv 2402.02499 (ICRA 2024), github.com/mousecpn/Robot-Trajectron. DeePoint: github.com/kyotovision-public/deepoint. Gaze-LLE: github.com/fkryan/gazelle (CVPR 2025). ManiCast: portal.cs.cornell.edu/manicast. HIT: arXiv 2506.07004. IntentMotion: arXiv 2503.00576. Johansson, Westling, Bäckström, Flanagan 2001 (*J. Neuroscience*).
+
+## 6. Dữ liệu cho mô hình dự báo quỹ đạo tay (24/10/2026 13:55)
+
+Người dùng loại DeePoint: chỉ tay là lệnh, quay lại nhận dạng lệnh.
+
+| Nguồn | Có gì | Dùng thế nào |
+|---|---|---|
+| Robot Trajectron | dữ liệu Traj100k là **quỹ đạo tay robot trong mô phỏng** (Franka, PyBullet); **không có weights** | chỉ lấy kiến trúc và code, phải train lại trên tay người |
+| **CoMaD** (ManiCast / InteRACT, Cornell), github.com/portal-cornell/comad | **488 episode người – người (khoảng 6 h) + 304 người – robot (khoảng 1 h)**, 5 việc cộng tác (khuấy, đặt xe đẩy, dọn bàn, sắp tủ, **trao vật**), 14+ người, mocap 24 điểm thân trên ở 120 Hz, video thứ ba 30 Hz; tải công khai | **dữ liệu sạch** (mocap) để huấn luyện trước bộ dự báo; có trao vật (Collaborator). Cần kiểm 24 điểm có cổ tay / bàn tay không. Giấy phép chưa ghi |
+| ManiCast code | github.com/portal-cornell/manicast; trang dự án không nhắc weights | công thức: huấn luyện trước rồi tinh chỉnh theo nhiệm vụ |
+| HABIT (của mình) | S8789 đã trích (208 episode); S6760, S8791 cần trích (khoảng $2–5); toàn bộ 10 000+ episode nếu cần | **tinh chỉnh** trên đúng miền: camera robot, keypoint ước lượng (nhiễu, đã có cổng giải phẫu) |
+| Sim (của mình) | 559 episode, 11 keypoint chính xác | tinh chỉnh + đánh giá policy; người scripted nên không dùng một mình |
+| Khác (đã kiểm nơi đăng) | HOH (NeurIPS 2023 D&B, 2 720 lần trao vật, có skeleton, xin qua email); CHICO (ECCV 2022, người + cobot, 3D pose) | thêm dữ liệu trao vật / làm việc cạnh cobot nếu cần |
+
+**Đề xuất:** làm đúng công thức ManiCast: **huấn luyện trước trên CoMaD** (mocap sạch, có trao vật, có người – robot), rồi **tinh chỉnh trên HABIT + sim** cho đúng camera và đúng nhiễu của mình. Rủi ro: lệch miền giữa mocap và keypoint ước lượng từ video, cần đo.
