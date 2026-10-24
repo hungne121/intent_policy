@@ -168,10 +168,17 @@ class HumanBody:
 
     def keypoints(self, pose: dict, names) -> np.ndarray:
         """World positions (len(names), 3) of named keypoints of a pose: `<s>_wrist` (hand segment pivot),
-        `<s>_index_base` / `<s>_index_tip` (knuckle / end of the HY-Motion index finger ray), s = r | l."""
+        `<s>_index_base` / `<s>_index_tip` (knuckle / end of the HY-Motion index finger ray), `<s>_shoulder` / `<s>_elbow`
+        (upper arm / forearm segment pivots), `head`; s = r | l."""
         out = []
         for name in names:
+            if name == 'head':                                         # head joint (rendered pose, gaze proxy)
+                out.append(np.asarray(pose['head'], float))
+                continue
             s, part = name.split('_', 1)
+            if part in ('shoulder', 'elbow'):                          # pivots of the upper arm / forearm segments
+                out.append(np.asarray(pose['segments'][f"{s}_{'upperarm' if part == 'shoulder' else 'forearm'}"][0], float))
+                continue
             wrist, R = pose['segments'][f'{s}_hand']
             if part == 'wrist':
                 out.append(wrist)

@@ -83,3 +83,20 @@ train:
   num_workers: 2
   seed: 0
   supervised_warmstart: false        # eval labels in training only with the user's permission (handoff §6)
+
+v6_timing:                  # M5 step 1 (docs/sim/scenarios_v6_proposal.md §7): how early is the target observable in the
+                            # v6 scenarios? pif/v6_timing.py. Gesture = a human motion whose label is listed, aimed at
+                            # one candidate of its set; times at 10 Hz (fps above)
+  episodes: {t1_choose_item: 24, t2_fetch_return: 16, t3_coaster_cup: 24}
+  seed0: 1000
+  sets:                     # candidate set -> (scenario, candidate kind, gesture labels)
+    t1_item:  {scenario: t1_choose_item, kind: layout, labels: [reach_object, point_object]}
+    t1_tray:  {scenario: t1_choose_item, kind: place, labels: [point_place]}
+    t2_hand:  {scenario: t2_fetch_return, kind: hand, labels: [reach_out, offer_back]}
+    t3_spot:  {scenario: t3_coaster_cup, kind: coaster, labels: [carry_coaster]}
+  thresholds: [0.7, 0.9]    # the device rules of v3.2 (early 0.7, commit 0.9; INTENT_ACT_v3.2.md §4.2e-g)
+  manicast_stable_frames: 3 # ManiCast decision: the candidate nearest the forecast wrist (1 s ahead) unchanged this long
+  scenario_overrides: {}    # deep-merged into every v6 scenario (diagnostics, e.g. human_behavior.motion_bank: null)
+  keypoint_noise_m: 0.02    # Gaussian noise on every keypoint, as the robot's perception sees them: HABIT index-tip
+                            #   step p50 ~2 cm per 0.1 s (docs/PIF.md 07:44); without it the fit collapses (sigma -> 0,
+                            #   kappa -> 5e6 on exact sim keypoints: likelihood singularity, Bishop 2006 PRML §9.2.1)

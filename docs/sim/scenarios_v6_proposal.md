@@ -99,3 +99,18 @@ Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outpu
   - Loại đoạn đi gần robot dưới 15 cm (đo dọc các khâu) hoặc lệch khỏi đoạn thẳng quá 25% quãng đường. Đường tay người gần thẳng, hơi cong: Morasso 1981; Atkeson & Hollerbach 1985.
   - Thời lượng lấy theo chính đoạn đó, chia cho hệ số tốc độ của episode.
   - Kết quả: expert 48/48 trên 4 task (`outputs/v6_check/2026-10-24_17-50`). Phần lớn chuyển động có nhãn đã dùng clip HY-Motion. Các ca còn min-jerk: rút tay ngay sau khi trao (robot còn sát tay) và các chuyển động ngắn dưới 8 cm.
+
+### M5 bước 1: target lộ ra sớm bao lâu? (18:00–18:07, `pif/v6_timing.py`, `outputs/v6_timing/2026-10-24/`)
+
+Bộ lọc PIF v3 fit không nhãn trên keypoint người nộm (10 Hz); ManiCast chọn ứng viên gần cổ tay dự báo 1 s tới nhất. Mỗi tập ứng viên có 24–32 cử chỉ.
+
+| Lần chạy | Kết quả |
+|---|---|
+| 18:00, keypoint không nhiễu | fit suy biến: sigma → 0, kappa → 5.5e6; belief đứng ở prior (0.13). Singularity của likelihood trên dữ liệu không nhiễu (Bishop 2006, PRML §9.2.1) |
+| 18:04, nhiễu Gauss 2 cm (trung vị độ dời HABIT mỗi 0.1 s, PIF.md 07:44) | belief ≥ 0.7 trong lúc cử động: món T1 0/24, khay T1 14/24 (8 lần sai trước), tay T2 14/32, chỗ T3 6/24. Argmax đúng ở cuối cử chỉ: 0.50 / 0.67 / 0.72 / 0.46. ManiCast đúng: 0.21 / 0.47 / 0.68 / 0.22 |
+| 18:07, chẩn đoán: tắt thư viện HY-Motion (min-jerk, cử chỉ 1.2–1.6 s) | gần như y hệt, nên **đường cong HY-Motion không phải nguyên nhân** |
+
+Giả thuyết (chưa kiểm):
+1. **Nhiễu 2 cm i.i.d. trên từng keypoint quá bi quan cho hướng ngón tay.** Tia gốc → đầu ngón chỉ dài vài cm, nên lệch hướng lên tới hàng chục độ. Trong khi 3 bánh T1 chỉ cách nhau khoảng 5–10° nhìn từ vai (`min_ray_angle_deg` 5). Số 2 cm là độ dời mỗi 0.1 s, **gồm cả chuyển động thật**, chưa phải nhiễu lúc tay đứng yên.
+2. **Mô hình emission (hướng chuyển động tới ứng viên) không hợp với cử chỉ đặt vật.** Ở T3, cuối cử chỉ tay đi xuống thẳng đứng trên chỗ đặt, nên hướng không phân biệt được.
+3. **ManiCast không dự báo điểm cuối của cú với.** Đánh giá trước đây trên sim đã thấy nó không hơn "giữ tư thế hiện tại" ở các khung đang chuyển động.
