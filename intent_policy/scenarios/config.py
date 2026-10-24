@@ -165,7 +165,11 @@ def random_spec(cfg: ScenarioConfig, rng) -> dict:
     slots = zones_of(scene, 'slot')
     code = cfg.task_code
     spec: dict = {'task': code}
-    if code in ('T1', 'T2', 'T4'):
+    if code == 'T2' and sv.get('variant') == 'fetch_return':   # v6: one can on a slot, the work piece in U
+        spec.update(target=sv['object'], layout=_slots_for(rng, scene, [sv['object']], slots), u_blocks=[sv['work_piece']],
+                    hand=_pick(rng, zones_of(scene, 'hand')), return_hand=_pick(rng, zones_of(scene, 'hand')),
+                    timing='immediate')
+    elif code in ('T1', 'T2', 'T4'):
         pool = list(objs)
         pair = bool(rng.random() < float(sv.get('pair_probability', 0.0)))
         if pair:                                     # the target is one of an identical pair (§5.2 rule 3)
@@ -225,8 +229,10 @@ def validate_spec(cfg: ScenarioConfig, spec: dict) -> None:
     for field_, kind in need.items():
         if spec.get(field_) not in zones_of(scene, kind):
             raise ValueError(f'{field_} must be one of {zones_of(scene, kind)}')
-    if code == 'T2' and spec.get('timing') not in ('early', 'on_time', 'late', 'free'):
-        raise ValueError('T2 timing must be early | on_time | late | free')
+    if code == 'T2' and spec.get('timing') not in ('early', 'on_time', 'late', 'free', 'immediate'):
+        raise ValueError('T2 timing must be early | on_time | late | free | immediate')
+    if code == 'T2' and cfg.scene_variation.get('variant') == 'fetch_return' and spec.get('return_hand') not in zones_of(scene, 'hand'):
+        raise ValueError('T2 fetch_return needs return_hand in the hand zones')
     if code == 'T3' and cfg.scene_variation.get('variant') == 'coaster':
         if spec.get('spot') not in zones_of(scene, 'coaster') or spec.get('u_blocks') != [cfg.scene_variation['coaster']]:
             raise ValueError(f'T3 coaster needs a spot in {zones_of(scene, "coaster")} and the coaster in U')
@@ -293,6 +299,16 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
     elif t == 't4_intruder':
         human.update(trigger_delay_s=_uniform(rng, hb['trigger_delay_s']), approach_s=_uniform(rng, hb['approach_s']),
                      withdraw_s=_uniform(rng, hb['withdraw_s']))
+    elif t == 't2_worker':                           # v6: work strokes (the last ones slower), offer, use, give back
+        n = int(rng.integers(hb['strokes'][0], hb['strokes'][1] + 1))
+        base = _uniform(rng, hb['stroke_s'])
+        slow = [float(hb['finish_slowdown']) ** (i + 1) for i in range(hb['finish_strokes'])]
+        human.update(stroke_s=[base] * (n - hb['finish_strokes']) + [base * f for f in slow],
+                     reach_out_s=_uniform(rng, hb['reach_out_s']), use_move_s=_uniform(rng, hb['use_move_s']),
+                     use_s=_uniform(rng, hb['use_s']), back_s=_uniform(rng, hb['back_s']),
+                     hand_offset=(rng.uniform(-1, 1, 2) * float(hb['hand_jitter_m'])).tolist(),
+                     return_offset=(rng.uniform(-1, 1, 2) * float(hb['hand_jitter_m'])).tolist(),
+                     offer_style='immediate', reaction_s=float(hb['reaction_s']), late_wait_s=0.0)
     elif t == 't3_coaster':                          # v6: take the coaster, carry it to the spot, put it down
         human.update(take_reach_s=_uniform(rng, hb['take_reach_s']), carry_s=_uniform(rng, hb['carry_s']),
                      lower_s=_uniform(rng, hb['lower_s']),

@@ -82,3 +82,7 @@ Người dùng xem video xem trước (`scripts/preview_scenarios_v6.py`, `outpu
 - 16:48: T1 v6 `t1_choose_item` xong, expert 16/16 (`outputs/v6_check/2026-10-24_16-48`). Sửa sau lần thử đầu: lần đầu tay vươn tới tận tầm với, người cúi qua bàn và chắn đường robot (seed 2: robot đứng chờ khoảng 6 s; seed 5: chạm robot). Sửa thành vươn một đoạn tới độ sâu thoải mái 0.28 m (`reach_max_y`).
 - 16:50: T3 v6 `t3_coaster_cup` xong, expert 8/8.
 - 16:52: T5 trên T1 v6 (đổi ý): 12/12 với trigger `cue_complete`, nhưng 7/12 với `cue_onset`. T1 **cũ** với `cue_onset` cũng chỉ 6/12, nên đây là giới hạn có sẵn của expert oracle khi người đổi ý, không phải lỗi của v6. v6 tạm dùng `cue_complete`. Expert sớm/muộn không đặc quyền ở M5 sẽ thay thế.
+- 17:06: T2 v6 `t2_fetch_return` xong, expert 12/12. Ba lỗi đã sửa:
+  1. Lon cao 10 cm, gắp gần đỉnh, nên điểm trao ở H2 + 3 cm nằm ngoài tầm UR3e (IK hụt 176 mm). Đổi lon thành 6 cm, độ lệch tay ±2 cm: đo IK xấu nhất 2.4 mm.
+  2. Độ lệch tay bị cộng hai lần (scenario một lần, người một lần). Giờ chỉ scenario cộng, trong `zone_pos`.
+  3. Hai điểm đặt quá cao nên ngoài tầm: điểm robot rút lên sau khi trao (+10 cm) và điểm tiếp cận khi nhận lại (+8 cm). Hạ xuống +5 cm và +3.5 cm; người đưa trả ở cùng độ cao lúc nhận.

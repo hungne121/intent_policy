@@ -49,7 +49,9 @@ objects_catalog:                    # docs/sim/scene_construct.md §3.1; scenari
   D2p: {shape: cylinder, size: [0.028, 0.02], color: brown, label: "D2' chocolate donut, identical to D2"}
   D3:  {shape: cylinder, size: [0.028, 0.02], color: yellow, label: "D3 yellow donut"}
   D3p: {shape: cylinder, size: [0.028, 0.02], color: yellow, label: "D3' yellow donut, identical to D3"}
-  CAN: {shape: cylinder, size: [0.026, 0.05], color: red, grasp_dz: 0.038, label: "red can"}
+  CAN: {shape: cylinder, size: [0.026, 0.03], color: red, grasp_dz: 0.018, label: "red can (small, 6 cm)"}
+       # 6 cm tall, not 10 cm: handing a 10 cm can over at H2 + 3 cm puts the TCP out of the UR3e's reach (IK residual
+       # 176 mm); 6 cm with a 2 cm hand offset: worst 2.4 mm over H1 / H2 (measured 2026-10-24 16:58)
   WP:  {shape: box, size: [0.05, 0.035, 0.02], color: orange, mass: 0.3, label: "work piece"}
   CO1: {shape: cylinder, size: [0.045, 0.003], color: cork, label: "coaster 1"}
   CO2: {shape: cylinder, size: [0.045, 0.003], color: cork, label: "coaster 2"}

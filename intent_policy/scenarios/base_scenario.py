@@ -399,7 +399,7 @@ class BaseScenario:
         if is_cup(obj):
             r, h = obj['size']
             return p + [-(r - float(obj.get('wall', 0.004)) / 2), 0.0, h / 2 + CUP_GRASP_DZ]
-        return p + [0.0, 0.0, GRASP_DZ]
+        return p + [0.0, 0.0, float(obj.get('grasp_dz', GRASP_DZ))]   # v6: tall objects (the can) near their top
 
     def resting(self, key: str) -> bool:
         """Released by the robot, still, standing on the table."""

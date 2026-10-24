@@ -876,6 +876,66 @@ class Interrupter(GestureHuman):
         self.run_queue(t, ctx)
 
 
+class WorkerReceiver(HandoverReceiver):
+    """v6 T2 (HABIT 'Retrieve and hand over the desired beverage', S7045; return as in S6760): the human works on the
+    piece in U (the hand goes back and forth over it, the last strokes slower: the work is finishing), then holds the
+    open hand out, palm up, at a hand zone plus an offset; takes the can from the robot as in T2, uses it (holds it
+    near the body), then hands it back at a hand zone plus an offset and lets go once the robot has grasped it."""
+
+    EVIDENCE_LABELS = {**HandoverReceiver.EVIDENCE_LABELS, 'offer_back': 'target_zone'}
+
+    def __init__(self, scene, behavior, variation):
+        super().__init__(scene, behavior, variation)
+        self.work_piece = self.spec['u_blocks'][0]
+        self.returned = False
+
+    # the open hand / the give-back hand: ctx['zone_positions'] of the hand zones already hold the episode's offsets
+    # (people do not hold the hand at a marked spot; FetchReturnTask.zone_pos is the one place that adds them)
+
+    def work(self) -> list[Gesture]:
+        p, b = self.params, self.behavior
+        wp = lambda ctx: np.asarray(ctx['object_positions'][self.work_piece], float) + [0.0, 0.0, b['work_height_m']]
+        g = []
+        for i, dur in enumerate(p['stroke_s']):
+            side = (-1) ** i * b['stroke_m'] / 2
+            g.append(Gesture('move', 'work', target=lambda ctx, side=side: wp(ctx) + [side, 0.0, 0.0], duration=dur,
+                             shape='grasp', key=self.work_piece))
+            if i == len(p['stroke_s']) - b['finish_strokes']:
+                g.append(self.G_protocol('work_finishing'))
+        return g + [self.G_protocol('work_done')]
+
+    def give_back(self) -> list[Gesture]:
+        p, b = self.params, self.behavior
+        back = lambda ctx: np.asarray(ctx['zone_positions'][self.spec['return_hand']], float)
+        use = self.rest + np.asarray(b['use_offset'], float)
+        robot_has = lambda t, ctx: ctx['robot_grasping'].get(self.selected_object, False)
+        return [Gesture('move', 'use', target=lambda ctx: use, duration=p['use_move_s'], shape='grasp', palm_up=1.0),
+                Gesture('sleep', 'using', duration=p['use_s']),
+                self.G_call(lambda t, ctx: setattr(self, 'selected_target', self.spec['return_hand'])),
+                Gesture('move', 'offer_back', target=back, duration=p['back_s'], shape='grasp', palm_up=1.0,
+                        key=lambda: self.spec['return_hand']),
+                self.G_protocol('return_offered'),
+                Gesture('wait', 'wait_robot_take', until=robot_has),
+                Gesture('sleep', 'react', duration=p['reaction_s']),
+                self.G_call(self._let_go),
+                self.G_rest('withdraw'), self.G_call(lambda t, ctx: self.goto('done', t))]
+
+    def _let_go(self, t, ctx):
+        self.requests.append(('detach', self.selected_object))
+        self.holding = None
+        self.returned = True
+        self.emit('object_release', object=self.selected_object, actor='human')
+        self.emit('protocol_step_complete', step='object_returned')
+
+    def behave(self, t, ctx):
+        if not self.started and t >= self.params['cue_onset_s']:
+            self.started = True
+            self.emit('human_cue_onset', modality='work_progress', selected_object=self.selected_object)
+            self.queue = self.work() + self.receive_gestures()[:-1] + self.give_back()   # receive without its 'done'
+        self._lifted(t, ctx)
+        self.run_queue(t, ctx)
+
+
 class CoasterPlacer(GestureHuman):
     """v6 T3 (HABIT 'Place coasters on the table and set cups on them'): take the coaster from U, carry it to a spot of
     the person's choice in the shared area (K1-K3 + a small offset), put it down, withdraw and wait for the robot to set
@@ -932,6 +992,7 @@ BEHAVIORS = {
     't3_requester': AssistRequester,
     't4_intruder': Interrupter,
     't3_coaster': CoasterPlacer,
+    't2_worker': WorkerReceiver,
 }
 
 

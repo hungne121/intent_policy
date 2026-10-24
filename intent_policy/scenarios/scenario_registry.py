@@ -10,6 +10,7 @@ from intent_policy.scenarios.t2_handover import HandoverTask
 from intent_policy.scenarios.t3_assist import AssistTask
 from intent_policy.scenarios.t4_interrupt import InterruptTask
 from intent_policy.scenarios.t3_coaster_cup import CoasterCupTask
+from intent_policy.scenarios.t2_fetch_return import FetchReturnTask
 
 SCENARIOS = {
     't1_pick_place': PickPlaceTask,
@@ -18,6 +19,7 @@ SCENARIOS = {
     't4_interrupt': InterruptTask,
     't1_choose_item': PickPlaceTask,        # v6 (docs/sim/scenarios_v6_proposal.md): donuts on slots, two trays
     't3_coaster_cup': CoasterCupTask,       # v6: the cup onto the coaster the human puts down
+    't2_fetch_return': FetchReturnTask,     # v6: hand the can over when the work is done, take it back
 }
 TASK_SCENARIOS = tuple(SCENARIOS)
 SCENARIO_OF_TASK = {'T1': 't1_pick_place', 'T2': 't2_handover', 'T3': 't3_assist', 'T4': 't4_interrupt'}

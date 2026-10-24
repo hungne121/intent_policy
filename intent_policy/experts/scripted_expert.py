@@ -70,6 +70,8 @@ CONFIRM_S = 1.6         # evidence mode: touch the target only once its gesture 
 R_SAFE = 0.22           # moves across y = 0 go around the robot base at least this far out (near-singular above it)
 HANDOVER_DZ = 0.025     # T2: the object crosses the open fingers (up to 2.4 cm above the palm) this high above its
                         # place in the palm, then goes straight down into it (H2 is at the edge of the arm's reach)
+TAKE_BACK_DZ = 0.035    # v6 T2: the open fingers come down on the held can from this high above its grasp point (as
+                        # HANDOVER_DZ, + 1 cm; 8 cm was out of the UR3e's reach over H2, check 2026-10-24 17:01)
 TRIGGERS = ('cue_complete', 'cue_onset', 'evidence', 'device')
 BELIEF_TRIGGERS = ('device',)            # the belief expert on the measuring device (intent/device.py)
 # cue_complete: each sub-intention is acted on once its deictic gesture is complete (the pointing hand arrived)
@@ -225,6 +227,8 @@ class ScriptedExpert:
         if self.code in ('T1', 'T4'):
             await_zone = Step('wait', until=lambda: self.zone is not None, name='await_zone')
             return grasp + [await_zone] + self._place_steps(obj) + self._home_steps()
+        if self.code == 'T2' and getattr(self.sc, 'v6_plan', None) == 'fetch_return':
+            return grasp + self._handover_steps(obj)[:-2] + self._take_back_steps(obj) + self._home_steps()
         if self.code == 'T2':
             return grasp + self._handover_steps(obj)
         if getattr(self.sc, 'v6_plan', None) == 'coaster':
@@ -293,6 +297,31 @@ class ScriptedExpert:
             Step('settle', ticks=15, name='settle_before_release'),
             Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25, name='release'),
             Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='retreat'),
+        ]
+
+    def _take_back_steps(self, obj):
+        """v6 T2: once the human holds the can out again (still), come down on it from above, grasp it near its top,
+        wait until the human lets go, carry it back to its slot and set it down."""
+        sc = self.sc
+        palm_v = self.mapper.cfg.continuous.get('palm_speed') if getattr(self.mapper, 'continuous', False) else None
+        above = lambda: sc.grasp_point(obj) + [0.0, 0.0, TAKE_BACK_DZ]
+        slot = lambda: np.r_[sc.start_pos[obj][:2], sc.rest_height[obj] + 0.003] + self.tcp_obj_offset
+        return [
+            Step('wait', until=lambda: 'return_offered' in sc.protocol_done, name='await_give_back'),
+            Step('goto', above, name='above_give_back'),
+            Step('settle', ticks=30, name='settle_above_give_back'),
+            Step('goto', lambda: sc.grasp_point(obj), name='descend_give_back', speed=palm_v),
+            Step('settle', ticks=40, name='settle_before_take'),
+            Step('grip', 'close', until=lambda: sc.grasp_state[obj], ticks=30, name='close'),
+            Step('wait', until=lambda: sc.human.returned, name='await_let_go'),
+            Step('hold', ticks=self.grasp_settle, name='settle_grasp'),
+            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], max(self.mapper.setpoint[2], self.travel)], name='lift'),
+            Step('goto', lambda: np.r_[slot()[:2], max(self.mapper.setpoint[2], self.travel)], name='transport_back'),
+            Step('goto', slot, name='lower_back'),
+            Step('settle', ticks=15, name='settle_before_release'),
+            Step('grip', 'open', until=lambda: not sc.grasp_state[obj] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25,
+                 name='put_back'),
+            Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel + 0.05], name='retreat_up'),
         ]
 
     def _home_steps(self):
@@ -741,6 +770,8 @@ class ScriptedExpert:
                     if step.name == 'release':
                         palm = self.code == 'T2' or (self.t3_handover and self.sc.human.holding is not None)
                         away = [0.0, 0.06, 0.10] if palm else [0.0, 0.0, 0.05]   # T2 / T3 new palm: up, then away from the hand (+Y)
+                        if palm and getattr(self.sc, 'v6_plan', None) == 'fetch_return':
+                            away = [0.0, 0.06, 0.05]    # v6 T2: the 6 cm can is handed over higher; +10 cm is out of reach at H2
                         self.retreat_point = self.mapper.setpoint + away
                     if step.name == 'close':
                         key = self._grasped_key()
