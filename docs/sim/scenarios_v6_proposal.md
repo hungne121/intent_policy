@@ -210,3 +210,11 @@ ManiCast chỉ dự báo cánh tay. Vật đang cầm = cổ tay dự báo + đ�
 - **Đang mang vật:** dự đoán được. ManiCast + độ lệch tốt nhất ở cả 3 task (ở T4 giảm hơn một nửa sai số).
 - **Sắp đặt vật xuống:** quy tắc "vật đi theo tay" sai, vì vật dừng còn tay đi tiếp. "Dừng khi tay được dự báo dừng" giúp một phần nhưng vẫn kém "vật đứng yên".
 - Hướng sửa (chưa làm): chỗ đặt = đích suy được (như chỗ lót cốc T3), vật tới đó rồi dừng.
+
+### Để sau (người dùng, 25/10 00:22): dự báo tác động lên môi trường
+
+ManiCast chỉ dự báo chuyển động người. Mở rộng sang "người sẽ làm gì với môi trường" (vật sẽ ở đâu, hộp sắp đóng, chỗ đặt) **để sau**. Hai mức đã đề xuất:
+- **(a)** ghép có lý thuyết: dự báo tay + trạng thái cầm/thả + đích suy được + bước quy trình → "cảnh tương lai" làm đầu vào của D và expert;
+- **(b)** mô hình học dự báo người–vật chung (HOI4ABOT, Mascaro et al. 2023; Liu et al. 2022): hướng tương lai.
+
+Hiện tại phần "đặt vật xuống" vẫn kém (xem mục dự báo vật đang cầm). Tiếp theo: expert sớm (M5 bước 3) trên phần suy đích đã có.
