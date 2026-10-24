@@ -51,7 +51,7 @@ COMMON=(--val-every 5 --act-epochs "$EPOCHS" --save-every-epochs "$SAVE_EPOCHS" 
 EARLY=(--config configs/experiments/v6_early.yaml --dataset-root outputs/datasets/v6_early --repo-id local/v6_early)
 LATE=(--config configs/experiments/v6_late.yaml --dataset-root outputs/datasets/v6_late --repo-id local/v6_late)
 D_INTENT=(--use-intent --intent-source perfect --intent-schema configs/intent_schema_v6.yaml --intent-film
-          --intent-film-stages --image-p-drop 0.1)
+          --intent-film-stages --image-p-drop 0.1 --intent-keep motion)   # the other fields are neutral (add_manicast_intent.py)
 declare -A ARGS=(
     [A]="${LATE[*]}"
     [B]="${EARLY[*]}"

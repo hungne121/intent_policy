@@ -142,7 +142,8 @@ def belief_line(b: dict | None) -> str:
     if not b:
         return ''
     parts = [f'{k} {v:.2f}' for k, v in {**b['objects'], **b['zones']}.items()]
-    return 'belief: ' + '  '.join(parts) + f"  | wait {b['p_stop']:.2f}" + (f" withdraw {b['p_withdraw']:.2f}" if 'p_withdraw' in b else '')
+    tail = (f"  | wait {b['p_stop']:.2f}" if 'p_stop' in b else '') + (f" withdraw {b['p_withdraw']:.2f}" if 'p_withdraw' in b else '')
+    return 'belief: ' + '  '.join(parts) + tail          # the v6 goal belief has no wait / withdraw terms
 
 
 def export_mp4(ds: LeRobotDataset, m: dict, path) -> None:
