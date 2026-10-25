@@ -1,15 +1,15 @@
 # Hướng dẫn cho agent (đọc trước khi làm bất cứ gì)
 
-Khoá luận: policy ACT (LeRobot) có ý định người, cho tương tác người–robot trên bàn (UR3e, MuJoCo). Câu hỏi: ý định dự đoán có giúp robot làm **sớm, đúng vai, đúng việc** không.
+Khoá luận: policy ACT (LeRobot) dùng dự báo chuyển động người (ManiCast) để hỗ trợ **sớm** và **biết sửa** khi dự báo sai, cho tương tác người–robot trên bàn (UR3e, MuJoCo).
 
 ## Đọc theo thứ tự
-1. `docs/PIF.md` §0 (kim chỉ nam), **§2 (mọi quyết định đang hiệu lực, chỗ duy nhất ghi quyết định)**, §7 (trạng thái), §8 (quy tắc).
+1. `docs/PIF.md`: tài liệu gốc duy nhất — §1–§2 (mục tiêu, hai claim, nguyên tắc), §3–§4 (hệ thống, task sâu T2 với 4 trường hợp), **§8 (mọi quyết định đang hiệu lực + những gì chưa chốt)**, §9 (trạng thái), §10 (quy tắc).
 2. `docs/sim/PIPELINE_v6.md`: việc đang làm (A / B / D trên kịch bản v6), lệnh từng bước, file nào làm gì, bẫy đã gặp.
 3. `docs/references.md`: nguồn đã dùng và mức đã kiểm. `docs/sim/scenarios_v6_proposal.md`: chi tiết kịch bản v6 và số đo expert.
 
 ## Quy tắc bắt buộc
 - Trả lời và viết tài liệu bằng **tiếng Việt**, câu ngắn, thuật ngữ giữ tiếng Anh. Mỗi cập nhật ghi **giờ thật** (`date`), tài liệu ghi ngày + phiên bản.
-- Quyết định mới: ghi vào `docs/PIF.md` §2 **trước**, kèm nguồn (tên bài, tác giả, năm) hoặc số đo. Không tự đổi quyết định đã chốt.
+- Quyết định mới: ghi vào `docs/PIF.md` §8 **trước**, kèm nguồn (tên bài, tác giả, năm) hoặc số đo. Không tự đổi quyết định đã chốt.
 - Làm đúng việc được giao; job dài / tốn tiền thì hỏi trước. Người dùng **duyệt video demo trước khi train**.
 - Có bằng chứng (xem từng frame, đo) rồi mới nêu nguyên nhân. Sửa 2–3 lần một lỗi không xong thì dừng, báo cáo.
 - Kết quả của expert kịch bản chỉ là chẩn đoán / trần; claim cần kết quả của policy đã học.

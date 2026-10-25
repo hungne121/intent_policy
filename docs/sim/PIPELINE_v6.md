@@ -1,6 +1,8 @@
 # Quy trình v6: demo → ý định ManiCast → train ACT A / B / D → đánh giá
 
-**Phiên bản:** 25/10/2026 08:17. Quyết định và lý do nằm ở `docs/PIF.md` §2; file này chỉ ghi **cách chạy** và **file nào làm gì**.
+> 25/10/2026 11:12: hướng hiện tại là task sâu T2 với 4 trường hợp (`docs/PIF.md` §4); các lệnh dưới đây vẫn dùng được, phần 4 task là của lần train đầu.
+
+**Phiên bản:** 25/10/2026 08:17. Quyết định và lý do nằm ở `docs/PIF.md` §8; file này chỉ ghi **cách chạy** và **file nào làm gì**.
 
 ## 1. Mô hình so sánh
 
@@ -55,7 +57,7 @@ CPUS=<số vCPU thật> bash workstation/rent/run_act_v6.sh          # log: run_
 # D thêm: --intent-online manicast      A: --config configs/experiments/v6_late.yaml
 ```
 - Seed đánh giá 400000+ (demo dùng 300000–300199), 50 tập / task (`benchmark` trong config v6).
-- **Temporal ensembling 0.01** (bài ACT); không ensembling thì B 0/40 (PIF.md §2.4).
+- **Temporal ensembling 0.01** (bài ACT); không ensembling thì B 0/40 (PIF.md §8).
 - Kết quả: `results.md` (CSR, CT, TSync, Rsp, ...), video lỗi trong `videos/<task>/`.
 
 ## 6. Kiểm lỗi đã có (dùng khi kết quả thấp)
@@ -77,5 +79,5 @@ CPUS=<số vCPU thật> bash workstation/rent/run_act_v6.sh          # log: run_
 | `scripts/evaluate.py` | đánh giá trong mô phỏng, metric HRIBench-style |
 | `intent_policy/policies/policy_agent.py` | checkpoint → agent trong vòng kín |
 | `intent_policy/policies/intent_act.py`, `hri_act/` | mô hình (ACT + token task / ý định, FiLM) |
-| `configs/policy/act_continuous.yaml` | siêu tham số ACT (lr 1e-4, batch 32: lệch so với bài, xem PIF.md §2.4) |
+| `configs/policy/act_continuous.yaml` | siêu tham số ACT (lr 1e-4, batch 32: lệch so với bài, xem PIF.md §8) |
 | `workstation/rent/run_act_v6.sh`, `select_ckpt.py` | train trên máy thuê, chọn checkpoint |
