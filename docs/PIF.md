@@ -1,6 +1,6 @@
 # Học policy hành động cho tương tác người–robot: ManiCast + ACT
 
-**Phiên bản:** 25/10/2026 11:12 — bản mới, thay toàn bộ nội dung cũ (PIF v3, HABIT, ADR-001, IntentACT v3.2 vẫn tra được trong git, commit `17f59e6` trở về trước).
+**Phiên bản:** 25/10/2026 11:27 — bản mới, thay toàn bộ nội dung cũ (PIF v3, HABIT, ADR-001, IntentACT v3.2 vẫn tra được trong git, commit `17f59e6` trở về trước).
 
 **Đây là tài liệu gốc duy nhất** của hướng hiện tại. Mọi quyết định ghi ở **§8** trước rồi mới làm; mỗi dòng có ngày và nguồn (câu của người dùng, số đo, hoặc bài báo). Có thay đổi thì sửa đúng mục liên quan và ghi lý do, không viết thêm tài liệu định hướng song song. Cách chạy từng bước: `docs/sim/PIPELINE_v6.md`. Nguồn tham khảo và mức đã kiểm: `docs/references.md`.
 
@@ -106,9 +106,10 @@ Các task v6 khác (`t1_choose_item`, `t3_coaster_cup`, `t4_coworker`) giữ tro
 | Duyệt demo | Người dùng xem video pilot trước khi train | quy tắc người dùng |
 | Vòng 2 | DAgger; không AutoIntervene | 25/10 |
 | Dự báo tác động lên môi trường | Để sau | người dùng 25/10 |
+| Đợt train cho báo cáo 25/10 (hạn 20:00) | T2 **chỉ phần đưa lon, C1** (`configs/experiments/t2c1_early.yaml` / `t2c1_late.yaml`, `success_conditions.handover_only`); 50 seed, expert 50/50 cả hai bên; **A và D-tok train riêng**, cùng **20k bước** batch 32 (≥ 40 lần nhìn mỗi frame của t2c1_late, như LeRobot ACT), **lr 4e-5** (1e-5 / batch 8 của ACT, tăng tuyến tính theo batch: Goyal et al. 2017), không task token; gripper chưa sửa. Demo là phần đưa lon của hành vi T2 đã duyệt (cắt bỏ phần lấy lại) | người dùng 25/10 11:13 ("triển khai train… trước 8h tối"); ghi 11:27 |
 
 **Chưa chốt (đang chờ người dùng):**
-1. T2 đợt này **chỉ phần đưa lon** (bỏ phần lấy lại) — đề xuất.
+1. T2 chỉ phần đưa lon: dùng cho đợt 25/10 (dòng trên); giữ hay mở lại phần lấy lại xét sau.
 2. Sửa lỗi **gripper** (lệnh trôi qua dải gắn / nhả 0.03–0.05 của sim làm rơi lon): nhị phân hoá lúc chạy, nới dải nhả, hay đầu ra phân loại — tìm nguồn trước.
 3. Độ dài và siêu tham số train: khoảng 40 lần nhìn mỗi frame; lr 4e-5 với batch 32 (tăng tuyến tính từ 1e-5 / batch 8, Goyal et al. 2017) thay cho 1e-4 hiện tại.
 4. Pretrain một ACT chung rồi finetune A / D-tok, hay train riêng.
