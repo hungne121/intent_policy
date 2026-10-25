@@ -11,6 +11,9 @@ from pathlib import Path
 import numpy as np
 
 
+METRICS = ('CSR', 'CT', 'TSync', 'Rsp', 'IR', 'OC', 'CFR', 'HCS', 'AM', 'WCR', 'WCD')
+
+
 def load(run: Path) -> list[dict]:
     return [json.load(gzip.open(f)) for f in sorted(run.glob('episodes/*/*/*.json.gz'))]
 
@@ -27,6 +30,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('runs', nargs='+')
     ap.add_argument('--names', nargs='+')
+    ap.add_argument('--metrics', action='store_true', help='also the benchmark metrics per case')
     args = ap.parse_args()
     names = args.names or [Path(r).name for r in args.runs]
     fmt = lambda v: f'{np.mean(v):.2f} ± {np.std(v):.2f} (n={len(v)})' if v else '—'
@@ -46,6 +50,22 @@ def main():
                          f"{fmt([r['duration_s'] for r in ok])} | {fmt([w for r in ok if (w := wait_s(r)) is not None])} | "
                          f"{', '.join(f'{k} {v}' for k, v in fails.most_common()) or '—'} |")
     print('\n'.join(lines))
+    if args.metrics:                             # the benchmark metrics (intent_policy/benchmark/metrics.py) per case
+        keys = [k for k in METRICS]
+        out = ['', '| model | case | ' + ' | '.join(keys) + ' |', '|---|---|' + '---|' * len(keys)]
+        for name, run in zip(names, args.runs):
+            by = defaultdict(list)
+            for r in load(Path(run)):
+                by[r['human_trajectory_variant'].get('case', 'C1')].append(r)
+                by['all'].append(r)
+            for case in sorted(k for k in by if k != 'all') + ['all']:
+                cells = []
+                for k in keys:
+                    v = [r['metrics'].get(k) for r in by[case]]
+                    v = [x for x in v if isinstance(x, (int, float)) and not isinstance(x, bool)]
+                    cells.append(f'{np.mean(v):.2f} (n={len(v)})' if v else '—')
+                out.append(f'| {name} | {case} | ' + ' | '.join(cells) + ' |')
+        print('\n'.join(out))
 
 
 if __name__ == '__main__':
