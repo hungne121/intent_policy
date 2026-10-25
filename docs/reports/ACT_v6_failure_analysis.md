@@ -1,6 +1,6 @@
 # Vì sao A / B / D (v6) thành công thấp: lỗi hay train chưa đủ
 
-**Phiên bản:** 25/10/2026 08:41. Người dùng hỏi 25/10 08:12: thất bại do lỗi hay do train chưa đủ; T2, T4 vì sao không chạy được.
+**Phiên bản:** 25/10/2026 08:40. Người dùng hỏi 25/10 08:12: thất bại do lỗi hay do train chưa đủ; T2, T4 vì sao không chạy được.
 
 ## 1. Kết quả đang có (50 tập / task, seed 400000+, temporal ensembling 0.01)
 
