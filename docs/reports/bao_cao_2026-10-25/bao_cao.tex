@@ -1,0 +1,103 @@
+% Báo cáo tiến độ 25/10/2026 (một trang). Biên dịch: xelatex bao_cao.tex
+\documentclass[11pt]{article}
+\usepackage[a4paper, margin=1.8cm]{geometry}
+\usepackage{fontspec}
+\usepackage[english, main=vietnamese]{babel}
+\IfFontExistsTF{Times New Roman}
+  {\setmainfont{Times New Roman}}
+  {\setmainfont{texgyretermes}[Extension=.otf, UprightFont=*-regular,
+     BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta}
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=1.5em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\pagestyle{empty}
+\newcommand{\muc}[1]{\par\smallskip{\large\bfseries #1}\par}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries Báo cáo tiến độ: robot hỗ trợ sớm nhờ dự báo chuyển động người}\\[2pt]
+25/10/2026
+\end{center}
+
+\muc{1. Mục tiêu}
+Xây dựng policy học bắt chước ACT dùng dự báo chuyển động người (ManiCast) để robot \textbf{hỗ trợ sớm} khi dự báo
+đúng, và \textbf{biết sửa} khi dự báo sai hoặc người đổi ý. Bài toán thử nghiệm (mô phỏng, tay máy UR3e): người
+đang bận làm việc, robot mang lon tới đặt vào tay người đúng lúc, đúng chỗ. Gồm 4 trường hợp, mỗi trường hợp
+chiếm 1/4 số tập:
+\begin{itemize}
+  \item \textbf{C1} bình thường: người đưa tay nhận lon;
+  \item \textbf{C2} mơ hồ: người đưa tay ra một phần, dừng lại, rồi mới xin;
+  \item \textbf{C3} dự báo sai: người mở tay với lấy cốc của mình, trông giống như đang xin;
+  \item \textbf{C4} đổi ý: người xin, robot đã tới gần thì người rút tay, sau đó xin lại.
+\end{itemize}
+So sánh hai mô hình cùng kiến trúc ACT, cùng số bước train:
+\textbf{A} học từ demo robot chờ người làm xong cử chỉ, không dùng ý định;
+\textbf{D} học từ demo robot hành động sớm, có thêm dự báo chuyển động tay người của ManiCast.
+
+\begin{center}
+\begin{tikzpicture}[font=\footnotesize, >={Stealth[length=4pt]}, node distance=4mm and 6mm,
+  box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=7mm},
+  frozen/.style={box, fill=gray!15}, learn/.style={box, fill=blue!8}]
+  \node[box] (kp) {6 khớp tay người\\(0.4\,s gần nhất)};
+  \node[frozen, right=of kp] (mc) {ManiCast\\(đóng băng)};
+  \node[box, right=of mc] (fc) {dự báo chuyển động\\tay người 1\,s tới};
+  \node[learn, right=of fc] (mt) {token\\chuyển động};
+  \node[box, below=of kp] (cam) {3 camera RGB};
+  \node[learn, right=of cam] (rn) {ResNet-18\\(FiLM theo dự báo)};
+  \node[box, below=of cam] (st) {trạng thái robot};
+  \node[learn, minimum height=27mm, minimum width=17mm] (act) at ([xshift=9mm]mt.east |- rn) {ACT\\(transformer\\+ CVAE)};
+  \node[box, right=of act] (out) {chuỗi hành động\\2\,s};
+  \draw[->] (kp) -- (mc); \draw[->] (mc) -- (fc); \draw[->] (fc) -- (mt);
+  \draw[->] (mt.east) -- (act.west |- mt.east);
+  \draw[->] (cam) -- (rn); \draw[->] (rn) -- (act.west |- rn);
+  \draw[->] (st) -- (act.west |- st);
+  \draw[->] (act) -- (out);
+\end{tikzpicture}
+\end{center}
+\vspace{-6pt}
+{\small Phương pháp (mô hình D): dự báo chuyển động tay người được mã hoá thành token và đưa vào ACT cùng ảnh và trạng
+thái robot; dự báo còn điều biến đặc trưng ảnh (FiLM). Mô hình A dùng cùng ACT nhưng không có nhánh dự báo.}
+
+\muc{2. Kết quả hiện tại}
+Đánh giá trên 120 tập mới (30 tập mỗi trường hợp, seed không trùng dữ liệu train).
+CSR: tỷ lệ thành công; CT: thời gian hoàn thành (tập thành công);
+TSync: độ lệch giữa lúc người sẵn sàng nhận và lúc robot tới chỗ trao (thời gian người phải chờ);
+HCS: không va chạm và không vi phạm khoảng cách an toàn.
+
+\begin{center}
+\begin{tabular}{lcccccccc}
+\toprule
+ & \multicolumn{2}{c}{CSR} & \multicolumn{2}{c}{CT [s]} & \multicolumn{2}{c}{TSync [s]} & \multicolumn{2}{c}{HCS} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+Trường hợp & A & D & A & D & A & D & A & D \\
+\midrule
+C1 bình thường & 1.00 & 0.93 & 13.75 & \textbf{9.57}  & 6.04 & \textbf{1.81} & 1.00 & 1.00 \\
+C2 mơ hồ       & 1.00 & 0.87 & 14.94 & \textbf{11.64} & 5.84 & \textbf{2.61} & 1.00 & 1.00 \\
+C3 dự báo sai  & 1.00 & 1.00 & 21.29 & \textbf{17.50} & 5.46 & \textbf{1.64} & 1.00 & 1.00 \\
+C4 đổi ý       & 1.00 & 1.00 & 15.27 & \textbf{12.44} & 7.55 & \textbf{5.36} & 1.00 & 1.00 \\
+\midrule
+Tổng           & 1.00 & 0.95 & 16.31 & \textbf{12.88} & 6.22 & \textbf{2.88} & 1.00 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item D hoàn thành nhanh hơn A khoảng 3.4\,s (21\,\%); thời gian người phải chờ giảm từ 6.2\,s xuống 2.9\,s.
+  Khác biệt có ý nghĩa thống kê ở cả 4 trường hợp (Mann-Whitney, $p < 10^{-5}$).
+  \item Khi dự báo sai (C3) và khi người đổi ý (C4), D vẫn hoàn thành đúng 100\,\% và nhanh hơn A.
+  \item Không có va chạm hay vi phạm khoảng cách an toàn ở cả hai mô hình.
+\end{itemize}
+
+\muc{3. Hướng triển khai tiếp}
+\begin{itemize}
+  \item Mở rộng sang các task cộng tác khác và train trên nhiều task.
+  \item Train mô hình đối chứng (demo sớm, không dự báo) để tách phần lợi do dự báo ý định.
+  \item Lặp lại với nhiều lần train để có khoảng tin cậy; sau đó thử trên robot thật.
+\end{itemize}
+
+\end{document}
