@@ -1,6 +1,6 @@
 # Học policy hành động cho tương tác người–robot: ManiCast + ACT
 
-**Phiên bản:** 25/10/2026 11:27 — bản mới, thay toàn bộ nội dung cũ (PIF v3, HABIT, ADR-001, IntentACT v3.2 vẫn tra được trong git, commit `17f59e6` trở về trước).
+**Phiên bản:** 25/10/2026 13:48 — bản mới, thay toàn bộ nội dung cũ (PIF v3, HABIT, ADR-001, IntentACT v3.2 vẫn tra được trong git, commit `17f59e6` trở về trước).
 
 **Đây là tài liệu gốc duy nhất** của hướng hiện tại. Mọi quyết định ghi ở **§8** trước rồi mới làm; mỗi dòng có ngày và nguồn (câu của người dùng, số đo, hoặc bài báo). Có thay đổi thì sửa đúng mục liên quan và ghi lý do, không viết thêm tài liệu định hướng song song. Cách chạy từng bước: `docs/sim/PIPELINE_v6.md`. Nguồn tham khảo và mức đã kiểm: `docs/references.md`.
 
@@ -107,6 +107,9 @@ Các task v6 khác (`t1_choose_item`, `t3_coaster_cup`, `t4_coworker`) giữ tro
 | Vòng 2 | DAgger; không AutoIntervene | 25/10 |
 | Dự báo tác động lên môi trường | Để sau | người dùng 25/10 |
 | Đợt train cho báo cáo 25/10 (hạn 20:00) | T2 **chỉ phần đưa lon, C1** (`configs/experiments/t2c1_early.yaml` / `t2c1_late.yaml`, `success_conditions.handover_only`); 50 seed, expert 50/50 cả hai bên; **A và D-tok train riêng**, cùng **20k bước** batch 32 (≥ 40 lần nhìn mỗi frame của t2c1_late, như LeRobot ACT), **lr 4e-5** (1e-5 / batch 8 của ACT, tăng tuyến tính theo batch: Goyal et al. 2017), không task token; gripper chưa sửa. Demo là phần đưa lon của hành vi T2 đã duyệt (cắt bỏ phần lấy lại) | người dùng 25/10 11:13 ("triển khai train… trước 8h tối"); ghi 11:27 |
+
+| T2 bốn trường hợp, cách dựng (25/10 13:48) | Trường hợp của tập = `cases[seed % 4]` (chỉ tiêu bằng nhau). **C2**: tay thả lỏng đưa ra một phần (30–55 %), dừng 0.6–1.4 s, rồi mới ngửa tay xin. **C3**: cốc riêng của người (C3, xanh) đặt dưới một vùng tay, có mặt ở mọi tập; tay mở ra khi với tới cốc (giống xin), nắm, uống, đặt lại, làm tiếp, rồi mới xin lon. **C4**: tay ngửa xin, khi đầu tay robot cách tay người 10–25 cm thì rút tay, làm tiếp 2 nhát, xin lại. Expert: khi vùng tay đã chốt mà tay thôi ngửa mở ≥ 0.2 s trước khi trao thì **huỷ, lên cao, về điểm chờ**; belief bỏ bằng chứng vùng của cử chỉ đó. Kiểm expert: sớm 40/40 (C3, C4 robot đã đi rồi huỷ 20/20), muộn 39/40 (`scripts/check_t2_cases.py`) | người dùng 25/10 13:30 ("làm C2–C4") |
+| Train đợt 4 trường hợp (25/10 13:48) | **Fine-tune** A và D-tok từ checkpoint tốt nhất của đợt C1, **cùng 15k bước**, lr 4e-5, giữ chuẩn hoá của model gốc (`--init-from`, `--stats-from`); **lấy mẫu khung then chốt ×3** (±0.5 s quanh cử chỉ người: đưa tay, lưỡng lự, với cốc, rút tay, tay sẵn sàng; và phản ứng robot: chốt / huỷ vùng tay; ~19 % số frame) theo *Keyframe-Focused Visual Imitation Learning* (Wen, Lin, Darrell, Jayaraman, Gao, 2021). Dữ liệu `t2deep_early` / `t2deep_late`, 200 seed (50 mỗi trường hợp); đánh giá 120 seed 400000+ (30 mỗi trường hợp) | người dùng 25/10 13:15–13:25 ("train xong rồi fine-tune", "học mạnh hơn khi có cử chỉ") |
 
 **Chưa chốt (đang chờ người dùng):**
 1. T2 chỉ phần đưa lon: dùng cho đợt 25/10 (dòng trên); giữ hay mở lại phần lấy lại xét sau.
