@@ -1,4 +1,4 @@
-"""Intent contract v3.2 (docs/requirements/INTENT_ACT_v3.2.md §5; intent/contract.py FIELDS_V32) from the measuring
+"""Intent contract v3.2 (docs/intent_act/INTENT_ACT_v3.2.md §5; intent/contract.py FIELDS_V32) from the measuring
 device, causal.
 
 `IntentV32` computes one frame from a running scenario and the device's belief (intent/device.DeviceBelief):

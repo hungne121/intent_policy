@@ -1,4 +1,4 @@
-"""Counterfactual intent swaps and their correct actions (INTENT_ACT_GUIDE_v2.md §6, §9.8; M0 answer on CGR).
+"""Counterfactual intent swaps and their correct actions (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §6, §9.8; M0 answer on CGR).
 
   spatial swap   p_target and c_target move to a valid other place of the same kind: an object slot to another
                  occupied slot holding the same kind of object (cube <-> cube, cup <-> cup; the T3 cubes U1 <-> U2),

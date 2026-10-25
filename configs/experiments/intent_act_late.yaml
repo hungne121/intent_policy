@@ -1,6 +1,6 @@
 # INTENT-ACT v5 late episodes (expert trigger cue_complete: acts once the human's instruction / pointing / pick is
 # complete), dataset intent_act_late_v5. Since 2026-10-12 it is only the replay source of the device training data
-# (scripts/render_sensor_view.py, workstation/job1_device.sh); the 2x2 (A-D) uses intent_act_device_{late,early}.yaml.
+# (scripts/render_sensor_view.py, workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d)); the 2x2 (A-D) uses intent_act_device_{late,early}.yaml.
 experiment: intent_act_late
 phase: intent_act
 seed: 0
@@ -14,7 +14,7 @@ intent:
   schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
 benchmark:
   scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
-  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/specs/EPISODE_PLAN_v5.md)
+  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/sim/episode_plan_v5.md)
 observation:
   cameras: [high, wrist, top]
   width: 256

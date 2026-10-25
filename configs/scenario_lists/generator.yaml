@@ -1,4 +1,4 @@
-# Balanced scenario lists (docs/requirements/scence_construct.md §5), built by scripts/generate_scenarios.py.
+# Balanced scenario lists (docs/sim/scene_construct.md §5), built by scripts/generate_scenarios.py.
 # The lists are fixed files: the demo list drives data collection, the eval list is reused unchanged for every
 # compared condition (§5.3). Re-running the generator with these seeds reproduces them exactly (§5.2 rule 6).
 version: 1

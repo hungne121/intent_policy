@@ -1,4 +1,4 @@
-"""The intent measuring device in the loop: the multi-gesture DeePoint (docs/requirements/INTENT_ACT_v3.2.md §4.2e)
+"""The intent measuring device in the loop: the multi-gesture DeePoint (docs/intent_act/INTENT_ACT_v3.2.md §4.2e)
 running on the simulated sensor camera, turned into the belief the experts act on (`expert.trigger: device`).
 
   DeePointClient   the streaming DeePoint (scripts/deepoint_server.py, its own python environment) as a subprocess:
@@ -10,7 +10,7 @@ running on the simulated sensor camera, turned into the belief the experts act o
                    between the world direction and hand -> g (hand = wrist + 0.2 (wrist - elbow), DeePoint's origin;
                    sigma_c measured on the validation fold): objects, zones, p_stop, p_withdraw, onset_seen, snapshot
                    for the belief expert (experts/scripted_expert.py) and the intent contract (intent/source_v32.py).
-Five models (`folds_file`, written by workstation/job1_device.sh): model k is trained without folds k (test) and
+Five models (`folds_file`, written by workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d)): model k is trained without folds k (test) and
 k + 1 (validation) and calibrated on fold k + 1; an episode is measured by the model of its own fold
 (intent/folds.fold_of), so no episode is measured by a model that saw it.
 Decision rules (`rule`, the user's definition, §0 and §4.2c-j):
@@ -20,9 +20,9 @@ Decision rules (`rule`, the user's definition, §0 and §4.2c-j):
           only ~0.2 s after 0.7, so the two rules hardly differed). 'wait' / withdraw once their probability >= late_star
   early   a candidate's belief >= early_star (0.7), during the gesture; 'wait' / withdraw once their probability
           >= early_star
-          2026-10-18 (the user's rule, docs/discussions/handover_som_va_intent_sai.md; slide bao_cao_2026-10-18):
+          2026-10-18 (the user's rule, docs/intent_act/lit_early_handover.md; slide bao_cao_2026-10-18):
           `approach_star` (0.85) = the lowest belief level after which the leading candidate changes in < 10 % of the
-          gestures (scripts/device_stability.py, 241 unseen gestures): from it the robot moves towards the candidates
+          gestures (scripts/device_stability.py [removed 2026-10-23, git e29ed0d], 241 unseen gestures): from it the robot moves towards the candidates
           (reversible moves only, the belief-weighted point, Javdani et al. 2018); `commit_star` (0.9) = the commit,
           after which the irreversible steps follow (descend, grasp). 'wait' / withdraw keep early_star and their
           calibrated holds. Unset: both equal early_star (the 0.7 rule).
@@ -128,12 +128,12 @@ class DeePointClient:
 
 
 def load_folds(path, classes: list[str]) -> tuple[dict[int, dict], dict]:
-    """The fold models and their calibration (workstation/job1_device.sh -> device_folds.json):
+    """The fold models and their calibration (workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d) -> device_folds.json):
     {fold: {checkpoint, sigma_deg, sigma_deg_by_frames, hold_frames: {late, early}, pause_timeout_s}}, and the file's
     assignment (`assign: single`: one model for every episode, `seen_seeds` refused; else the model of the fold)."""
     f = resolve(path)
     if not f.exists():
-        raise FileNotFoundError(f'{f}: no device models yet (run workstation/job1_device.sh and download its outputs, '
+        raise FileNotFoundError(f'{f}: no device models yet (run workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d) and download its outputs, '
                                 f'workstation/README.md)')
     d = json.loads(f.read_text())
     if list(d['classes']) != list(classes):

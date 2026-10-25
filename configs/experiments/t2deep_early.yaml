@@ -1,0 +1,38 @@
+# T2 deep task, cases C1-C4 (hand-over only; case = seed % 4, configs/scenarios/t2_fetch_return.yaml) for model D-tok (docs/PIF.md §4, §8; 25/10/2026):
+# the non-privileged goal expert, rule `early`; t2c1_early / t2c1_late use the same seeds (paired). Single task: no task token.
+experiment: t2deep_early
+phase: intent_act
+seed: 0
+policy:
+  config: configs/policy/act_continuous.yaml
+  use_task_token: false            # one task (docs/PIF.md §8)
+  use_instruction: false
+intent:
+  provider: manicast                 # v6: D's intent = the ManiCast forecast (intent_pp.xi, scripts/add_manicast_intent.py)
+  keypoints: [l_shoulder, r_shoulder, l_elbow, r_elbow, l_wrist, r_wrist, r_index_base, r_index_tip, head]   # ManiCast
+                                     #   arm joints + the pointing ray + head; world frame, as rendered (human.keypoints)
+benchmark:
+  scenarios: [t2_fetch_return]
+  eval_seed_start: 400000             # held out: the demos use 300000-300199
+  eval_episodes_per_scenario: 120     # 30 per case (seed % 4), seeds 400000+
+observation:
+  cameras: [high, wrist, top]
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+scenario_overrides:
+  t2_fetch_return:
+    success_conditions: {handover_only: true}   # docs/PIF.md §4: T2 deep task, C1 (hand-over only) first, 2026-10-25
+  all:
+    expert: {trigger: goal, goal_rule: early, grasp_settle_ticks: 0}
+data:
+  repo_id: local/t2deep_early
+  root: outputs/datasets/t2deep_early
+  seed_start: 300000
+  splits: [{name: main, episodes_per_scenario: 200}]   # 50 per case   # ACT: 50 demos per task (PIF.md §2.4); the first 10 per task = the pilot the user reviews
+training:
+  batch_size: 32
+  num_workers: 2
+  log_every: 100
+  amp: false
+  keep_last: 0

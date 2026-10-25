@@ -1,5 +1,5 @@
 scenario_id: t4_interrupt
-task_code: T4                       # docs/requirements/scence_construct.md §4.4
+task_code: T4                       # docs/sim/scene_construct.md §4.4
 role: intruder
 goal: >-
   The robot starts by itself (no instruction): pick up the single cube from its slot and place it in P1, then

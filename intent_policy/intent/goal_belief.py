@@ -135,6 +135,13 @@ class GoalBelief:
         if stopped:                                                  # a motion ended: the gesture is complete
             self.after_motion = True
             self.moving, self.peak, self.moved_from = False, 0.0, None
+        if getattr(sc, 'v6_plan', None) == 'fetch_return' and len(self.zone_keys) > 1 and not self._open('zone') \
+                and self.evidence.get('zone'):
+            # T2: the open palm is gone before the hand-over (C3: it was a reach for the person's own cup; C4: the
+            # request was taken back): the zone evidence of that gesture no longer holds (2026-10-25, check of the
+            # late expert: it committed the stale zone at the next request)
+            self.b_zone = np.full(len(self.zone_keys), 1.0 / len(self.zone_keys))
+            self.evidence['zone'] = False
         if T >= 5:
             mk, waist = self.fc.to_comad({k: kp[-5:, i] for i, k in enumerate(NEED)})
             p = self.fc.forecast(mk[None], waist[None], np.arange(-4, 1) / self.fps, self.t_out)

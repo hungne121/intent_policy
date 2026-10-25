@@ -1,4 +1,4 @@
-"""Intent data contract (docs/requirements/INTENT_ACT_GUIDE_v2.md §2, §9): field names, shapes, value ranges.
+"""Intent data contract (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §2, §9): field names, shapes, value ranges.
 
 Every intent source writes these fields per frame (dataset columns `intent_<src>.<field>`, src = hs | pp | pr0..);
 the policy reads them as `intent.<field>` and never knows the source. `validate_intent` is called when a dataset is
@@ -73,7 +73,7 @@ def validate_intent(d: dict, schema: dict, batched: bool = False) -> None:
 
 
 # ---------------------------------------------------------------------------------------------- contract v3.2
-# docs/requirements/INTENT_ACT_v3.2.md §5: the measuring device's belief the expert acts on (intent/device.py,
+# docs/intent_act/INTENT_ACT_v3.2.md §5: the measuring device's belief the expert acts on (intent/device.py,
 # intent/source_v32.py) + causal kinematics.
 #   p_who (W) p_target (K) c_who (W) c_target (K) phase (P) p_gesture (G + 1: the schema gestures + `withdraw`)
 #   point_dir (6: unit pointing direction index base -> tip, then its origin = the index tip)  occupancy (7)

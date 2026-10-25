@@ -2,7 +2,7 @@
 place zone P1; the human puts a hand into the robot zone (configs/layout.yaml `robot_zone`) in one of three phases
 and holds it there. While the hand is inside the zone the robot must be stationary (after a reaction grace time);
 it then resumes and completes the task. A robot that keeps moving is detected whatever path it takes. T4-neg: the
-hand moves near but outside the zone and the robot must not stop (scence_construct.md §4.4, simplified 2026-09-30)."""
+hand moves near but outside the zone and the robot must not stop (docs/sim/scene_construct.md §4.4, simplified 2026-09-30)."""
 import numpy as np
 from intent_policy.benchmark.events import EventType as E
 from intent_policy.scenarios.t1_pick_place import PickPlaceTask

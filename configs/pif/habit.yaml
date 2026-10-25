@@ -1,0 +1,60 @@
+# HABIT data for PIF (configinc/HABIT, CC-BY-4.0, 10 Hz, front_view RGB only). Code: pif/data/habit.py,
+# pif/perception/{extract,lift}.py. Decisions + measurements: docs/PIF.md, docs/reports/PIF_P1.md.
+habit:
+  root: outputs/habit                  # full/{meta,data,videos}, task_details (pif.data.habit download)
+  camera: front_view
+  extract_dir: outputs/habit/extract   # stage 1 output (per frame, heavy)
+  tokens_dir: outputs/habit/tokens     # stage 2 output (PIF episodes, cheap to rebuild)
+  gripper_min_frames: 3                # a gripper state lasts >= 0.3 s (1-2 frame open/close flicker in S8789)
+
+  # One entry per task. objects: detector prompt -> generic token type (docs/PIF.md §2) and how many are in the
+  # scene (task_details/<sid>.md "Environment Setup"); the tracker keeps exactly that many tracks.
+  # gripper_threshold: Otsu (1979) on all gripper samples of the task (0.5 fails for the soft bread, PIF_P1 §3.2).
+  tasks:
+    S8789:
+      role: supervisor
+      gripper_threshold: 0.252
+      graspable: bread roll
+      objects: {airtight container: {type: container, count: 4}, bread roll: {type: object, count: 1},
+                plate: {type: surface, count: 1}}
+    S8791:
+      role: coworker
+      gripper_threshold: 0.303
+      graspable: bread roll
+      objects: {airtight container: {type: container, count: 2}, container lid: {type: object, count: 2},
+                bread roll: {type: object, count: 2}, baking sheet: {type: surface, count: 1}}
+    S6760:
+      role: collaborator
+      gripper_threshold: 0.477
+      graspable: circuit board
+      objects: {circuit board: {type: object, count: 1}, rack: {type: container, count: 1}, tray: {type: surface, count: 1}}
+
+  # Stage 1, per frame. Swap a model = change `name` (registered in pif/perception/components.py) + its params.
+  perception:
+    pose:   {name: rtmw, mode: performance, device: cpu}            # Jiang, Xie, Li 2024 (RTMW-l 70.2 mAP COCO-WholeBody)
+    depth:  {name: moge2, model: Ruicheng/moge-2-vits-normal, resolution_level: 3, fp16: true, device: cuda}
+            # Wang et al. 2025 (MoGe-2, NeurIPS). resolution_level measured on S8789 (pif.perception.tools depth-check,
+            # GTX 1650): 9 = 3.3 s/frame; 3 = 1.4 s/frame, adjacent-container distance error median 0.58 cm, p90 1.65 cm
+            # (20 episodes, 40 pairs, robot-kinematics reference); 0 and 1 return no valid depth. Alternative: {name: depth_pro, model: apple/DepthPro-hf, device: cuda}
+            # (Bochkovskii et al. 2025, ICLR; does not fit a 4 GB GPU)
+    detect: {name: grounding_dino, model: IDEA-Research/grounding-dino-tiny, box_threshold: 0.35, text_threshold: 0.25,
+             device: cuda}                                           # Liu et al. 2024 (ECCV); thresholds of its README
+    gripper_prompt: robot gripper                                    # detected for `holding` only, never a token
+    depth_window_px: 5          # median depth around a keypoint (fingertips often fall on depth edges)
+    object_core_frac: 0.3       # object depth = median over the central part of its box
+    plane_frames: 5             # frames whose depth points are kept for the table fit
+
+  # Stage 2: table frame, 3D, tracks, visibility.
+  lift:
+    # COCO-WholeBody indices of tokens.keypoints: body 0 nose, 5/6 l/r shoulder, 7/8 l/r elbow, 9/10 l/r wrist;
+    # hands 91-111 (left) / 112-132 (right): root, then 4 points per finger (index MCP = +5, tip = +8).
+    # head = nose; the sim head token is the head proxy centre (a few cm apart).
+    keypoint_index: {r_wrist: 10, r_index_base: 117, r_index_tip: 120, l_wrist: 9, l_index_base: 96, l_index_tip: 99,
+                     r_shoulder: 6, r_elbow: 8, l_shoulder: 5, l_elbow: 7, head: 0}
+    # rtmlib scores are unnormalised SimCC confidences (0.5-9.8); out-of-frame head / shoulders still get 1.1-4.4 at
+    # the image border, so the score alone cannot flag them (PIF_P1 §4). Rule still OPEN (user decision); for now:
+    # score threshold (MMPose demo default) AND inside the image (border_px 0: not tuned on the observed values).
+    kpt_thr: 0.3
+    border_px: 0
+    table: {ransac_iters: 500, inlier_m: 0.01, min_row_frac: 0.5}
+    min_object_frac: 0.05       # a track seen in fewer frames is dropped

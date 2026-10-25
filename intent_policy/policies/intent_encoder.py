@@ -1,4 +1,4 @@
-"""Intent tokens for the ACT transformer (docs/requirements/INTENT_ACT_GUIDE_v2.md §4.1-4.2, §4.5).
+"""Intent tokens for the ACT transformer (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §4.1-4.2, §4.5).
 
     contract fields -> IntentEncoder -> [WHO, TARGET, C_TARGET, OCC, TIME, XI_1..XI_M] (B, 5 + M, d)
 

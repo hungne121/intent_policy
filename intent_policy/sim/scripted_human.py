@@ -935,6 +935,77 @@ class WorkerReceiver(HandoverReceiver):
         super().__init__(scene, behavior, variation)
         self.work_piece = self.spec['u_blocks'][0]
         self.returned = False
+        self.cancelled = False
+
+    # -- deep-task cases (docs/PIF.md §4, 2026-10-25; config human_behavior.cases) -----------------------------------
+    @property
+    def case(self) -> str:
+        return self.params.get('case', 'C1')
+
+    def work_pos(self, ctx) -> np.ndarray:
+        return np.asarray(ctx['object_positions'][self.work_piece], float) + [0.0, 0.0, self.behavior['work_height_m']]
+
+    def strokes(self, n: int, dur: float) -> list[Gesture]:
+        half = self.behavior['stroke_m'] / 2
+        return [Gesture('move', 'work', target=lambda ctx, s=(-1) ** i * half: self.work_pos(ctx) + [s, 0.0, 0.0],
+                        duration=dur, shape='grasp', key=self.work_piece) for i in range(n)]
+
+    def hesitation(self) -> list[Gesture]:
+        """C2: the relaxed hand moves part of the way towards the hand zone (no open palm: not yet a request), pauses."""
+        p = self.params
+        part = lambda ctx: self.pos + p['hesitate_frac'] * (self.palm_at_zone(ctx) - self.pos)
+        return [self.G_call(lambda t, ctx: self.extras.update(hesitate_t=round(t, 4))),
+                Gesture('move', 'hesitate', target=part, duration=p['reach_out_s'] * p['hesitate_frac'], shape='relaxed'),
+                Gesture('sleep', 'hesitating', duration=p['hesitate_s'])]
+
+    def own_item_detour(self) -> list[Gesture]:
+        """C3: the hand opens while reaching for the person's own cup under a hand zone (it looks like holding the hand
+        out), closes on it, the person drinks, puts it back and goes back to work; the can is asked for later."""
+        p, b = self.params, self.behavior
+        own, dz, spot = b['own_item'], float(b['own_grip_dz_m']), {}
+        on_cup = lambda ctx: np.asarray(ctx['object_positions'][own], float) + [0.0, 0.0, dz]
+        use = self.rest + np.asarray(b['use_offset'], float)
+
+        def grab(t, ctx):
+            spot['p'] = self.pos.copy()
+            self.requests.append(('attach', own))
+            self.holding = own
+            self.emit('object_grasp', object=own, actor='human')
+
+        def drop(t, ctx):
+            self.requests.append(('detach', own))
+            self.holding = None
+            self.emit('object_release', object=own, actor='human')
+        return [self.G_call(lambda t, ctx: self.extras.update(own_reach_t=round(t, 4))),
+                Gesture('move', 'reach_own', target=lambda ctx: on_cup(ctx) + [0.0, 0.0, 0.04], duration=p['own_reach_s'],
+                        shape='offer', palm_up=0.3, key=own),
+                Gesture('move', 'grasp_own', target=on_cup, duration=0.4, shape='grasp', key=own),
+                self.G_call(grab),
+                # lifted straight up first and put down from above: a low straight move swept the work piece in U off
+                # the table (check 2026-10-25 13:34, seed 300006)
+                Gesture('move', 'lift_own', target=lambda ctx: spot['p'] + [0.0, 0.0, 0.10], duration=0.5, shape='grasp'),
+                Gesture('move', 'use_own', target=lambda ctx: use, duration=p['use_move_s'], shape='grasp'),
+                Gesture('sleep', 'drinking', duration=p['own_use_s']),
+                Gesture('move', 'put_own', target=lambda ctx: spot['p'] + [0.0, 0.0, 0.10], duration=p['use_move_s'], shape='grasp'),
+                Gesture('move', 'lower_own', target=lambda ctx: spot['p'], duration=0.5, shape='grasp'),
+                self.G_call(drop),
+                Gesture('move', 'back_to_work', target=self.work_pos, duration=p['own_reach_s'], shape='relaxed')] + \
+            self.strokes(int(b['cancel_strokes']), p['stroke_s'][0])
+
+    def before_request(self) -> list[Gesture]:
+        return self.hesitation() if self.case == 'C2' else self.own_item_detour() if self.case == 'C3' else []
+
+    def cancel_due(self, ctx) -> bool:
+        """C4: the open hand is out and the robot has come within cancel_dist_m (xy): the person withdraws it."""
+        return self.case == 'C4' and not self.cancelled and self.stage == 'waiting_offer' and \
+            ctx['tcp_xy_distance'](self.palm_at_zone(ctx)) <= self.params['cancel_dist_m']
+
+    def cancel(self, t, ctx) -> list[Gesture]:
+        p, b = self.params, self.behavior
+        self.cancelled = True
+        self.extras.update(cancel_t=round(t, 4))
+        return [Gesture('move', 'withdraw_change', target=self.work_pos, duration=p['reach_out_s'], shape='relaxed')] + \
+            self.strokes(int(b['cancel_strokes']), p['stroke_s'][0]) + self.receive_gestures()[:-1] + self.give_back()
 
     def palm_at_zone(self, ctx) -> np.ndarray:
         """The open hand: the (nominal) hand zone plus this episode's offset (people do not hold the hand at a marked
@@ -982,7 +1053,10 @@ class WorkerReceiver(HandoverReceiver):
         if not self.started and t >= self.params['cue_onset_s']:
             self.started = True
             self.emit('human_cue_onset', modality='work_progress', selected_object=self.selected_object)
-            self.queue = self.work() + self.receive_gestures()[:-1] + self.give_back()   # receive without its 'done'
+            self.queue = self.work() + self.before_request() + self.receive_gestures()[:-1] + self.give_back()
+            #                                                   (receive without its 'done')
+        if self.cancel_due(ctx):
+            self.replace_queue(self.cancel(t, ctx))
         self._lifted(t, ctx)
         self.run_queue(t, ctx)
 

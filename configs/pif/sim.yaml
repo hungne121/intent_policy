@@ -1,0 +1,20 @@
+# Sim (MuJoCo, T1-T5) data for PIF. Code: pif/data/sim.py. Table frame = world shifted down to the table top
+# (origin under the robot base, +x away from the robot, +y robot's left).
+sim:
+  dataset: outputs/datasets/intent_act_late_v5
+  replay: outputs/pif/sim_replay/intent_act_late_v5   # `python -m pif.data.sim replay --code-commit b5d0c8e`
+  # the dataset was collected with the code of b5d0c8e; with today's code the replay differs. 543/559 episodes
+  # replay exactly; 16 T2 hand-overs keep frames, holding and keypoints (<= 7e-7) but the robot state drifts <= 0.0036:
+  # accepted below this tolerance (the robot state is not a PIF input; below the 0.005 m keypoint noise augment).
+  replay_state_tol: 0.005
+  source_fps: 20
+  table_z: 0.62
+  shape_type: {box: object, cup: container}     # configs/scene/common.yaml objects_catalog shapes
+  # visible tape markers (intent_policy/sim/scene_builder.py) an object can be put on. Not tokens: H1/H2 tapes (the
+  # hand-over target is the human hand, docs/PIF.md §2) and the S slot crosses (the objects on them are tokens).
+  surfaces: [P1, P2, U]
+  surface_height_m: 0.06
+  # eval-label keys without a token of their own
+  surface_alias: {U_cup: U}                     # U_cup has no tape and lies inside the U tape
+  human_targets: [H1, H2]                       # -> "human hand"
+  region_targets: [robot_zone, zone_edge, edge] # T4 intrusion / T4neg reach next to the zone -> "region"

@@ -1,4 +1,4 @@
-"""Intent sources (INTENT_ACT_GUIDE_v2.md §3, §9): every source turns (human keypoints, robot state) into the same
+"""Intent sources (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §3, §9): every source turns (human keypoints, robot state) into the same
 per-frame contract (intent/contract.py), so the policy cannot tell them apart.
 
   HindsightSource          ceiling: ground-truth segments and the true future (NOT causal)

@@ -9,7 +9,7 @@ policy:
 intent:
   provider: none
 benchmark:
-  scenario_set: scence_construct_v1  # tasks T1-T5 (docs/requirements/scence_construct.md §4.4)
+  scenario_set: scence_construct_v1  # tasks T1-T5 (docs/sim/scene_construct.md §4.4)
   scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
   eval_list: configs/scenario_lists/eval_v1.jsonl   # fixed eval episodes, 20 per task (seeds 100000+)
 observation:

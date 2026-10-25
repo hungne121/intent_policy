@@ -1,4 +1,4 @@
-"""Ground-truth intent timeline of simulated episodes and keypoint helpers (INTENT_ACT_GUIDE_v2.md §3.1).
+"""Ground-truth intent timeline of simulated episodes and keypoint helpers (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §3.1).
 
 A segment is {t_onset, t_clear, t_event, t_end, target, gesture, who} in frame indices (configs/intent_schema.yaml
 `sim_segments`), plus t_evident (the sim's evidence point, prepare -> stroke) and t_retract (end of the withdrawal

@@ -1,4 +1,4 @@
-# INTENT-ACT with the measuring device in the loop (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g): the belief
+# INTENT-ACT with the measuring device in the loop (docs/intent_act/INTENT_ACT_v3.2.md §4.2e-g): the belief
 # expert driven by the multi-gesture DeePoint on the sensor camera (intent/device.py, the 5 fold models of
 # device.folds_file), late rule: commit once a candidate's belief >= 0.95, no motion before. Pair:
 # intent_act_device_early.yaml (identical except the rule). T4: the constant-velocity yield (no belief).
@@ -14,7 +14,7 @@ intent:
   schema: configs/intent_schema.yaml # collection records human.keypoints of this schema
 benchmark:
   scenarios: [t1_pick_place, t2_handover, t3_assist, t4_interrupt]
-  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/specs/EPISODE_PLAN_v5.md)
+  eval_list: configs/episode_lists/v5/eval_list.jsonl   # 264 held-out episodes, no DART (docs/sim/episode_plan_v5.md)
 observation:
   cameras: [high, wrist, top]
   width: 256

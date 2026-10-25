@@ -493,8 +493,12 @@ class ScriptedExpert:
         if self.t3_handover and kind in ('target_object', 'target_withdrawn') and 'block_in_cup' in sc.protocol_done:
             return                              # T3 new: the cube is in the cup, which cup is no longer open
         if kind == 'target_zone':
-            self.zone = ev['zone']              # pending steps read the zone when they start
+            previous, self.zone = self.zone, ev['zone']     # pending steps read the zone when they start
             self.commit_log.append(dict(t=round(sc.time, 4), target=self.zone))
+            if previous is not None and previous != self.zone and getattr(sc, 'v6_plan', None) == 'fetch_return' \
+                    and 'object_transferred' not in sc.protocol_done and sc.grasp_state.get(self.obj, False):
+                # v6 T2: another hand zone after the steps towards the first one have run: hand over again from the top
+                self._set_plan([self._lift_step('rezone_lift')] + self._handover_steps(self.obj))
         elif kind == 'stop' and self.obj is not None:
             self._pause()                       # 'wait!' (evident from the hand moving out towards the robot)
         elif kind == 'target_withdrawn' and grasping and self.timed_change and self.obj is not None:
@@ -555,6 +559,32 @@ class ScriptedExpert:
         zone = self._decide('zone', bel.zones(), self.zone) if not late or bel.complete('zone') else None
         if zone is not None:
             self._on_evidence(dict(kind='target_zone', zone=zone), grasping)
+
+    def _handover_withdrawn(self) -> bool:
+        """v6 T2 (docs/PIF.md §4, C3 / C4, 2026-10-25): a hand zone is committed but the open palm is gone (the zone
+        belief is closed, GoalBelief._open) for hold_min_s, before the can was handed over: the request was not one
+        (C3) or was taken back (C4). Observable: the rendered hand shape, as the belief itself."""
+        sc = self.sc
+        if getattr(sc, 'v6_plan', None) != 'fetch_return' or self.zone is None or self.obj is None \
+                or 'object_transferred' in sc.protocol_done or sc.human.holding == self.obj:
+            self._abort_n = 0
+            return False
+        gone = sc.human.hand_shape != 'offer' and sc.human.stage not in HAND_OUT_STAGES   # (taking the can: grasp shape)
+        self._abort_n = getattr(self, '_abort_n', 0) + 1 if gone else 0
+        return self._abort_n >= int(round(float(self.belief.ve['hold_min_s']) / sc.dt))
+
+    def _abort_handover(self) -> None:
+        """Back off: up, back to the staging point holding the can, wait for the next open hand (zone belief reset)."""
+        sc = self.sc
+        self.commit_log.append(dict(t=round(sc.time, 4), target='abort'))
+        self.zone, self._abort_n = None, 0
+        self._runs.pop('zone', None)
+        bel = self.belief
+        bel.b_zone = np.full(len(bel.zone_keys), 1.0 / max(len(bel.zone_keys), 1))
+        bel.evidence['zone'] = False
+        held = sc.grasp_state.get(self.obj, False)
+        steps = self._handover_steps(self.obj) if held else self._task_steps()
+        self._set_plan([self._lift_step('abort_lift')] + steps)
 
     def _follow_correction(self) -> None:
         """cue_complete, free-timing change of mind: pause once the 'wait' signal is complete, re-target once the new
@@ -770,6 +800,8 @@ class ScriptedExpert:
             self._follow_evidence()
         elif self.trigger in BELIEF_TRIGGERS:
             self._follow_belief()
+            if self._handover_withdrawn():
+                self._abort_handover()
             if self.handover_mode == 'anticipate' and self.code == 'T2':
                 self._palm_seen()               # the palm-up onset time, whatever step the plan is in
         else:

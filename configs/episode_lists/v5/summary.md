@@ -1,4 +1,4 @@
-# Episode lists v5 (docs/specs/EPISODE_PLAN_v5.md)
+# Episode lists v5 (docs/sim/episode_plan_v5.md)
 
 ## demo: 559 episodes
 

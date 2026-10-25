@@ -1,5 +1,5 @@
 # Versioned evaluation protocol for Phase 2 (oracle intention utility). Every condition and every training seed
-# is evaluated on exactly the same fixed episodes: the eval scenario list (scence_construct.md §5.3; 20 episodes per
+# is evaluated on exactly the same fixed episodes: the eval scenario list (docs/sim/scene_construct.md §5.3; 20 episodes per
 # task T1, T2, T3, T4, T4-neg, T5, seeds 100000+). Scenario configs are the experiment's.
 protocol: hri_phase2_v2
 splits:
@@ -21,7 +21,7 @@ conditions:
   delay_500ms: {condition: delayed, delay_s: 0.5}
   lead_100ms: {condition: lead, lead_s: 0.1}
   lead_200ms: {condition: lead, lead_s: 0.2}
-# Pre-registered pass criteria (evaluated by scripts/analyze_phase2.py).
+# Pre-registered pass criteria (evaluated by scripts/analyze_phase2.py, removed 2026-10-23, git e29ed0d).
 pass_criteria:
   primary_metrics: [CSR, CT, AM, WCR, TSync, Rsp, CRsp]   # "important downstream interaction metrics"
   safety_metrics: [CFR, HCS]                               # must not get worse

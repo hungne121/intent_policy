@@ -1,4 +1,4 @@
-"""Causal intent perception (INTENT_ACT_GUIDE_v2.md §3.2-3.3, §9.2-9.3): PerfectPerceptionSource and PredictedSource.
+"""Causal intent perception (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §3.2-3.3, §9.2-9.3): PerfectPerceptionSource and PredictedSource.
 
 Pipeline per frame t, using keypoints <= t only:
   active hand    the hand farthest from its pose in the first frame (rest)

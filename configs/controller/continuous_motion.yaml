@@ -1,4 +1,4 @@
-# Continuous motion of the scripted expert (2026-10-18; docs/discussions/handover_som_va_intent_sai.md): the same
+# Continuous motion of the scripted expert (2026-10-18; docs/intent_act/lit_early_handover.md): the same
 # set-point interface as restricted_action.yaml, but a MOVE_* goes on a straight line towards the expert's goal with
 # all axes at once (restricted: 1 cm along one axis per tick, <= 0.2 m/s, staircase paths). The recorded action is the
 # joint target, as before; the learned continuous ACT policy is unchanged.

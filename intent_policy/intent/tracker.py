@@ -1,4 +1,4 @@
-"""Committed intentions (INTENT_ACT_GUIDE_v2.md §3.4, §9.5): `IntentTracker` keeps what the human asked the robot to
+"""Committed intentions (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §3.4, §9.5): `IntentTracker` keeps what the human asked the robot to
 do until the robot has done it — the memory channel c_who / c_target. Causal, shared by every intent source.
 
 Grammar (stable gesture + confident target -> queue item):

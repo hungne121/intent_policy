@@ -11,7 +11,7 @@ import numpy as np
 from intent_policy.intent.oracle import HORIZONS, OracleRecord, horizon_tag
 
 PREFIX = 'observation.oracle.'
-OBJECT_VOCAB = ('B1', 'B2', 'B3', 'B1p', 'C1', 'C2', 'C3')              # objects_catalog (scence_construct.md §3.1)
+OBJECT_VOCAB = ('B1', 'B2', 'B3', 'B1p', 'C1', 'C2', 'C3')              # objects_catalog (docs/sim/scene_construct.md §3.1)
 REGION_VOCAB = ('P1', 'P2', 'H1', 'H2', 'U_cup', 'intrusion_point')     # configs/layout.yaml zones + T4 intrusion
 
 

@@ -373,6 +373,24 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
         w = np.asarray([float(gestures[k]) for k in names])
         human['object_gesture'] = spec.get('object_gesture') or names[int(g.choice(len(names), p=w / w.sum()))]
         human['reach_object_s'] = _uniform(g, hb['reach_object_s'])
+    if t == 't2_worker' and hb.get('cases'):   # deep-task cases (docs/PIF.md §4, 2026-10-25), own generator: the draws
+        g = np.random.default_rng([int(seed), 6])  # above are unchanged; equal quotas: the case is cases[seed % n]
+        cases = list(hb['cases'])
+        human['case'] = spec.get('case') or cases[int(seed) % len(cases)]
+        human['hesitate_frac'] = _uniform(g, hb['hesitate_frac'])
+        human['hesitate_s'] = _uniform(g, hb['hesitate_s'])
+        human['own_reach_s'] = _uniform(g, hb['own_reach_s'])
+        human['own_use_s'] = _uniform(g, hb['own_use_s'])
+        human['cancel_dist_m'] = _uniform(g, hb['cancel_dist_m'])
+        own = hb.get('own_item')
+        if own and own in objs:                  # the person's cup at the x of a hand zone, in every case
+            hands = sorted(k for k, z in lay.items() if z['kind'] == 'hand')
+            zone = spec.get('own_item_zone') or hands[int(g.integers(len(hands)))]
+            human['own_item_zone'] = zone
+            var['object_xy'][own] = [float(lay[zone]['xy'][0] + g.uniform(-1, 1) * 0.005),
+                                     float(hb['own_item_y'] + g.uniform(-1, 1) * 0.005)]
+            var['object_yaw'][own] = 0.0
+            var['on_table'] = list(var['object_xy'])
     kin = hb.get('kinematics')
     if kin:      # (2026-10-12) pointing calibrated on real people (DP dataset, docs/intent_act/INTENT_ACT_v3.2.md §4.2d),
         k = _kinematics(kin)             # drawn last: the earlier draws of the episode are unchanged

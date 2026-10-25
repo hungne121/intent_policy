@@ -11,7 +11,7 @@ task: Hand the person the can when they need it, take it back when they give it 
 seed: 0
 scene:
   base: ../scene/common.yaml
-  objects: [CAN, WP]
+  objects: [CAN, WP, C3]            # C3: the person's own (green) cup, under a hand zone (case C3; present in every case)
   zone_markers: false
 scene_variation:
   variant: fetch_return
@@ -74,6 +74,23 @@ human_behavior:
   hand_clearance_m: 0.005           # the rising palm stops if the robot is closer than this
   pull_offset: [0.0, -0.04, -0.03]  # then the human pulls the object down, towards the body ...
   pull_s: 0.6                       # ... the robot must release on the pull (fixed release condition)
+  # Deep-task cases (docs/PIF.md §4, 2026-10-25): the case of an episode is cases[seed % 4] (equal quotas), unless the
+  # spec fixes it. C1 normal; C2 ambiguous (a partial, relaxed-hand move out, a pause, then the open hand); C3 wrong
+  # prediction (the hand opens while reaching for the person's own cup under a hand zone, takes it, drinks, puts it
+  # back, works on, then asks for the can); C4 change of mind (the open hand is withdrawn once the robot is close, the
+  # person works on, then asks again).
+  cases: [C1, C2, C3, C4]
+  hesitate_frac: [0.3, 0.55]        # C2: share of the way out the relaxed hand moves ...
+  hesitate_s: [0.6, 1.4]            # ... and how long it pauses there
+  own_item: C3                      # C3: the person's cup ...
+  own_item_y: -0.17                 # ... stands at the x of a hand zone (drawn per episode), this y (2 cm nearer the person
+                                    #   than the zone; -0.21 overlaps the work piece in U, y -0.295..-0.225)
+  own_reach_s: [0.9, 1.3]           # ... the open hand reaches for it (palm partly up while moving: hand pre-shaping,
+                                    #   Jeannerod 1984), then closes on it
+  own_grip_dz_m: 0.05               # palm above the cup centre when holding it
+  own_use_s: [0.8, 1.5]             # ... drinks this long (at use_offset), puts it back
+  cancel_dist_m: [0.10, 0.25]       # C4: the open hand is withdrawn once the TCP is this close (xy) to it ...
+  cancel_strokes: 2                 # ... then this many work strokes before the hand goes out again
 intention_change:
   probability: 0.0
   late_trigger_m: 0.15

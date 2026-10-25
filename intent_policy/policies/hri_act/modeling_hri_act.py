@@ -9,7 +9,7 @@ replaces it by the fused latent h'), so both heads share one backbone and one fo
                                                                   h' -+-> action_head (continuous chunk)
                                                                       +-> restricted head (9 logits / step)
 
-With intent tokens (`intent_arch: tokens`, INTENT_ACT_GUIDE.md) the network is `IntentACT`, LeRobot's ACT with the
+With intent tokens (`intent_arch: tokens`, INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]) the network is `IntentACT`, LeRobot's ACT with the
 intent tokens in its transformer / CVAE encoders (policies/intent_act.py); the batch carries the labels intent.obj,
 intent.act, intent.phase, intent.tte, intent.xi (raw xi, normalised here with the training-split statistics).
 """
@@ -128,7 +128,7 @@ class HRIACTPolicy(ACTPolicy):
         return batch
 
     def set_ensemble_reset(self, star: float | None) -> None:
-        """Intent v3.2, evaluation only (research_collab.md K9): clear the temporal-ensembling buffer when the decision
+        """Intent v3.2, evaluation only (research_collab.md [removed, git e29ed0d] K9): clear the temporal-ensembling buffer when the decision
         reconstructed from the given belief switches from one valid target to another - per target kind
         (intent_schema target_kinds), the target whose share of its kind's belief is >= `star` (the condition's rule,
         early 0.7). The first decision does not reset. None: off."""

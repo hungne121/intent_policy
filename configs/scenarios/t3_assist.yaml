@@ -1,5 +1,5 @@
 scenario_id: t3_assist
-task_code: T3                       # docs/requirements/scence_construct.md §4.4, reworked (user request 2026-09-30)
+task_code: T3                       # docs/sim/scene_construct.md §4.4, reworked (user request 2026-09-30)
 role: collaborator
 goal: >-
   A learned workflow: two cubes lie in U, each paired with a cup on one of the six slots (red B1 with the green

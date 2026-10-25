@@ -1,4 +1,4 @@
-# Intent data contract v2 (docs/requirements/INTENT_ACT_GUIDE_v2.md §2 + §9). Every intent source (hindsight /
+# Intent data contract v2 (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §2 + §9). Every intent source (hindsight /
 # perfect / predicted, intent_policy/intent/sources.py) emits exactly these fields per frame; the policy never knows
 # which source produced them (intent_policy/intent/contract.py validates them).
 #   p_who (4) p_target (K) c_who (4) c_target (K) occupancy (7) tte (1) tte_std (1) phase (5) xi (M, J, 3)
@@ -86,7 +86,7 @@ perfect:
 # (scenario_overrides: scene.cameras.sensor_side = the `side` view of scripts/render_sensor_view.py).
 device:
   folds_file: outputs/device/current/device_folds.json   # the 5 fold models + their calibration, written by
-                                    #   workstation/job1_device.sh (model k: test fold k, validation fold k + 1, trained
+                                    #   workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d) (model k: test fold k, validation fold k + 1, trained
                                     #   on the other 3; an episode is measured by the model of its fold, intent/folds.py):
                                     #   checkpoint, sigma_deg / sigma_deg_by_frames (Rayleigh MLE vs device frames since
                                     #   the detection), hold_frames {late, early} (smallest hold with <= 5 % false-trigger

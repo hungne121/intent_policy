@@ -1,6 +1,6 @@
 """T1 pick and place (instructor): the human points at a cube and at a place zone P; the robot must put exactly that
 cube into that zone without touching the other objects and return to rest. T5 on T1: the human switches cubes
-before the robot grasps (scence_construct.md §4.4)."""
+before the robot grasps (docs/sim/scene_construct.md §4.4)."""
 import numpy as np
 from intent_policy.scenarios.base_scenario import BaseScenario
 

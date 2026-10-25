@@ -1,4 +1,4 @@
-"""Intent tokens v3.2 (docs/requirements/INTENT_ACT_v3.2.md §5.2): 6 tokens + a key padding mask.
+"""Intent tokens v3.2 (docs/intent_act/INTENT_ACT_v3.2.md §5.2): 6 tokens + a key padding mask.
 
     contract v3.2 fields -> IntentEncoderV32 -> [HUMAN, SEM, TARGET, C_TARGET, TIME, MOTION] (B, 6, d), mask (B, 6)
 
@@ -115,7 +115,7 @@ class IntentFiLMV32(nn.Module):
 
 
 class IntentEncoderUnified(nn.Module):
-    """One intent token from the measuring device's output only (trial of 2026-10-18; intent/unified.py, doc 'Hướng
+    """One intent token from the measuring device's output only (trial of 2026-10-18; intent/unified.py [removed 2026-10-23, git e29ed0d], doc 'Hướng
     triển khai thesis hiện tại' §2.2 / §4): u_t over the K schema targets + `hold`
 
         hold = p_gesture(palm_forward)                            ('wait'; withdraw left out on 2026-10-18: under the

@@ -2,7 +2,7 @@
 (early / on time / late); the robot must put exactly that object into the waiting palm, hold still and release only
 when the human has closed the hand on it and pulls. An object let go into the waiting palm rests on it (palm support)
 and the human closes the hand on it; one let go elsewhere falls (object_dropped). T5 on T2: the human switches objects
-before the robot grasps (scence_construct.md §4.4)."""
+before the robot grasps (docs/sim/scene_construct.md §4.4)."""
 import mujoco
 import numpy as np
 from intent_policy.scenarios.base_scenario import BaseScenario

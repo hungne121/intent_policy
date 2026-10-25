@@ -1,7 +1,7 @@
 """T3 assist (collaborator), a learned workflow: two cubes lie in U, each paired with a cup on a slot. The human
 picks up one cube (no pointing); the robot must anticipate which cup belongs to it, stand that cup in the cup spot
 of U (U_cup, the former support zone A) and return to rest; the human then drops the cube into it. T5 on T3: the
-human switches cubes (and so cups) before the robot grasps (scence_construct.md §4.4, reworked 2026-09-30).
+human switches cubes (and so cups) before the robot grasps (docs/sim/scene_construct.md §4.4, reworked 2026-09-30).
 
 T3 new (human_behavior.handover, 2026-10-18): after the drop the human holds an open hand out, palm up, in the hand zone
 variation.hand_zone; the robot picks the cup (with the cube) up again and puts it into the palm, released on the pull

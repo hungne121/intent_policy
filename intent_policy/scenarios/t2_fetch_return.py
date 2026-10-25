@@ -36,6 +36,26 @@ class FetchReturnTask(HandoverTask):
         ctx['zone_positions'] = {k: BaseScenario.zone_pos(self, k) for k in self.zones}
         return ctx
 
+    def on_reset(self):
+        super().on_reset()
+        own = self.cfg.human_behavior.get('own_item')   # the person's cup (case C3) moves with the person: not checked
+        if own:                                        #   for displacement; robot contact with it still is
+            self.watch = [k for k in self.watch if k != own]
+            self.own_item = own
+
+    def _update_other_objects(self) -> None:
+        super()._update_other_objects()
+        own = getattr(self, 'own_item', None)
+        if own is None or self.failure is not None:
+            return
+        d = self.env.data
+        for i in range(d.ncon):
+            c = d.contact[i]
+            for a, b in ((c.geom1, c.geom2), (c.geom2, c.geom1)):
+                if self.geom_object.get(int(a)) == own and int(b) in self.robot_geom_set:
+                    self.fail('touched_other_object')
+                    return
+
     def handover_only(self) -> bool:
         """`success_conditions.handover_only`: the episode is the hand-over alone (docs/PIF.md §4, C1 first; 2026-10-25):
         success once the human holds the can (T2's predicate), no give-back."""
