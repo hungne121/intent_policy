@@ -1,5 +1,6 @@
 """v6 T4 coworker (HABIT 'Place the bread into the airtight container', S8791; docs/sim/scenarios_v6_proposal.md): the
-robot puts the two rolls into the two open boxes by itself (BR1 -> box A, BR2 -> box B). The human closes the lid of
+robot puts the two rolls into the two open boxes by itself (the roll on box A's side -> box A first, the other -> box B;
+the rolls look alike, so the order is set by what the cameras see). The human closes the lid of
 each box once its roll is in and the gripper has moved away, and at a random moment reaches into the robot zone for
 the spice box. While the hand is in the robot zone the robot must be stationary (T4's yield rule, InterruptTask); it
 must never touch the human; it completes the task and returns to rest."""
@@ -14,7 +15,12 @@ class CoworkerTask(InterruptTask):
     def on_reset(self):
         super().on_reset()
         cw = self.variation['coworker']
-        self.pairs = list(zip(cw['breads'], cw['boxes']))
+        # The rolls look identical and their slots are random, so the order must be observable (2026-10-25,
+        # docs/reports/ACT_v6_failure_analysis.md): the roll on box A's side (smaller x, as box A) goes into box A,
+        # first; the other into box B. Slot x values differ by >= 3 cm (layout.yaml), the jitter is 0.8 cm.
+        xy = self.variation['object_xy']
+        breads = sorted(cw['breads'], key=lambda b: float(xy[b][0]))
+        self.pairs = list(zip(breads, cw['boxes']))
         self.lid_of = dict(zip(cw['boxes'], cw['lids']))
         self.item = cw['item']
         self.watch = []                         # rolls become targets in turn; lids / the item are the human's
