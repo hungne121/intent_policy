@@ -1,11 +1,12 @@
 # PIF: mô hình ý định cho IntentACT
 
-**Phiên bản:** 25/10/2026 06:51. Lịch sử:
+**Phiên bản:** 25/10/2026 08:22. Lịch sử:
 - 23/10: gộp từ các file handoff.
 - 24/10 07:00: PIF v3 (ADR-001).
 - 24/10 13:44: thêm §0 kim chỉ nam.
 - 25/10 00:40: §2 viết lại thành bảng quyết định duy nhất; §7 trạng thái.
 - 25/10 00:55: dẫn nguồn ở `docs/references.md` mục D.
+- 25/10 08:22: §7 trạng thái mới; thêm `docs/sim/PIPELINE_v6.md`.
 - 25/10 06:51: §2.4 đánh giá bằng temporal ensembling 0.01 (đo: B 0/40 → 8/40).
 - 25/10 04:01: §2.4 ghi lệch lr / batch so với ACT, cách tính val loss.
 - 25/10 02:47: §2 cách đưa ý định ManiCast vào D (FiLM từng tầng + image dropout, F1 không áp dụng); chia 80/20 bằng `--val-every 5`.
@@ -315,19 +316,18 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - Giai đoạn A: laptop, CPU.
 - Giai đoạn B: thuê GPU trích xuất S8789 (67 082 frame). Ước tính trên RTX A5000 chưa đo; đo 1 episode trước. Fit model: laptop.
 
-## 7. Trạng thái (25/10/2026 01:00)
+## 7. Trạng thái (25/10/2026 08:22)
 
 | Mốc | Trạng thái |
 |---|---|
-| Kịch bản v6 (M1–M4) | xong: expert `cue_complete` (tạm) 48/48 trên 4 task với chuyển động HY-Motion |
-| ManiCast | đánh giá bản gốc xong; fine-tune trên v6 xong (`outputs/forecast_ft/2026-10-24_23-44`) |
-| Đọc ra đích (M5 bước 1) | xong trên keypoint sạch: T1 100% từ 0.4 s, T2 100% từ 0.2 s, T3 ~80% từ 0.3 s (có ManiCast); chưa kiểm keypoint có nhiễu |
-| Dự báo vật đang cầm | đo xong: tốt khi đang mang (T4 78 vs 173 mm); kém khi đặt xuống; phần mở rộng để sau |
-| Expert không đặc quyền (25/10 00:57) | `intent_policy/intent/goal_belief.py` + trigger `goal` (`goal_rule: early` cho B/D, `late` cho A). Seed 100–111, sớm nhanh hơn muộn: T1 2.8 s, T2 4.9 s, T3 2.2 s, T4 ≈ 0. Lỗi chung cả hai luật: T1 chạm vật 3/12, T3 cốc lệch 3/12, T4 chạm người 1/12 |
-| **Tiếp theo** | sửa 3 lỗi chung → pilot demo (5–10/task) → người dùng duyệt video → kiểm leakage → train A/B/D trên pilot (laptop) → cổng D |
+| Kịch bản v6 + expert `goal` sớm / muộn | xong; thu demo: `v6_early` 190 tập (T1 46, T2 50, T3 47, T4 47), `v6_late` 178 (T1 46, T2 49, T3 37, T4 46). Người dùng duyệt video 25/10 03:05 |
+| Ý định ManiCast cho D | cột `intent_pp` + nguồn online (`intent_policy/intent/manicast_intent.py`), khớp nhau 2.5e-7 m |
+| Train A / B / D / B25 | xong 25/10 06:30 trên A40 thuê (2000 ACT epoch, lr 1e-4 batch 32); checkpoint `outputs/train_v6/2026-10-25_pod/run/` |
+| Đánh giá (50 tập / task, ensembling 0.01) | thành công **quá thấp để so sánh**: T1 26–46 %, T3 24–32 %, T2 0 %, T4 ≈ 0 % cho cả A, B, D |
+| **Đang làm** | người dùng (25/10 08:12): tìm xem thất bại do **lỗi** hay do **train chưa đủ**; sau đó train **đều số bước** cho tới khi A không thua (hoặc thua nhẹ) bài ACT gốc, rồi mới xét các chỉ số. Đã loại: lỗi nhãn action / sim (phát lại 20/20), lệch đường vào policy (open-loop ≈ val loss) |
 | PIF v3 trên HABIT | pilot "một phần" (24/10 12:55); tạm dừng, chờ xác nhận §2.6 |
 
-Chi tiết từng bước và số đo: `docs/sim/scenarios_v6_proposal.md`.
+Cách chạy từng bước: `docs/sim/PIPELINE_v6.md`. Chi tiết kịch bản và số đo expert: `docs/sim/scenarios_v6_proposal.md`.
 
 ## 8. Quy tắc làm việc
 
