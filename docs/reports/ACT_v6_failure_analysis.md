@@ -1,6 +1,6 @@
 # Vì sao A / B / D (v6) thành công thấp: lỗi hay train chưa đủ
 
-**Phiên bản:** 25/10/2026 08:40. Người dùng hỏi 25/10 08:12: thất bại do lỗi hay do train chưa đủ; T2, T4 vì sao không chạy được.
+**Phiên bản:** 25/10/2026 08:40, cập nhật T2 25/10/2026 09:34. Người dùng hỏi 25/10 08:12: thất bại do lỗi hay do train chưa đủ; T2, T4 vì sao không chạy được.
 
 ## 1. Kết quả đang có (50 tập / task, seed 400000+, temporal ensembling 0.01)
 
@@ -31,6 +31,13 @@
 - lúc **đưa lon vào tay** (sau `object_grasped` / `hand_ready`): A 41, B 35, D 29 → rơi lon, chạm tay, hết giờ;
 - lúc **đặt lại** (sau `object_taken_back`): A 5, B 6, D 17 → lon đổ.
 Xem trực tiếp (B, seed 400000 / 400001 / 400003): rơi lon, chạm người, rơi lon. Không thấy lỗi code; là độ chính xác ở bước chạm tay người.
+
+**T2 — phân tích sâu (25/10 09:34, từ event của 50 tập / model và vết lệnh gripper, `scripts/check_gripper_trace.py`).**
+- Kiểu lỗi chính (A 19, B 22): **robot mở gripper làm rơi lon khi đang cầm chờ**, trước cả lúc người đưa tay (ví dụ B seed 400005: cầm lúc 2.35 s, rơi lúc 6.15 s; `hand_ready` chưa có). D khác: 20 tập cầm lon nhưng **không bao giờ tới điểm trao** (hết giờ).
+- Cơ chế (đo trên B seed 400005): demo chỉ có hai giá trị gripper, 0 (đóng, 42 % frame) và 0.085 (mở). Sim gắn vật khi lệnh < 0.03 và nhả khi > 0.05 (`assisted_grasp`). Có ensembling: lệnh lúc cầm trôi từ 0 lên 0.025 rồi tăng dần qua 0.05 → nhả. Không ensembling: policy giữ 0.085 suốt, không bao giờ đóng → hết giờ.
+- Kết luận T2: không phải lỗi code; là **kênh gripper hai trạng thái được hồi quy liên tục** cộng **dải trễ hẹp 0.03–0.05** của sim. Hướng sửa cần nguồn trước khi chọn: nhị phân hoá lệnh gripper lúc chạy (có trễ), nới dải nhả, hoặc đầu ra gripper dạng phân loại; train lâu hơn có thể làm kênh này rõ hơn.
+- T3 khác: `cup_not_on_coaster` là nhả **dứt khoát** (lệnh −0.001 → 0.062 trong 0.5 s) nhưng **sai chỗ** → độ chính xác vị trí đặt, không phải trôi gripper.
+- Lỗi kiểu nhả / rơi chiếm ~35 % mọi thất bại (A 61/170, B 59/170, D 59/164).
 
 **T4 (làm việc cạnh người).** Hai lỗi khác nhau:
 1. **Lỗi thiết kế kịch bản (lỗi thật).** Hai ổ bánh BR1 / BR2 **giống hệt** (cùng hình, cùng màu `tan`), vị trí của chúng **ngẫu nhiên** mỗi tập, nhưng task bắt lấy **BR1 trước** (`t4_coworker.robot_target`). Expert biết danh tính nhờ thông tin đặc quyền; policy chỉ thấy ảnh nên không thể biết ổ nào là BR1 → `wrong_object_manipulated` (B 15, D 13) và một phần `bread_outside_box`.
