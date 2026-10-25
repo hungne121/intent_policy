@@ -181,18 +181,49 @@ def split_episodes(n: int, val_every: int) -> tuple[list[int], list[int]]:
 class EpochSampler(torch.utils.data.Sampler):
     """Shuffled order fixed by (seed, epoch); `start` skips already consumed samples (exact resume)."""
 
-    def __init__(self, n: int, seed: int):
+    def __init__(self, n: int, seed: int, weights=None):
         self.n, self.seed, self.epoch, self.start = n, seed, 0, 0
+        self.weights = None if weights is None else torch.as_tensor(weights, dtype=torch.double)
 
     def set_position(self, epoch: int, start: int) -> None:
         self.epoch, self.start = epoch, start
 
     def __iter__(self):
         g = torch.Generator().manual_seed(self.seed * 100003 + self.epoch)
+        if self.weights is not None:             # key frames more often (with replacement), same epoch length
+            return iter(torch.multinomial(self.weights, self.n, replacement=True, generator=g)[self.start:].tolist())
         return iter(torch.randperm(self.n, generator=g)[self.start:].tolist())
 
     def __len__(self):
         return self.n - self.start
+
+
+KEY_MOTIONS = ('reach_out', 'hesitate', 'reach_own', 'grasp_own', 'withdraw_change')   # the human's gestures
+KEY_STEPS = ('hand_ready',)
+
+
+def keyframe_weights(ds, ep_meta: dict, fps: float, weight: float, window_s: float) -> np.ndarray:
+    """Per-sample weights: `weight` within `window_s` of the episode's key events, else 1 (Keyframe-Focused Visual
+    Imitation Learning - Wen, Lin, Darrell, Jayaraman, Gao - 2021: up-weight the frames where the expert's action
+    changes; here the human's gestures and the robot's reactions, from meta/hri_episodes.jsonl): the start of a hand
+    gesture (KEY_MOTIONS, KEY_STEPS) and the robot's reactions: the expert's commits to a hand zone and its aborts (not
+    the commit to the one object at the start)."""
+    cols = ds.hf_dataset.with_format('numpy', columns=['episode_index', 'frame_index'])
+    ep, fr = np.asarray(cols['episode_index']), np.asarray(cols['frame_index'])
+    w = np.ones(len(ep))
+    half = int(round(window_s * fps))
+    for e in np.unique(ep):
+        m = ep_meta[int(e)]
+        keys = [x['start'] for x in m.get('human_motions', []) if x['label'] in KEY_MOTIONS]
+        keys += [x['frame'] for x in m.get('protocol_steps', []) if x['step'] in KEY_STEPS]
+        obj = (m.get('variation') or {}).get('target_object')
+        keys += [x['frame'] for x in m.get('expert_commits', []) if x.get('frame') is not None and x['target'] != obj]
+        rows = np.flatnonzero(ep == e)
+        near = np.zeros(len(rows), bool)
+        for k in keys:
+            near |= np.abs(fr[rows] - k) <= half
+        w[rows[near]] = weight
+    return w
 
 
 def run_batch(policy, preprocessor, batch, device, label_key, amp: bool = False, selector: IntentSelector | None = None):
@@ -297,6 +328,12 @@ def main():
     p.add_argument('--save-every', type=int, help='override training.save_every')
     p.add_argument('--act-epochs', type=int, help='length in ACT epochs (Zhao et al. 2023, imitate_episodes.py: one random '
                    'sample per training episode): steps = ceil(epochs x train episodes / batch); overrides --steps')
+    p.add_argument('--keyframe-weight', type=float, help='sample frames near the key events this many times more often '
+                   '(keyframe_weights; default 1 = uniform)')
+    p.add_argument('--keyframe-window-s', type=float, default=0.5, help='half width of a key-event window [s]')
+    p.add_argument('--init-from', help='pretrained_model folder to start from (fine-tuning; new optimizer)')
+    p.add_argument('--stats-from', help='dataset root whose normalisation stats are used (fine-tuning: the pretrained '
+                   "model's dataset)")
     p.add_argument('--save-every-epochs', type=int, help='with --act-epochs: a checkpoint every this many ACT epochs')
     p.add_argument('--keep-last', type=int, help='numbered checkpoints to keep (0: all; default training.keep_last or 2)')
     p.add_argument('--amp', action=argparse.BooleanOptionalAction, default=None, help='fp16 autocast (default: training.amp)')
@@ -397,7 +434,12 @@ def main():
     val_ds = LeRobotDataset(repo_id, episodes=val_eps, **ds_kw) if val_eps else None
     loader_kw = dict(batch_size=batch_size, num_workers=num_workers, pin_memory=args.device == 'cuda', drop_last=True,
                      persistent_workers=False)
-    sampler = EpochSampler(len(train_ds), seed)
+    weights = keyframe_weights(train_ds, ep_meta, meta.fps, args.keyframe_weight, args.keyframe_window_s) \
+        if args.keyframe_weight and args.keyframe_weight > 1 else None
+    if weights is not None:
+        print(f'key-frame sampling: weight {args.keyframe_weight} within {args.keyframe_window_s} s of the key events, '
+              f'{(weights > 1).mean():.1%} of the training frames', flush=True)
+    sampler = EpochSampler(len(train_ds), seed, weights)
     # own generator: creating a loader iterator must not consume the global torch RNG (dropout), or resume drifts
     train_loader = torch.utils.data.DataLoader(train_ds, sampler=sampler, generator=torch.Generator().manual_seed(seed),
                                                **loader_kw)
@@ -423,7 +465,16 @@ def main():
             policy.intent_encoder.set_stats(mean, std, *xi_stats(train_ds, selector.primary, 'hand_hist'))
         else:
             policy.intent_encoder.set_xi_stats(mean, std)
-    preprocessor, postprocessor = make_hri_act_pre_post_processors(cfg, dataset_stats=meta.stats)
+    stats = meta.stats
+    if args.init_from:                           # fine-tuning: the weights (and the intent xi statistics) of the given
+        from safetensors.torch import load_file  # model; its normalisation (dataset stats) kept via --stats-from
+        missing, unexpected = policy.load_state_dict(load_file(str(Path(args.init_from) / 'model.safetensors')), strict=False)
+        if missing or unexpected:
+            raise SystemExit(f'--init-from: architecture differs (missing {missing[:5]}, unexpected {unexpected[:5]})')
+        print(f'initialised from {args.init_from}', flush=True)
+    if args.stats_from:
+        stats = LeRobotDatasetMetadata(repo_id, root=resolve(args.stats_from)).stats
+    preprocessor, postprocessor = make_hri_act_pre_post_processors(cfg, dataset_stats=stats)
     optimizer = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
     scaler = torch.amp.GradScaler('cuda', enabled=amp)
     out.mkdir(parents=True, exist_ok=True)
@@ -449,7 +500,7 @@ def main():
         return dict(experiment=exp, experiment_config_path=str(args.config), policy_config_path=str(policy_cfg_path),
                     policy_config=json.loads(json.dumps(asdict(cfg), default=str)), dataset_root=str(root),
                     dataset_repo_id=repo_id, dataset_episodes=meta.total_episodes, dataset_frames=meta.total_frames,
-                    train_episodes=train_eps, val_episodes=val_eps, excluded_tasks=list(args.exclude_tasks), episodes_per_task=args.episodes_per_task, act_epochs=args.act_epochs, seed=seed, step=tag_step, steps_total=steps,
+                    train_episodes=train_eps, val_episodes=val_eps, excluded_tasks=list(args.exclude_tasks), episodes_per_task=args.episodes_per_task, act_epochs=args.act_epochs, keyframe_weight=args.keyframe_weight, keyframe_window_s=args.keyframe_window_s, init_from=args.init_from, stats_from=args.stats_from, seed=seed, step=tag_step, steps_total=steps,
                     batch_size=batch_size, amp=amp, num_workers=num_workers, last_log=last_info,
                     created=datetime.now(timezone.utc).isoformat(),
                     versions=dict(python=platform.python_version(), torch=torch.__version__,
