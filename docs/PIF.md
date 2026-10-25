@@ -1,12 +1,12 @@
 # PIF: mô hình ý định cho IntentACT
 
-**Phiên bản:** 25/10/2026 08:22. Lịch sử:
+**Phiên bản:** 25/10/2026 08:17. Lịch sử:
 - 23/10: gộp từ các file handoff.
 - 24/10 07:00: PIF v3 (ADR-001).
 - 24/10 13:44: thêm §0 kim chỉ nam.
 - 25/10 00:40: §2 viết lại thành bảng quyết định duy nhất; §7 trạng thái.
 - 25/10 00:55: dẫn nguồn ở `docs/references.md` mục D.
-- 25/10 08:22: §7 trạng thái mới; thêm `docs/sim/PIPELINE_v6.md`.
+- 25/10 08:17: §7 trạng thái mới; thêm `docs/sim/PIPELINE_v6.md`.
 - 25/10 06:51: §2.4 đánh giá bằng temporal ensembling 0.01 (đo: B 0/40 → 8/40).
 - 25/10 04:01: §2.4 ghi lệch lr / batch so với ACT, cách tính val loss.
 - 25/10 02:47: §2 cách đưa ý định ManiCast vào D (FiLM từng tầng + image dropout, F1 không áp dụng); chia 80/20 bằng `--val-every 5`.
@@ -316,7 +316,7 @@ Mục đích: chứng minh model tự xây đủ ổn **trước khi** cài đ�
 - Giai đoạn A: laptop, CPU.
 - Giai đoạn B: thuê GPU trích xuất S8789 (67 082 frame). Ước tính trên RTX A5000 chưa đo; đo 1 episode trước. Fit model: laptop.
 
-## 7. Trạng thái (25/10/2026 08:22)
+## 7. Trạng thái (25/10/2026 08:17)
 
 | Mốc | Trạng thái |
 |---|---|

@@ -1,6 +1,6 @@
 # Quy trình v6: demo → ý định ManiCast → train ACT A / B / D → đánh giá
 
-**Phiên bản:** 25/10/2026 08:20. Quyết định và lý do nằm ở `docs/PIF.md` §2; file này chỉ ghi **cách chạy** và **file nào làm gì**.
+**Phiên bản:** 25/10/2026 08:17. Quyết định và lý do nằm ở `docs/PIF.md` §2; file này chỉ ghi **cách chạy** và **file nào làm gì**.
 
 ## 1. Mô hình so sánh
 
