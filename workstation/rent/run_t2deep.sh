@@ -31,7 +31,7 @@ step "2/3 Fine-tune A and D ($STEPS steps, checkpoint every $SAVE, lr $LR, key-f
 mkdir -p "$RUN"
 NW=$(( CPUS / 2 > 2 ? CPUS / 2 - 1 : 1 ))
 COMMON=(--val-every 5 --steps "$STEPS" --save-every "$SAVE" --keep-last 0 --num-workers "$NW" --video-backend torchcodec
-        --policy-set "optimizer_lr=$LR" --keyframe-weight "$KW")
+        --policy-set "optimizer_lr=$LR" --keyframe-weight "$KW")   # videos decoded on the fly: a 32-vCPU pod (user 25/10: more CPU, no cache)
 ./run.sh -m scripts.train_policy --config configs/experiments/t2deep_late.yaml --dataset-root outputs/datasets/t2deep_late \
     --repo-id local/t2deep_late --init-from "$INIT_A" --stats-from outputs/datasets/t2c1_late "${COMMON[@]}" \
     --output-dir "$RUN/A" > "$RUN/A.log" 2>&1 &

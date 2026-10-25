@@ -198,6 +198,29 @@ class EpochSampler(torch.utils.data.Sampler):
         return self.n - self.start
 
 
+def use_frame_cache(datasets, path) -> None:
+    """Serve the camera frames of `datasets` from the JPEG cache of scripts/build_frame_cache.py (frame = the global
+    index of the episode's first frame + round(timestamp x fps)); the cache is loaded once and shared with the
+    DataLoader workers (fork)."""
+    from scripts.build_frame_cache import decode_jpeg
+    z = np.load(path)
+    buf, off, ln, keys = z['buffer'], z['offsets'], z['lengths'], list(z['keys'])
+    for ds in datasets:
+        reader = ds._ensure_reader()
+        fps = float(ds.meta.fps)
+
+        def query(query_timestamps, ep_idx, reader=reader, fps=fps):
+            first = int(reader._meta.episodes[ep_idx]['dataset_from_index'])
+            out = {}
+            for key, ts in query_timestamps.items():
+                k = keys.index(key)
+                fr = [decode_jpeg(buf[off[k, g]:off[k, g] + ln[k, g]]) for g in (first + int(round(t * fps)) for t in ts)]
+                out[key] = torch.stack(fr).squeeze(0)
+            return out
+        reader._query_videos = query
+    print(f'frame cache: {path} ({buf.nbytes / 1e9:.2f} GB)', flush=True)
+
+
 KEY_MOTIONS = ('reach_out', 'hesitate', 'reach_own', 'grasp_own', 'withdraw_change')   # the human's gestures
 KEY_STEPS = ('hand_ready',)
 
@@ -331,6 +354,8 @@ def main():
     p.add_argument('--keyframe-weight', type=float, help='sample frames near the key events this many times more often '
                    '(keyframe_weights; default 1 = uniform)')
     p.add_argument('--keyframe-window-s', type=float, default=0.5, help='half width of a key-event window [s]')
+    p.add_argument('--frame-cache', action='store_true', help='camera frames from <dataset root>/frame_cache_q95.npz '
+                   '(scripts/build_frame_cache.py) instead of decoding the videos')
     p.add_argument('--init-from', help='pretrained_model folder to start from (fine-tuning; new optimizer)')
     p.add_argument('--stats-from', help='dataset root whose normalisation stats are used (fine-tuning: the pretrained '
                    "model's dataset)")
@@ -432,6 +457,8 @@ def main():
     ds_kw = dict(root=root, delta_timestamps=delta, **({'video_backend': args.video_backend} if args.video_backend else {}))
     train_ds = LeRobotDataset(repo_id, episodes=train_eps, **ds_kw)
     val_ds = LeRobotDataset(repo_id, episodes=val_eps, **ds_kw) if val_eps else None
+    if args.frame_cache:                         # frames from the JPEG cache, not the videos (scripts/build_frame_cache.py)
+        use_frame_cache([d for d in (train_ds, val_ds) if d is not None], root / 'frame_cache_q95.npz')
     loader_kw = dict(batch_size=batch_size, num_workers=num_workers, pin_memory=args.device == 'cuda', drop_last=True,
                      persistent_workers=False)
     weights = keyframe_weights(train_ds, ep_meta, meta.fps, args.keyframe_weight, args.keyframe_window_s) \
