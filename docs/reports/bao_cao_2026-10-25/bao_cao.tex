@@ -25,16 +25,17 @@
 \end{center}
 
 \muc{1. Mục tiêu}
-Xây dựng policy học bắt chước ACT dùng dự báo chuyển động người (ManiCast) để robot \textbf{hỗ trợ sớm} khi dự báo
-đúng, và \textbf{biết sửa} khi dự báo sai hoặc người đổi ý. Thử nghiệm trong mô phỏng (tay máy UR3e) với 4
-trường hợp, mỗi trường hợp chiếm 1/4 số tập:
-\textbf{C1} dự báo đúng và rõ;
-\textbf{C2} ý định mơ hồ;
-\textbf{C3} dự báo sai (chuyển động trông giống yêu cầu nhưng không phải);
-\textbf{C4} người đổi ý sau khi robot đã bắt đầu.
-So sánh hai mô hình cùng kiến trúc ACT, cùng số bước train:
-\textbf{A} học từ demo robot chờ người làm xong cử chỉ, không dùng ý định;
-\textbf{D} học từ demo robot hành động sớm, có thêm dự báo chuyển động tay người của ManiCast.
+\begin{itemize}
+  \item \textbf{Claim 1:} dùng dự báo chuyển động người, robot hỗ trợ \textbf{sớm hơn} khi dự báo đúng.
+  \item \textbf{Claim 2:} robot \textbf{biết sửa} và vẫn hoàn thành khi dự báo sai hoặc người đổi ý.
+\end{itemize}
+Các trường hợp test:
+\begin{itemize}
+  \item \textbf{C1} dự báo đúng và rõ;
+  \item \textbf{C2} ý định mơ hồ;
+  \item \textbf{C3} dự báo sai (chuyển động trông giống yêu cầu nhưng không phải);
+  \item \textbf{C4} người đổi ý sau khi robot đã bắt đầu.
+\end{itemize}
 
 \begin{center}
 \begin{tikzpicture}[font=\footnotesize, >={Stealth[length=4pt]}, node distance=4mm and 6mm,
@@ -58,7 +59,8 @@ So sánh hai mô hình cùng kiến trúc ACT, cùng số bước train:
 \end{center}
 \vspace{-6pt}
 {\small Phương pháp (mô hình D): dự báo chuyển động tay người được mã hoá thành token và đưa vào ACT cùng ảnh và trạng
-thái robot; dự báo còn điều biến đặc trưng ảnh (FiLM). Mô hình A dùng cùng ACT nhưng không có nhánh dự báo.}
+thái robot; dự báo còn điều biến đặc trưng ảnh (FiLM); học từ demo robot hành động sớm. Mô hình so sánh A: cùng ACT,
+không có nhánh dự báo, học từ demo robot chờ người làm xong cử chỉ. Cùng số bước train.}
 
 \muc{2. Kết quả hiện tại}
 Đánh giá trên 120 tập mới (30 tập mỗi trường hợp, seed không trùng dữ liệu train).
@@ -84,18 +86,15 @@ Tổng           & 1.00 & 0.95 & 16.31 & \textbf{12.88} & 6.22 & \textbf{2.88} &
 \end{center}
 
 \begin{itemize}
-  \item D hoàn thành nhanh hơn A khoảng 3.4\,s (21\,\%); thời gian người phải chờ giảm từ 6.2\,s xuống 2.9\,s.
-  Khác biệt có ý nghĩa thống kê ở cả 4 trường hợp (Mann-Whitney, $p < 10^{-5}$).
+  \item D hoàn thành nhanh hơn A ở cả 4 trường hợp, trung bình khoảng 3.4\,s (21\,\%); thời gian người phải chờ
+  giảm từ 6.2\,s xuống 2.9\,s.
   \item Khi dự báo sai (C3) và khi người đổi ý (C4), D vẫn hoàn thành đúng 100\,\% và nhanh hơn A.
+  \item D hụt một số tập ở C1, C2 (93\,\%, 87\,\%), trong khi A đạt 100\,\% nhưng chậm hơn.
   \item Không có va chạm hay vi phạm khoảng cách an toàn ở cả hai mô hình.
 \end{itemize}
 
-\textbf{Giới hạn (mô phỏng làm kết quả khả quan hơn thực tế):}
-(1) tập test gần với tập train: 111/120 tập test có cấu hình rời rạc (vị trí vật, vùng tay, trường hợp) đã xuất
-hiện khi train, chỉ khác các sai lệch nhỏ;
-(2) D nhận tư thế tay người chính xác từ mô phỏng, chưa qua bộ ước lượng tư thế từ ảnh (thực tế có sai số, che khuất, trễ);
-(3) người mô phỏng dùng chung một thư viện chuyển động cho train và test, phản ứng theo luật cố định;
-(4) thao tác gắp có trợ giúp của mô phỏng; ánh sáng, màu sắc, vị trí camera không thay đổi.
+\textbf{Giới hạn:} kết quả trong mô phỏng khả quan hơn thực tế: tập test gần với tập train, tư thế người lấy chính
+xác từ mô phỏng, chuyển động người dùng chung thư viện, gắp có trợ giúp, hình ảnh không thay đổi.
 
 \muc{3. Hướng triển khai tiếp}
 \begin{itemize}
