@@ -1,11 +1,12 @@
 # PIF: mô hình ý định cho IntentACT
 
-**Phiên bản:** 25/10/2026 10:54. Lịch sử:
+**Phiên bản:** 25/10/2026 11:11. Lịch sử:
 - 23/10: gộp từ các file handoff.
 - 24/10 07:00: PIF v3 (ADR-001).
 - 24/10 13:44: thêm §0 kim chỉ nam.
 - 25/10 00:40: §2 viết lại thành bảng quyết định duy nhất; §7 trạng thái.
 - 25/10 00:55: dẫn nguồn ở `docs/references.md` mục D.
+- 25/10 11:11: §2.1 task sâu T2 với 4 trường hợp C1–C4.
 - 25/10 10:54: §2.1 một task sâu trước; A và D-tok trước; bỏ D-img; D chỉ ManiCast.
 - 25/10 08:17: §7 trạng thái mới; thêm `docs/sim/PIPELINE_v6.md`.
 - 25/10 06:51: §2.4 đánh giá bằng temporal ensembling 0.01 (đo: B 0/40 → 8/40).
@@ -79,6 +80,7 @@ Người dùng 25/10 00:3x: "ghi những gì đã chốt cho đàng hoàng, mấ
 | Mô hình so sánh | **A** (demo muộn, không ý định), **B** (demo sớm, không ý định), **D** (demo sớm + ý định), **oracle** (D với đích thật, chỉ làm trần). **Bỏ C** | người dùng 24/10; oracle 25/10 00:3x |
 | Policy | **ACT**, hành động **liên tục**: `configs/policy/act_continuous.yaml`, chunk 40 (2 s @ 20 Hz), action [7] (6 joint + gripper), L1 + KL, `n_action_steps: 1`, không temporal ensembling. Không chuyển sang Diffusion Policy / flow matching | người dùng 22–24/10 |
 | Thứ tự thí nghiệm (25/10 10:54) | **Một task trước, thật sâu, đủ các trường hợp** (dự báo đúng và rõ sớm / rõ muộn, mơ hồ có hoặc không có chuẩn bị chung, dự báo sai rồi sửa, người đổi ý); thấy đủ rồi mới train nhiều task. Train **A và D-tok trước** (cùng số bước), B sau. **Bỏ D-img** (vẽ dự báo lên ảnh). Các trường hợp nằm tự nhiên trong task, không thu theo nhóm demo riêng | người dùng 25/10 10:54 |
+| Task sâu: T2, 4 trường hợp (25/10 11:11) | **T2** (robot đưa lon cho người) làm task sâu, khoá phạm vi ở **4 trường hợp** theo hai claim: **C1 bình thường** (người đưa tay nhận, dự báo đúng → robot đưa sớm; claim 1), **C2 mơ hồ** (người bắt đầu chuyển động, chưa rõ có xin lon không → chuẩn bị nếu có ích hoặc chờ; claim 1 + 2), **C3 dự báo sai** (tưởng người cần lon, thật ra người lấy vật khác → được bắt đầu, rồi dừng / quay lại; claim 2), **C4 đổi ý** (người muốn nhận, robot đã bắt đầu đưa, người rút tay huỷ → dừng, điều chỉnh; claim 2). Biến thiên trong cùng kịch bản: vị trí tay nhận (liên tục trong một vùng), thời điểm bắt đầu yêu cầu, tốc độ tay, thời điểm đổi ý / lộ sai (C3, C4). Ở C3, C4 robot phải **thật sự đã bắt đầu** trước khi cần sửa (kiểm có tập robot đã đi một đoạn). Mỗi trường hợp có chỉ tiêu số tập train / test, seed riêng. Train trên C1 trước (xác nhận lợi ích làm sớm), rồi trộn C2–C4 và kiểm sửa sai có làm giảm tính chủ động không. Không thêm trường hợp khác cho tới khi thực nghiệm cho thấy lỗi quan trọng chưa được bao phủ | người dùng 25/10 11:11 (theo góp ý agent ngoài) |
 | Ý định của D (25/10 10:54) | **Chỉ ManiCast** (motion token hiện có). Không thêm hướng chỉ (ngón trỏ) hay DeePoint lúc này; lưu ý: expert T1 dùng tia chỉ mà D không có (ghi nhận, xét sau) | người dùng 25/10 10:54; góp ý agent ngoài (`docs/reports/ACT_intent_grounding_question.md`) |
 | Lái policy lúc chạy | **Không** (không inference-time steering). **Không có bộ giám sát commit** sau ACT; thời điểm commit học từ demo | người dùng 24/10 15:02; 25/10 00:3x ("không hợp ý mình") |
 
