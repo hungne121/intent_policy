@@ -36,8 +36,13 @@ class FetchReturnTask(HandoverTask):
         ctx['zone_positions'] = {k: BaseScenario.zone_pos(self, k) for k in self.zones}
         return ctx
 
+    def handover_only(self) -> bool:
+        """`success_conditions.handover_only`: the episode is the hand-over alone (docs/PIF.md §4, C1 first; 2026-10-25):
+        success once the human holds the can (T2's predicate), no give-back."""
+        return bool(self.cfg.success_conditions.get('handover_only', False))
+
     def returning(self) -> bool:
-        return 'object_transferred' in self.protocol_done
+        return 'object_transferred' in self.protocol_done and not self.handover_only()
 
     def update_task(self):
         obj = self.robot_target()
@@ -61,6 +66,8 @@ class FetchReturnTask(HandoverTask):
             self.protocol('robot_at_rest', 'robot')
 
     def success_predicate(self):
+        if self.handover_only():
+            return super().success_predicate()
         obj = self.robot_target()
         return 'robot_at_rest' in self.protocol_done and 'object_put_back' in self.protocol_done \
             and not self.grasp_state[obj] and self.robot_at_rest()

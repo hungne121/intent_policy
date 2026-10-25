@@ -244,7 +244,7 @@ class ScriptedExpert:
         if self.code in ('T1', 'T4'):
             await_zone = Step('wait', until=lambda: self.zone is not None, name='await_zone')
             return grasp + self._zone_hedge('place') + [await_zone] + self._place_steps(obj) + self._home_steps()
-        if self.code == 'T2' and getattr(self.sc, 'v6_plan', None) == 'fetch_return':
+        if self.code == 'T2' and getattr(self.sc, 'v6_plan', None) == 'fetch_return' and not self.sc.handover_only():
             return grasp + self._handover_steps(obj)[:-2] + self._take_back_steps(obj) + self._home_steps()
         if self.code == 'T2':
             return grasp + self._handover_steps(obj)
