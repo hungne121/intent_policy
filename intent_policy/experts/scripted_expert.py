@@ -180,6 +180,9 @@ class ScriptedExpert:
     def _start_known(self) -> None:
         """cue_complete / cue_onset (and T4): the current choice of the human is known."""
         self.obj, self.zone = self.sc.human.selected_object, self._known_zone()
+        if hasattr(self.sc, 'sequence_index'):
+            # Thứ tự lấy cốc là workflow cố định; đích đế vẫn phải được quan sát.
+            self.obj = self.sc.robot_target()
         self._commit(self.obj, self._task_steps())
 
     def _known_zone(self) -> str | None:
@@ -370,8 +373,13 @@ class ScriptedExpert:
         hands = np.mean([sc.zone_pos(k) for k, z in sc.zones.items() if z['kind'] == 'hand'], axis=0)
         in_palm = np.asarray(sc.cfg.human_behavior['present_offset'], float) + [0.0, 0.0, sc.rest_height[obj] - sc.table_z]
         present = lambda: sc.zone_pos(self.zone) + in_palm + self.tcp_obj_offset     # resting in the upturned palm
-        over_z = lambda: hands[2] + in_palm[2] + HANDOVER_DZ + self.tcp_obj_offset[2]  # the hand zones share one height
-        staging = lambda: np.r_[hands[:2] + np.asarray(sc.cfg.expert['staging_offset'], float) + self.tcp_obj_offset[:2], over_z()]
+        # the hand zones share one height; once a zone is decided, its own (v7: the seen palm height, zone_at_palm_height)
+        over_z = lambda: (sc.zone_pos(self.zone)[2] if self.zone is not None else hands[2]) + in_palm[2] + float(sc.cfg.expert.get('over_hand_clearance_m', HANDOVER_DZ)) \
+            + self.tcp_obj_offset[2]
+        # expert.staging_dz (v7 C1): the waiting point this much above the hand-over height, above the fingertips of a
+        # hand reaching out under it (0: legacy)
+        staging = lambda: np.r_[hands[:2] + np.asarray(sc.cfg.expert['staging_offset'], float) + self.tcp_obj_offset[:2],
+                                over_z() + float(sc.cfg.expert.get('staging_dz', 0.0))]
         human = sc.human
         palm_v = self.mapper.cfg.continuous.get('palm_speed') if getattr(self.mapper, 'continuous', False) else None
         if not via_staging:

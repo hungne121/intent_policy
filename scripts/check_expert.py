@@ -10,7 +10,7 @@ the robot took to head for the new target.
 
 With `--config` (an experiment yaml) the episodes run as they are collected: the experiment's scenario overrides,
 controller and DART per list entry; T5 entries also need the change to have happened (plan v5 seed rule). The device
-trigger (docs/requirements/INTENT_ACT_v3.2.md §4.2e-g) is reported with its commits: wrong commits (robot_target_commit
+trigger (docs/intent_act/INTENT_ACT_v3.2.md §4.2e-g) is reported with its commits: wrong commits (robot_target_commit
 events with correct = false) and the lead of the first object commit over the late trigger's cue-complete step; each
 episode also keeps its HRIBench-style metrics (CT, Rsp, AM, WCR, WCD, CRsp).
 

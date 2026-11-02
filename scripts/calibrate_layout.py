@@ -1,11 +1,11 @@
-"""Table layout calibration in simulation (scence_construct.md §3.3), replacing teleop / human trials.
+"""Table layout calibration in simulation (docs/sim/scene_construct.md §3.3), replacing teleop / human trials.
 
   measure  R_eff: grasp a 4 cm cube on a 5 cm polar grid around the robot base with the restricted controller
            (valid = 3/3 successful grasps with +-1 cm jitter) and check IK reach 15 cm above the table (hand
            zones). r_h: palm positions the mannequin reaches comfortably (waist lean <= --comfort-lean-deg) on
            the table and 15 cm above it. Writes <out>/reach.json and a top-down map <out>/reach_map.png.
 
-  check    Verify configs/layout.yaml against scence_construct.md §3.2 / §3.3: every robot location within R_eff,
+  check    Verify configs/layout.yaml against docs/sim/scene_construct.md §3.2 / §3.3: every robot location within R_eff,
            robot tests 5/5 (grasp a cube at S / P and a cup at U_cup, reach H at +10 and +20 cm, each object
            type 5/5 at a slot), human comfort (reach H, the cubes in U and the cup at U_cup, point at every P / S
            with waist lean <= comfort_lean_deg), slot rows / stagger (angle between pointing rays from the eye and
@@ -221,7 +221,7 @@ def check(args):
     blocks = [np.asarray(b, float) for k in U for b in zones[k].get('blocks', [zones[k]['xy']])]
     taped = [k for k in zones if kinds[k] != 'slot' and zones[k].get('marker', True)]
     robot_locs = S + shared
-    results, lines = {}, ['# Layout check (scence_construct.md §3.2 / §3.3)', '']
+    results, lines = {}, ['# Layout check (docs/sim/scene_construct.md §3.2 / §3.3)', '']
 
     def rule(name, ok, detail):
         results[name] = dict(ok=bool(ok), detail=detail)

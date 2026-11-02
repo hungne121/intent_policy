@@ -80,6 +80,7 @@ class HumanBody:
         self.forward = self.R_yaw @ np.array([-1.0, 0.0, 0.0])    # facing direction (world)
         self.segments = list(skel['segments'])
         self.active = cfg.get('active_arm', 'r')
+        self.default_active = self.active               # restored at every scenario reset (I2 switches arms)
         self.idle = 'l' if self.active == 'r' else 'r'
         self.max_lean = np.radians(float(cfg.get('max_lean_deg', 60.0)))
         self.head_pitch = np.radians(float(cfg.get('head_pitch_deg', 15.0)))
@@ -93,6 +94,11 @@ class HumanBody:
         self.index_ray = {s: [place(q) for q in skel['index_ray'][s]] for s in ('l', 'r')} if 'index_ray' in skel else None
         self.shape_order = list(skel['segments'][f'{self.active}_hand'].get('variants', {}))
         self.shape_state = None                  # (from shape, to shape, percent) of the smooth hand-shape change
+        # `hand`: the grasp anchor carries the active hand segment's orientation too, so a held object keeps its pose
+        # in the hand (a rigid grasp). Default `world` keeps the anchor axis-aligned (legacy scenes, reproducibility).
+        self.held_object_frame = cfg.get('held_object_frame', 'world')
+        if self.held_object_frame not in ('world', 'hand'):
+            raise ValueError('held_object_frame must be world | hand')
 
     # ------------------------------------------------------------------ MuJoCo binding
     def bind(self, model) -> None:
@@ -106,6 +112,35 @@ class HumanBody:
         hand = f'{self.active}_hand'
         self.hand_geom = model.geom(f'human_seg_{hand}_mesh').id
         self.hand_meshes = {v: model.mesh(f'human_{hand}_{v}').id for v in self.skeleton['segments'][hand]['variants']}
+        idle = f'{self.idle}_hand'
+        self.idle_hand_geom = model.geom(f'human_seg_{idle}_mesh').id
+        self.idle_hand_meshes = {v: model.mesh(f'human_{idle}_{v}').id
+                                 for v in self.skeleton['segments'][idle].get('variants', {})}
+        self.compiled_hand_geoms = {}
+        for side in (self.active, self.idle):
+            segment = f'{side}_hand'
+            default = next(v for v, file in self.skeleton['segments'][segment]['variants'].items()
+                           if file == self.skeleton['segments'][segment]['mesh'])
+            variants = {}
+            for variant in self.skeleton['segments'][segment]['variants']:
+                name = f'human_seg_{segment}_mesh' if variant == default else f'human_seg_{segment}_variant_{variant}'
+                gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, name)
+                if gid >= 0:
+                    variants[variant] = gid
+            if len(variants) > 1:
+                self.compiled_hand_geoms[side] = variants
+
+    def set_active(self, side: str) -> None:
+        """v7 (I2): the other arm becomes the moving one (its palm the scripted position); call only with both hands at
+        their relaxed pose (the arm that becomes idle hangs relaxed, the new active one starts where it hangs)."""
+        if side not in ('l', 'r'):
+            raise ValueError('side must be l or r')
+        if side == self.active:
+            return
+        self.active, self.idle = side, self.active
+        self.hand_geom, self.idle_hand_geom = self.idle_hand_geom, self.hand_geom
+        self.hand_meshes, self.idle_hand_meshes = self.idle_hand_meshes, self.hand_meshes
+        self.shape_state = None
 
     def reset_shape(self) -> None:
         self.shape_state = None
@@ -147,12 +182,22 @@ class HumanBody:
 
     def apply(self, data, palm, point_at=None, hand_shape: str = 'relaxed', palm_up: float = 0.0,
               smooth: bool = False, aim_blend: float = 1.0, shape_from: str | None = None,
-              shape_progress: float | None = None) -> dict:
+              shape_progress: float | None = None, idle_palm=None, idle_shape: str | None = None,
+              idle_palm_up: float = 0.0) -> dict:
         """Pose the bound model for a palm position: segments, distance proxies, grasp anchor, hand mesh.
-        `aim_blend` / `shape_progress`: how far a pointing hand has formed (the arm motion's progress, 2026-10-12)."""
-        pose = self.pose(palm, point_at, palm_up, aim_blend)
-        self.model.geom_dataid[self.hand_geom] = self.hand_meshes[self._shape_variant(hand_shape, smooth, shape_from,
-                                                                                      shape_progress)]
+        `aim_blend` / `shape_progress`: how far a pointing hand has formed (the arm motion's progress, 2026-10-12).
+        `idle_palm` / `idle_shape` / `idle_palm_up`: the other hand's target and shape (two-handed actions)."""
+        pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up)
+        variant = self._shape_variant(hand_shape, smooth, shape_from, shape_progress)
+        if self.active in self.compiled_hand_geoms:
+            self.hand_geom = self._select_compiled_hand(self.active, variant)
+        else:
+            self.model.geom_dataid[self.hand_geom] = self.hand_meshes[variant]
+        if idle_shape in self.idle_hand_meshes:
+            if self.idle in self.compiled_hand_geoms:
+                self.idle_hand_geom = self._select_compiled_hand(self.idle, idle_shape)
+            else:
+                self.model.geom_dataid[self.idle_hand_geom] = self.idle_hand_meshes[idle_shape]
         quat = np.zeros(4)
         for seg, (pos, rot) in pose['segments'].items():
             mujoco.mju_mat2Quat(quat, np.ascontiguousarray(rot).ravel())
@@ -164,7 +209,16 @@ class HumanBody:
         data.mocap_pos[self.proxy_mocap['head']] = pose['head']
         data.mocap_pos[self.proxy_mocap['hand']] = palm
         data.mocap_pos[self.anchor_mocap] = palm
+        if self.held_object_frame == 'hand':
+            mujoco.mju_mat2Quat(quat, np.ascontiguousarray(pose['segments'][f'{self.active}_hand'][1]).ravel())
+            data.mocap_quat[self.anchor_mocap] = quat
         return pose
+
+    def _select_compiled_hand(self, side, variant):
+        geoms = self.compiled_hand_geoms[side]
+        for name, geom in geoms.items():
+            self.model.geom_rgba[geom, 3] = float(name == variant)
+        return geoms[variant]
 
     def keypoints(self, pose: dict, names) -> np.ndarray:
         """World positions (len(names), 3) of named keypoints of a pose: `<s>_wrist` (hand segment pivot),
@@ -197,11 +251,11 @@ class HumanBody:
         dh = unit(dh) if np.linalg.norm(dh) > 1e-6 else self.forward[:2]
         return np.cross([0.0, 0.0, 1.0], [dh[0], dh[1], 0.0])
 
-    def lean_angle(self, palm) -> float:
-        """Smallest waist lean that brings the palm target within reach of the active shoulder."""
-        palm = np.asarray(palm, float)
-        spine, axis, S = self.J['Spine1'], self._lean_axis(palm), self.active.upper()
-        reach = (self.L1[self.active] + self.L2[self.active] + self.Lp[self.active]) * self.reach_margin
+    def lean_angle(self, palm, side: str | None = None) -> float:
+        """Smallest waist lean that brings the palm target within reach of the shoulder of `side` (default active)."""
+        palm, s = np.asarray(palm, float), side or self.active
+        spine, axis, S = self.J['Spine1'], self._lean_axis(palm), s.upper()
+        reach = (self.L1[s] + self.L2[s] + self.Lp[s]) * self.reach_margin
         gap = lambda th: np.linalg.norm(palm - (spine + rotation(axis, th) @ (self.J[f'{S}_Shoulder'] - spine))) - reach
         if gap(0.0) <= 0:
             return 0.0
@@ -297,18 +351,23 @@ class HumanBody:
             aim = rotation(np.cross(fore, aim), blend * angle) @ fore
         return rot(aim) @ self.R_yaw
 
-    def pose(self, palm, point_at=None, palm_up: float = 0.0, aim_blend: float = 1.0) -> dict:
+    def pose(self, palm, point_at=None, palm_up: float = 0.0, aim_blend: float = 1.0, idle_palm=None,
+             idle_palm_up: float = 0.0) -> dict:
         """Segment transforms {segment: (pivot position, rotation)} and proxy geometry for a palm target.
 
         With `point_at`, the active hand bends at the wrist so that its index finger ray points at that point (at
         most MAX_WRIST_DEG away from the forearm); otherwise it continues the forearm. `palm_up` in [0, 1] turns
         the active forearm and hand from palm down (0) through thumb up to palm up (1), the hand levelling out as it
-        turns (the palm centre stays on the target).
+        turns (the palm centre stays on the target). `idle_palm` (two-handed actions, v7 2026-10-27): a palm target
+        for the other arm too, with its own `idle_palm_up`; None keeps that arm hanging relaxed. The waist lean
+        follows the palm that needs the larger lean.
         """
         palm = np.asarray(palm, float)
         J, spine = self.J, self.J['Spine1']
-        theta = self.lean_angle(palm)
-        Rt = rotation(self._lean_axis(palm), theta)
+        theta, lean_to = self.lean_angle(palm), palm
+        if idle_palm is not None and self.lean_angle(idle_palm, self.idle) > theta:   # lean for the farther hand
+            theta, lean_to = self.lean_angle(idle_palm, self.idle), np.asarray(idle_palm, float)
+        Rt = rotation(self._lean_axis(lean_to), theta)
         on_torso = lambda p: spine + Rt @ (np.asarray(p, float) - spine)
         Ry = self.R_yaw               # mesh vertices are in T-pose axes: rest orientation = facing yaw
         seg = {'pelvis': (J['Pelvis'].copy(), Ry), 'torso': (spine.copy(), Rt @ Ry),
@@ -318,18 +377,19 @@ class HumanBody:
             S = s.upper()
             shoulder = on_torso(J[f'{S}_Shoulder'])
             fore_normal = None
-            if s == self.active:
-                target, normal = palm, PALM_DOWN
-                if palm_up > 0:                 # supination: the palm normal turns down -> medial -> up
+            up = palm_up if s == self.active else idle_palm_up
+            if s == self.active or idle_palm is not None:
+                target, normal = (palm if s == self.active else np.asarray(idle_palm, float)), PALM_DOWN
+                if up > 0:                      # supination: the palm normal turns down -> medial -> up
                     medial = -SIDE[s] * (self.R_yaw @ np.array([0.0, 1.0, 0.0]))
-                    fore_normal = np.cos(np.pi * palm_up) * PALM_DOWN + np.sin(np.pi * palm_up) * medial
+                    fore_normal = np.cos(np.pi * up) * PALM_DOWN + np.sin(np.pi * up) * medial
             else:
                 f, o, dn = self.idle_palm_offset
                 target = on_torso(J[f'{S}_Shoulder'] + self.R_yaw @ [-f, SIDE[s] * o, -dn])
                 normal = self.R_yaw @ np.array([0.0, -SIDE[s], 0.0])
             arm = self._arm(s, shoulder, target, normal, fore_normal)
-            if fore_normal is not None and point_at is None:
-                arm = self._level_hand(s, shoulder, target, normal, fore_normal, arm, palm_up)
+            if fore_normal is not None and (point_at is None or s != self.active):
+                arm = self._level_hand(s, shoulder, target, normal, fore_normal, arm, up)
             arm['shoulder'] = shoulder
             arms[s] = arm
             seg[f'{s}_upperarm'] = (shoulder, arm['R_up'])
@@ -339,6 +399,8 @@ class HumanBody:
         if point_at is not None:
             seg[f'{self.active}_hand'] = (a['wrist'], self._aim_hand(a, np.asarray(point_at, float), aim_blend))
         return dict(segments=seg, lean=theta, palm=a['palm'], reach_error=float(np.linalg.norm(a['palm'] - palm)),
+                    idle_palm=arms[self.idle]['palm'],
+                    idle_reach_error=0.0 if idle_palm is None else float(np.linalg.norm(arms[self.idle]['palm'] - idle_palm)),
                     chest=on_torso(J['Spine3']),
                     capsules={'upperarm': (a['shoulder'], a['elbow']), 'forearm': (a['elbow'], a['wrist']),
                               'torso': (on_torso(J['Spine1']), on_torso(J['Neck']))},

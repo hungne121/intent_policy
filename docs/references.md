@@ -157,3 +157,22 @@ Mức kiểm:
 | Kedia et al. InteRACT (2024) | ICRA 2024 (đã ở mục B / chương 2) | tóm tắt | người phản ứng theo robot (rủi ro H3), chưa xử lý |
 
 Còn thiếu (chưa dùng, nếu dùng phải kiểm): One Euro filter (làm mượt keypoint) cho phần nhiễu keypoint thật.
+
+## E. Rà chọn task và case tự nhiên (28/10/2026 15:35)
+
+Các mức kiểm dưới đây bổ sung lịch sử ở trên; không hàm ý đã tái lập thực nghiệm. Quyết định và giới hạn dùng nguồn ở `docs/PIF.md` §8.8.
+
+| Nguồn | Mức đã đọc trong lần rà này | Dùng và giới hạn |
+|---|---|---|
+| [Kedia et al. ManiCast, CoRL 2023](https://arxiv.org/abs/2310.13258) | Văn bản PDF qua alphaXiv: mô hình/cost và §5.1, bảng 1 | Kiểm chuyển pha, CUR/CVM, stop/restart/false detection và handover. Không gán taxonomy C1–C4 của dự án cho bài. |
+| [Song et al. HABIT, 2026](https://arxiv.org/abs/2606.31682) | §2.1–§3: workflow, reactive interaction, biến thiên tốc độ và tiêu chí theo vai | Phân bổ phép thử theo vai; mọi hành động dựa trên cue quan sát được. Bài là preprint; không tự coi kết quả bài là kiểm chứng ManiCast. |
+| [Liu et al. HRIBench, 2026](https://arxiv.org/abs/2607.13056) | Văn bản PDF: scenario/role, metrics, pipeline và validation, tr.1–7 | Tách grounding, timing, protocol và safety; lọc trajectory trong sim và kiểm nghĩa. Vai Intruder khác Cowork của dự án. Bài là preprint. |
+| [Ghose, Gitelson et al. I've Changed My Mind: Robots Adapting to Changing Human Goals during Collaboration, 2025](https://arxiv.org/abs/2511.15914) | Văn bản PDF: §IV, §V, discussion; bản ghi accepted RA-L tháng 11/2025 | Tách fixed goal, goal switch, hành động người chưa tối ưu; log switch và quan sát tiết lộ đích. Thí nghiệm rời rạc/luân phiên/goal bank, không chứng minh dự báo chuyển động 1 s. |
+| [Kedia et al. InteRACT, ICRA 2024](https://arxiv.org/abs/2311.12943) | Tr.1–4: động lực, context và định nghĩa dự báo phụ thuộc hành động robot | Giới hạn replay và người phản ứng theo robot; chưa đổi ManiCast/D-tok sang mô hình conditional. |
+| [Hoffman, Evaluating Fluency in Human–Robot Collaboration, IEEE THMS 2019](https://hrc2.io/assets/pdfs/papers/HoffmanTHMS19.pdf) | PDF tác giả, định nghĩa fluency và các metric objective; metadata DOI 10.1109/THMS.2019.2904558 | Fluency khác hiệu suất thời gian; idle/concurrent activity/functional delay. Metric jerk và an toàn của dự án là bổ sung, không gán tất cả cho Hoffman. |
+
+## F. Phản biện qua alphaXiv và Consensus (28/10/2026 16:19)
+
+Đã đọc lại các đoạn mô hình và bảng 1 ManiCast, workflow HABIT và thí nghiệm đổi goal của *I've Changed My Mind* qua alphaXiv. Consensus Pro phản biện toàn thiết kế trong [thread này](https://consensus.app/search/critically-audit-the-theoretical-and-experimental-/tTQirRjPSTq_CA6J34nn4w/); báo cáo được lưu nguyên văn tại `docs/reports/theory_audit_2026-10-28/`. Báo cáo tổng hợp là tài liệu hỗ trợ, không phải bài gốc hoặc kết quả thực nghiệm của hệ.
+
+Kiểm độc lập và điều chỉnh suy luận ở `docs/PIF.md` §8.9: không suy mọi baseline đều chậm hơn từ bảng 1; không suy forecast + MPC chứng minh ACT+D-tok; không suy thiếu conditional predictor/confidence đồng nghĩa ACT không thể thích nghi. HRIBench 2025 (Shi et al., VLM perception) được báo cáo Consensus dẫn là bài khác HRIBench 2026 (Liu et al., scenario collaboration), không dùng thay bằng chứng của nhau. Chỉ dùng nguồn gốc trong mục E theo phạm vi đã nêu.

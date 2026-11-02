@@ -1,0 +1,174 @@
+# v9 (docs/PIF.md §8.12 "Thiết kế lại theo trần dự báo", 31/10/2026): v8 + ManiCast fine-tuned on the v8 motion
+# (configs/pif/pif.yaml v6_expert.checkpoint_path), I2 3 requests, Cowork human priority (before_start false),
+# a new scenario per episode in collect_pairs. Collected: I1 (control), C3 (claim 2), I2 (claim 1), W1 / W2 (safety).
+# 10-task paired demonstrations (docs/PIF.md §8.12): early (ManiCast forecast, model D-tok) and observed (no forecast,
+# acts once the observation suffices, model A) collected as PAIRS: same seed, same exogenous conditions (variation
+# hash), both sides must pass the collection gate or the pair is replaced. scripts/collect_pairs.py.
+experiment: ten_task_v9
+intent:
+  provider: manicast
+  keypoints: [l_shoulder, r_shoulder, l_elbow, r_elbow, l_wrist, r_wrist, r_index_base, r_index_tip, head]
+observation:
+  cameras: [high, wrist, top]
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+data:
+  root: outputs/datasets/ten_task_v9
+  # quota per case and split (PIF §8.12: 50 train + 10 val per case, planning value from the last T2 collection)
+  quota: {train: 50, val: 10}
+  paired_source_selection: true
+  require_matched_motion_sources: true
+  max_attempts_factor: 3            # stop a chunk (IncompleteQuota, reported) after quota x this many candidate seeds
+  seed_base: 3000000                # seed = base + 100000 task + 10000 case + split offset (train 0, val 5000)
+  # every HY-Motion clip split = the data split (clips split by source clip, outputs/human_motion/.../splits.json)
+gates:
+  default:                          # collection gate (intent_policy/sim/collection_gate.py), reviewed per task below
+    pairs: all_scene_pairs
+    pair_clearance_m: 0.0            # no contact, no penetration unless a rule below permits it
+    pair_max_penetration_m: 0.001
+    protected_objects: all
+    protected_translation_m: 0.005  # an object nobody manipulates may not move (hand-set; contacts are the primary check)
+    protected_rotation_rad: 0.05
+    settle_speed_mps: 0.04          # = success_conditions.object_speed_max of the tasks
+    settle_s: 0.5                   # = timing.stable_s of the tasks
+    release_grace_s: 1.0            # the opening fingers may touch the released object this long (they slide off the
+                                    #   rim; pilot 2026-10-30: 0.04 mm at the retreat); its movement is still checked
+    stop_on_rejection: true
+tasks:
+  I1:
+    scenario: i1_coaster_sequence
+    overrides: {scene: {grasp_hold_squeeze_m: 0.0}} # hold at first two-finger contact; no extra squeeze
+    scene_coverage_reviewed: true   # close-ups 2026-10-30 (hand-coaster, gripper-cup, carry over placed cups)
+    gate:
+      contact_rules:
+      # held by the assisted-grasp weld: finger overlap 1.2 mm static, up to 2.2 mm in transport (measured, pilot
+      # 2026-10-30; stiffer finger contacts did not change it): bound 3 mm
+      - {kind: robot_manipulation, max_penetration_m: 0.003,
+         stages: [close, settle_grasp, lift, transport, above_spot, approach_spot, await_coaster, lower,
+                  settle_before_release, release, retreat, clear_up]}
+      - {kind: support, max_penetration_m: 0.002}     # a cup set on its coaster: soft-contact impact up to 1.01 mm
+      - {kind: human_manipulation, max_penetration_m: 0.001, stages: [reach_coaster, source_approach]}
+      require_hymotion_labels: [carry_coaster, withdraw, source_approach]
+    cases:
+      nominal: {}
+      # C3 controlled (PIF §8.8, user 29/10 "chuyển động tới điểm A thì cho thành điểm khác xa A"): in one round
+      # (by seed) the forecast arm is turned 45-75 deg about the shoulder (sign by seed) from the carry start until
+      # 0.5 s after it ends: the predicted wrist lands 0.38-0.6 m away (arm ~0.5 m), far beyond the 0.115 m spot
+      # spacing. Design values, no source. Only the early expert sees forecasts; the observed side is nominal.
+      forecast_fault:
+        scene_variation: {sequence: {forecast_fault: {yaw_deg: [45, 75], extra_s: 0.5, ramp_s: 0.2}}}
+      # C4 (user 28-29/10: change of mind early = low cost, late = high cost), exogenous timing (PIF §8.10):
+      # early: carrying towards a decoy spot A, turned to the real spot B at 40-70 % of the way (>= 8 cm towards A,
+      # so a HY-Motion segment fits); late: put down at A, hand lifted 8 cm, after 0.3-1.0 s taken again to B.
+      # Design values, no source.
+      switch_before_commit:
+        scene_variation: {sequence: {switch: {kind: before, progress: [0.4, 0.7]}}}
+      switch_after_commit:
+        scene_variation: {sequence: {switch: {kind: after, delay_s: [0.3, 1.0], lift_m: 0.08, lift_s: 0.4}}}
+  C1:
+    scenario: c1_handover
+    overrides: {scene: {grasp_hold_squeeze_m: 0.0}} # hold at first two-finger contact; no extra squeeze
+    scene_coverage_reviewed: true   # 2026-10-30: hand over the piece, can into the palm (pilot close-ups)
+    rules:                          # the T2 goal-belief expert (intent/goal_belief.py): early = forecast, observed = none
+      early: {expert: {trigger: goal, goal_rule: early, grasp_settle_ticks: 0, guard_withdrawal: true, over_hand_clearance_m: 0.08}}
+      observed: {expert: {trigger: goal, goal_rule: observed, grasp_settle_ticks: 0, guard_withdrawal: true, over_hand_clearance_m: 0.08}}
+    gate:
+      contact_rules:
+      - {kind: robot_manipulation, max_penetration_m: 0.003,
+         stages: [close, settle_grasp, lift, to_staging, staging, zone_hedge, over_hand, settle_over_hand, to_handover,
+                  time_descent, descend, await_let_go, wait_pull, release]}
+      - {kind: support, max_penetration_m: 0.002}
+      - {kind: human_manipulation, max_penetration_m: 0.001,
+         stages: [work, take_object, pulling, wait_release, reach_own, grasp_own]}
+      # the can lowered into the open palm / the palm rising under it (0-0.24 mm, pilot 2026-10-30)
+      - {kind: human_manipulation, max_penetration_m: 0.001, objects: [CAN], stages: [reach_out, waiting_offer]}
+      # both hands on the can while the person takes it (0.18 mm, pilot 2026-10-30): <= 1 mm, only then
+      - {kind: handover, max_penetration_m: 0.001, stages: [take_object, pulling, wait_release]}
+      require_hymotion_labels: [reach_out]
+    cases:
+      nominal: {}
+      # C3 controlled: the forecast arm turned 45-75 deg from the start of the open hand's reach out until 0.5 s after
+      # it ends (sign / size by seed; intent/goal_belief.py forecast_fault_anchor). Design values, no source.
+      forecast_fault:
+        expert: {forecast_fault_anchor: {labels: [reach_out], yaw_deg: [45, 75], extra_s: 0.5, ramp_s: 0.2}}
+      # C4: the request is taken back at an exogenous time after the open hand is out (PIF §8.10): early 0.1-0.5 s
+      # (the robot is still on its way), late 0.8-1.6 s (it is near or over the hand). Design values, no source.
+      switch_before_commit:
+        human_behavior: {cases: [C4], cancel_after_ready_s: [0.1, 0.5]}
+      switch_after_commit:
+        human_behavior: {cases: [C4], cancel_after_ready_s: [0.8, 1.6]}
+  C3:
+    scenario: c3_cloth_bowl
+    overrides: {scene: {grasp_hold_squeeze_m: 0.0}} # hold at first two-finger contact; no extra squeeze
+    scene_coverage_reviewed: true   # 2026-10-30: trays (decor), bowls (cups), folded cloth; pilot traces
+    gate:
+      contact_rules:
+      - {kind: robot_manipulation, max_penetration_m: 0.003,
+         stages: [close, settle_grasp, lift, hold_aside, await_cloth, onto_cloth_transport, onto_cloth_lower,
+                  settle_before_release, release, retreat, put_back_transport, put_back_lower]}
+      - {kind: support, max_penetration_m: 0.002}     # the bowl on the cloth
+      - {kind: human_manipulation, max_penetration_m: 0.001, stages: [reach_cloth]}
+      require_hymotion_labels: [carry_cloth, withdraw]
+    cases:
+      nominal: {}
+      # C3 controlled: from the cloth carry start to 0.5 s after it, the forecast arm is turned towards the other tray
+      # by the angle between the trays seen from the shoulder x U(0.8, 1.2) (a wrong target; 45-75 deg overshot both
+      # trays, pilot 2026-10-30). Design values.
+      forecast_fault:
+        scene_variation: {c3: {forecast_fault: {factor: [0.8, 1.2], extra_s: 0.5, ramp_s: 0.2}}}
+      # C4 (PIF §8.10, exogenous timing): early = towards the other tray first, turned at 40-70 % of the way; late =
+      # waits 0.3-1.0 s after reaching the other tray, independent of the robot, then changes (design values)
+      switch_before_commit:
+        scene_variation: {c3: {switch: {kind: before, progress: [0.4, 0.7]}}}
+      switch_after_commit:
+        scene_variation: {c3: {switch: {kind: after, clock: human_arrival, delay_s: [0.3, 1.0]}}}
+  W1:
+    scenario: w1_sorting
+    overrides: {scene: {grasp_hold_squeeze_m: 0.0}} # hold at first two-finger contact; no extra squeeze
+    scene_coverage_reviewed: true   # 2026-10-30: cubes, open boxes (decor), pilot traces
+    gate:
+      container_exempt: true        # cubes in an open box settle against each other as others drop in
+      contact_rules:
+      # cube grasp overlap 3.0-3.05 mm (assisted grasp; cup 1.04-2.2, can 2.4-2.9 mm, pilots 2026-10-30): 3.5 mm here
+      - {kind: robot_manipulation, max_penetration_m: 0.0035,
+         stages: [descend, settle_before_grasp, close, settle_grasp, lift, to_box, lower_box, release, retreat]}
+      - {kind: container, max_penetration_m: 0.002}
+      - {kind: support, max_penetration_m: 0.002}
+      - {kind: human_manipulation, max_penetration_m: 0.001, stages: [reach_item]}
+      require_hymotion_labels: [reach_item, carry_item]
+    cases:
+      nominal: {}
+  W2:
+    scenario: w2_tray_carry
+    overrides: {scene: {grasp_hold_squeeze_m: 0.0}} # hold at first two-finger contact; no extra squeeze
+    scene_coverage_reviewed: true   # 2026-10-30: tray carried with both hands, cubes, open box; pilot traces
+    gate:
+      container_exempt: true
+      contact_rules:
+      - {kind: robot_manipulation, max_penetration_m: 0.0035,
+         stages: [descend, settle_before_grasp, close, settle_grasp, lift, to_box, lower_box, release, retreat]}
+      - {kind: container, max_penetration_m: 0.002}
+      - {kind: support, max_penetration_m: 0.002}
+      - {kind: human_manipulation, max_penetration_m: 0.001, stages: [reach_tray]}
+      require_hymotion_labels: [carry_tray]
+    cases:
+      nominal: {}
+  I2:
+    scenario: i2_side_request
+    overrides: {scene: {grasp_hold_squeeze_m: 0.0}} # hold at first two-finger contact; no extra squeeze
+    scene_coverage_reviewed: true   # 2026-10-30: two clusters, tray (open box), either arm; pilot traces
+    gate:
+      container_exempt: true
+      contact_rules:
+      - {kind: robot_manipulation, max_penetration_m: 0.0035,
+         stages: [descend, settle_before_grasp, close, settle_grasp, lift, to_box, lower_box, release, retreat]}
+      - {kind: container, max_penetration_m: 0.002}
+      - {kind: support, max_penetration_m: 0.002}
+      require_hymotion_labels: [request_out]
+    cases:
+      nominal:
+        scene_variation:
+          i2: {signal_hold_s: [1.0, 1.5]}
+        human_behavior:
+          signal_xyz: {l: [0.16, -0.25, 0.72], r: [0.44, -0.25, 0.72]}

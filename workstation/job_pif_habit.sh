@@ -1,30 +1,28 @@
 #!/usr/bin/env bash
-# Job 6 (PIF P1): HABIT perception for the three chosen tasks (S8789, S8791, S6760; HANDOFF_PIF_LOCAL.md §2):
-# download, then per frame RTMW whole-body keypoints + MoGe-2 depth + Grounding DINO objects, table-plane fit,
-# estimated 3D tokens in the table frame (pif/perception/habit_perception.py, configs/pif/habit_perception.yaml).
-# About 162k frames. Resumable: finished episodes are skipped. Upload: runs/pif_habit/<date>.
-#   SHARDS=n   parallel processes on the one GPU (default 1; each holds MoGe-2 ViT-S + Grounding DINO, ~2 GB VRAM)
-#   POSE_DEVICE=cuda  RTMW on the GPU (needs onnxruntime-gpu matching the CUDA libraries; default cpu)
+# PIF on HABIT (docs/PIF.md): download, label rules, per-frame perception (stage 1, heavy), table-frame tokens (stage 2),
+# upload to runs/pif_habit/<date>. Every model and parameter comes from configs/pif/habit.yaml. Resumable.
+#   TASKS="S8789 S8791 S6760"   PER_TASK=<n> (default: all episodes)   SHARDS=<n> processes on the GPU (default 1)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source workstation/env.sh
+TASKS="${TASKS:-S8789 S8791 S6760}"
 SHARDS="${SHARDS:-1}"
-POSE_DEVICE="${POSE_DEVICE:-cpu}"
 OUT="${OUT:-outputs/pif_habit/$(date +%F)}"
 mkdir -p "$OUT"
-exec > >(tee -a "$OUT/job6.log") 2>&1
-log "job 6 -> $OUT (git $(git rev-parse --short HEAD), shards $SHARDS, pose on $POSE_DEVICE)"
-if ! PYTHONPATH=.deps "$INTENT_PYTHON" -c "import rtmlib, onnxruntime, moge, utils3d" 2>/dev/null; then
-  ORT=onnxruntime; [ "$POSE_DEVICE" = cuda ] && ORT=onnxruntime-gpu
-  "$INTENT_PYTHON" -m pip install -q --no-deps --target .deps rtmlib "$ORT" coloredlogs humanfriendly flatbuffers protobuf \
-      "git+https://github.com/microsoft/MoGe.git" "git+https://github.com/EasternJournalist/utils3d.git"
+exec > >(tee -a "$OUT/job.log") 2>&1
+log "pif habit -> $OUT (git $(git rev-parse --short HEAD), tasks $TASKS, shards $SHARDS)"
+if ! PYTHONPATH=.deps "$INTENT_PYTHON" -c "import rtmlib, onnxruntime, moge, utils3d, lejepa" 2>/dev/null; then
+  "$INTENT_PYTHON" -m pip install -q --no-deps --target .deps rtmlib onnxruntime coloredlogs humanfriendly flatbuffers protobuf \
+      "git+https://github.com/microsoft/MoGe.git" "git+https://github.com/EasternJournalist/utils3d.git" \
+      "git+https://github.com/rbalestr-lab/lejepa.git"
 fi
-PYTHONPATH=.deps:. "$INTENT_PYTHON" -m pif.data.habit_download
-PYTHONPATH=.deps:. "$INTENT_PYTHON" -m pif.data.habit_label_check --out "$OUT/label_check" --sheets 5
+./run.sh -m pif.data.habit download --sids $TASKS
+./run.sh -m pif.data.habit labels --sids $TASKS
 for i in $(seq 0 $((SHARDS - 1))); do
-  ./run.sh -m pif.perception.habit_perception --out "$OUT/perception" --pose-device "$POSE_DEVICE" \
-      --shard "$i/$SHARDS" --log-dir "$OUT/logs/shard$i" &
+  ./run.sh -m pif.perception.extract --tasks $TASKS ${PER_TASK:+--per-task $PER_TASK} --shard "$i/$SHARDS" \
+      --set habit.extract_dir="$OUT/extract" --log-dir "$OUT/logs/shard$i" &
 done
 wait
+./run.sh -m pif.perception.lift --tasks $TASKS --set habit.extract_dir="$OUT/extract" habit.tokens_dir="$OUT/tokens"
 hfx push "$OUT" "runs/pif_habit/$(basename "$OUT")"
-log "job 6 done. Laptop: python workstation/hf.py pull runs/pif_habit/$(basename "$OUT") $OUT"
+log "done. Laptop: python workstation/hf.py pull runs/pif_habit/$(basename "$OUT") $OUT"

@@ -1,4 +1,4 @@
-"""Intent contract v3.2 (docs/requirements/INTENT_ACT_v3.2.md §5): device source, encoder, masked IntentACT."""
+"""Intent contract v3.2 (docs/intent_act/INTENT_ACT_v3.2.md §5): device source, encoder, masked IntentACT."""
 import json
 
 import numpy as np

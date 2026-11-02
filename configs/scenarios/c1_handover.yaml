@@ -1,0 +1,148 @@
+# v7 C1 (docs/PIF.md §8.12, 30/10/2026): T2 hand-over only, in the v7 collection pipeline (HY-Motion 10-task bank,
+# whole-hand clearance, rigid grasp, reaction law). t2_fetch_return.yaml stays as it was (reproducibility).
+scenario_id: c1_handover
+task_code: T2                       # v6 (docs/sim/scenarios_v6_proposal.md, approved 2026-10-24); HABIT 'Retrieve and
+role: collaborator                  #   hand over the desired beverage to the person' (S7045), give-back as in S6760
+goal: >-
+  A can stands on one of the slots, the human works on a piece in U. When the work is done (the last strokes are
+  slower) the human holds the open hand out, palm up, at a hand zone plus an offset; the robot must put the can into
+  that hand (released only when the human pulls). The human uses it, then holds it out again (another hand zone plus
+  an offset); the robot must take it back, put it back on its slot and return to rest. There is one object: when
+  (the progress of the work) and where (the open hand) are the intention.
+task: Hand the person the can when they need it, take it back when they give it back, put it back.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  objects: [CAN, WP]                # v7: no own cup C3 (T2's case C3 is replaced by the forecast intervention; the cup
+                                    #   under a hand zone lifted the open hand 34 mm over the nominal zone, 2026-10-30)
+  zone_markers: false
+  # robot grasp (base_env assisted grasp): attach at the physics substep of the two-finger contact and hold 0.5 mm
+  # past the contact width; finger-object overlap can 3.4-3.75 -> 2.4-2.9 mm, cup 1.2 -> 1.04 mm (pilot 2026-10-30)
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0005
+  human:
+    hand_mesh_mode: compiled_variants
+    held_object_frame: hand
+    # the can rests on this support in the open palm: top at the measured 'offer' mesh surface under the can
+    # (29.2-31.9 mm above the palm point, 2026-10-30) = 32 mm; the common 31 mm let the can sink ~1 mm into the palm
+    palm_support: {half_size: [0.04, 0.06, 0.01], pos: [0.0, 0.015, 0.022]}
+scene_variation:
+  variant: fetch_return
+  object: CAN
+  work_piece: WP
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+human_behavior:
+  type: t2_worker
+  cue_onset_s: [0.2, 0.6]           # the work starts (strokes over the piece)
+  strokes: [3, 6]                   # provisional, to be measured on HABIT S7045 (TODO): number of strokes ...
+  stroke_s: [0.5, 0.8]              # ... the duration of one ...
+  finish_strokes: 2                 # ... the last ones slower (the work is finishing) ...
+  finish_slowdown: 1.4              # ... each this much longer than the one before
+  stroke_m: 0.06                    # hand travel of a stroke over the piece
+  work_height_m: 0.109              # palm above the piece centre while working: piece half height 0.02 + the 'grasp' hand
+                                    #   mesh 85.3 mm below the palm (max of 60 poses, 2026-10-30) + 3 mm: the fingertips
+                                    #   on the piece (0.04 put them 2.5 cm into the table)
+  reach_out_s: [1.0, 1.4]           # the open hand goes out (provisional, measure on S7045)
+  hand_jitter_m: 0.02               # the open hand within this (x, y) of the hand zone centre (reach: see CAN)
+  use_offset: [-0.08, 0.04, 0.16]   # the can is used here, w.r.t. the hand rest pose
+  use_move_s: [0.8, 1.1]
+  use_s: [1.0, 2.5]
+  back_s: [1.0, 1.4]                # the can is held out again ...
+  return_dz_m: 0.0                  # ... at the receiving palm's height (higher puts the robot's grasp of it out of
+                                    #   reach at H2: setpoint stuck 3 cm short, check 2026-10-24 17:01)
+  reaction_s: 0.213                 # the human lets go after a simple visual reaction time (Woods et al. 2015, as T2)
+  point_s: [1.0, 1.0]               # (drawn for every task, unused: no pointing in v6 T2)
+  point_dwell_s: [0.3, 0.5]
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  motion_bank:                      # generated hand motions (HY-Motion 1.0-Lite library, configs/human_motion/hymotion_v6.yaml,
+                                    #   sim/motion_bank.py): these motion labels use a library motion of the listed kinds
+    folder: outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out
+    split_manifest: outputs/human_motion/hymotion_ten_tasks_2026-10-30/splits.json
+    split: train
+    min_dist_m: 0.08                # shorter moves keep the minimum-jerk line (Flash & Hogan 1985)
+    min_cos: 0.3                    # the library motion heads within ~72 deg of the needed direction (horizontal) ...
+    extent_ratio: [0.4, 2.5]        # ... and its extent is comparable to the needed distance
+    table_edge_y: -0.36             # configs/layout.yaml table y min (the human's edge)
+    table_margin_m: 0.03
+    holding_margin_m: 0.08
+    robot_clear_m: 0.15             # a library motion passing closer to the robot (along its links) is not used
+    max_dev_ratio: 0.25             # Morasso 1981; Atkeson, Hollerbach 1985
+    labels:                         # every right-palm segment of the split's clips (direction / extent / straightness)
+      reach_out: ['*']
+      withdraw: ['*']
+      withdraw_change: ['*']
+      withdraw_with_object: ['*']
+      back_to_work: ['*']
+      reach_own: ['*']
+      use: ['*']
+  hand_clearance: {window_s: 0.25, iterations: 3, touch_labels: [work]}   # whole-hand clearance; work strokes keep the
+                                                    #   fingertips on the piece, not in it
+  yield_to_robot:                   # reaction law (scripted_human, same for every robot); not while taking the can the
+    max_wait_s: 3.0                 #   robot holds out (the hand-over is meant to be close)
+    lookahead_s: 0.25
+    exempt_labels: [take_object, pulling, wait_release, waiting_offer]
+  palm_surface_m: 0.032             # palm surface above the palm centre (level, upturned hand; measured on the mesh)
+  present_offset: [0.0, 0.015, 0.045] # the robot lowers the object into the palm and holds it still here (w.r.t. the
+                                    #   palm centre, + half height): 1.5 cm towards the fingers (away from the wrist),
+                                    #   its bottom 1.3 cm above the palm surface (a cube's gripper fingertips reach 2 mm
+                                    #   above its bottom and keep the 1 cm violation distance, +-5 mm set-point grid)
+  accept_radius_m: 0.02             # object within this distance of that point ...
+  accept_still_s: 0.3               # ... with the robot still for this long => the human takes it:
+  take_s: 0.4                       # the palm rises under the object and the fingers close around it ...
+  take_gap_m: 0.003                 # ... until its bottom is this far above the palm surface (the object is in the palm)
+  take_shape: offer                 # v7: the open hand takes / pulls; it closes once the robot has let go
+  zone_at_palm_height: true         # v7: the robot sees the open hand's actual height (lifted over the own cup C3 it was
+                                    #   34 mm above the nominal zone: the can grazed the fingers, 2026-10-30)
+  hand_clearance_m: 0.005           # the rising palm stops if the robot is closer than this
+  pull_offset: [0.0, -0.04, -0.03]  # then the human pulls the object down, towards the body ...
+  pull_s: 0.6                       # ... the robot must release on the pull (fixed release condition)
+  # Deep-task cases (docs/PIF.md §4, 2026-10-25): the case of an episode is cases[seed % 4] (equal quotas), unless the
+  # spec fixes it. C1 normal; C2 ambiguous (a partial, relaxed-hand move out, a pause, then the open hand); C3 wrong
+  # prediction (the hand opens while reaching for the person's own cup under a hand zone, takes it, drinks, puts it
+  # back, works on, then asks for the can); C4 change of mind (the open hand is withdrawn once the robot is close, the
+  # person works on, then asks again).
+  cases: [C1]                       # v7: nominal; C3 is a forecast intervention (expert), C4 a timed cancel (cases below)
+  hesitate_frac: [0.3, 0.55]        # C2: share of the way out the relaxed hand moves ...
+  hesitate_s: [0.6, 1.4]            # ... and how long it pauses there
+  own_item: null                    # v7: no own cup (see objects)
+  own_item_y: -0.17                 # ... stands at the x of a hand zone (drawn per episode), this y (2 cm nearer the person
+                                    #   than the zone; -0.21 overlaps the work piece in U, y -0.295..-0.225)
+  own_reach_s: [0.9, 1.3]           # ... the open hand reaches for it (palm partly up while moving: hand pre-shaping,
+                                    #   Jeannerod 1984), then closes on it
+  own_grip_dz_m: 0.05               # palm above the cup centre when holding it
+  own_use_s: [0.8, 1.5]             # ... drinks this long (at use_offset), puts it back
+  cancel_dist_m: [0.10, 0.25]       # C4: the open hand is withdrawn once the TCP is this close (xy) to it ...
+  cancel_strokes: 2                 # ... then this many work strokes before the hand goes out again
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+expert:
+  trigger: cue_complete             # until the v6 measuring device exists (M5)
+  travel_dz: 0.13
+  staging_offset: [0.0, 0.20]       # v7: GUARD_APPROACH_XY from the hand zones (T2: 0.14; the open hand's fingers reach
+                                    #   ~0.13 m beyond the palm and hit the wrist; 10 cm higher was out of reach)
+  separation: true                  # v7: separation monitoring outside the hand-over (experts/c1_expert.py)
+timing:
+  timeout_s: 60.0
+  stable_s: 0.5
+success_conditions:
+  handover_only: true             # v7 C1 = the hand-over (PIF §8, T2 kept as the hand-over part, 27/10)
+  put_back_max_m: 0.03            # the can back within this (x, y) of where it stood
+  other_object_moved_max_m: 0.02
+safety_constraints:
+  forbid_human_contact: true
+  violation_distance_m: 0.01        # handover requires proximity: only near-contact while moving counts
+protocol_steps: [work_finishing, work_done, object_grasped, hand_ready, robot_at_handover, object_transferred,
+                 return_offered, object_taken_back, object_returned, object_put_back, robot_at_rest]
+applicable_metrics: [CSR, CT, IR, TSync, Rsp, OC, CFR, HCS, AM, WCR, WCD, CRsp]
+metric_params:
+  rsp_trigger: {event_type: protocol_step_complete, step: work_done}
+  rsp_response: robot_motion_start
+  ir_start: {event_type: protocol_step_complete, step: hand_ready}
+  tsync_human: {event_type: interaction_window_start, kind: handover}
+  tsync_robot: {event_type: protocol_step_complete, step: robot_at_handover}
+  am_cue_complete: {event_type: protocol_step_complete, step: hand_ready}
+  commit_stage: region

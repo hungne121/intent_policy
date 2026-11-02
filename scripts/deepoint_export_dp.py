@@ -6,7 +6,7 @@ Per frame the inputs are made by DeePoint's released inference pipeline, as at t
 layer3 joint features of `prep/resnet_preprocess.process_single_batch` (stored as the `use_preprocessed` feature
 pickles; frames without a confident person are never used by DPDataset and get none).
 
-Pointing labels (`--label-start`, docs/requirements/INTENT_ACT_v3.2.md §4.2c):
+Pointing labels (`--label-start`, docs/intent_act/INTENT_ACT_v3.2.md §4.2c):
   onset  (decision 2026-10-11, default) the whole pointing gesture from the start of the arm motion, [t_onset, t_end]:
          the labelling of online / early action detection (De Geest et al., ECCV 2016; Shou et al., ECCV 2018) over
          Kendon's gesture phases (preparation, stroke, hold), so the detector responds during the preparation;
@@ -46,7 +46,7 @@ import dataset as dp_dataset                                   # noqa: E402
 from prep.resnet_preprocess import process_single_batch        # noqa: E402
 
 N_CAMERAS = 15            # DPDataset iterates over 15 camera slots per session
-# `--classes multi` (decision 2026-10-12, docs/requirements/INTENT_ACT_v3.2.md §4.2e): the gesture classes of the intent
+# `--classes multi` (decision 2026-10-12, docs/intent_act/INTENT_ACT_v3.2.md §4.2e): the gesture classes of the intent
 # contract (configs/intent_schema.yaml gestures + withdraw); class c >= 1 is the DP action-id block [100 (c-1),
 # 100 (c-1) + 99] (DP: pointing = ids 0-99), the id inside the block the target marker (99: no target -> no direction)
 GESTURE_CLASSES = ['none', 'point', 'reach', 'palm_up', 'palm_forward', 'withdraw']

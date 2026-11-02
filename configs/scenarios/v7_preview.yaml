@@ -1,0 +1,558 @@
+# PREVIEW CŨ: nội dung task mới nhất ở docs/PIF.md §8.2 (28/10/2026). C3/C4 và các diễn biến cần dựng lại.
+# Kinematic storyboard of the v7 candidate tasks, revised for review (https://claude.ai/artifact/TNBrZ2xjRDEPjcej5TQGGK,
+# user 27/10/2026), one episode per task, rendered by
+#   scripts/preview_scenarios_v6.py --config configs/scenarios/v7_preview.yaml
+# CANDIDATES NOT VALIDATED: no physics, no expert, no intent model; the human palms (right `human`, left `human_l` for
+# two-handed actions), the robot TCP and every held object follow the hand-written timelines below (min-jerk between
+# keyframes, robot by IK). Format: configs/scenarios/v6_preview.yaml, plus
+#   objects: shape mesh (assets/objects/gso/<mesh>/, base on z = 0; `scale`, `yaw` deg) | frame (box with coloured faces
+#            + a socket on top of each side; `half`, `faces`: colours of the local +y, -x, -y, +x sides)
+#   events: {grab: X, by: robot | human | human_l | <object>}  (by an object: X moves with it, in its frame)
+#   spin:   {t: [t0, t1], obj: X, yaw: deg}  (turns X about z)
+# World frame of configs/scene/common.yaml: robot base at the origin, table top z 0.62, human at (0.30, -0.48) facing
+# +Y (the human's right = +X), right hand rest (0.49, -0.40, 0.66). Robot reach R_eff 0.43 m (configs/layout.yaml).
+scene_base: configs/scene/common.yaml
+out_dir: outputs/scenario_v7_preview
+fps: 20
+video: {width: 480, height: 360, caption_h: 104, font: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf, font_size: 15}
+cameras:
+  high: {pos: [0.30, 0.70, 1.50], target: [0.30, -0.20, 0.90], fovy: 70}       # common.yaml: from the robot side
+  side: {pos: [1.25, -0.10, 1.30], target: [0.28, -0.04, 0.72], fovy: 55}       # from the human's right
+show: [high, side]
+colors:
+  red: [0.85, 0.15, 0.12, 1.0]
+  blue: [0.15, 0.35, 0.90, 1.0]
+  green: [0.10, 0.70, 0.25, 1.0]
+  yellow: [0.98, 0.78, 0.08, 1.0]
+  orange: [0.98, 0.50, 0.08, 1.0]
+  purple: [0.55, 0.30, 0.75, 1.0]
+  white: [0.93, 0.93, 0.93, 1.0]
+  grey: [0.55, 0.55, 0.58, 1.0]
+  tan: [0.86, 0.66, 0.40, 1.0]
+  wood: [0.72, 0.55, 0.36, 1.0]
+  dirt: [0.35, 0.25, 0.12, 1.0]
+  cloth: [0.25, 0.45, 0.75, 1.0]
+  tray: [0.70, 0.82, 0.95, 1.0]
+  box: [0.92, 0.92, 0.95, 0.55]
+  box2: [0.95, 0.85, 0.60, 0.55]
+  spot: [1.0, 0.85, 0.2, 0.35]
+
+tasks:
+  # ================================================================ Instructor
+  I1:
+    title: "I1 Đưa món được chỉ (Instructor, 1 ý định: món nào) — HABIT S7414"
+    duration: 6.5
+    objects:
+      M1: {shape: mesh, mesh: Cole_Hardware_Mug_Classic_Blue, scale: 0.55, pos: [-0.12, 0.28, 0.62]}
+      M2: {shape: mesh, mesh: Room_Essentials_Mug_White_Yellow, scale: 0.6, pos: [0.13, 0.32, 0.62]}
+      M3: {shape: mesh, mesh: Threshold_Porcelain_Coffee_Mug_All_Over_Bead_White, scale: 0.6, pos: [0.36, 0.18, 0.62]}
+    decor:
+      - {name: tray, type: mesh, mesh: Threshold_Tray_Rectangle_Porcelain, yaw: 90, pos: [0.30, -0.14, 0.62]}
+    human:
+      - {t: [1.0, 1.8], to: [0.38, -0.12, 0.76], shape: point, point_at: {obj: M3, d: [0, 0, 0.03]}}
+      - {t: [2.6, 3.4], to: [0.49, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [1.2, 1.7], to: [0.13, 0.22, 0.82], grip: 0.085}      # towards the mugs while the gesture forms
+      - {t: [1.7, 2.1], to: {obj: M3, d: [0, 0, 0.15]}}
+      - {t: [2.1, 2.4], to: {obj: M3, d: [0, 0, 0.055]}}
+      - {t: [2.4, 2.6], grip: 0.05}
+      - {t: [2.6, 2.9], to: [0.36, 0.18, 0.80]}
+      - {t: [2.9, 3.8], to: [0.30, -0.14, 0.80]}
+      - {t: [3.8, 4.2], to: [0.30, -0.14, 0.683]}
+      - {t: [4.2, 4.4], grip: 0.085}
+      - {t: [4.5, 5.6], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 2.6, grab: M3, by: robot}
+      - {t: 4.4, drop: M3, at: [0.30, -0.14, 0.628]}
+    marks:
+      - {t: 1.0, who: human, label: "bắt đầu chỉ"}
+      - {t: 1.2, who: robot, label: "robot đi"}
+      - {t: 1.7, who: robot, label: "chốt cốc"}
+      - {t: 4.4, who: robot, label: "đặt lên khay"}
+    captions:
+      - [0.0, 1.0, "3 cốc ngoài tầm với của người, khay trước mặt người. Người đứng yên: robot chưa có cơ sở, chờ."]
+      - [1.0, 1.7, "Người giơ tay chỉ cốc trắng. Robot đi ngay về phía các cốc khi cánh tay mới bắt đầu giơ (dự báo), chưa chọn."]
+      - [1.7, 4.4, "Hướng tay đủ rõ → robot chốt cốc, gắp, đặt lên khay; không đợi cử chỉ xong."]
+      - [4.4, 6.5, "Trường hợp khác: M = vươn nửa chừng giữa hai món rồi mới chỉ; Đ = chỉ A, robot đã đi thì đổi sang B."]
+
+  I2:
+    title: "I2 Chuẩn bị theo cử chỉ: chọn vật trong cụm, đặt chỗ được chỉ (Instructor, 2 ý định)"
+    duration: 6.5
+    objects:
+      A1: {shape: cylinder, size: [0.022, 0.03], color: red, pos: [0.04, 0.30, 0.65]}
+      A2: {shape: box, size: [0.02, 0.02, 0.02], color: blue, pos: [0.12, 0.31, 0.64]}
+      A3: {shape: cylinder, size: [0.022, 0.03], color: green, pos: [0.08, 0.23, 0.65]}
+      B1: {shape: box, size: [0.02, 0.02, 0.02], color: orange, pos: [0.34, 0.15, 0.64]}
+      B2: {shape: cylinder, size: [0.022, 0.03], color: purple, pos: [0.41, 0.07, 0.65]}
+      B3: {shape: cylinder, size: [0.022, 0.03], color: yellow, pos: [0.33, 0.06, 0.65]}
+    decor:
+      - {name: spot, type: cylinder, size: [0.03, 0.0008], pos: [0.20, -0.20, 0.6208], color: spot}   # where the person points (shown for the viewer)
+    human:
+      - {t: [1.0, 1.8], to: [0.34, -0.14, 0.73], shape: point, point_at: [0.22, 0.18, 0.62]}   # the arm rises slowly ...
+      - {t: [1.8, 2.6], to: [0.40, -0.14, 0.76], shape: point, point_at: {obj: B2}}             # ... and settles on B2
+      - {t: [2.9, 3.6], to: [0.30, -0.28, 0.75], shape: point, point_at: [0.20, -0.20, 0.62]}   # then the place
+      - {t: [4.2, 4.9], to: [0.49, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [1.1, 1.7], to: [0.22, 0.18, 0.84], grip: 0.085}      # tier 1: the middle of all six
+      - {t: [1.7, 2.2], to: [0.36, 0.10, 0.80]}                   # tier 2: the middle of the right cluster
+      - {t: [2.3, 2.6], to: {obj: B2, d: [0, 0, 0.12]}}           # tier 3: the item, then down
+      - {t: [2.6, 2.9], to: {obj: B2, d: [0, 0, 0.02]}}
+      - {t: [2.9, 3.1], grip: 0.044}
+      - {t: [3.1, 3.4], to: [0.41, 0.07, 0.80]}
+      - {t: [3.4, 4.0], to: [0.25, -0.10, 0.78]}                  # towards the place area while the place forms
+      - {t: [4.0, 4.4], to: [0.20, -0.20, 0.74]}
+      - {t: [4.4, 4.7], to: [0.20, -0.20, 0.672]}
+      - {t: [4.7, 4.9], grip: 0.085}
+      - {t: [5.0, 6.0], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 3.1, grab: B2, by: robot}
+      - {t: 4.9, drop: B2, at: [0.20, -0.20, 0.65]}
+    marks:
+      - {t: 1.0, who: human, label: "tay giơ dần"}
+      - {t: 1.1, who: robot, label: "giữa 6 vật"}
+      - {t: 1.7, who: robot, label: "giữa cụm phải"}
+      - {t: 2.3, who: robot, label: "vật tím"}
+      - {t: 2.9, who: human, label: "chỉ chỗ đặt"}
+    captions:
+      - [0.0, 1.0, "6 vật thành 2 cụm. Người đứng yên: robot chờ."]
+      - [1.0, 1.7, "Tay mới giơ, chưa rõ cụm nào: robot vào giữa cả 6 vật, cao trên bàn (chuẩn bị tầng 1)."]
+      - [1.7, 2.6, "Hướng tay nghiêng về cụm phải → robot vào giữa cụm đó (tầng 2), rồi tới vật tím khi đủ tin (tầng 3)."]
+      - [2.6, 4.2, "Gắp. Người chỉ một chỗ trên bàn phía mình (vàng nhạt, chỉ để người xem); robot trôi dần về đó trong lúc tay còn chỉ."]
+      - [4.2, 6.5, "Đặt đúng chỗ. Đo riêng đoạn chuẩn bị: khoảng cách tới vật lúc cử chỉ xong, thời gian tới lúc gắp, số lần đổi hướng."]
+
+  I3:
+    title: "I3 Hướng dẫn chỗ đặt bằng chuyển động tay (Instructor, 1 ý định: chỗ đặt)"
+    duration: 7.0
+    objects:
+      K2: {shape: box, size: [0.022, 0.022, 0.022], color: purple, pos: [0.15, 0.30, 0.642]}
+    decor:
+      - {name: tray, type: box, size: [0.06, 0.27, 0.004], pos: [0.30, -0.04, 0.624], color: tray}
+      - {name: want, type: cylinder, size: [0.03, 0.0008], pos: [0.30, -0.08, 0.6288], color: spot}
+    human:
+      - {t: [2.8, 4.3], to: [0.30, -0.08, 0.76], shape: relaxed}
+      - {t: [4.3, 5.1], to: [0.49, -0.40, 0.76], shape: relaxed}
+    robot:
+      - {t: [0.8, 1.4], to: {obj: K2, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [1.4, 1.8], to: {obj: K2, d: [0, 0, 0.012]}}
+      - {t: [1.8, 2.0], grip: 0.040}
+      - {t: [2.0, 2.7], to: [0.24, 0.16, 0.85]}
+      - {t: [3.0, 4.4], to: [0.30, -0.08, 0.88]}
+      - {t: [5.1, 5.5], to: [0.30, -0.08, 0.654]}
+      - {t: [5.5, 5.7], grip: 0.085}
+      - {t: [5.8, 6.8], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 2.0, grab: K2, by: robot}
+      - {t: 5.7, drop: K2, at: [0.30, -0.08, 0.650]}
+    marks:
+      - {t: 2.8, who: human, label: "tay tới chỗ đặt"}
+      - {t: 3.0, who: robot, label: "tới vùng dự kiến"}
+      - {t: 4.3, who: human, label: "tay rút"}
+      - {t: 5.7, who: robot, label: "đặt vật"}
+    captions:
+      - [0.0, 2.8, "ỨNG VIÊN: robot cầm vật, người chọn vị trí dọc khay bằng chuyển động tay."]
+      - [2.8, 4.3, "Tay tiến tới vị trí muốn. Giả thuyết: dự báo điểm dừng giúp robot tới vùng đó sớm."]
+      - [4.3, 5.1, "Robot giữ cao; người rút tay trước khi robot hạ vật."]
+      - [5.1, 7.0, "Đặt vật. Đây là quỹ đạo viết tay, chưa chứng minh ManiCast đúng hay tiết kiệm thời gian."]
+
+  # ================================================================ Collaborator (1, 1, 2, 3 turns)
+  C1:
+    title: "C1 Đưa lon (Collaborator, 1 lượt, 1 ý định: vị trí tay nhận) — HABIT S7045"
+    duration: 11.5
+    objects:
+      CAN: {shape: cylinder, size: [0.024, 0.03], color: red, pos: [0.24, 0.20, 0.65]}
+      WP: {shape: box, size: [0.06, 0.04, 0.01], color: wood, pos: [0.34, -0.26, 0.63]}
+      SD: {shape: mesh, mesh: Craftsman_Grip_Screwdriver_Phillips_Cushion, scale: 0.8, yaw: 80, pos: [0.50, -0.20, 0.62]}
+    decor:
+      - {name: screws, type: open_box, half: [0.03, 0.03], height: 0.025, wall: 0.003, pos: [0.48, -0.32, 0.62], color: box2}
+      - {name: done_tray, type: open_box, half: [0.08, 0.06], height: 0.02, wall: 0.003, pos: [0.12, -0.27, 0.62], color: box}
+    human_l:
+      - {t: [0.0, 0.5], to: [0.29, -0.27, 0.645], shape: grasp}      # holds the plate
+      - {t: [5.9, 6.3], to: [0.29, -0.27, 0.645], shape: grasp}
+      - {t: [6.3, 7.3], to: [0.07, -0.27, 0.70], shape: grasp}       # both hands carry it to the finished tray
+      - {t: [7.3, 7.6], to: [0.07, -0.27, 0.66], shape: grasp}
+      - {t: [7.7, 8.3], to: [0.13, -0.40, 0.66], shape: relaxed}
+    human:
+      - {t: [0.0, 0.6], to: [0.48, -0.32, 0.66], shape: grasp}       # (a) takes a screw
+      - {t: [0.6, 1.1], to: [0.36, -0.25, 0.67], shape: grasp}
+      - {t: [1.1, 1.4], to: [0.50, -0.20, 0.645], shape: grasp}      # picks up the screwdriver
+      - {t: [1.4, 1.9], to: [0.36, -0.25, 0.70], shape: grasp}
+      - {t: [1.9, 2.4], to: [0.37, -0.25, 0.70], shape: grasp}       # (b) screw 1: wrist turns
+      - {t: [2.4, 2.9], to: [0.35, -0.25, 0.70], shape: grasp}
+      - {t: [2.9, 3.4], to: [0.37, -0.25, 0.70], shape: grasp}
+      - {t: [3.4, 3.7], to: [0.40, -0.25, 0.70], shape: grasp}       # screw 2 (the last): slower turns
+      - {t: [3.7, 4.4], to: [0.41, -0.25, 0.70], shape: grasp}
+      - {t: [4.4, 5.2], to: [0.39, -0.25, 0.70], shape: grasp}
+      - {t: [5.2, 5.8], to: [0.50, -0.20, 0.645], shape: grasp}      # (c) puts the screwdriver down
+      - {t: [5.8, 6.3], to: [0.39, -0.27, 0.645], shape: grasp}      # (d) both hands lift the plate
+      - {t: [6.3, 7.3], to: [0.17, -0.27, 0.70], shape: grasp}
+      - {t: [7.3, 7.6], to: [0.17, -0.27, 0.66], shape: grasp}
+      - {t: [7.7, 8.8], to: [0.30, -0.15, 0.78], shape: offer, palm_up: 1.0}   # open hand out (position varies)
+      - {t: [9.5, 9.7], to: [0.30, -0.15, 0.78], shape: grasp, palm_up: 1.0}
+      - {t: [9.7, 10.3], to: [0.31, -0.22, 0.74], shape: grasp}      # pulls the can down
+      - {t: [10.3, 11.2], to: [0.40, -0.33, 0.82], shape: grasp}
+    robot:
+      - {t: [3.7, 4.5], to: {obj: CAN, d: [0, 0, 0.12]}, grip: 0.085}   # starts on the last, slower screw
+      - {t: [4.5, 4.9], to: {obj: CAN, d: [0, 0, 0.02]}}
+      - {t: [4.9, 5.2], grip: 0.048}
+      - {t: [5.2, 5.6], to: [0.24, 0.20, 0.86]}
+      - {t: [5.6, 6.6], to: [0.28, -0.02, 0.92]}                     # waits near the hand-over area
+      - {t: [7.9, 8.9], to: [0.30, -0.10, 0.92]}                     # the hand starts out: to the forecast spot
+      - {t: [8.9, 9.4], to: [0.30, -0.135, 0.875]}
+      - {t: [9.7, 9.9], grip: 0.085}                                 # releases on the pull
+      - {t: [10.0, 10.6], to: [0.30, -0.08, 0.93]}
+      - {t: [10.6, 11.4], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.4, grab: SD, by: human}
+      - {t: 5.0, grab: CAN, by: robot}
+      - {t: 5.8, drop: SD, at: [0.50, -0.20, 0.62]}
+      - {t: 6.3, grab: WP, by: human}
+      - {t: 7.6, drop: WP, at: [0.12, -0.27, 0.632]}
+      - {t: 9.7, grab: CAN, by: human}
+    marks:
+      - {t: 1.9, who: human, label: "vặn vít 1"}
+      - {t: 3.4, who: human, label: "vít cuối, chậm"}
+      - {t: 3.7, who: robot, label: "lấy lon"}
+      - {t: 5.2, who: human, label: "đặt tua vít"}
+      - {t: 7.7, who: human, label: "chìa tay"}
+      - {t: 9.7, who: human, label: "nhận"}
+    captions:
+      - [0.0, 3.4, "Người lắp ráp bằng 2 tay: tay trái giữ tấm, tay phải lấy vít, vặn bằng tua vít. Robot chờ."]
+      - [3.4, 5.8, "Vít cuối chậm dần; robot chuẩn bị lon. Chưa chứng minh dự báo 1 s nhận ra lúc việc kết thúc."]
+      - [5.8, 7.7, "Đặt tua vít, hai tay nhấc tấm sang khay thành phẩm. Robot cầm lon chờ gần vùng trao, không chắn tay."]
+      - [7.7, 9.7, "Tay chìa ra: giả thuyết dự báo vị trí liên tục giúp robot tới sớm; thả khi người kéo."]
+      - [9.7, 11.5, "S = giả kết thúc (đặt tua vít rồi lấy tấm mới làm tiếp); Đ = rút tay khi robot tới gần, vặn thêm một vít, xin lại."]
+
+  C2:
+    title: "C2 Người nâng khay bằng 2 tay, robot lau chỗ trống (Collaborator, 1 lượt, 1 ý định: bên nào)"
+    duration: 8.5
+    objects:
+      SP: {shape: box, size: [0.03, 0.02, 0.012], color: yellow, pos: [0.12, 0.24, 0.632]}       # sponge
+      DIRT: {shape: cylinder, size: [0.04, 0.0015], color: dirt, pos: [0.40, 0.02, 0.6215]}     # under the right tray
+      TL: {shape: mesh, mesh: Threshold_Tray_Rectangle_Porcelain, pos: [0.17, -0.04, 0.62]}
+      TR: {shape: mesh, mesh: Threshold_Tray_Rectangle_Porcelain, pos: [0.40, -0.04, 0.62]}
+      ML: {shape: mesh, mesh: Room_Essentials_Mug_White_Yellow, scale: 0.6, pos: [0.17, -0.02, 0.628]}
+      MR: {shape: mesh, mesh: Room_Essentials_Mug_White_Yellow, scale: 0.6, pos: [0.40, -0.02, 0.628]}
+    decor: []
+    human:
+      - {t: [1.2, 2.2], to: [0.49, -0.06, 0.65], shape: grasp}       # both hands to the right tray's sides
+      - {t: [2.2, 2.9], to: [0.47, -0.22, 0.80], shape: grasp}       # lift it towards the body and hold
+      - {t: [6.0, 6.8], to: [0.49, -0.06, 0.65], shape: grasp}       # put it back
+      - {t: [7.0, 7.7], to: [0.49, -0.40, 0.66], shape: relaxed}
+    human_l:
+      - {t: [1.2, 2.2], to: [0.31, -0.06, 0.65], shape: grasp}
+      - {t: [2.2, 2.9], to: [0.29, -0.22, 0.80], shape: grasp}
+      - {t: [6.0, 6.8], to: [0.31, -0.06, 0.65], shape: grasp}
+      - {t: [7.0, 7.7], to: [0.13, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [0.0, 0.6], to: {obj: SP, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [0.6, 0.9], to: {obj: SP, d: [0, 0, 0.012]}}
+      - {t: [0.9, 1.1], grip: 0.040}
+      - {t: [1.1, 1.5], to: [0.25, 0.18, 0.80]}                       # holds the sponge, waits in the middle
+      - {t: [1.5, 2.3], to: [0.40, 0.18, 0.78]}                       # the hands head right: beside that tray
+      - {t: [2.9, 3.2], to: [0.37, 0.02, 0.70]}
+      - {t: [3.2, 3.4], to: [0.37, 0.02, 0.645]}
+      - {t: [3.4, 3.8], to: [0.43, 0.02, 0.645]}                      # wipes the exposed area
+      - {t: [3.8, 4.2], to: [0.37, 0.05, 0.645]}
+      - {t: [4.2, 4.6], to: [0.43, 0.05, 0.645]}
+      - {t: [4.6, 5.0], to: [0.40, 0.00, 0.645]}
+      - {t: [5.0, 5.3], to: [0.40, 0.16, 0.76]}
+      - {t: [5.3, 6.0], to: [0.25, 0.18, 0.80]}
+      - {t: [6.4, 7.4], to: [0.15, 0.10, 0.85]}
+    events:
+      - {t: 1.1, grab: SP, by: robot}
+      - {t: 2.2, grab: TR, by: human}
+      - {t: 2.2, grab: MR, by: human}
+      - {t: 4.8, drop: DIRT, at: [0.0, 0.0, -1.0]}
+      - {t: 6.8, drop: TR, at: [0.40, -0.04, 0.62]}
+      - {t: 6.8, drop: MR, at: [0.40, -0.02, 0.628]}
+    marks:
+      - {t: 1.2, who: human, label: "2 tay với khay phải"}
+      - {t: 1.5, who: robot, label: "robot sang phải"}
+      - {t: 2.2, who: human, label: "nâng"}
+      - {t: 3.2, who: robot, label: "lau"}
+      - {t: 6.0, who: human, label: "đặt lại"}
+    captions:
+      - [0.0, 1.2, "Hai khay có cốc. Robot cầm sẵn miếng lau (vàng). Người sẽ nâng một khay bằng 2 tay để robot lau chỗ đó."]
+      - [1.2, 2.9, "Ý định (bên nào): 2 tay vươn về khay phải → robot sang bên phải ngay, đứng phía mình, không chắn tay."]
+      - [2.9, 5.3, "Khay vừa rời chỗ, robot lau vết bẩn bên dưới. Người không còn tay để lau; robot lau càng sớm người giữ khay càng ít."]
+      - [5.3, 8.5, "Robot rời vùng → người đặt khay lại. M = 2 tay vươn giữa hai khay; S = chạm khay chỉnh lại, không nâng."]
+
+  C3:
+    title: "C3 Nhấc bát cho người trải khăn, đặt bát vào chỗ trống (Collaborator, 2 lượt, 2 ý định)"
+    duration: 7.5
+    objects:
+      BOWL: {shape: mesh, mesh: Cole_Hardware_Bowl_Scirocco_YellowBlue, scale: 0.7, pos: [0.22, -0.04, 0.628]}
+      TF: {shape: mesh, mesh: Cole_Hardware_Dishtowel_Blue, scale: 0.6, pos: [0.12, -0.29, 0.62]}   # folded towel
+      MAT: {shape: box, size: [0.12, 0.09, 0.002], color: cloth, pos: [0.0, 0.0, -1.0]}             # spread towel (hidden first)
+      PLATE: {shape: mesh, mesh: Threshold_Salad_Plate_Square_Rim_Porcelain, scale: 0.6, pos: [0.47, -0.27, 0.62]}
+      SPOON: {shape: box, size: [0.05, 0.008, 0.003], color: grey, pos: [0.14, -0.25, 0.623]}
+    decor:
+      - {name: tray, type: box, size: [0.15, 0.10, 0.004], pos: [0.28, -0.06, 0.624], color: tray}
+    human:
+      - {t: [0.4, 1.2], to: [0.16, -0.29, 0.65], shape: grasp}       # both hands take the folded towel
+      - {t: [1.2, 2.2], to: [0.36, -0.16, 0.74], shape: grasp}       # carry it to the tray, opening it
+      - {t: [2.4, 3.2], to: [0.36, -0.06, 0.64], shape: grasp}       # lay it where the bowl stood
+      - {t: [3.3, 3.7], to: [0.34, -0.02, 0.64], shape: relaxed}     # smooth it
+      - {t: [3.8, 4.4], to: [0.47, -0.27, 0.64], shape: grasp}       # the plate
+      - {t: [4.4, 5.2], to: [0.33, -0.06, 0.66], shape: grasp}
+      - {t: [5.3, 6.0], to: [0.49, -0.40, 0.66], shape: relaxed}
+    human_l:
+      - {t: [0.4, 1.2], to: [0.08, -0.29, 0.65], shape: grasp}
+      - {t: [1.2, 2.2], to: [0.20, -0.16, 0.74], shape: grasp}
+      - {t: [2.4, 3.2], to: [0.20, -0.06, 0.64], shape: grasp}
+      - {t: [3.4, 4.0], to: [0.14, -0.25, 0.64], shape: grasp}       # the spoon
+      - {t: [4.0, 4.7], to: [0.27, -0.13, 0.65], shape: grasp}
+      - {t: [4.9, 5.6], to: [0.13, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [1.4, 2.0], to: {obj: BOWL, d: [0, 0, 0.13]}, grip: 0.085}   # turn 1: the towel heads to the tray
+      - {t: [2.0, 2.3], to: {obj: BOWL, d: [0, 0, 0.035]}}
+      - {t: [2.3, 2.5], grip: 0.070}
+      - {t: [2.5, 3.0], to: [0.22, 0.10, 0.80]}                       # lifts it up and away
+      - {t: [4.6, 5.4], to: [0.20, -0.03, 0.80]}                      # turn 2: above the forecast gap, high
+      - {t: [5.6, 6.0], to: [0.20, -0.03, 0.667]}                     # down as the hands withdraw
+      - {t: [6.0, 6.2], grip: 0.085}
+      - {t: [6.3, 7.2], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.2, grab: TF, by: human}
+      - {t: 2.2, drop: TF, at: [0.0, 0.0, -1.0]}
+      - {t: 2.2, drop: MAT, at: [0.28, -0.15, 0.73]}
+      - {t: 2.2, grab: MAT, by: human}
+      - {t: 2.5, grab: BOWL, by: robot}
+      - {t: 3.2, drop: MAT, at: [0.28, -0.06, 0.630]}
+      - {t: 4.0, grab: SPOON, by: human_l}
+      - {t: 4.4, grab: PLATE, by: human}
+      - {t: 4.7, drop: SPOON, at: [0.27, -0.12, 0.634]}
+      - {t: 5.2, drop: PLATE, at: [0.33, -0.05, 0.632]}
+      - {t: 6.2, drop: BOWL, at: [0.20, -0.03, 0.632]}
+    marks:
+      - {t: 1.2, who: human, label: "2 tay cầm khăn"}
+      - {t: 1.4, who: robot, label: "lượt 1: nhấc bát"}
+      - {t: 3.2, who: human, label: "trải xong"}
+      - {t: 4.6, who: robot, label: "lượt 2: trên chỗ trống"}
+      - {t: 5.3, who: human, label: "rút tay"}
+    captions:
+      - [0.0, 1.4, "Khay có bát. Người cầm khăn gấp bằng 2 tay (trải khăn cần cả hai tay)."]
+      - [1.4, 3.2, "Lượt 1: khăn tiến về khay → robot nhấc bát lên giữ, đưa ra xa; người trải khăn vào chỗ bát."]
+      - [3.2, 5.3, "Người bày đĩa (phải) và thìa (trái). Ý định 'ở đâu': chỗ trống lộ dần → robot giữ bát trên chỗ đó, cao hơn tay."]
+      - [5.3, 7.5, "Lượt 2, ý định 'khi nào': tay vừa rút → robot hạ bát vào chỗ trống. S = chỉnh khăn thêm (bẫy đặt sớm); Đ = dời món sang chỗ robot nhắm."]
+
+  C4:
+    title: "C4 Nhận tấm từ hai tay người và cất (Collaborator, 1 ý định: vị trí trao)"
+    duration: 9.0
+    objects:
+      PANEL: {shape: box, size: [0.055, 0.035, 0.012], color: wood, pos: [0.30, -0.26, 0.632]}
+    decor:
+      - {name: shelf, type: box, size: [0.08, 0.07, 0.004], pos: [0.20, 0.20, 0.624], color: grey}
+    human:
+      - {t: [0.4, 1.2], to: [0.36, -0.26, 0.65], shape: grasp}
+      - {t: [1.2, 2.7], to: [0.36, -0.10, 0.79], shape: grasp}
+      - {t: [4.3, 5.2], to: [0.49, -0.40, 0.72], shape: relaxed}
+    human_l:
+      - {t: [0.4, 1.2], to: [0.24, -0.26, 0.65], shape: grasp}
+      - {t: [1.2, 2.7], to: [0.24, -0.10, 0.79], shape: grasp}
+      - {t: [4.3, 5.2], to: [0.13, -0.40, 0.72], shape: relaxed}
+    robot:
+      - {t: [1.5, 2.7], to: [0.30, -0.10, 0.92], grip: 0.085}
+      - {t: [2.9, 3.5], to: [0.30, -0.10, 0.82]}
+      - {t: [3.5, 3.9], grip: 0.070}
+      - {t: [4.3, 5.2], to: [0.30, 0.03, 0.88]}
+      - {t: [5.2, 6.2], to: [0.20, 0.20, 0.82]}
+      - {t: [6.2, 6.6], to: [0.20, 0.20, 0.68]}
+      - {t: [6.6, 6.8], grip: 0.085}
+      - {t: [6.9, 8.2], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.2, grab: PANEL, by: human}
+      - {t: 4.3, grab: PANEL, by: robot}
+      - {t: 6.8, drop: PANEL, at: [0.20, 0.20, 0.64]}
+    marks:
+      - {t: 1.2, who: human, label: "đưa tấm"}
+      - {t: 1.5, who: robot, label: "tới điểm dự kiến"}
+      - {t: 4.3, who: human, label: "buông tấm"}
+      - {t: 6.8, who: robot, label: "cất tấm"}
+    captions:
+      - [0.0, 1.2, "ỨNG VIÊN: người cầm tấm bằng hai tay để đưa robot cất."]
+      - [1.2, 2.9, "Giả thuyết: dự báo chuyển động hai tay giúp robot tới gần điểm trao sớm."]
+      - [2.9, 4.3, "Robot tiếp cận tấm; chỉ nhận khi điểm nắm và điều kiện buông hợp lệ."]
+      - [4.3, 9.0, "Người buông, robot cất tấm. Nắm và khoảng cách cần kiểm bằng physics; preview chưa kiểm."]
+
+  # ================================================================ Cowork (competing, crossing, intrusion)
+  W1:
+    title: "W1 Phân loại rác song song: tranh vật (Cowork, 1 ý định: người với vật nào) — HABIT S7235"
+    duration: 9.0
+    objects:
+      N1: {shape: cylinder, size: [0.022, 0.03], color: red, pos: [0.16, 0.10, 0.65]}
+      N2: {shape: cylinder, size: [0.022, 0.03], color: red, pos: [0.30, 0.04, 0.65]}
+      N3: {shape: cylinder, size: [0.022, 0.03], color: red, pos: [0.22, 0.18, 0.65]}
+      B1: {shape: cylinder, size: [0.02, 0.05], color: blue, pos: [0.33, 0.10, 0.67]}
+      B2: {shape: cylinder, size: [0.02, 0.05], color: blue, pos: [0.40, 0.02, 0.67]}
+    decor:
+      - {name: basketR, type: open_box, half: [0.05, 0.05], height: 0.05, wall: 0.004, pos: [0.08, 0.26, 0.62], color: box}
+      - {name: basketH, type: open_box, half: [0.05, 0.05], height: 0.05, wall: 0.004, pos: [0.50, -0.26, 0.62], color: box2}
+    human:
+      - {t: [2.0, 3.0], to: [0.33, 0.07, 0.68], shape: grasp}        # reaches for bottle B1 (next to can N2)
+      - {t: [3.0, 4.2], to: [0.50, -0.26, 0.74], shape: grasp}
+      - {t: [4.6, 5.6], to: [0.40, -0.01, 0.68], shape: grasp}       # then bottle B2
+      - {t: [5.6, 6.6], to: [0.50, -0.27, 0.74], shape: grasp}
+      - {t: [6.8, 7.5], to: [0.49, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [0.0, 0.6], to: {obj: N1, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [0.6, 0.9], to: {obj: N1, d: [0, 0, 0.02]}}
+      - {t: [0.9, 1.1], grip: 0.044}
+      - {t: [1.1, 1.4], to: [0.16, 0.10, 0.78]}
+      - {t: [1.4, 2.1], to: [0.08, 0.26, 0.76]}
+      - {t: [2.1, 2.3], grip: 0.085}
+      - {t: [2.3, 2.9], to: {obj: N3, d: [0, 0, 0.10]}}               # not N2: the hand is heading there
+      - {t: [2.9, 3.2], to: {obj: N3, d: [0, 0, 0.02]}}
+      - {t: [3.2, 3.4], grip: 0.044}
+      - {t: [3.4, 3.7], to: [0.22, 0.18, 0.78]}
+      - {t: [3.7, 4.3], to: [0.08, 0.26, 0.76]}
+      - {t: [4.3, 4.5], grip: 0.085}
+      - {t: [4.5, 5.2], to: [0.22, 0.10, 0.82]}                       # waits on its side while the hand takes B2
+      - {t: [5.8, 6.3], to: {obj: N2, d: [0, 0, 0.10]}}
+      - {t: [6.3, 6.6], to: {obj: N2, d: [0, 0, 0.02]}}
+      - {t: [6.6, 6.8], grip: 0.044}
+      - {t: [6.8, 7.1], to: [0.30, 0.04, 0.78]}
+      - {t: [7.1, 7.8], to: [0.08, 0.26, 0.76]}
+      - {t: [7.8, 8.0], grip: 0.085}
+      - {t: [8.1, 8.9], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.1, grab: N1, by: robot}
+      - {t: 2.3, drop: N1, at: [0.08, 0.26, 0.65]}
+      - {t: 3.0, grab: B1, by: human}
+      - {t: 3.4, grab: N3, by: robot}
+      - {t: 4.3, drop: B1, at: [0.50, -0.26, 0.67]}
+      - {t: 4.5, drop: N3, at: [0.08, 0.27, 0.65]}
+      - {t: 5.6, grab: B2, by: human}
+      - {t: 6.7, drop: B2, at: [0.50, -0.27, 0.67]}
+      - {t: 6.8, grab: N2, by: robot}
+      - {t: 8.0, drop: N2, at: [0.09, 0.25, 0.65]}
+    marks:
+      - {t: 2.0, who: human, label: "với chai B1"}
+      - {t: 2.3, who: robot, label: "chọn N3, không N2"}
+      - {t: 4.5, who: robot, label: "chờ bên mình"}
+      - {t: 4.6, who: human, label: "với chai B2"}
+      - {t: 5.8, who: robot, label: "lấy N2"}
+    captions:
+      - [0.0, 2.0, "Trục 1 - tranh vật. Lon (đỏ) và chai (xanh) lẫn trên bàn; robot bỏ lon, người bỏ chai, cùng lúc."]
+      - [2.0, 4.5, "Ý định (người với vật nào): tay đi về chai B1 cạnh lon N2 → robot chọn lon N3 ở xa, không tranh đường."]
+      - [4.5, 6.6, "Tay người đi về B2 qua vùng giữa → robot chờ bên phía mình."]
+      - [6.6, 9.0, "Tay rút → robot lấy N2. Trường hợp: xâm nhập thật / đi gần mà không vào; người với nhầm rồi đổi."]
+
+  W2:
+    title: "W2 Người bê hộp cắt ngang đường robot (Cowork, 1 ý định: đường tay và lúc cắt)"
+    duration: 8.5
+    objects:
+      N1: {shape: cylinder, size: [0.022, 0.03], color: red, pos: [0.14, 0.04, 0.65]}
+      N2: {shape: cylinder, size: [0.022, 0.03], color: red, pos: [0.12, 0.13, 0.65]}
+      BOX: {shape: box, size: [0.06, 0.05, 0.04], color: tan, pos: [0.30, -0.28, 0.66]}
+    decor:
+      - {name: bin, type: open_box, half: [0.05, 0.05], height: 0.05, wall: 0.004, pos: [0.42, 0.04, 0.62], color: box}
+    human:
+      - {t: [3.0, 3.6], to: [0.37, -0.28, 0.67], shape: grasp}       # both hands on the box
+      - {t: [3.6, 5.0], to: [0.37, 0.00, 0.71], shape: grasp}        # carry it across, to the far side
+      - {t: [5.1, 6.0], to: [0.49, -0.40, 0.66], shape: relaxed}
+    human_l:
+      - {t: [3.0, 3.6], to: [0.23, -0.28, 0.67], shape: grasp}
+      - {t: [3.6, 5.0], to: [0.23, 0.00, 0.71], shape: grasp}
+      - {t: [5.1, 6.0], to: [0.13, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [0.0, 0.6], to: {obj: N1, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [0.6, 0.9], to: {obj: N1, d: [0, 0, 0.02]}}
+      - {t: [0.9, 1.1], grip: 0.044}
+      - {t: [1.1, 1.4], to: [0.14, 0.04, 0.80]}
+      - {t: [1.4, 2.4], to: [0.42, 0.04, 0.80]}                       # its route: along y ~ 0
+      - {t: [2.4, 2.6], to: [0.42, 0.04, 0.72]}
+      - {t: [2.6, 2.8], grip: 0.085}
+      - {t: [2.8, 3.6], to: {obj: N2, d: [0, 0, 0.10]}}
+      - {t: [3.6, 3.9], to: {obj: N2, d: [0, 0, 0.02]}}
+      - {t: [3.9, 4.1], grip: 0.044}
+      - {t: [4.1, 4.4], to: [0.12, 0.13, 0.80]}
+      - {t: [4.4, 4.8], to: [0.12, 0.22, 0.86]}                       # enters the farther corridor
+      - {t: [4.8, 5.6], to: [0.32, 0.20, 0.83]}                       # continues away from the crossing
+      - {t: [5.6, 6.6], to: [0.42, 0.04, 0.80]}                       # returns towards the bin
+      - {t: [6.6, 6.8], to: [0.42, 0.04, 0.72]}
+      - {t: [6.8, 7.0], grip: 0.085}
+      - {t: [7.1, 8.0], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.1, grab: N1, by: robot}
+      - {t: 2.8, drop: N1, at: [0.42, 0.04, 0.66]}
+      - {t: 3.6, grab: BOX, by: human}
+      - {t: 4.1, grab: N2, by: robot}
+      - {t: 5.0, drop: BOX, at: [0.30, 0.00, 0.66]}
+      - {t: 7.0, drop: N2, at: [0.43, 0.05, 0.66]}
+    marks:
+      - {t: 3.6, who: human, label: "bê hộp đi"}
+      - {t: 4.4, who: robot, label: "chọn đường vòng"}
+      - {t: 5.0, who: human, label: "đặt hộp"}
+      - {t: 5.6, who: robot, label: "đi qua"}
+    captions:
+      - [0.0, 3.0, "Trục 2 - cắt đường. Robot chuyển lon từ trái sang giỏ phải, đường đi dọc giữa bàn."]
+      - [3.0, 4.4, "Người bê hộp bằng 2 tay, đi ngang qua đường của robot để đặt ở phía xa."]
+      - [4.4, 5.6, "Giả thuyết: dự báo tay và hộp sẽ cắt ngang → robot sang hành lang xa rồi tiếp tục vận chuyển."]
+      - [5.6, 8.5, "Tay quay về → robot tới giỏ. Kiểm giao cắt, khoảng cách tới tay và hộp, cùng thời gian cả hai việc."]
+
+  W3:
+    title: "W3 Người xâm nhập vùng robot rồi rút (Cowork, 1 ý định: khi nào tay rời) — HABIT S8791"
+    duration: 11.5
+    objects:
+      R1: {shape: box, size: [0.028, 0.021, 0.018], color: tan, pos: [0.12, 0.24, 0.648]}
+      R2: {shape: box, size: [0.028, 0.021, 0.018], color: tan, pos: [0.20, 0.24, 0.648]}
+      R3: {shape: box, size: [0.028, 0.021, 0.018], color: tan, pos: [0.28, 0.24, 0.648]}
+      SPILL: {shape: cylinder, size: [0.035, 0.0015], color: dirt, pos: [0.26, 0.08, 0.6215]}
+      CL: {shape: box, size: [0.03, 0.02, 0.01], color: cloth, pos: [0.46, -0.30, 0.63]}
+    decor:
+      - {name: sheet, type: box, size: [0.13, 0.06, 0.005], pos: [0.20, 0.24, 0.625], color: grey}
+      - {name: boxA, type: open_box, half: [0.07, 0.05], height: 0.06, wall: 0.004, pos: [0.40, 0.08, 0.62], color: box}
+    human:
+      - {t: [1.5, 2.0], to: [0.46, -0.30, 0.645], shape: grasp}      # takes a cloth
+      - {t: [2.8, 3.8], to: [0.26, 0.08, 0.645], shape: grasp}       # reaches INTO the robot's area: a spill
+      - {t: [3.8, 4.3], to: [0.20, 0.10, 0.645], shape: grasp}       # wipes for a few seconds
+      - {t: [4.3, 4.8], to: [0.29, 0.06, 0.645], shape: grasp}
+      - {t: [4.8, 5.3], to: [0.22, 0.09, 0.645], shape: grasp}
+      - {t: [5.3, 5.8], to: [0.26, 0.08, 0.645], shape: grasp}
+      - {t: [5.9, 6.9], to: [0.46, -0.30, 0.66], shape: grasp}       # withdraws
+      - {t: [7.1, 7.8], to: [0.49, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [0.0, 0.6], to: {obj: R1, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [0.6, 0.9], to: {obj: R1, d: [0, 0, 0.012]}}
+      - {t: [0.9, 1.1], grip: 0.054}
+      - {t: [1.1, 1.4], to: [0.12, 0.24, 0.76]}
+      - {t: [1.4, 2.2], to: [0.40, 0.08, 0.78]}
+      - {t: [2.2, 2.5], to: [0.40, 0.08, 0.69]}
+      - {t: [2.5, 2.7], grip: 0.085}
+      - {t: [2.7, 3.0], to: [0.32, 0.12, 0.80]}                       # on its way to R2 ...
+      - {t: [3.0, 3.6], to: [0.06, 0.34, 0.88]}                       # ... yields as the hand starts in
+      - {t: [6.0, 6.6], to: {obj: R2, d: [0, 0, 0.10]}}               # resumes as the hand starts out
+      - {t: [6.6, 6.9], to: {obj: R2, d: [0, 0, 0.012]}}
+      - {t: [6.9, 7.1], grip: 0.054}
+      - {t: [7.1, 7.4], to: [0.20, 0.24, 0.76]}
+      - {t: [7.4, 8.1], to: [0.42, 0.06, 0.78]}
+      - {t: [8.1, 8.4], to: [0.42, 0.06, 0.69]}
+      - {t: [8.4, 8.6], grip: 0.085}
+      - {t: [8.6, 9.1], to: {obj: R3, d: [0, 0, 0.10]}}
+      - {t: [9.1, 9.4], to: {obj: R3, d: [0, 0, 0.012]}}
+      - {t: [9.4, 9.6], grip: 0.054}
+      - {t: [9.6, 10.3], to: [0.38, 0.10, 0.78]}
+      - {t: [10.3, 10.6], to: [0.38, 0.10, 0.69]}
+      - {t: [10.6, 10.8], grip: 0.085}
+      - {t: [10.8, 11.4], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.1, grab: R1, by: robot}
+      - {t: 2.0, grab: CL, by: human}
+      - {t: 2.7, drop: R1, at: [0.40, 0.08, 0.648]}
+      - {t: 5.6, drop: SPILL, at: [0.0, 0.0, -1.0]}
+      - {t: 7.0, drop: CL, at: [0.46, -0.30, 0.63]}
+      - {t: 7.1, grab: R2, by: robot}
+      - {t: 8.6, drop: R2, at: [0.42, 0.06, 0.648]}
+      - {t: 9.6, grab: R3, by: robot}
+      - {t: 10.8, drop: R3, at: [0.38, 0.10, 0.648]}
+    marks:
+      - {t: 2.8, who: human, label: "vào vùng robot"}
+      - {t: 3.0, who: robot, label: "nhường"}
+      - {t: 5.9, who: human, label: "bắt đầu rút"}
+      - {t: 6.0, who: robot, label: "làm tiếp"}
+    captions:
+      - [0.0, 2.8, "Trục 3 - xâm nhập rồi rút. Robot bỏ bánh vào hộp; người cầm khăn lau."]
+      - [2.8, 3.8, "Người bất ngờ vươn vào vùng robot lau chỗ tràn → robot nhường ngay khi tay bắt đầu vào (dự báo)."]
+      - [3.8, 5.9, "Người lau vài giây. Robot chờ ở xa, không chen vào."]
+      - [5.9, 11.5, "Ý định (khi nào tay rời): tay vừa bắt đầu rút → robot làm tiếp ngay, không đợi tay ra hẳn (lỗi Intruder: không phục hồi)."]

@@ -1,0 +1,354 @@
+# Seven candidate storyboards, inspired by HABIT task workflows; 2026-10-28.
+# Hand-authored kinematics only; no physics, ManiCast prediction, learned policy, or measured speedup.
+scene_base: configs/scene/common.yaml
+out_dir: outputs/habit_motion_candidates_preview
+fps: 20
+video: {width: 480, height: 360, caption_h: 104, font: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf, font_size: 15}
+cameras:
+  high: {pos: [0.30, 0.70, 1.50], target: [0.30, -0.20, 0.90], fovy: 70}
+  side: {pos: [1.25, -0.10, 1.30], target: [0.28, -0.04, 0.72], fovy: 55}
+show: [high, side]
+colors:
+  red: [0.82, 0.12, 0.10, 1.0]
+  blue: [0.10, 0.28, 0.78, 1.0]
+  green: [0.12, 0.60, 0.30, 1.0]
+  yellow: [0.98, 0.76, 0.09, 1.0]
+  orange: [0.98, 0.50, 0.08, 1.0]
+  white: [0.93, 0.93, 0.93, 1.0]
+  grey: [0.55, 0.57, 0.59, 1.0]
+  tan: [0.86, 0.66, 0.40, 1.0]
+  wood: [0.72, 0.55, 0.36, 1.0]
+  cloth: [0.25, 0.45, 0.75, 1.0]
+  box: [0.92, 0.92, 0.95, 0.8]
+  box2: [0.95, 0.85, 0.60, 0.8]
+  spot: [1.0, 0.85, 0.2, 0.35]
+
+tasks:
+  S6218:
+    title: "S6218: Người dọn kệ, robot lau tầng được chọn"
+    duration: 10.5
+    objects:
+      CLOCK: {shape: mesh, mesh: Crosley_Alarm_Clock_Vintage_Metal, scale: 0.38, pos: [0.35, 0.02, 0.795]}
+      BRUSH: {shape: roller, pos: [0.10, 0.22, 0.635]}
+      DUST: {shape: cylinder, size: [0.028, 0.0015], color: tan, pos: [0.34, 0.02, 0.7965]}
+    decor:
+      - {name: lower, type: box, size: [0.145, 0.065, 0.005], pos: [0.29, 0.02, 0.64], color: wood}
+      - {name: upper, type: box, size: [0.145, 0.065, 0.005], pos: [0.29, 0.02, 0.79], color: wood}
+      - {name: left_post, type: box, size: [0.005, 0.06, 0.08], pos: [0.15, 0.02, 0.715], color: wood}
+      - {name: right_post, type: box, size: [0.005, 0.06, 0.08], pos: [0.43, 0.02, 0.715], color: wood}
+      - {name: lower_cup, type: mesh, mesh: Cole_Hardware_Mug_Classic_Blue, scale: 0.48, pos: [0.22, 0.02, 0.645]}
+    human:
+      - {t: [1.5, 2.8], to: [0.35, 0.01, 0.86], shape: grasp}
+      - {t: [2.8, 3.8], to: [0.42, -0.25, 0.83], shape: grasp}
+      - {t: [6.6, 7.4], to: [0.35, 0.01, 0.86], shape: grasp}
+      - {t: [7.5, 8.5], to: [0.49, -0.40, 0.70], shape: relaxed}
+    robot:
+      - {t: [0.1, 0.7], to: {obj: BRUSH, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [0.7, 1.0], to: {obj: BRUSH, d: [0, 0, 0.02]}}
+      - {t: [1.0, 1.2], grip: 0.04}
+      - {t: [1.2, 1.7], to: [0.16, 0.16, 0.88]}
+      - {t: [1.8, 2.8], to: [0.32, 0.13, 0.91]}
+      - {t: [3.8, 4.2], to: [0.31, 0.05, 0.85]}
+      - {t: [4.2, 4.6], to: [0.37, 0.05, 0.85]}
+      - {t: [4.6, 5.0], to: [0.31, 0.05, 0.85]}
+      - {t: [5.0, 5.4], to: [0.37, 0.05, 0.85]}
+      - {t: [5.4, 6.1], to: [0.20, 0.16, 0.90]}
+      - {t: [7.5, 9.4], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.2, grab: BRUSH, by: robot}
+      - {t: 2.8, grab: CLOCK, by: human}
+      - {t: 5.2, drop: DUST, at: [0.0, 0.0, -1.0]}
+      - {t: 7.4, drop: CLOCK, at: [0.35, 0.02, 0.795]}
+    marks:
+      - {t: 1.5, who: human, label: "tay tới tầng trên"}
+      - {t: 1.8, who: robot, label: "chuẩn bị lên"}
+      - {t: 2.8, who: human, label: "nhấc đồng hồ"}
+      - {t: 3.8, who: robot, label: "lau tầng"}
+      - {t: 6.6, who: human, label: "đặt lại"}
+    captions:
+      - [0.0, 1.5, "Hai tầng kệ có đồ; robot cầm dụng cụ lau."]
+      - [1.5, 3.8, "Người với lên tầng trên. Robot chuẩn bị cạnh tầng đó khi tay đang chuyển động."]
+      - [3.8, 6.1, "Người nhấc đồng hồ ra; robot lau khi tầng đã trống."]
+      - [6.1, 10.5, "Robot rời kệ; người đặt đồ lại. Giả thuyết: chọn tầng sớm giảm thời gian chờ."]
+
+  S8455:
+    title: "S8455: Người đậy cốc, robot đưa cốc vào khay"
+    duration: 9.8
+    objects:
+      CUPL: {shape: mesh, mesh: Room_Essentials_Mug_White_Yellow, scale: 0.55, pos: [0.15, 0.02, 0.62]}
+      CUPR: {shape: mesh, mesh: Room_Essentials_Mug_White_Yellow, scale: 0.55, pos: [0.36, 0.02, 0.62]}
+      LID: {shape: cylinder, size: [0.028, 0.004], color: white, pos: [0.46, -0.26, 0.63]}
+    decor:
+      - {name: carrier, type: open_box, half: [0.075, 0.06], height: 0.022, wall: 0.003, pos: [0.14, 0.22, 0.62], color: box2}
+    human:
+      - {t: [0.5, 1.1], to: [0.46, -0.26, 0.65], shape: grasp}
+      - {t: [1.1, 2.8], to: [0.36, 0.02, 0.75], shape: grasp}
+      - {t: [2.8, 3.3], to: [0.36, 0.02, 0.70], shape: relaxed}
+      - {t: [3.3, 4.3], to: [0.49, -0.40, 0.70], shape: relaxed}
+      - {t: [7.6, 8.6], to: [0.16, 0.18, 0.70], shape: grasp}
+    robot:
+      - {t: [1.4, 2.7], to: [0.36, 0.04, 0.88], grip: 0.085}
+      - {t: [4.3, 4.7], to: {obj: CUPR, d: [0, 0, 0.045]}}
+      - {t: [4.7, 4.9], grip: 0.045}
+      - {t: [4.9, 5.3], to: [0.36, 0.02, 0.84]}
+      - {t: [5.3, 6.3], to: [0.14, 0.22, 0.84]}
+      - {t: [6.3, 6.7], to: [0.14, 0.22, 0.71]}
+      - {t: [6.7, 6.9], grip: 0.085}
+      - {t: [7.0, 8.4], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.1, grab: LID, by: human}
+      - {t: 3.3, grab: LID, by: CUPR}
+      - {t: 4.9, grab: CUPR, by: robot}
+      - {t: 6.9, drop: CUPR, at: [0.14, 0.22, 0.625]}
+    marks:
+      - {t: 1.1, who: human, label: "mang nắp"}
+      - {t: 1.4, who: robot, label: "tới cốc phải"}
+      - {t: 3.3, who: human, label: "rút tay"}
+      - {t: 4.9, who: robot, label: "nhấc cốc"}
+      - {t: 6.9, who: robot, label: "vào khay"}
+    captions:
+      - [0.0, 1.1, "Hai cốc ở hai vị trí; người lấy nắp để đậy một cốc."]
+      - [1.1, 3.3, "Tay mang nắp về cốc phải; robot chuẩn bị phía trên cốc đó."]
+      - [3.3, 4.9, "Chờ người rút tay và xác nhận nắp đã đặt, robot mới gắp cốc."]
+      - [4.9, 9.8, "Robot đặt cốc vào khay. Hai cốc là phần mở rộng của kịch bản HABIT."]
+
+  S6297:
+    title: "S6297: Người đặt bình, robot cất bình"
+    duration: 9.8
+    objects:
+      FLASK: {shape: flask, pos: [0.42, -0.25, 0.657]}
+    decor:
+      - {name: zone_l, type: cylinder, size: [0.045, 0.001], pos: [0.16, -0.02, 0.621], color: spot}
+      - {name: zone_r, type: cylinder, size: [0.045, 0.001], pos: [0.35, -0.02, 0.621], color: spot}
+      - {name: target_bin, type: open_box, half: [0.07, 0.055], height: 0.04, wall: 0.003, pos: [0.13, 0.23, 0.62], color: box}
+    human:
+      - {t: [0.4, 1.0], to: [0.42, -0.25, 0.68], shape: grasp}
+      - {t: [1.0, 1.5], to: [0.40, -0.24, 0.76], shape: grasp}
+      - {t: [1.5, 2.0], to: [0.43, -0.24, 0.76], shape: grasp}
+      - {t: [2.0, 2.5], to: [0.40, -0.24, 0.76], shape: grasp}
+      - {t: [2.5, 4.1], to: [0.35, -0.02, 0.71], shape: grasp}
+      - {t: [4.1, 4.6], to: [0.35, -0.02, 0.68], shape: grasp}
+      - {t: [4.6, 5.4], to: [0.49, -0.40, 0.70], shape: relaxed}
+    robot:
+      - {t: [2.8, 4.1], to: [0.35, 0.03, 0.88], grip: 0.085}
+      - {t: [5.3, 5.7], to: {obj: FLASK, d: [0, 0, 0.02]}}
+      - {t: [5.7, 5.9], grip: 0.050}
+      - {t: [5.9, 6.3], to: [0.35, -0.02, 0.83]}
+      - {t: [6.3, 7.2], to: [0.13, 0.23, 0.82]}
+      - {t: [7.2, 7.6], to: [0.13, 0.23, 0.72]}
+      - {t: [7.6, 7.8], grip: 0.085}
+      - {t: [7.9, 9.2], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.0, grab: FLASK, by: human}
+      - {t: 4.6, drop: FLASK, at: [0.35, -0.02, 0.657]}
+      - {t: 5.9, grab: FLASK, by: robot}
+      - {t: 7.8, drop: FLASK, at: [0.13, 0.23, 0.657]}
+    marks:
+      - {t: 2.5, who: human, label: "mang bình"}
+      - {t: 2.8, who: robot, label: "tới vùng dự kiến"}
+      - {t: 4.6, who: human, label: "đặt bình"}
+      - {t: 5.9, who: robot, label: "nhấc bình"}
+      - {t: 7.8, who: robot, label: "cất bình"}
+    captions:
+      - [0.0, 2.5, "Người lắc bình có nắp, rồi chuẩn bị đưa tới một trong hai vị trí."]
+      - [2.5, 4.6, "Tay đang mang bình về bên phải; robot chuẩn bị phía trên vùng dự kiến."]
+      - [4.6, 7.8, "Bình đặt ổn định và tay rút: robot gắp, mang vào giỏ."]
+      - [7.8, 9.8, "Hai vị trí nhận là mở rộng để so chi phí đi đúng / sai."]
+
+  S7025:
+    title: "S7025: Robot giữ hộp để người phân loại"
+    duration: 12.0
+    objects:
+      BOX: {shape: carton, half: [0.04, 0.035], pos: [0.15, 0.20, 0.62]}
+      ITEM1: {shape: can, color: red, pos: [0.44, -0.23, 0.655]}
+      ITEM2: {shape: can, color: blue, pos: [0.18, -0.19, 0.655]}
+    decor:
+      - {name: worktray, type: mesh, mesh: Threshold_Tray_Rectangle_Porcelain, scale: 0.8, yaw: 90, pos: [0.31, -0.22, 0.62]}
+    human:
+      - {t: [1.5, 2.3], to: [0.44, -0.23, 0.67], shape: grasp}
+      - {t: [2.3, 3.4], to: [0.34, -0.12, 0.80], shape: grasp}
+      - {t: [3.4, 3.7], to: [0.34, -0.12, 0.79], shape: relaxed}
+      - {t: [3.7, 4.5], to: [0.49, -0.40, 0.70], shape: relaxed}
+      - {t: [5.1, 6.0], to: [0.18, -0.19, 0.67], shape: grasp}
+      - {t: [6.0, 7.1], to: [0.24, -0.12, 0.80], shape: grasp}
+      - {t: [7.1, 7.4], to: [0.24, -0.12, 0.79], shape: relaxed}
+      - {t: [7.4, 8.2], to: [0.49, -0.40, 0.70], shape: relaxed}
+      - {t: [8.8, 9.7], to: [0.30, -0.13, 0.76], shape: grasp}
+      - {t: [10.0, 11.2], to: [0.38, -0.28, 0.69], shape: grasp}
+    robot:
+      - {t: [0.2, 0.8], to: {obj: BOX, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [0.8, 1.1], to: {obj: BOX, d: [0, 0, 0.025]}}
+      - {t: [1.1, 1.3], grip: 0.06}
+      - {t: [1.6, 2.5], to: [0.34, -0.10, 0.78]}
+      - {t: [5.2, 6.0], to: [0.24, -0.10, 0.78]}
+      - {t: [8.3, 9.1], to: [0.30, -0.10, 0.78]}
+      - {t: [9.7, 9.9], grip: 0.085}
+      - {t: [10.0, 11.5], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.3, grab: BOX, by: robot}
+      - {t: 2.3, grab: ITEM1, by: human}
+      - {t: 3.7, grab: ITEM1, by: BOX}
+      - {t: 6.0, grab: ITEM2, by: human}
+      - {t: 7.4, grab: ITEM2, by: BOX}
+      - {t: 9.9, grab: BOX, by: human}
+    marks:
+      - {t: 1.5, who: human, label: "với cụm phải"}
+      - {t: 1.6, who: robot, label: "đưa hộp sang"}
+      - {t: 3.7, who: human, label: "đặt món 1"}
+      - {t: 5.1, who: human, label: "với cụm trái"}
+      - {t: 7.4, who: human, label: "đặt món 2"}
+    captions:
+      - [0.0, 1.5, "Robot cầm hộp; người chuẩn bị phân loại hai lon."]
+      - [1.5, 4.5, "Tay hướng tới cụm phải: robot đưa hộp tới gần và giữ yên khi người đặt lon."]
+      - [4.5, 8.2, "Tay chuyển sang cụm trái: robot đổi vị trí hộp sau khi tay đã rút."]
+      - [8.2, 12.0, "Người nhận hộp. Vị trí hộp linh hoạt là bản mở rộng; chưa có physics."]
+
+  S6530:
+    title: "S6530: Người xếp đồ, robot đậy hộp"
+    duration: 10.8
+    objects:
+      CLOCK: {shape: mesh, mesh: Crosley_Alarm_Clock_Vintage_Metal, scale: 0.35, pos: [0.43, -0.25, 0.62]}
+      LID: {shape: box, size: [0.055, 0.045, 0.004], color: tan, pos: [0.25, 0.20, 0.628]}
+      TAPE: {shape: cylinder, size: [0.021, 0.008], color: blue, pos: [0.45, -0.28, 0.63]}
+    decor:
+      - {name: boxl, type: open_box, half: [0.06, 0.05], height: 0.05, wall: 0.003, pos: [0.16, 0.03, 0.62], color: box2}
+      - {name: boxr, type: open_box, half: [0.06, 0.05], height: 0.05, wall: 0.003, pos: [0.36, 0.03, 0.62], color: box2}
+    human:
+      - {t: [0.4, 1.1], to: [0.43, -0.25, 0.66], shape: grasp}
+      - {t: [1.1, 2.9], to: [0.36, 0.03, 0.74], shape: grasp}
+      - {t: [2.9, 3.5], to: [0.36, 0.03, 0.70], shape: grasp}
+      - {t: [3.5, 4.5], to: [0.49, -0.40, 0.70], shape: relaxed}
+      - {t: [7.1, 7.8], to: [0.45, -0.28, 0.65], shape: grasp}
+      - {t: [7.8, 8.7], to: [0.34, 0.03, 0.71], shape: grasp}
+      - {t: [8.7, 9.3], to: [0.38, 0.03, 0.71], shape: grasp}
+      - {t: [9.3, 10.0], to: [0.45, -0.28, 0.65], shape: grasp}
+    robot:
+      - {t: [1.5, 2.3], to: {obj: LID, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [2.3, 2.7], to: {obj: LID, d: [0, 0, 0.01]}}
+      - {t: [2.7, 2.9], grip: 0.06}
+      - {t: [3.1, 4.3], to: [0.36, 0.03, 0.87]}
+      - {t: [4.7, 5.3], to: [0.36, 0.03, 0.70]}
+      - {t: [5.3, 5.5], grip: 0.085}
+      - {t: [5.6, 7.0], to: [0.15, 0.10, 0.85]}
+    events:
+      - {t: 1.1, grab: CLOCK, by: human}
+      - {t: 2.9, grab: LID, by: robot}
+      - {t: 3.5, drop: CLOCK, at: [0.36, 0.03, 0.625]}
+      - {t: 5.5, drop: LID, at: [0.36, 0.03, 0.674]}
+      - {t: 7.8, grab: TAPE, by: human}
+      - {t: 10.0, drop: TAPE, at: [0.45, -0.28, 0.63]}
+    marks:
+      - {t: 1.1, who: human, label: "mang đồ"}
+      - {t: 3.1, who: robot, label: "chuẩn bị nắp"}
+      - {t: 3.5, who: human, label: "tay rút"}
+      - {t: 5.5, who: robot, label: "đậy hộp"}
+    captions:
+      - [0.0, 2.9, "Người mang đồng hồ tới hộp phải; robot lấy nắp."]
+      - [2.9, 4.5, "Robot đưa nắp tới vùng chờ cao khi người đặt đồ và rút tay."]
+      - [4.5, 7.0, "Tay ra khỏi hộp: robot đậy nắp. Bản một tay dùng nắp rời thay các cánh."]
+      - [7.0, 10.8, "Người dán băng keo. Dự báo sớm là giả thuyết cần kiểm."]
+
+  S5243:
+    title: "S5243: Robot chuẩn bị túi để người xếp đồ"
+    duration: 11.5
+    objects:
+      BASKET: {shape: mesh, mesh: Threshold_Basket_Natural_Finish_Fabric_Liner_Small, scale: 0.55, pos: [0.30, -0.27, 0.62]}
+      ITEM: {shape: box, size: [0.018, 0.018, 0.025], color: blue, pos: [0.30, -0.27, 0.69]}
+      HANDLE: {shape: box, size: [0.005, 0.045, 0.004], color: tan, pos: [0.35, 0.05, 0.70]}
+    decor:
+      - {name: bag_l, type: open_box, half: [0.06, 0.05], height: 0.08, wall: 0.003, pos: [0.15, 0.05, 0.62], color: box2}
+      - {name: bag_r, type: open_box, half: [0.06, 0.05], height: 0.08, wall: 0.003, pos: [0.35, 0.05, 0.62], color: box2}
+      - {name: bracket_l, type: box, size: [0.004, 0.05, 0.012], pos: [0.09, 0.05, 0.70], color: grey}
+      - {name: bracket_r, type: box, size: [0.004, 0.05, 0.012], pos: [0.29, 0.05, 0.70], color: grey}
+    human:
+      - {t: [0.3, 1.1], to: [0.36, -0.27, 0.66], shape: grasp}
+      - {t: [1.1, 2.9], to: [0.44, -0.06, 0.72], shape: grasp}
+      - {t: [2.9, 3.5], to: [0.44, -0.06, 0.66], shape: grasp}
+      - {t: [3.7, 4.5], to: [0.38, -0.06, 0.72], shape: grasp}
+      - {t: [4.5, 5.5], to: [0.32, 0.05, 0.77], shape: grasp}
+      - {t: [5.5, 6.1], to: [0.32, 0.05, 0.73], shape: relaxed}
+      - {t: [6.1, 7.2], to: [0.49, -0.40, 0.70], shape: relaxed}
+    human_l:
+      - {t: [0.3, 1.1], to: [0.24, -0.27, 0.66], shape: grasp}
+      - {t: [1.1, 2.9], to: [0.32, -0.06, 0.72], shape: grasp}
+      - {t: [2.9, 3.5], to: [0.32, -0.06, 0.66], shape: grasp}
+      - {t: [3.7, 4.6], to: [0.13, -0.40, 0.70], shape: relaxed}
+    robot:
+      - {t: [1.4, 2.4], to: [0.35, 0.05, 0.82], grip: 0.085}
+      - {t: [2.4, 2.8], to: {obj: HANDLE, d: [0, 0, 0.01]}}
+      - {t: [2.8, 3.0], grip: 0.04}
+      - {t: [3.0, 3.5], to: [0.43, 0.05, 0.75]}
+      - {t: [3.5, 5.9], to: [0.43, 0.05, 0.75]}
+      - {t: [6.1, 6.3], grip: 0.085}
+      - {t: [6.3, 7.5], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 1.1, grab: BASKET, by: human}
+      - {t: 1.1, grab: ITEM, by: BASKET}
+      - {t: 3.0, grab: HANDLE, by: robot}
+      - {t: 3.5, drop: BASKET, at: [0.38, -0.06, 0.62]}
+      - {t: 4.5, grab: ITEM, by: human}
+      - {t: 6.1, drop: ITEM, at: [0.32, 0.05, 0.69]}
+      - {t: 6.3, drop: HANDLE, at: [0.43, 0.05, 0.70]}
+    marks:
+      - {t: 1.1, who: human, label: "bê giỏ"}
+      - {t: 1.4, who: robot, label: "tới túi phải"}
+      - {t: 3.0, who: robot, label: "giữ mép túi"}
+      - {t: 3.5, who: human, label: "đặt giỏ"}
+      - {t: 6.1, who: human, label: "bỏ đồ"}
+    captions:
+      - [0.0, 1.1, "Hai túi có giá giữ một mép; người bắt đầu bê giỏ đồ."]
+      - [1.1, 3.5, "Hai tay mang giỏ về phía phải: robot tới túi đó và kéo mép mở."]
+      - [3.5, 6.1, "Người đặt giỏ, lấy đồ và bỏ vào túi; robot giữ miệng túi."]
+      - [6.1, 11.5, "Bản minh họa dùng túi bán cứng và giá giữ, phù hợp một tay robot."]
+
+  S8186:
+    title: "S8186: Người và robot xếp đồ vào hai hộp"
+    duration: 11.3
+    objects:
+      H1: {shape: box, size: [0.018, 0.018, 0.023], color: blue, pos: [0.34, 0.02, 0.643]}
+      H2: {shape: box, size: [0.018, 0.018, 0.023], color: green, pos: [0.42, -0.03, 0.643]}
+      R1: {shape: box, size: [0.022, 0.016, 0.015], color: orange, pos: [0.13, 0.16, 0.635]}
+      R2: {shape: box, size: [0.022, 0.016, 0.015], color: yellow, pos: [0.29, 0.08, 0.635]}
+    decor:
+      - {name: robot_box, type: open_box, half: [0.06, 0.05], height: 0.045, wall: 0.003, pos: [0.08, 0.26, 0.62], color: box}
+      - {name: human_box, type: open_box, half: [0.06, 0.05], height: 0.045, wall: 0.003, pos: [0.48, -0.25, 0.62], color: box2}
+    human:
+      - {t: [1.2, 2.3], to: [0.34, 0.02, 0.66], shape: grasp}
+      - {t: [2.3, 3.5], to: [0.48, -0.25, 0.70], shape: grasp}
+      - {t: [3.7, 4.5], to: [0.42, -0.03, 0.66], shape: grasp}
+      - {t: [4.5, 5.5], to: [0.48, -0.25, 0.70], shape: grasp}
+      - {t: [5.7, 6.4], to: [0.49, -0.40, 0.66], shape: relaxed}
+    robot:
+      - {t: [1.4, 2.1], to: {obj: R1, d: [0, 0, 0.10]}, grip: 0.085}
+      - {t: [2.1, 2.4], to: {obj: R1, d: [0, 0, 0.015]}}
+      - {t: [2.4, 2.6], grip: 0.04}
+      - {t: [2.6, 3.3], to: [0.13, 0.16, 0.80]}
+      - {t: [3.3, 4.2], to: [0.08, 0.26, 0.78]}
+      - {t: [4.2, 4.4], grip: 0.085}
+      - {t: [5.3, 6.1], to: {obj: R2, d: [0, 0, 0.10]}}
+      - {t: [6.1, 6.4], to: {obj: R2, d: [0, 0, 0.015]}}
+      - {t: [6.4, 6.6], grip: 0.04}
+      - {t: [6.6, 7.4], to: [0.29, 0.08, 0.80]}
+      - {t: [7.4, 8.3], to: [0.08, 0.26, 0.78]}
+      - {t: [8.3, 8.5], grip: 0.085}
+      - {t: [8.6, 10.4], to: [0.15, 0.0, 0.85]}
+    events:
+      - {t: 2.3, grab: H1, by: human}
+      - {t: 2.6, grab: R1, by: robot}
+      - {t: 3.5, drop: H1, at: [0.47, -0.25, 0.66]}
+      - {t: 4.4, drop: R1, at: [0.08, 0.26, 0.65]}
+      - {t: 4.5, grab: H2, by: human}
+      - {t: 5.5, drop: H2, at: [0.49, -0.25, 0.66]}
+      - {t: 6.6, grab: R2, by: robot}
+      - {t: 8.5, drop: R2, at: [0.09, 0.25, 0.65]}
+    marks:
+      - {t: 1.2, who: human, label: "với vùng giữa"}
+      - {t: 1.4, who: robot, label: "chọn món xa"}
+      - {t: 4.5, who: human, label: "lấy món 2"}
+      - {t: 5.3, who: robot, label: "trở lại vùng giữa"}
+      - {t: 8.5, who: robot, label: "xong xếp đồ"}
+    captions:
+      - [0.0, 1.2, "Người và robot cùng xếp đồ vào hai hộp riêng."]
+      - [1.2, 4.5, "Tay người hướng vào vùng giữa: robot chọn món ở xa để tiếp tục làm."]
+      - [4.5, 8.5, "Sau khi người đi qua, robot quay lại lấy món ở vùng giữa."]
+      - [8.5, 11.3, "Cần đo thời gian cả hai hộp và an toàn; chọn món khác là mở rộng so với HABIT."]

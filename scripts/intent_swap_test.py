@@ -18,7 +18,7 @@ follows it; the early decision itself shows in where the arm starts to go. `head
 times τ after the human's cue onset, the progress of the end effector (horizontal distance at onset minus at τ)
 towards the alternative minus that towards the human's target, from the episode traces (> 0: heading for the
 alternative). Paired swap - true per episode, per τ.
-`heading from t_intent` (research_collab.md K6, for evals that log the given belief): τ counted from t_intent, the first
+`heading from t_intent` (research_collab.md [removed, git e29ed0d] K6, for evals that log the given belief): τ counted from t_intent, the first
 step at which the belief the policy was given ranks one of the two candidates strictly above the other (the input, fixed
 before looking at the actions); per episode the side the arm heads for (`alt` / `human`) or `uncommitted` when the
 progress difference is below the controller tolerance 0.005 m (benchmark/counterfactual.correct_moves), and the number

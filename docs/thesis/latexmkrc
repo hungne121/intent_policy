@@ -6,3 +6,7 @@ $xelatex  = 'xelatex -synctex=1 -interaction=nonstopmode -file-line-error %O %S'
 $pdflatex = $xelatex;
 $bibtex_use = 2;
 $clean_ext = 'bbl run.xml synctex.gz xdv';
+
+# Lấy tài liệu tham khảo từ Zotero ra references.bib trước khi build (xem zotero_sync.py).
+use File::Basename;
+system('python3', dirname(__FILE__) . '/zotero_sync.py');

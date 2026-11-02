@@ -1,8 +1,8 @@
 """Assemble device_folds.json (configs/intent_schema.yaml `device.folds_file`, intent/device.py) from the five fold
-models of workstation/job1_device.sh: per fold k its best checkpoint (scripts/deepoint_finetune.py metrics.json,
+models of workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d): per fold k its best checkpoint (scripts/deepoint_finetune.py metrics.json,
 model k: test fold k, validation fold k + 1) and its calibration on fold k + 1 (scripts/calibrate_device_rules.py
 --json). Paths are stored relative to the project root, so the file works on every machine with the same outputs/.
-`--single K` (the laptop's preliminary run, docs/requirements/INTENT_ACT_v3.2.md §4.2i): only model K, used for every
+`--single K` (the laptop's preliminary run, docs/intent_act/INTENT_ACT_v3.2.md §4.2i): only model K, used for every
 episode; the seeds it was trained or validated on (rendered episodes outside its test fold K) are listed as
 `seen_seeds`, and intent/device.py refuses to measure them.
 

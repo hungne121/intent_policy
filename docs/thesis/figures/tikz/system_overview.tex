@@ -1,0 +1,34 @@
+% Tổng quan hệ thống: nguồn dữ liệu -> nhận thức -> token -> PIF -> ACT. Màu = trạng thái triển khai.
+\begin{tikzpicture}[node distance=5mm and 6mm]
+  % nguồn dữ liệu
+  \node[done, minimum width=26mm] (habit) {HABIT\\[-1pt]{\figs video RGB người thật}};
+  \node[todo, minimum width=26mm, below=3mm of habit] (rs) {RealSense D435\\[-1pt]{\figs RGB-D, hệ thật}};
+  \node[done, minimum width=26mm, below=3mm of rs] (sim) {Mô phỏng MuJoCo\\[-1pt]{\figs T1--T5, replay}};
+  % nhận thức
+  \node[part, right=7mm of rs, minimum width=30mm, minimum height=30mm] (perc) {\textbf{Nhận thức}\\[2pt]
+     {\figs keypoint 2D: RTMW}\\ {\figs depth + tiêu cự: MoGe-2}\\ {\figs vật: Grounding DINO}\\
+     {\figs mặt bàn: RANSAC}\\ {\figs tracking theo số vật}};
+  % token
+  \node[done, right=7mm of perc, minimum width=28mm, minimum height=30mm] (tok) {\textbf{Token mỗi frame}\\[2pt]
+     {\figs người: 11 khớp}\\ {\figs (vị trí, vận tốc, visible)}\\ {\figs đối tượng: K biến đổi}\\
+     {\figs robot: \textit{holding}}\\ {\figs hệ bàn, 10\,Hz}};
+  % PIF
+  \node[part, right=7mm of tok, minimum width=26mm, minimum height=30mm] (pif) {\textbf{PIF}\\[2pt]
+     {\figs encoder}\\ {\figs bộ lọc niềm tin}\\ {\figs $b_t(r,k)$}\\[2pt] {\figs train không nhãn}};
+  % ACT
+  \node[todo, below=9mm of pif, minimum width=26mm] (act) {ACT + token ý định\\[-1pt]{\figs chunk 40, 20\,Hz}};
+  \node[todo, left=7mm of act, minimum width=28mm] (robot) {Hành động khớp\\[-1pt]{\figs UR3e + gripper}};
+
+  \draw[arr] (habit.east) -| ($(perc.west)+(-3.5mm,6mm)$) -- ($(perc.west)+(0,6mm)$);
+  \draw[darr] (rs.east) -- (perc.west);
+  \draw[arr] (sim.south) -- ++(0,-3mm) -| (tok.south) node[lab, pos=0.25, below] {ground truth: không qua bước nhận thức};
+  \draw[arr] (perc) -- (tok);
+  \draw[arr] (tok) -- (pif);
+  \draw[darr] (pif) -- node[lab, right] {belief, $\rho_t$} (act);
+  \draw[darr] (act) -- (robot);
+
+  % chú giải
+  \node[done, font=\figs, minimum height=5mm, inner sep=2pt, anchor=north west] (l1) at ($(sim.south west)+(0,-10mm)$) {đã làm};
+  \node[part, font=\figs, minimum height=5mm, inner sep=2pt, right=2mm of l1] (l2) {đang làm / một phần};
+  \node[todo, font=\figs, minimum height=5mm, inner sep=2pt, right=2mm of l2] {chưa làm};
+\end{tikzpicture}

@@ -1,4 +1,4 @@
-"""Generate the balanced demo / eval scenario lists (docs/requirements/scence_construct.md §5).
+"""Generate the balanced demo / eval scenario lists (docs/sim/scene_construct.md §5).
 
 Every line of `<out>/<split>_v<version>.jsonl` is one episode: {index, task, base, scenario_id, seed, spec}. The spec
 is the discrete episode definition read by the scenarios (intent_policy/scenarios/config.py); the seed drives the

@@ -1,0 +1,148 @@
+# G3 gate for the extra tasks (docs/PIF.md §8.12): ten_task_v9.yaml with the tasks C1 / C4 / C2 / W3 (nominal only),
+# read by scripts/diag/oracle_bound.py (ORACLE_CONFIG). Not a collection config. 02/11/2026.
+experiment: ten_task_v9
+intent:
+  provider: manicast
+  keypoints:
+  - l_shoulder
+  - r_shoulder
+  - l_elbow
+  - r_elbow
+  - l_wrist
+  - r_wrist
+  - r_index_base
+  - r_index_tip
+  - head
+observation:
+  cameras:
+  - high
+  - wrist
+  - top
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+data:
+  root: outputs/datasets/ten_task_v9
+  quota:
+    train: 50
+    val: 10
+  require_matched_motion_sources: true
+  max_attempts_factor: 3
+  seed_base: 3000000
+gates:
+  default:
+    pairs: all_scene_pairs
+    pair_clearance_m: 0.0
+    pair_max_penetration_m: 0.001
+    protected_objects: all
+    protected_translation_m: 0.005
+    protected_rotation_rad: 0.05
+    settle_speed_mps: 0.04
+    settle_s: 0.5
+    release_grace_s: 1.0
+    stop_on_rejection: true
+tasks:
+  C1:
+    scenario: c1_handover
+    overrides:
+      scene:
+        grasp_hold_squeeze_m: 0.0
+    scene_coverage_reviewed: true
+    rules:
+      early:
+        expert:
+          trigger: goal
+          goal_rule: early
+          grasp_settle_ticks: 0
+          guard_withdrawal: true
+          over_hand_clearance_m: 0.08
+      observed:
+        expert:
+          trigger: goal
+          goal_rule: observed
+          grasp_settle_ticks: 0
+          guard_withdrawal: true
+          over_hand_clearance_m: 0.08
+    gate:
+      contact_rules:
+      - kind: robot_manipulation
+        max_penetration_m: 0.003
+        stages:
+        - close
+        - settle_grasp
+        - lift
+        - to_staging
+        - staging
+        - zone_hedge
+        - over_hand
+        - settle_over_hand
+        - to_handover
+        - time_descent
+        - descend
+        - await_let_go
+        - wait_pull
+        - release
+      - kind: support
+        max_penetration_m: 0.002
+      - kind: human_manipulation
+        max_penetration_m: 0.001
+        stages:
+        - work
+        - take_object
+        - pulling
+        - wait_release
+        - reach_own
+        - grasp_own
+      - kind: human_manipulation
+        max_penetration_m: 0.001
+        objects:
+        - CAN
+        stages:
+        - reach_out
+        - waiting_offer
+      - kind: handover
+        max_penetration_m: 0.001
+        stages:
+        - take_object
+        - pulling
+        - wait_release
+      require_hymotion_labels:
+      - reach_out
+    cases:
+      nominal: {}
+      forecast_fault:
+        expert:
+          forecast_fault_anchor:
+            labels:
+            - reach_out
+            yaw_deg:
+            - 45
+            - 75
+            extra_s: 0.5
+            ramp_s: 0.2
+      switch_before_commit:
+        human_behavior:
+          cases:
+          - C4
+          cancel_after_ready_s:
+          - 0.1
+          - 0.5
+      switch_after_commit:
+        human_behavior:
+          cases:
+          - C4
+          cancel_after_ready_s:
+          - 0.8
+          - 1.6
+  C4:
+    scenario: c4_waste_sort
+    cases:
+      nominal: {}
+  C2:
+    scenario: c2_shelf_wipe
+    cases:
+      nominal: {}
+  W3:
+    scenario: w3_lint_roll
+    cases:
+      nominal: {}

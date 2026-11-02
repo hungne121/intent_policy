@@ -142,6 +142,13 @@ def build_scene_xml(scene: dict) -> str:
             if act.get('name') != 'gripper':
                 act.set('kp', str(servo['kp']))
                 act.set('kv', str(servo['kv']))
+    grip_force = scene.get('gripper_force_limit_n')
+    if grip_force:
+        # the held object is fixed by the assisted-grasp weld; the closing fingers only press into it, at the actuator's
+        # force limit (40 N): a lower limit keeps the fingers on the surface (scene option, v7 tasks)
+        for act in root.find('actuator'):
+            if act.get('name') == 'gripper':
+                act.set('forcerange', f'{-float(grip_force)} {float(grip_force)}')
     equality = root.find('equality')
     for weld in equality.findall('weld'):
         equality.remove(weld)
@@ -178,6 +185,12 @@ def build_scene_xml(scene: dict) -> str:
         body = _sub(world, 'body', name=f'human_seg_{seg}', mocap='true', pos=[2.0, 0.0, 0.0])
         _sub(body, 'geom', name=f'human_seg_{seg}_mesh', type='mesh', mesh=human_mesh_name(seg, default),
              material='human_wood', contype='0', conaffinity='0')
+        if human.get('hand_mesh_mode') == 'compiled_variants':
+            for variant in info.get('variants', {}):
+                if variant != default:
+                    _sub(body, 'geom', name=f'human_seg_{seg}_variant_{variant}', type='mesh',
+                         mesh=human_mesh_name(seg, variant), material='human_wood',
+                         rgba='1 1 1 0', contype='0', conaffinity='0')
         if seg == 'head' and human.get('face_markers'):
             # optional eyes + nose so the head orientation (gaze) reads in the images; the mannequin face is blank.
             # Positions in the head segment frame (neck pivot, T-pose axes: face towards -X, left = -Y).

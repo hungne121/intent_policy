@@ -56,10 +56,16 @@ class ExpertAgent(Agent):
     needs_observation = False
 
     def reset(self, scenario, mapper):
-        self.expert = ScriptedExpert(scenario, mapper, rng_seed=scenario.seed)
+        cls = getattr(scenario, 'expert_class', None) or ScriptedExpert   # task-specific demonstrator (I1 ...)
+        self.expert = cls(scenario, mapper, rng_seed=scenario.seed)
         self.expert.reset()
+        self.sequence_index = getattr(scenario, 'sequence_index', None)
 
     def act(self, obs):
+        sequence_index = getattr(self.expert.sc, 'sequence_index', None)
+        if sequence_index != self.sequence_index:
+            self.expert.reset()
+            self.sequence_index = sequence_index
         action = self.expert.act()
         extras = {'expert_stage': self.expert.stage, 'expert_commit': self.expert.pop_commit()}
         if self.expert.belief is not None:              # device trigger: the belief it acted on (preview overlay)
@@ -112,7 +118,7 @@ class NoisyExpertAgent(ExpertAgent):
 
 def run_episode(scenario, agent: Agent, seed: int, controller_cfg: RestrictedActionConfig | None = None,
                 obs_cfg: ObservationConfig | None = None, on_frame=None, keep_trace: bool = True,
-                episode_id: str | None = None, spec: dict | None = None) -> dict:
+                episode_id: str | None = None, spec: dict | None = None, on_reset=None) -> dict:
     """Run one episode to termination and return the full episode record. `spec`: discrete episode spec from a
     scenario list (None: drawn from the seed)."""
     controller_cfg = controller_cfg or RestrictedActionConfig.load()
@@ -121,6 +127,8 @@ def run_episode(scenario, agent: Agent, seed: int, controller_cfg: RestrictedAct
     scenario.reset(seed, episode_id=episode_id, spec=spec)
     mapper = RestrictedActionMapper(scenario.env, controller_cfg)
     agent.reset(scenario, mapper)
+    if on_reset is not None:
+        on_reset(scenario, agent)
     need_obs = agent.needs_observation or on_frame is not None
     trace, previous, done, step = [], None, False, 0
     while not done:

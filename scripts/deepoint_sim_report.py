@@ -1,5 +1,5 @@
-"""What the released DeePoint model measures on the simulated human, over time (measurement step 1, docs/requirements/
-INTENT_ACT_v3.2.md): annotated videos + a summary, per episode and sensor view.
+"""What the released DeePoint model measures on the simulated human, over time (measurement step 1,
+docs/intent_act/INTENT_ACT_v3.2.md): annotated videos + a summary, per episode and sensor view.
 
 Inputs: scripts/render_sensor_view.py (<tag>_<view>.mp4 at 20 fps + <tag>.npz: simulator ground truth, camera pose)
 and scripts/deepoint_infer.py on the 15 fps resample (<tag>_<view>_deepoint.npz). DeePoint's output at 20 fps frame i

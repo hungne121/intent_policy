@@ -1,4 +1,4 @@
-"""Predictive Intent Filter (PIF): intent model of docs/requirements/HANDOFF_PIF.md (+ CORRECTIONS / LOCAL / NOTES).
+"""Predictive Intent Filter (PIF): intent model of docs/PIF.md.
 
-Separate package; IntentACT only depends on the `PIFEncoder` interface (handoff §7, P5).
+Separate package; IntentACT only depends on the `PIFEncoder` interface (docs/PIF.md).
 """

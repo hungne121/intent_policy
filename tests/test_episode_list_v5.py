@@ -1,4 +1,4 @@
-"""Episode lists v5 (docs/specs/EPISODE_PLAN_v5.md §5): checks on configs/episode_lists/v5 (skipped until generated
+"""Episode lists v5 (docs/sim/episode_plan_v5.md §5): checks on configs/episode_lists/v5 (skipped until generated
 by scripts/make_episode_list_v5.py)."""
 import csv
 import json

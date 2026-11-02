@@ -58,6 +58,12 @@ class ManipulationEnv:
         self.assisted = bool(ag.get('enabled', False))
         self.close_below = float(ag.get('close_below', 0.03))
         self.open_above = float(ag.get('open_above', 0.05))
+        # gripper-joint travel the fingers are still commanded past the contact width while attached (2 mm: legacy);
+        # scenes may set less (scene.grasp_hold_squeeze_m): the fingers' linkage multiplies it at the fingertips
+        self.hold_squeeze = float(ag.get('hold_squeeze_m', 0.002))
+        # attach at the physics substep of the two-finger contact (scene.grasp_attach_substep): checked only after the
+        # 50 ms tick, the closing fingers kept pressing at the 40 N force limit and sank 3-4 mm into a can (2026-10-30)
+        self.attach_substep = False
         self.last_ik_error = 0.0                   # position residual of the last solve_ik [m]
         self.grasp_welds: dict[int, int] = {}      # body id -> weld equality id (set by scenario)
         self.attached: int | None = None           # body currently attached by assisted grasp
@@ -66,6 +72,9 @@ class ManipulationEnv:
         self.viewer_thread = None
         self.renderers: dict[tuple[int, int], mujoco.Renderer] = {}   # one per image size (policy cameras, videos)
         self.render_option = None
+        # Read-only collection audits, called at physics rate. Never modify commands.
+        self.physics_observers = []
+        self.pre_physics_observers = []
         self.reset()
         if gui:
             self.viewer, self.viewer_thread = launch_viewer(self.model, self.data)
@@ -186,15 +195,36 @@ class ManipulationEnv:
         if self.attached is not None:
             # Hold the fingers at the contact width: the weld carries the load, the fingers do not
             # keep squeezing (squeezing a small handle twists the object about the vertical axis).
-            grip = max(grip, self.attach_opening - 0.002)
+            grip = max(grip, self.attach_opening - self.hold_squeeze)
         grip = self.data.ctrl[6] + np.clip(grip - self.data.ctrl[6],
             -self.cfg['max_gripper_speed'] * self.dt, self.cfg['max_gripper_speed'] * self.dt)
         # Linearly ramp the position targets across the physics substeps (first-order hold)
         # instead of a step input: avoids an acceleration spike every control tick.
         previous, target = self.data.ctrl.copy(), np.r_[arm, grip]
+        if self.pre_physics_observers:
+            mujoco.mj_kinematics(self.model, self.data)
+            mujoco.mj_collision(self.model, self.data)
+            for observer in self.pre_physics_observers:
+                observer(self.model, self.data)
+        closing = self.assisted and self.attach_substep and action[6] < self.close_below and self.attached is None
         for i in range(self.substeps):
             self.data.ctrl[:] = previous + (target - previous) * (i + 1) / self.substeps
             mujoco.mj_step(self.model, self.data)
+            if closing:
+                for body_id in self.grasp_welds:
+                    if self.finger_contacts(body_id) == {'left', 'right'}:
+                        self._attach(body_id)
+                        closing = False
+                        hold = max(float(self.data.ctrl[6]), self.attach_opening - self.hold_squeeze)
+                        previous[6] = target[6] = hold          # stop closing: the fingers stay at the contact width
+                        break
+            if self.physics_observers:
+                mujoco.mj_kinematics(self.model, self.data)
+                # mj_step contacts precede integration; audit current geometry against
+                # current contacts, never use the previous pose to dismiss penetration.
+                mujoco.mj_collision(self.model, self.data)
+            for observer in self.physics_observers:
+                observer(self.model, self.data)
         self._update_assisted_grasp(float(action[6]))
         if self.viewer:
             self.viewer.sync()

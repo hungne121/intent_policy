@@ -1,4 +1,4 @@
-"""Calibrate the device's decision hold on the validation fold (docs/requirements/INTENT_ACT_v3.2.md §4.2e): how many
+"""Calibrate the device's decision hold on the validation fold (docs/intent_act/INTENT_ACT_v3.2.md §4.2e): how many
 consecutive device frames (15 fps) a gesture decision must last so that false triggers stay rare.
 
 From the multi-gesture DeePoint outputs of the validation-fold episodes (scripts/deepoint_infer.py, suffix
@@ -14,7 +14,7 @@ The hold k chosen = the smallest k whose false-trigger episode rate <= alpha (5 
 episodes of the training folds (neither the validation nor the test fold; 95th percentile = how long a paused robot
 waits for the new target), and the likelihood width vs the device frames since the detection.
 
-One fold model (workstation/job1_device.sh): model k's outputs `<tag>_side_m<k>.npz` on its validation fold k + 1;
+One fold model (workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d)): model k's outputs `<tag>_side_m<k>.npz` on its validation fold k + 1;
 `--json` writes its calibration for intent/device.py (device_folds.json, scripts/make_device_folds.py).
 
   ./run.sh -m scripts.calibrate_device_rules --dir outputs/device/<date>/render --suffix _m0 --test-fold 0 --val-fold 1 \

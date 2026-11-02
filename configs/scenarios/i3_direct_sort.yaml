@@ -1,0 +1,136 @@
+# v10 I3 (Instructor; docs/PIF.md §8.12 "I3 mới: phân loại đồ theo hướng tay", 02/11/2026; HABIT S5334 'Clothes
+# Organizing', Supervisor role, adapted): the robot lifts an item from the pile and holds it up; the human sweeps the
+# right arm to the left or the right; the robot puts it into the basket of that side. scenarios/i3_direct_sort.py,
+# experts/i3_expert.py. Prototype for the G3 gate: layout values are design values, checked by pilots (reach,
+# contacts) before any collection.
+scenario_id: i3_direct_sort
+task_code: T3
+role: instructor
+goal: The human sweeps the right arm to a side; the robot puts the item it holds into the basket of that side.
+task: Lift the next item, put it into the basket of the side the person's arm sweeps to, then rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0
+  human:
+    hand_mesh_mode: compiled_variants
+    held_object_frame: hand
+  objects:
+    F1: {shape: box, size: [0.02, 0.02, 0.012], color: yellow, label: folded item 1}
+    F2: {shape: box, size: [0.02, 0.02, 0.012], color: yellow, label: folded item 2}
+    F3: {shape: box, size: [0.02, 0.02, 0.012], color: yellow, label: folded item 3}
+    F4: {shape: box, size: [0.02, 0.02, 0.012], color: yellow, label: folded item 4}
+  zone_markers: false
+  decor:                            # low open baskets 14 x 20 cm, 2 cm walls (the robot drops into them)
+  - {name: BL, type: open_box, xy: [0.14, 0.22], half: [0.07, 0.10], height: 0.02, wall: 0.004, color: box}
+  - {name: BR, type: open_box, xy: [0.36, 0.13], half: [0.07, 0.10], height: 0.02, wall: 0.004, color: box}
+scene_variation:
+  variant: coaster                  # spec / human generator of the v6 coaster task (overridden below)
+  cup: F1
+  coaster: F2
+  object_jitter_m: 0.0
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+  i3:
+    items: [F1, F2, F3, F4]
+    pile_xy: [0.28, -0.05]          # in front of the robot, >= 0.24 m from the base, 2 cm clear of BR
+    pile_offsets: [[-0.04, -0.04], [0.04, -0.04], [-0.04, 0.04], [0.04, 0.04]]   # 8 cm apart (open gripper span)
+    jitter_m: 0.006
+    yaw_rad: 0.1
+    baskets:                        # the human's left (-x) / right (+x); 0.24 m apart, every drop slot within R_eff 0.43
+      l: {xy: [0.14, 0.22], half: [0.07, 0.10], height: 0.02}
+      r: {xy: [0.36, 0.13], half: [0.07, 0.10], height: 0.02}
+    drop_slots: [[0.0, -0.0675], [0.0, -0.0225], [0.0, 0.0225], [0.0, 0.0675]]   # the n-th item of a basket: in a row
+                                    #   along y, on the basket's centre line: the fingers close along x (slots off-centre in
+                                    #   x put a finger on the wall when an item was taken out again, smoke 02/11)
+    react_s: [0.3, 1.0]             # the human's reaction once the item is held up (design range)
+    out_s: [0.8, 1.2]
+    signal_hold_s: [1.0, 1.5]
+    distractor_p: 0.5               # the hand first goes to the chest (adjusting clothes), as I2
+    adjust_s: [0.3, 0.8]
+  w1:
+    robot_items: [F1, F2, F3, F4]
+    human_items: []
+    area_min_xy: [0.18, -0.19]
+    area_max_xy: [0.46, 0.04]
+    robot_reach_m: 0.40
+    box_clearance_m: 0.06
+    min_base_distance_m: 0.24
+    min_spacing_m: 0.10
+    yaw_rad: 0.1
+    sampling_attempts: 500
+    sampling_restarts: 20
+    human_pause_s: [0.3, 3.0]
+    robot_box: {xy: [0.14, 0.22], half: [0.07, 0.10], height: 0.02}
+    human_box: {xy: [0.36, 0.13], half: [0.07, 0.10], height: 0.02}
+    drop_slots: [[0.0, -0.0675], [0.0, -0.0225], [0.0, 0.0225], [0.0, 0.0675]]
+human_behavior:
+  type: t3_coaster
+  cue_onset_s: [0.4, 1.5]
+  take_reach_s: [0.8, 1.2]
+  carry_s: [0.9, 1.3]
+  lower_s: [0.4, 0.6]
+  carry_height_m: 0.04
+  grip_dz_m: 0.106
+  spot_jitter_m: 0.0
+  point_s: [1.0, 1.0]
+  point_dwell_s: [0.3, 0.5]
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  lifted_dz_m: 0.08                 # the item counts as held up once its centre is this high above the table
+  signal_xyz: {l: [0.20, -0.28, 0.80], r: [0.60, -0.28, 0.80]}   # the right arm swept 0.20 m to either side of where its
+                                    #   wrist rests once the episode runs (x 0.405, trace 02/11): across to the left / out
+  chest_xyz: {l: [0.26, -0.40, 0.95], r: [0.40, -0.40, 0.95]}    # adjusting clothes: straight up in front of the resting
+                                    #   hand
+  items: {l: [], r: []}
+  motion_bank:
+    folder: outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out
+    split_manifest: outputs/human_motion/hymotion_ten_tasks_2026-10-30/splits.json
+    split: train
+    min_dist_m: 0.08
+    min_cos: 0.3
+    extent_ratio: [0.4, 2.5]
+    table_edge_y: -0.36
+    table_margin_m: 0.03
+    holding_margin_m: 0.08
+    robot_clear_m: 0.15
+    max_dev_ratio: 0.25
+    labels:
+      direct_out: ['*']
+      direct_decoy: ['*']
+      redirect: ['*']
+      direct_back: ['*']
+      adjust: ['*']
+      adjust_back: ['*']
+  hand_clearance: {window_s: 0.25, iterations: 3}
+  yield_to_robot: {max_wait_s: 3.0, lookahead_s: 0.25, wait_for_bank: true}
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+expert:
+  rule: observed
+  travel_dz: 0.15
+  hold_dz_m: 0.05                   # the item held this much above travel height over the pile while waiting
+  conflict_m: 0.14
+  conflict_z_m: 0.25
+  wait_xy: [0.28, -0.05]
+  lateral_m: 0.12                   # a direction: the right wrist this far sideways of where it rested when the item was
+                                    #   held up: midpoint of the measured sweep reach >= 0.148 m and adjusting reach <= 0.092 m
+                                    #   (12 seeds 300100-300111, 02/11 19:0x; as I2's extend_m)
+  decision:
+    forecast_waypoints: 8           # D's waypoints (configs/intent_schema_v6.yaml), PIF §8.12
+    forecast_horizon_s: 1.0
+    path_features: endpoint         # endpoint | path (the furthest sideways point of the forecast path)
+timing:
+  timeout_s: 90
+  stable_s: 0.5
+success_conditions:
+  object_speed_max: 0.04
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [robot_at_rest]
+applicable_metrics: [CSR, CT]
+metric_params: {}

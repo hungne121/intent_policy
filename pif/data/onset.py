@@ -1,9 +1,9 @@
 """Movement onset / offset labels from a keypoint speed series (eval only: HABIT has no onset / t_clear labels,
-CORRECTIONS #10).
+docs/PIF.md §5).
 
 Speed = |d position / dt| after zero-phase Savitzky-Golay smoothing (Savitzky & Golay 1964; the sim labels use the
 same filter, configs/intent_schema.yaml `savgol`). A labelling pass may use the future: these are evaluation labels,
-never model inputs (handoff §0.3-0.4).
+never model inputs (docs/PIF.md §5).
 Threshold = baseline mean + k x baseline SD, the baseline being a stretch where the person is known to wait (a
 baseline-statistics criterion, one family of the onset methods compared by Teasdale et al. 1993, J. Motor Behavior
 25(2) 97-106). A movement is a run above the threshold lasting at least `min_frames`; its onset / offset are the first /

@@ -1,4 +1,4 @@
-"""IntentTracker and HoldingDetector (INTENT_ACT_GUIDE_v2.md §3.4, §9.5)."""
+"""IntentTracker and HoldingDetector (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §3.4, §9.5)."""
 import numpy as np
 import pytest
 

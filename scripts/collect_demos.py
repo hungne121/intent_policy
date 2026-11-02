@@ -88,7 +88,10 @@ def frame_of(t: float) -> int:
 
 
 def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index, spec=None,
-                   keypoints: list[str] | None = None, schema: dict | None = None) -> tuple[dict, list, dict]:
+                   keypoints: list[str] | None = None, schema: dict | None = None,
+                   quality_gate: dict | None = None) -> tuple[dict, list, dict]:
+    if sc.cfg.raw.get('collection_ready') is False:
+        raise ValueError(f'{sc.cfg.id}: pilot scene is not approved for demonstration collection')
     frames, stages, humans, targets, actions, commits, noise, beliefs = [], [], [], [], [], [], [], []
     gt = {}
     contract, src = [], []                   # intent contract v3.2 from the device the expert acts on (intent_pd)
@@ -125,11 +128,27 @@ def record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_index,
         if decision.extras.get('expert_commit'):
             commits.append(dict(t=round(scenario.time, 3), frame=len(frames) - 1, target=decision.extras['expert_commit']))
 
-    rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, on_frame=on_frame, keep_trace=False, spec=spec)
+    gates = []
+    def install_gate(scenario, expert):
+        if quality_gate is not None:
+            from intent_policy.sim.collection_gate import CollectionGate
+            gates.append(CollectionGate(scenario, expert, quality_gate))
+
+    try:
+        rec = run_episode(sc, agent, seed, ctrl_cfg, obs_cfg, on_frame=on_frame, keep_trace=False, spec=spec,
+                          on_reset=install_gate)
+    except BaseException:
+        for gate in gates:
+            if gate.observe in sc.env.physics_observers:
+                sc.env.physics_observers.remove(gate.observe)
+            if gate.observe in sc.env.pre_physics_observers:
+                sc.env.pre_physics_observers.remove(gate.observe)
+        raise
+    quality = gates[0].finish(rec['events']) if gates else None
     info = dict(gt=gt, stages=stages, humans=humans, targets=targets, actions=actions, commits=commits,
                 noise_frames=int(sum(noise)), beliefs=beliefs if any(b is not None for b in beliefs) else None,
                 intent_pd={k: np.stack([f[k] for f in contract]) for k in contract[0]} if contract else None,
-                device=dict(src[0].belief.cfg) if src else None)
+                device=dict(src[0].belief.cfg) if src else None, collection_quality=quality)
     return rec, frames, info
 
 
@@ -148,6 +167,11 @@ def episode_meta(index, sid, split, seed, sc, rec, frames, info, entry=None) -> 
                 variation=rec['variation'], human_cue_onset_t=cue[0] if cue else None,
                 intention_changes=of('human_intention_change'), intention_evident=of('human_intention_evident'),
                 human_motions=motions_from_events(ev, 20),
+                human_motion_sources=[dict(t=e['timestamp'], label=e['payload'].get('label'),
+                                           source=e['payload'].get('motion_source'))
+                                      for e in ev if e['event_type'] == 'human_motion_start'],
+                forecast_fault=getattr(sc, 'realized_forecast_fault', None) or sc.cfg.expert.get('forecast_fault'),
+                collection_quality=info.get('collection_quality'),
                 robot_target_commits=of('robot_target_commit'), expert_commits=info['commits'],
                 expert_belief=info.get('beliefs'),
                 noise_frames=info['noise_frames'], human_extras=sc.human.extras,
@@ -230,6 +254,12 @@ def main():
                  if v is not None})
     root = resolve(data['root'])
     log_run(run_dir('collect', root.name, args.log_dir), 'scripts.collect_demos')
+    if data.get('require_quality_gates'):
+        configured = data.get('quality_gates', {})
+        missing = [sid for sid in exp['benchmark']['scenarios'] if not isinstance(configured.get(sid), dict)
+                   or configured[sid].get('scene_coverage_reviewed') is not True or not configured[sid].get('pairs')]
+        if missing:
+            raise ValueError(f'Missing required quality gates: {sorted(missing)}')
     if root.exists():
         if not args.overwrite:
             raise SystemExit(f'{root} exists; pass --overwrite to replace it')
@@ -261,8 +291,9 @@ def main():
             noisy = bool(noise_cfg) and np.random.default_rng(seed * 7 + 11).random() < float(noise_cfg['episode_fraction'])
         agent = NoisyExpertAgent(noise_cfg['burst_prob'], noise_cfg['burst_ticks']) if noisy else ExpertAgent()
         rec, frames, info = record_episode(sc, agent, seed, ctrl_cfg, obs_cfg, provider, scenario_ids.index(sid), e['spec'],
-                                           keypoints, schema)
-        if rec['success']:
+                                           keypoints, schema, data.get('quality_gates', {}).get(sid))
+        quality = info.get('collection_quality')
+        if rec['success'] and (quality is None or quality['passed']):
             for fr in frames:
                 ds.add_frame({**fr, 'task': sc.cfg.task})
             ds.save_episode()
@@ -272,8 +303,9 @@ def main():
                 device_cfg = info['device']
             meta.append(episode_meta(len(meta), sid, e['split'], seed, sc, rec, frames, info, e if e['index'] is not None else None))
         else:
-            rejected.append(dict(entry=e, failure=rec['failure'], noisy=noisy))
-            print(f"  {e['split']} {sid} seed={seed}: expert failed ({rec['failure']}), not stored", flush=True)
+            rejected.append(dict(entry=e, failure=rec['failure'], noisy=noisy, collection_quality=quality))
+            reason = rec['failure'] or 'collection_quality_failed'
+            print(f"  {e['split']} {sid} seed={seed}: rejected ({reason}), not stored", flush=True)
         if (n + 1) % 10 == 0 or n + 1 == len(entries):
             print(f'[{n + 1}/{len(entries)}] kept {len(meta)}, rejected {len(rejected)}  [{time.time() - t0:.0f}s]', flush=True)
     for sc in cache.values():

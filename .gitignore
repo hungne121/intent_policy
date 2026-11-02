@@ -15,3 +15,6 @@ docs/slides/**/*.toc
 docs/slides/**/*.out
 docs/slides/**/*.xdv
 docs/slides/**/*.synctex.gz
+# LaTeX build files of the reports
+docs/reports/**/*.aux
+docs/reports/**/*.log

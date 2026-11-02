@@ -47,6 +47,11 @@ def main():
     for e, ep in episodes.items():
         T = len(ep['state'])
         xi = forecast_xi(ep['keypoints'][:, sel], fc, fps, t_out)
+        fault_spec = meta[e].get('forecast_fault')
+        if fault_spec is not None:
+            from intent_policy.intent.forecast_fault import ForecastFault, corrupt_forecast
+            xi = corrupt_forecast(xi, ep['keypoints'][:, sel], np.arange(T) / fps, t_out,
+                                  ForecastFault(**fault_spec))
         d = neutral_contract(schema, xi)
         validate_intent(d, schema, batched=True)
         out[e] = d

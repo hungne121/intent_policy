@@ -1,0 +1,21 @@
+# PIF on a rented GPU. Versions = the ones tested on the laptop (2026-10-24). torch / torchvision come from the
+# machine's PyTorch image (needs torch >= 2.4); run_phase1.sh installs them only if missing.
+# rtmlib, MoGe, utils3d, lejepa are installed by run_phase1.sh with --no-deps (their declared extras pull a GUI/training
+# stack the pipeline does not use).
+transformers==5.5.4
+huggingface_hub==1.26.0
+numpy>=2,<2.3
+pandas==2.3.3
+pyarrow>=18
+scipy>=1.13
+av==15.1.0
+opencv-python-headless>=4.10
+matplotlib
+pillow
+pyyaml
+click
+accelerate
+tqdm
+rich
+psutil
+pytest

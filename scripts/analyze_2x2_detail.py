@@ -1,4 +1,4 @@
-"""Detailed 2x2 analysis against the hypotheses (docs/requirements/INTENT_ACT_v3.2.md §0, §7).
+"""Detailed 2x2 analysis against the hypotheses (docs/intent_act/INTENT_ACT_v3.2.md §0, §7).
 
   goal  "có intent thì hành động sớm mới hiệu quả": the interaction (D - B) - (C - A) is the main result
   H1    B commits wrongly more than D (WCR, WCD)

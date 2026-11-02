@@ -54,6 +54,9 @@ class BaseScenario:
         self.cfg = cfg
         self.scene = cfg.scene
         self.env = ManipulationEnv(robot_config, gui=gui, model_xml=build_scene_xml(self.scene))
+        if 'grasp_hold_squeeze_m' in self.scene:
+            self.env.hold_squeeze = float(self.scene['grasp_hold_squeeze_m'])
+        self.env.attach_substep = bool(self.scene.get('grasp_attach_substep', False))
         m = self.env.model
         self.table_z = float(self.scene['table_top_z'])
         self.objects = list(self.scene.get('objects', {}))
@@ -165,7 +168,7 @@ class BaseScenario:
         seed = self.cfg.seed if seed is None else int(seed)
         self.seed = seed
         self.episode_id = episode_id or f'{self.cfg.id}__seed{seed:05d}'
-        self.variation = var = sample_variation(self.cfg, seed, spec)
+        self.variation = var = self.sample_episode_variation(seed, spec)
         env, m, d = self.env, self.env.model, self.env.data
         env.reset(np.asarray(env.cfg['home']) + var['robot_home_offset'])
         self.on_table = list(var['on_table'])
@@ -175,13 +178,16 @@ class BaseScenario:
             q = self.qadr[k]
             if k in self.on_table:
                 yaw = var['object_yaw'][k]
-                d.qpos[q:q + 3] = [*var['object_xy'][k], self.table_z + object_half_height(obj) + 0.001]
+                dz = float((var.get('object_dz') or {}).get(k, 0.0))      # standing on static decor (a tray)
+                d.qpos[q:q + 3] = [*var['object_xy'][k], self.table_z + dz + object_half_height(obj) + 0.001]
                 d.qpos[q + 3:q + 7] = [np.cos(yaw / 2), 0, 0, np.sin(yaw / 2)]
             else:                                         # parked on the floor, out of every camera view
                 d.qpos[q:q + 3] = [park['x'], park['y0'] + i * park['dy'], float(self.scene.get('floor_z', 0.0)) + object_half_height(obj) + 0.001]
                 d.qpos[q + 3:q + 7] = [1, 0, 0, 0]
         for eid in self.weld_id.values():
             d.eq_active[eid] = False
+        if hasattr(self.body_model, 'default_active'):  # a reused scenario starts like a new one (I2 ends on either arm;
+            self.body_model.set_active(self.body_model.default_active)    # collect_pairs reuses it, 2026-10-31)
         self.human = make_human(self.scene, self.cfg.human_behavior, var)
         mb = self.cfg.human_behavior.get('motion_bank')
         if mb:                                           # generated hand motions (sim/motion_bank.py), loaded once
@@ -190,7 +196,9 @@ class BaseScenario:
                 J = self.body_model.J
                 height = J['Head'][2] - min(J[k][2] for k in ('L_Ankle', 'R_Ankle', 'L_Foot', 'R_Foot'))
                 self._bank = MotionBank(mb['folder'], J['Pelvis'], float(self.scene['human'].get('facing_deg', 180.0)),
-                                        float(self.scene.get('floor_z', 0.0)), float(height))
+                                        float(self.scene.get('floor_z', 0.0)), float(height),
+                                        hand=mb.get('hand', 'right'), split_manifest=mb.get('split_manifest'),
+                                        split=mb.get('split'))
             self.human.bank, self.human.bank_rng = self._bank, np.random.default_rng([int(seed), 7])
             self.human.bank_table_top = self.table_z
         self.body_model.reset_shape()
@@ -239,7 +247,11 @@ class BaseScenario:
         self.committed: str | None = None
         self.done = False
         self.logger.start(self.episode_id, self.time, seed=seed, variation=var)
+        self.realized_forecast_fault = None          # C3 anchored fault window applied in this episode (metadata)
         self.on_reset()
+
+    def sample_episode_variation(self, seed, spec=None):
+        return sample_variation(self.cfg, seed, spec)
 
     def on_reset(self) -> None:
         """Subclass hook for task-specific trackers."""
@@ -249,21 +261,217 @@ class BaseScenario:
         """Pose the mannequin from the scripted palm position (lean + arm IK) and move the distance proxies."""
         aim = self.human.point_at
         progress = getattr(self.human, 'gesture_progress', 1.0)     # a pointing hand forms with the arm motion
+        bi = getattr(self.human, 'bimanual', None)            # v7: both hands on one object
         pose = self.body_model.apply(self.env.data, self.human.pos, aim, self.human.hand_shape,
                                      aim_blend=progress, shape_from=getattr(self.human, 'shape_from', None),
                                      shape_progress=getattr(self.human, 'shape_progress', None),
-                                     palm_up=self.human.palm_up, smooth=True)
+                                     palm_up=self.human.palm_up, smooth=True,
+                                     idle_palm=self.human.idle_palm() if bi else None,
+                                     idle_shape=bi.get('shape', 'grasp') if bi else
+                                     ('relaxed' if getattr(self.human, 'uses_bimanual', False) else None))
         self.human_pose = pose
+        if getattr(self.body_model, 'held_object_frame', 'world') == 'hand':
+            self._carry_held_objects()
         self.human.torso = pose['chest']
         self.human_lean = pose['lean']
         self.max_reach_error = max(self.max_reach_error, pose['reach_error'])
+
+    def hand_clearance_lift(self, path, shapes, palm_up: float = 0.0, point_at=None, ignore=(), holding=None,
+                            margin: float = 0.003, held_margin: float = 0.0005, touch=()) -> np.ndarray:
+        """Vertical lift [N] each palm sample of `path` needs so that the whole hand (every vertex of each rendered
+        shape in `shapes`, posed by the mannequin's own IK) and the object it holds stay above the table top and the
+        tops of the objects on it (except `ignore`, e.g. the object the motion reaches for). Exact mesh geometry, not
+        the palm point: the hand reaches 85-130 mm below the palm depending on its shape (measured 2026-10-30).
+        Compiled hand variants and a rigid grasp (held_object_frame: hand) only; otherwise zeros."""
+        bm, m = self.body_model, self.env.model
+        path = np.asarray(path, float)
+        geoms = getattr(bm, 'compiled_hand_geoms', {}).get(bm.active)
+        if not geoms or getattr(bm, 'held_object_frame', 'world') != 'hand':
+            return np.zeros(len(path))
+        if not hasattr(self, '_hand_vertices'):
+            self._hand_vertices = {}
+            for shape, g in geoms.items():
+                mid = m.geom_dataid[g]
+                v = m.mesh_vert[m.mesh_vertadr[mid]:m.mesh_vertadr[mid] + m.mesh_vertnum[mid]].astype(float)
+                R = np.zeros(9)
+                mujoco.mju_quat2Mat(R, m.geom_quat[g])
+                self._hand_vertices[shape] = m.geom_pos[g] + v @ R.reshape(3, 3).T     # in the hand segment frame
+            (x0, x1), (y0, y1) = self.layout['table']['x'], self.layout['table']['y']
+            self._table_rect = (x0, x1, y0, y1)
+        verts = [self._hand_vertices[s] for s in dict.fromkeys(shapes) if s in self._hand_vertices]
+        if not verts:
+            return np.zeros(len(path))
+        verts = np.concatenate(verts)
+        held = None
+        if holding is not None:
+            # the grasp pose in the anchor frame from the current poses, exactly as attach_to_hand sets it (a motion
+            # planned in the tick of the grasp runs before the attach request is applied: the weld data is stale)
+            d = self.env.data
+            anchor = self.mocap['human_grasp_anchor']
+            Ra, Ro = np.zeros(9), np.zeros(9)
+            mujoco.mju_quat2Mat(Ra, d.mocap_quat[anchor])
+            mujoco.mju_quat2Mat(Ro, self.quat(holding))
+            Ra, Ro = Ra.reshape(3, 3), Ro.reshape(3, 3)
+            r, hh = float(self.radius[holding]), float(object_half_height(self.scene['objects'][holding]))
+            a = np.linspace(0, 2 * np.pi, 48, endpoint=False)          # rim points ~6 mm apart
+            ring = np.concatenate([np.c_[r * np.cos(a), r * np.sin(a), np.full(48, -hh)], [[0.0, 0.0, -hh]]])
+            held = (Ra.T @ (self.pos(holding) - d.mocap_pos[anchor]), Ra.T @ Ro, ring)
+        obstacles = []
+        for k in self.on_table:
+            if k == holding or k in ignore:
+                continue                     # the object the hand takes / holds (it closes around it)
+            p = self.pos(k)
+            # footprint inflated by 1 cm: the hand vertices are 5-16 mm apart and the held object ring ~12 mm, so an
+            # edge between two samples cannot clip an object that a sample just misses
+            pad = 0.0 if k in touch else 0.01     # `touch`: worked on from above (its top is the limit, fingertips on it)
+            obstacles.append((p[:2], float(self.radius[k]) + pad, float(p[2] + object_half_height(self.scene['objects'][k]))))
+        touchable = [k in touch for k in self.on_table if k != holding and k not in ignore]
+        reserved = self.reserved_obstacles() + self.decor_obstacles()
+        obstacles += reserved
+        touchable += [False] * len(reserved)
+        x0, x1, y0, y1 = self._table_rect
+
+        boxes = [(np.asarray(d['xy'], float), np.asarray(d['half'], float), float(d['height']), float(d['wall']))
+                 for d in self.scene.get('decor', []) or [] if d.get('type') == 'open_box']
+
+        def need(points, gap):
+            req = np.full(len(points), -np.inf)
+            on = (points[:, 0] >= x0) & (points[:, 0] <= x1) & (points[:, 1] >= y0) & (points[:, 1] <= y1)
+            req[on] = self.table_z + gap
+            for xy, half, h, w in boxes:        # an open box: over its walls the top, inside it the floor
+                rel = np.abs(points[:, :2] - xy)
+                outer = np.all(rel <= half + 0.01, axis=1)
+                inner = np.all(rel <= half - w - 0.01, axis=1)
+                req[outer & ~inner] = np.maximum(req[outer & ~inner], self.table_z + h + gap)
+                req[inner] = np.maximum(req[inner], self.table_z + w + gap)
+            for (xy, rad, top), touch in zip(obstacles, touchable):
+                inside = np.linalg.norm(points[:, :2] - xy, axis=1) <= rad
+                req[inside] = np.maximum(req[inside], top + (0.0 if touch else gap))
+            return float(np.max(req - points[:, 2], initial=0.0))
+
+        lift = np.zeros(len(path))
+        ups = palm_up if isinstance(palm_up, (tuple, list)) else (palm_up,)     # a hand turning: both orientations
+        bi = getattr(self.human, 'bimanual', None)
+        idle_verts = None
+        if bi:                                   # both hands on one object: the left hand's mesh too
+            ig = getattr(bm, 'compiled_hand_geoms', {}).get(bm.idle, {}).get(bi.get('shape', 'grasp'))
+            if ig is not None:
+                mid = m.geom_dataid[ig]
+                v = m.mesh_vert[m.mesh_vertadr[mid]:m.mesh_vertadr[mid] + m.mesh_vertnum[mid]].astype(float)
+                Rg = np.zeros(9)
+                mujoco.mju_quat2Mat(Rg, m.geom_quat[ig])
+                idle_verts = m.geom_pos[ig] + v @ Rg.reshape(3, 3).T
+            offset = self.human.idle_palm() - self.human.pos
+        for i, palm in enumerate(path):
+            for up in ups:
+                pose = bm.pose(palm, point_at, up, idle_palm=palm + offset if bi else None)
+                pos, R = pose['segments'][f'{bm.active}_hand']
+                lift[i] = max(lift[i], need(pos + verts @ np.asarray(R).T, margin))
+                if idle_verts is not None:
+                    ipos, iR = pose['segments'][f'{bm.idle}_hand']
+                    lift[i] = max(lift[i], need(ipos + idle_verts @ np.asarray(iR).T, margin))
+                if held is not None:
+                    rel, Rrel, ring = held
+                    c = palm + np.asarray(R) @ rel
+                    lift[i] = max(lift[i], need(c + ring @ (np.asarray(R) @ Rrel).T, held_margin))
+        return np.maximum(lift, 0.0)
+
+    def decor_obstacles(self) -> list:
+        """Static decor boxes (trays) as obstacles of the hand clearance: (centre xy, half diagonal, top z)."""
+        if not hasattr(self, '_decor_obs'):
+            self._decor_obs = []
+            for d in self.scene.get('decor', []) or []:
+                if d.get('type', 'box') == 'box':
+                    hx, hy, hz = d['size']
+                    self._decor_obs.append((np.asarray(d['xy'], float), float(np.hypot(hx, hy)), self.table_z + 2 * float(hz)))
+                elif d.get('type') == 'open_box':      # handled as walls + floor (open_boxes below)
+                    continue
+        return list(self._decor_obs)
+
+    def reserved_obstacles(self) -> list:
+        """Volumes the human's hand keeps clear of besides the objects: [(xy, radius, top z)] (task hook)."""
+        return []
+
+    def _two_hand_frame(self):
+        """(origin, R) of an object held with both hands: origin between the palms, x from the left palm to the right
+        one (horizontal), z up: the object stays level and between the hands (it does not turn with one wrist)."""
+        right, left = np.asarray(self.human.pos, float), np.asarray(self.human.idle_palm(), float)
+        x = right - left
+        x[2] = 0.0
+        x /= max(float(np.linalg.norm(x)), 1e-9)
+        z = np.array([0.0, 0.0, 1.0])
+        return (right + left) / 2, np.column_stack([x, np.cross(z, x), z])
+
+    def _carry_held_objects(self) -> None:
+        """A held object is part of the hand's kinematic chain: put it at its grasp pose in the (just moved) anchor
+        frame, at rest, so it does not trail the 50 ms hand steps through the physics substeps (the weld then holds it
+        there). Rigid-grasp mode only."""
+        m, d = self.env.model, self.env.data
+        anchor = self.mocap['human_grasp_anchor']
+        R = np.zeros(9)
+        mujoco.mju_quat2Mat(R, d.mocap_quat[anchor])
+        bi = getattr(self.human, 'bimanual', None)
+        for k, eid in self.weld_id.items():
+            if not d.eq_active[eid]:
+                continue
+            q, v = self.qadr[k], self.dadr[k]
+            if bi and getattr(self, '_two_hand_rel', {}).get(k) is not None:
+                o, Rf = self._two_hand_frame()
+                rel_p, rel_R = self._two_hand_rel[k]
+                d.qpos[q:q + 3] = o + Rf @ rel_p
+                quat = np.zeros(4)
+                mujoco.mju_mat2Quat(quat, np.ascontiguousarray(Rf @ rel_R).ravel())
+                d.qpos[q + 3:q + 7] = quat
+                d.qvel[v:v + 6] = 0.0
+                # keep the weld consistent with the anchor (it holds the object between ticks)
+                Ra = R.reshape(3, 3)
+                m.eq_data[eid, 3:6] = Ra.T @ (d.qpos[q:q + 3] - d.mocap_pos[anchor])
+                inv, rel = np.zeros(4), np.zeros(4)
+                mujoco.mju_negQuat(inv, d.mocap_quat[anchor])
+                mujoco.mju_mulQuat(rel, inv, quat)
+                m.eq_data[eid, 6:10] = rel
+                continue
+            d.qpos[q:q + 3] = d.mocap_pos[anchor] + R.reshape(3, 3) @ m.eq_data[eid, 3:6]
+            quat = np.zeros(4)
+            mujoco.mju_mulQuat(quat, d.mocap_quat[anchor], m.eq_data[eid, 6:10])
+            level = self.human.behavior.get('level_on_put') or {}
+            seg = self.human.segment
+            if seg is not None and seg.label in level.get('labels', ()):
+                # setting the object down: its tilt is taken out (yaw kept) over the end of the lowering, about its centre
+                u = (self.human.t_last - seg.start_t) / seg.duration
+                a0 = float(level['from_progress'])
+                alpha = float(np.clip((u - a0) / max(1.0 - a0, 1e-6), 0.0, 1.0))
+                Ro = np.zeros(9)
+                mujoco.mju_quat2Mat(Ro, quat)
+                z = Ro.reshape(3, 3)[:, 2]
+                axis = np.cross(z, [0.0, 0.0, 1.0])
+                angle = float(np.arccos(np.clip(z[2], -1.0, 1.0)))
+                if np.linalg.norm(axis) > 1e-9 and alpha > 0:
+                    qa, out = np.zeros(4), np.zeros(4)
+                    mujoco.mju_axisAngle2Quat(qa, axis / np.linalg.norm(axis), alpha * angle)
+                    mujoco.mju_mulQuat(out, qa, quat)
+                    quat = out
+            d.qpos[q + 3:q + 7] = quat
+            d.qvel[v:v + 6] = 0.0
 
     def attach_to_hand(self, key: str) -> None:
         m, d = self.env.model, self.env.data
         eid = self.weld_id[key]
         m.eq_data[eid, 0:3] = 0
-        m.eq_data[eid, 3:6] = self.pos(key) - d.mocap_pos[self.mocap['human_grasp_anchor']]
-        m.eq_data[eid, 6:10] = self.quat(key)
+        anchor = self.mocap['human_grasp_anchor']
+        if getattr(self.body_model, 'held_object_frame', 'world') == 'hand':
+            # weld relpose = the object's pose in the (rotating) anchor frame: a rigid grasp
+            qa = d.mocap_quat[anchor]
+            R = np.zeros(9)
+            mujoco.mju_quat2Mat(R, qa)
+            m.eq_data[eid, 3:6] = R.reshape(3, 3).T @ (self.pos(key) - d.mocap_pos[anchor])
+            inv, rel = np.zeros(4), np.zeros(4)
+            mujoco.mju_negQuat(inv, qa)
+            mujoco.mju_mulQuat(rel, inv, self.quat(key))
+            m.eq_data[eid, 6:10] = rel
+        else:
+            m.eq_data[eid, 3:6] = self.pos(key) - d.mocap_pos[anchor]
+            m.eq_data[eid, 6:10] = self.quat(key)
         d.eq_active[eid] = True
 
     def detach_from_hand(self, key: str) -> None:
@@ -280,7 +488,8 @@ class BaseScenario:
                    robot_at_rest=self.robot_at_rest(), robot_chain=[self.env.data.xpos[b].copy() for b in self.robot_chain],
                    robot_committed=self.committed,                  # candidate the TCP clearly heads for (any agent)
                    protocol_done=tuple(self.protocol_done),
-                   tcp_xy_distance=lambda p: float(np.linalg.norm(np.asarray(p)[:2] - tcp[:2])))
+                   tcp_xy_distance=lambda p: float(np.linalg.norm(np.asarray(p)[:2] - tcp[:2])),
+                   hand_clearance=self.hand_clearance_lift)
         ctx.update(self.human_context_extras())
         return ctx
 
@@ -299,6 +508,16 @@ class BaseScenario:
                 self.attach_to_hand(key)
             elif kind == 'detach':
                 self.detach_from_hand(key)
+            elif kind == 'two_hand':                  # v7: held with both hands: its pose in the two-hand frame
+                o, Rf = self._two_hand_frame()
+                Ro = np.zeros(9)
+                mujoco.mju_quat2Mat(Ro, self.quat(key))
+                self._two_hand_rel = getattr(self, '_two_hand_rel', {})
+                self._two_hand_rel[key] = (Rf.T @ (self.pos(key) - o), Rf.T @ Ro.reshape(3, 3))
+            elif kind == 'one_hand':
+                getattr(self, '_two_hand_rel', {}).pop(key, None)
+            elif kind == 'switch_arm':               # v7 I2: the other arm becomes the moving one (task hook)
+                self._switch_arm(key)
         for event_type, payload in self.human.events:
             if event_type == E.PROTOCOL_STEP_COMPLETE.value:
                 self.protocol(payload.pop('step'), 'human', **payload)

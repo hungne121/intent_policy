@@ -15,8 +15,13 @@ import numpy as np
 import yaml
 from intent_policy.sim.base_env import ROOT
 
+
+class InfeasibleVariation(ValueError):
+    """The seed defines no episode: the variation sampler found no layout / spot within its configured attempts.
+    A collector skips such a seed as a rejected candidate (journaled); it is not a failed demonstration."""
+
 CONFIG_DIR = ROOT / 'configs/scenarios'
-ROLES = ('instructor', 'collaborator', 'intruder')
+ROLES = ('instructor', 'collaborator', 'intruder', 'cowork')   # v7: Cowork (renamed from Intruder, PIF §8 27/10)
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -382,6 +387,8 @@ def sample_variation(cfg: ScenarioConfig, seed: int, spec: dict | None = None) -
         human['own_reach_s'] = _uniform(g, hb['own_reach_s'])
         human['own_use_s'] = _uniform(g, hb['own_use_s'])
         human['cancel_dist_m'] = _uniform(g, hb['cancel_dist_m'])
+        if hb.get('cancel_after_ready_s'):      # v7: exogenous cancel time (PIF §8.10), drawn last (earlier draws kept)
+            human['cancel_after_ready_s'] = _uniform(g, hb['cancel_after_ready_s'])
         own = hb.get('own_item')
         if own and own in objs:                  # the person's cup at the x of a hand zone, in every case
             hands = sorted(k for k, z in lay.items() if z['kind'] == 'hand')

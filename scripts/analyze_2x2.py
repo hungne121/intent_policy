@@ -1,4 +1,4 @@
-"""2x2 analysis of the INTENT_ACT models (docs/requirements/INTENT_ACT_v3.2.md §7): late / early x without / with intent.
+"""2x2 analysis of the INTENT_ACT models (docs/intent_act/INTENT_ACT_v3.2.md §7): late / early x without / with intent.
 
 Reads the evaluation runs of A (late), B (early), C (late + intent), D (early + intent) on the same episode list
 (per-episode metrics of episodes/<split>/<task>/*.json.gz) and reports per task and overall:

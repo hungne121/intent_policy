@@ -29,6 +29,8 @@ class EventType(str, Enum):
     # Phase 2 information-timing contract: when the human's intention becomes predictable from the
     # observable cue (payload: kind + target), and when the robot's motion commits to a candidate target.
     HUMAN_INTENTION_EVIDENT = 'human_intention_evident'
+    HUMAN_YIELD_TO_ROBOT = 'human_yield_to_robot'    # a hand motion waits for the robot (reaction law)
+    HUMAN_YIELD_END = 'human_yield_end'
     ROBOT_TARGET_COMMIT = 'robot_target_commit'
 
 

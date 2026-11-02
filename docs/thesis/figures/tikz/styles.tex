@@ -1,0 +1,21 @@
+% Cỡ chữ sơ đồ cố định (không theo cỡ chữ thân bài 12pt): \figf = chữ khung 8pt, \figs = chữ phụ 7pt.
+\providecommand{\figf}{\fontsize{8}{9.6}\selectfont}
+\providecommand{\figs}{\fontsize{7}{8.4}\selectfont}
+% Bảng màu chung của các sơ đồ (figures/tikz/*.tex). Trạng thái: done = đã làm, part = đang làm / một phần, todo = chưa làm.
+\definecolor{cDone}{HTML}{2E7D32}\definecolor{cDoneBg}{HTML}{E8F5E9}
+\definecolor{cPart}{HTML}{E65100}\definecolor{cPartBg}{HTML}{FFF3E0}
+\definecolor{cTodo}{HTML}{757575}\definecolor{cTodoBg}{HTML}{F5F5F5}
+\definecolor{cBlue}{HTML}{1565C0}\definecolor{cBlueBg}{HTML}{E3F2FD}
+\definecolor{cPurple}{HTML}{6A1B9A}\definecolor{cPurpleBg}{HTML}{F3E5F5}
+\tikzset{
+  box/.style={draw, rounded corners=2pt, align=center, font=\figf, inner sep=4pt, minimum height=8mm, line width=0.6pt},
+  done/.style={box, draw=cDone, fill=cDoneBg},
+  part/.style={box, draw=cPart, fill=cPartBg},
+  todo/.style={box, draw=cTodo, fill=cTodoBg, dashed},
+  blk/.style={box, draw=cBlue, fill=cBlueBg},
+  blk2/.style={box, draw=cPurple, fill=cPurpleBg},
+  arr/.style={-{Stealth[length=2.2mm]}, line width=0.7pt},
+  darr/.style={arr, dashed},
+  lab/.style={font=\figs, align=center},
+  grp/.style={draw=black!35, rounded corners=4pt, inner sep=5pt, dashed},
+}

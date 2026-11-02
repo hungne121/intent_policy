@@ -1,0 +1,108 @@
+# Planning only, PIF section 8.12. JSON syntax is valid YAML.
+{
+  "status": "planning_only_not_collection_ready",
+  "budget_usd_max": 4.5,
+  "quota_per_supported_case": {
+    "train": 50,
+    "val": 10,
+    "test": 30
+  },
+  "split_policy": "source_clip_disjoint_and_forecaster_exposure_checked",
+  "pairing": "replace both demos if either fails; same exogenous human/scene conditions",
+  "test": "separate dataset; never discard failed policy rollouts",
+  "tasks": {
+    "I1": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "switch_before_commit",
+        "switch_after_commit"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "I2": {
+      "cases": [
+        "nominal",
+        "forecast_fault"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "I3": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "switch_before_commit",
+        "switch_after_commit"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "C1": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "switch_before_commit",
+        "switch_after_commit"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "C2": {
+      "cases": [
+        "nominal",
+        "forecast_fault"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "C3": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "switch_before_commit",
+        "switch_after_commit"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "C4": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "switch_before_commit",
+        "switch_after_commit"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "W1": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "human_reentry"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "W2": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "human_route_reversal"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    },
+    "W3": {
+      "cases": [
+        "nominal",
+        "forecast_fault",
+        "human_return_after_withdrawal"
+      ],
+      "case_support": "requires_executable_pilot",
+      "collection_ready": false
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""Task scenarios T1-T5 (docs/requirements/scence_construct.md): configuration, episode specs, seed reproducibility,
+"""Task scenarios T1-T5 (docs/sim/scene_construct.md): configuration, episode specs, seed reproducibility,
 success / failure predicates, ground truth, balanced scenario lists."""
 import ast
 from collections import Counter

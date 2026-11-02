@@ -2,7 +2,9 @@
 
 Viết lúc 23/10/2026 16:17 (+07), cập nhật 16:50 (+07) (thử MoGe-2), giờ lấy bằng `date`. Phiên local trên laptop (GTX 1650 4 GB, 13 GB RAM).
 
-Làm theo `HANDOFF_PIF_CORRECTIONS.md` mục D.2 và handoff §2–3. Hình và số liệu ở `docs/reports/PIF_P1/`.
+Làm theo `HANDOFF_PIF_CORRECTIONS.md` mục D.2 và handoff §2–3 (nay gộp vào `docs/PIF.md`).
+
+> **Dọn dẹp 23/10/2026 chiều:** code được tổ chức lại theo config. Tên file trong báo cáo này là tên cũ: `sim_replay.py` + `episode_reader.py` + `labels.py` + `sim_stats.py` → `pif/data/sim.py`; `habit*.py` → `pif/data/habit.py`; `habit_perception.py` → `pif/perception/{components,extract,lift}.py`; `depth_check.py`, `view3d.py` → `pif/perception/tools.py`; `configs/pif/{base,habit_labels,habit_perception}.yaml` → `configs/pif/{pif,habit,sim}.yaml`; `workstation/job6_pif_habit.sh` → `workstation/job_pif_habit.sh`. MoGe-2 sau đó được đặt ở `resolution_level` 3 (đo lại: trung vị 0.58 cm, p90 1.65 cm, nhanh hơn 2.3 lần). Hình và số liệu ở `docs/reports/PIF_P1/`.
 
 Tóm tắt:
 - **Sim xong phần dữ liệu và token.** Replay 559 episode của `intent_act_late_v5` có thêm vị trí vật theo frame, vật đang cầm, J = 11. Token 10 Hz, hệ bàn, không dùng vùng của layout. Có 67 257 mẫu train (cửa sổ 4 s).

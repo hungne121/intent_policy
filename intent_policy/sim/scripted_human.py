@@ -11,6 +11,7 @@ then points at the new target.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+import hashlib
 import numpy as np
 from intent_policy.sim.human_state import HumanState
 from intent_policy.sim.motion_bank import above_table, fit, sample, FPS
@@ -94,6 +95,7 @@ class ScriptedHuman:
         self.evidence: list[dict] = []       # scheduled evidence: t, kind, payload, segment, emitted, cancelled
         self._prev_robot_distance = np.inf
         self.point_at: np.ndarray | None = None   # what the index finger points at while gesturing (rendering only)
+        self._motion_draws = {}
         self._point_i = 0                         # pointings made so far (index into the per-gesture draws)
         self.shape_from = 'relaxed'               # hand shape when the current gesture started (it forms from there)
         self.shape: str | None = None             # hand shape set by the current gesture (None: from point_at / holding)
@@ -132,15 +134,63 @@ class ScriptedHuman:
         self._cancel_pending_evidence(self.segment)
         target = np.asarray(target, float) if self.reach is None else self.reach(target)
         path = self._bank_path(label, target)
+        self._motion_draws[label] = self._motion_draws.get(label, 0) + 1
         if path is not None:                     # a generated motion of this kind: its own duration and speed profile
             duration, scale = (len(path) - 1) / FPS, True
+        hc = self.behavior.get('hand_clearance')
+        self.segment_label_for_clearance = label
+        if hc and 'hand_clearance' in self.last_ctx:
+            path = self._clear_hand(path, target, max(duration / self.speed if scale else duration, 0.05), key, hc)
+            target = path[-1].copy()
         self.segment = Segment(t, max(duration / self.speed if scale else duration, 0.05), self.pos.copy(), target, label,
                                clearance, path)
+        self.motion_key = key                    # what the current motion is aimed at (collection gate contact rules)
         self.emit('human_motion_start', label=label, target=np.round(target, 4).tolist(), duration=self.segment.duration,
-                  target_key=key)
+                  target_key=key, motion_source=self._last_motion_source)
         if label in self.EVIDENCE_LABELS:
             self.add_evidence(t + self.evidence_fraction * self.segment.duration, self.EVIDENCE_LABELS[label],
                               self.segment, **self.evidence_payload(label))
+
+    def _clear_hand(self, path, target, duration, key, cfg) -> np.ndarray:
+        """Refine a hand path (HRIBench §4: generated motion refined, then filtered in the scene): lift it where the
+        whole hand mesh or the held object would go into the table or an object other than the motion's target
+        (exact mesh geometry, ctx['hand_clearance']). The lift is dilated and Hann-smoothed over `window_s`, the
+        start sample is kept (no jump). A min-jerk motion is sampled at 30 Hz for this. Logged in motion_source."""
+        if path is None:
+            n = max(2, int(np.ceil(duration * FPS)) + 1)
+            u = np.linspace(0.0, 1.0, n)
+            path = self.pos + (np.asarray(target, float) - self.pos) * np.array([min_jerk(x) for x in u])[:, None]
+        path = np.array(path, float)
+        shapes = {self.shape_from or 'relaxed', self.hand_shape}
+        objects = self.last_ctx.get('object_positions', {})
+        target = {key} if key in objects else set()
+        # the motion's target object: taken / grasped (ignored), or worked on from above (cfg touch_labels: its top is
+        # the limit; a hand shape changing over the work piece sank into it when it was ignored, 2026-10-30)
+        touch = target if self.segment_label_for_clearance in cfg.get('touch_labels', ()) else set()
+        ignore = target - touch
+        w = max(1, int(np.ceil(float(cfg.get('window_s', 0.25)) / max(duration / (len(path) - 1), 1e-3))))
+        total = np.zeros(len(path))
+        start_lift = None
+        for _ in range(int(cfg.get('iterations', 3))):
+            lift = self.last_ctx['hand_clearance'](path, shapes, (self.palm_from, self.palm_to), self.point_at, ignore, self.holding, touch=touch)
+            if start_lift is None:
+                start_lift = float(lift[0])
+            lift[0] = 0.0
+            if lift.max() <= 1e-4:
+                break
+            dil = np.array([lift[max(0, i - w):i + w + 1].max() for i in range(len(lift))])
+            ker = np.hanning(2 * w + 3)[1:-1]
+            ker /= ker.sum()
+            sm = np.maximum(np.convolve(np.pad(dil, (w, w), mode='edge'), ker, mode='valid'), lift)
+            sm[0] = 0.0
+            path[:, 2] += sm
+            total += sm
+        residual = self.last_ctx['hand_clearance'](path, shapes, (self.palm_from, self.palm_to), self.point_at, ignore, self.holding, touch=touch)
+        src = self._last_motion_source if isinstance(getattr(self, '_last_motion_source', None), dict) else {}
+        self._last_motion_source = dict(src, clearance_lift_max_m=float(total.max()),
+                                        clearance_start_violation_m=start_lift,
+                                        clearance_residual_m=float(residual[1:].max(initial=0.0)))
+        return path
 
     def _bank_path(self, label: str, target: np.ndarray) -> np.ndarray | None:
         """A generated motion for `label` (config human_behavior.motion_bank.labels: label -> library keys), drawn among
@@ -148,33 +198,57 @@ class ScriptedHuman:
         from the hand to `target` and kept above the table; None: no bank, label not mapped, or nothing fits (the
         minimum-jerk line is used)."""
         mb = self.behavior.get('motion_bank') or {}
+        self._last_motion_source = dict(kind='minimum_jerk', reason='no_bank_or_unmapped_label')
         keys = (mb.get('labels') or {}).get(label)
         if self.bank is None or not keys:
             return None
         d = target - self.pos
         dist = float(np.linalg.norm(d))
         if dist < float(mb['min_dist_m']):
+            self._last_motion_source['reason'] = 'short_motion'
             return None
         pool = []
-        for m in self.bank.pool(keys):
+        for record in self.bank.pool_records(keys):
+            m = record.path
             u = m[-1] - m[0]
             nu, nd = np.linalg.norm(u[:2]), np.linalg.norm(d[:2])
             cos = float(u[:2] @ d[:2] / (nu * nd)) if nu > 1e-3 and nd > 1e-3 else 1.0
             ratio = float(np.linalg.norm(u)) / dist
             if cos >= float(mb['min_cos']) and mb['extent_ratio'][0] <= ratio <= mb['extent_ratio'][1]:
-                pool.append(m)
+                pool.append(record)
         margin = float(mb['holding_margin_m'] if self.holding else mb['table_margin_m'])   # a held object hangs below
         chain = list(self.last_ctx.get('robot_chain', [])) + ([self.last_ctx['tcp']] if 'tcp' in self.last_ctx else [])
         robot = np.asarray([a + (b - a) * u for a, b in zip(chain, chain[1:]) for u in np.linspace(0, 1, 6)], float) \
             if len(chain) > 1 else np.zeros((0, 3))     # points along the robot's links, not only its joints
         line = lambda q: np.linalg.norm(q - (self.pos + np.clip((q - self.pos) @ d / dist ** 2, 0.0, 1.0)[:, None] * d),
                                         axis=1)          # distance to the straight segment (also catches overshoot)
-        for i in self.bank_rng.permutation(len(pool)):   # the first drawn motion that fits (people avoid the arm; their
-            path = above_table(fit(pool[i], self.pos, target), self.bank_table_top, float(mb['table_edge_y']), margin)
+        # v8: source choice is independent of robot pose and the number of yield probes.
+        paired = mb.get('paired_source_selection', False)
+        if paired:
+            key = f"{self.var['seed']}:{label}:{self._motion_draws.get(label, 0)}"
+            # Rank each source independently: tiny object settling differences may add
+            # a candidate to the pool, but must not reshuffle every other candidate.
+            def priority(i):
+                src = pool[i].source
+                identity = ':'.join(str(src.get(k)) for k in
+                    ('clip_id', 'start_frame', 'end_frame_exclusive', 'hand'))
+                return hashlib.sha256((key + ':' + identity).encode()).digest()
+            order = sorted(range(len(pool)), key=priority)
+        else:
+            order = self.bank_rng.permutation(len(pool))
+        for i in order:
+            record = pool[i]
+            fitted = fit(record.path, self.pos, target)
+            path = above_table(fitted, self.bank_table_top, float(mb['table_edge_y']), margin)
             if line(path).max() > float(mb['max_dev_ratio']) * dist:     # hand paths are nearly straight)
                 continue
-            if not len(robot) or np.min(np.linalg.norm(path[:, None] - robot[None], axis=2)) >= float(mb['robot_clear_m']):
+            if paired or not len(robot) or np.min(np.linalg.norm(path[:, None] - robot[None], axis=2)) >= float(mb['robot_clear_m']):
+                self._last_motion_source = dict(kind='hymotion', **record.source,
+                    retarget_start=self.pos.tolist(), retarget_end=target.tolist(),
+                    table_lift_max_m=float(np.max(np.abs(path[:, 2] - fitted[:, 2]))),
+                    episode_speed_scale=float(self.speed))
                 return path
+        self._last_motion_source['reason'] = 'no_candidate_passed_geometry'
         return None
 
     @property
@@ -261,6 +335,8 @@ class ScriptedHuman:
             if not ev['emitted'] and not ev['cancelled'] and ev['t'] <= t + 1e-9:
                 ev['emitted'] = True
                 self.emit('human_intention_evident', kind=ev['kind'], **ev['payload'])
+        if self.segment is not None and self._pause_for_robot(t, dt, ctx):
+            self.segment.start_t += dt               # the motion waits: its own timing is shifted, not its path
         if self.segment is not None:
             self.pos = self.segment.position(t)
             if t >= self.segment.end_t - 1e-9:
@@ -269,6 +345,46 @@ class ScriptedHuman:
                 self.segment = None
         self.vel = (self.pos - previous) / dt
         self.t_last = t
+
+    def _pause_for_robot(self, t: float, dt: float, ctx: dict) -> bool:
+        """Reaction law (behavior.yield_to_robot.lookahead_s, the same for every robot): the hand holds where it is
+        while its position lookahead_s ahead on its path would come within SEPARATION_M (0.12 m) of the robot (links,
+        TCP); at most max_wait_s per motion, then it goes on (logged). People stop for a robot in their way."""
+        cfg = self.behavior.get('yield_to_robot') or {}
+        if 'lookahead_s' not in cfg or 'robot_chain' not in ctx or self.segment.label in cfg.get('exempt_labels', ()):
+            return False
+        seg = self.segment
+        waited = getattr(seg, 'waited_s', 0.0)
+        if waited >= float(cfg['max_wait_s']):
+            return False
+        ahead = seg.position(min(t + float(cfg['lookahead_s']), seg.end_t))
+        # the hand reaches up to ~0.13 m below the palm point (fingers, measured) and a held object hangs below it
+        drop = np.linspace(0.0, 0.13, 4)
+        hand = np.r_[ahead][None] - np.c_[np.zeros((4, 2)), drop]
+        if self.holding is not None and 'object_positions' in ctx:
+            hand = np.vstack([hand, np.asarray(ctx['object_positions'][self.holding], float) + (ahead - self.pos)])
+        chain = list(ctx['robot_chain']) + [ctx['tcp']]
+        robot = np.asarray([a + (b - a) * u for a, b in zip(chain, chain[1:]) for u in np.linspace(0, 1, 6)], float)
+        held = [k for k, g in ctx.get('robot_grasping', {}).items() if g and k in ctx.get('object_positions', {})]
+        if held:                                     # what the robot holds is part of it (the can over the open hand)
+            robot = np.vstack([robot] + [np.asarray(ctx['object_positions'][k], float)[None] for k in held])
+        if float(np.min(np.linalg.norm(robot[:, None] - hand[None], axis=2))) >= 0.12:
+            return False
+        if waited == 0.0:
+            self.emit('human_yield_to_robot', label=seg.label, during_motion=True)
+        seg.waited_s = waited + dt
+        return True
+
+    # -- two-handed holding (v7) ---------------------------------------------------------------
+    bimanual = None          # None, or dict(width_m, shape): the left hand holds the same object width_m to the left
+
+    def idle_palm(self):
+        """The left palm while both hands hold one object: the right palm + width_m to the human's left (body frame)."""
+        if not self.bimanual:
+            return None
+        yaw = np.radians(float(self.scene_human.get('facing_deg', 180.0)) - 180.0)
+        right = np.array([-np.sin(yaw), np.cos(yaw), 0.0])      # R_yaw @ [0, 1, 0]: the human's right (T-pose +Y)
+        return self.pos - float(self.bimanual['width_m']) * right
 
     def behave(self, t: float, ctx: dict) -> None:
         raise NotImplementedError
@@ -326,6 +442,7 @@ class GestureHuman(ScriptedHuman):
 
     def reset(self) -> None:
         super().reset()
+        self._yielding, self._yield_since = False, None
         self.queue: list[Gesture] = []
         self.current: Gesture | None = None
 
@@ -459,11 +576,51 @@ class GestureHuman(ScriptedHuman):
             return False
         return g.hold is None or bool(g.hold(t, ctx)) or t - g.arrived >= g.hold_max - 1e-9
 
+    def _blocked_by_robot(self, g, ctx) -> bool:
+        """Reaction law (behavior.yield_to_robot, same for every robot): a hand motion does not start while its straight
+        path passes within motion_bank.robot_clear_m of the robot (its links and TCP); people wait for a robot that
+        works where they want to go. Waits at most yield_to_robot.max_wait_s, then goes (logged)."""
+        cfg = self.behavior.get('yield_to_robot')
+        if not cfg or g.kind not in ('move', 'point') or 'robot_chain' not in ctx or g.label in cfg.get('exempt_labels', ()):
+            return False
+        if self._yield_since is None:
+            self._yield_since = ctx['t']
+        if ctx['t'] - self._yield_since >= float(cfg['max_wait_s']):
+            return False
+        target = np.asarray(g.target(ctx), float) if g.kind == 'move' else self.point_pose(np.asarray(g.target(ctx), float))
+        chain = list(ctx['robot_chain']) + [ctx['tcp']]
+        robot = np.asarray([a + (b - a) * u for a, b in zip(chain, chain[1:]) for u in np.linspace(0, 1, 6)], float)
+        line = self.pos + np.linspace(0, 1, 20)[:, None] * (target - self.pos)
+        clear = float((self.behavior.get('motion_bank') or {}).get('robot_clear_m', 0.15))
+        # before_start false (Cowork, PIF §8.12 v9 G1): the human has priority and starts anyway; the robot must give
+        # way, the mid-motion pause (_pause_for_robot) still keeps the hand off a robot that does not
+        before_start = cfg.get('before_start', True)
+        if before_start and float(np.min(np.linalg.norm(line[:, None] - robot[None], axis=2))) < clear:
+            return True
+        if cfg.get('wait_for_bank') and g.kind == 'move':
+            # no generated motion fits now only because the robot is near its way: wait for one rather than fall back to
+            # a straight minimum-jerk move (people wait for a robot in their way)
+            tgt = np.asarray(target, float) if self.reach is None else self.reach(np.asarray(target, float))
+            path = self._bank_path(g.label, tgt)
+            if path is None and self._last_motion_source.get('reason') == 'no_candidate_passed_geometry':
+                return True
+            if before_start and path is not None and float(np.min(np.linalg.norm(path[:, None] - robot[None], axis=2))) < clear:
+                return True
+        return False
+
     def run_queue(self, t: float, ctx: dict) -> None:
         while True:
             if self.current is None:
                 if not self.queue:
                     return
+                if self._blocked_by_robot(self.queue[0], ctx):
+                    if not self._yielding:
+                        self._yielding = True
+                        self.emit('human_yield_to_robot', label=self.queue[0].label)
+                    return
+                if self._yielding:
+                    self.emit('human_yield_end', label=self.queue[0].label, waited_s=round(t - self._yield_since, 3))
+                self._yielding, self._yield_since = False, None
                 self.current = self.queue.pop(0)
                 self._start(self.current, t, ctx)
             if not self._finished(self.current, t, ctx):
@@ -624,7 +781,10 @@ class HandoverReceiver(GestureHuman):
     def expected_object_pos(self, ctx) -> np.ndarray:
         """Where the human expects the object: resting in the upturned palm (config present_offset + half height)."""
         h = ctx['object_half_height'][self.selected_object]
-        return self.palm_at_zone(ctx) + np.asarray(self.behavior['present_offset'], float) + [0.0, 0.0, h]
+        palm = self.palm_at_zone(ctx)
+        if self.behavior.get('zone_at_palm_height'):     # v7: relative to the hand where it actually is (it may have
+            palm = np.r_[palm[:2], self.pos[2]]          #   been lifted over an object), as the robot sees it
+        return palm + np.asarray(self.behavior['present_offset'], float) + [0.0, 0.0, h]
 
     def indication(self) -> list[Gesture]:
         """Point at the object (`target_indicated` when the pointing arrives), held until the robot heads for it."""
@@ -661,9 +821,12 @@ class HandoverReceiver(GestureHuman):
             arrive = lambda t: self.lift_t + p['late_wait_s'] - p['reach_out_s'] / self.speed
             pre = [self.G_rest(), Gesture('wait', 'wait_robot_lift', until=self._lifted),
                    Gesture('wait', 'wait_late', until=lambda t, ctx: t >= arrive(t) - 1e-9)]
+        # behavior.take_shape (v7 C1: offer): the hand shape while taking / pulling the object the robot still holds; a
+        # closing 'grasp' hand wrapped the 6 cm can and the gripper fingers holding its top (-6.8 mm, 2026-10-30)
+        take_shape = b.get('take_shape', 'grasp')
         take = Gesture('move', 'take_object', target=self._under_object, duration=b['take_s'], clearance=b['hand_clearance_m'],
-                       shape='grasp', palm_up=1.0, key=lambda: self.selected_object)
-        pull = Gesture('move', 'pulling', duration=b['pull_s'], shape='grasp', palm_up=1.0,
+                       shape=take_shape, palm_up=1.0, key=lambda: self.selected_object)
+        pull = Gesture('move', 'pulling', duration=b['pull_s'], shape=take_shape, palm_up=1.0,
                        target=lambda ctx: self.pos + np.asarray(b['pull_offset'], float))
         return pre + [reach, ready, Gesture('wait', 'waiting_offer', until=lambda t, ctx: self._offered(t, ctx) or self._caught(t, ctx)), take,
                       self.G_call(self._hold_object), pull,
@@ -996,14 +1159,22 @@ class WorkerReceiver(HandoverReceiver):
         return self.hesitation() if self.case == 'C2' else self.own_item_detour() if self.case == 'C3' else []
 
     def cancel_due(self, ctx) -> bool:
-        """C4: the open hand is out and the robot has come within cancel_dist_m (xy): the person withdraws it."""
-        return self.case == 'C4' and not self.cancelled and self.stage == 'waiting_offer' and \
-            ctx['tcp_xy_distance'](self.palm_at_zone(ctx)) <= self.params['cancel_dist_m']
+        """C4: the open hand is out and the robot has come within cancel_dist_m (xy): the person withdraws it. v7
+        (cancel_after_ready_s): an exogenous time after the open hand is out instead, the same for every robot (PIF
+        §8.10); how far the robot had got is then a result."""
+        if self.case != 'C4' or self.cancelled or self.stage != 'waiting_offer':
+            return False
+        if 'cancel_after_ready_s' in self.params:
+            return ctx['t'] - self.stage_t >= self.params['cancel_after_ready_s']
+        return ctx['tcp_xy_distance'](self.palm_at_zone(ctx)) <= self.params['cancel_dist_m']
 
     def cancel(self, t, ctx) -> list[Gesture]:
         p, b = self.params, self.behavior
         self.cancelled = True
         self.extras.update(cancel_t=round(t, 4))
+        if 'cancel_after_ready_s' in self.params:      # v7 only (legacy T2 data unchanged): the evaluation's change log
+            self.emit('human_intention_change', kind='request_cancelled', previous=self.selected_target, current=None,
+                      timing='timed')
         return [Gesture('move', 'withdraw_change', target=self.work_pos, duration=p['reach_out_s'], shape='relaxed')] + \
             self.strokes(int(b['cancel_strokes']), p['stroke_s'][0]) + self.receive_gestures()[:-1] + self.give_back()
 

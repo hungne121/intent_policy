@@ -11,6 +11,9 @@ SIGGRAPH 1995; the offsets are blended in with the motion's own progress) and re
 """
 from __future__ import annotations
 from pathlib import Path
+from dataclasses import dataclass
+import hashlib
+import json
 
 import numpy as np
 
@@ -50,14 +53,37 @@ def to_scene(k3d: np.ndarray, pelvis_world: np.ndarray, facing_deg: float, floor
     return w
 
 
-def palm_path(w: np.ndarray) -> np.ndarray:
-    """Right palm centre [L, 3]: mean of the wrist and the four finger bases."""
-    return w[:, [R_WRIST, *R_HAND_BASES]].mean(axis=1)
+def palm_path(w: np.ndarray, hand: str = 'right') -> np.ndarray:
+    """Palm centre [L, 3]; left/right come from the same original skeleton."""
+    if hand not in ('left', 'right'):
+        raise ValueError('hand must be left or right')
+    ids = [R_WRIST, *R_HAND_BASES] if hand == 'right' else [20, 25, 28, 31, 34]
+    return w[:, ids].mean(axis=1)
+
+
+def clip_id(k3d: np.ndarray) -> str:
+    """Content identity before transforms; duplicates cannot cross dataset splits."""
+    x = np.ascontiguousarray(k3d, dtype='<f4')
+    return hashlib.sha256(str(x.shape).encode() + x.tobytes()).hexdigest()
+
+
+@dataclass
+class MotionRecord:
+    path: np.ndarray
+    source: dict
+    skeleton: np.ndarray | None = None  # synchronized full skeleton before task-specific retargeting
 
 
 def segments(p: np.ndarray, min_len_m: float = 0.04) -> list[np.ndarray]:
     """Cut a palm path into motions: runs of frames whose speed is above STILL_FRACTION of the peak, at least
     `min_len_m` long (end to end)."""
+    return [p[a:b] for a, b in segment_ranges(p, min_len_m)]
+
+
+def segment_ranges(p: np.ndarray, min_len_m: float = 0.04) -> list[tuple[int, int]]:
+    """Original frame ranges, end exclusive; retain provenance across crops."""
+    if len(p) < 2:
+        return []
     v = np.linalg.norm(np.diff(p, axis=0), axis=1) * FPS
     moving = v > STILL_FRACTION * v.max()
     out, i = [], 0
@@ -68,7 +94,7 @@ def segments(p: np.ndarray, min_len_m: float = 0.04) -> list[np.ndarray]:
                 j += 1
             seg = p[i:j + 1]
             if np.linalg.norm(seg[-1] - seg[0]) >= min_len_m:
-                out.append(seg)
+                out.append((i, j + 1))
             i = j
         else:
             i += 1
@@ -78,20 +104,57 @@ def segments(p: np.ndarray, min_len_m: float = 0.04) -> list[np.ndarray]:
 class MotionBank:
     """Palm motions per library key (prompt) from the npz files of gen_motions.py, in the scene's frame."""
 
-    def __init__(self, folder: str | Path, pelvis_world, facing_deg: float, floor_z: float, height: float):
+    def __init__(self, folder: str | Path, pelvis_world, facing_deg: float, floor_z: float, height: float,
+                 *, hand: str = 'right', split_manifest: str | Path | None = None, split: str | None = None):
         self.motions: dict[str, list[np.ndarray]] = {}
+        self.records: dict[str, list[MotionRecord]] = {}
+        if (split_manifest is None) != (split is None):
+            raise ValueError('split and split_manifest must be specified together')
+        assignments = None
+        if split_manifest is not None:
+            manifest = json.loads((ROOT / split_manifest).read_text())
+            assignments = manifest['clip_splits']
+            if split not in set(assignments.values()):
+                raise ValueError(f'No clips assigned to split {split}')
         for f in sorted((ROOT / folder).glob('*.npz')):
-            k3d = np.load(f)['keypoints3d']                # [B, L, 52, 3]
-            self.motions[f.stem] = [s for b in range(len(k3d)) for s in
-                                    segments(palm_path(to_scene(k3d[b], pelvis_world, facing_deg, floor_z, height)))]
+            with np.load(f, allow_pickle=False) as raw:
+                k3d = raw['keypoints3d']                # [B, L, 52, 3]
+                if k3d.ndim != 4 or k3d.shape[2:] != (52, 3) or not np.isfinite(k3d).all():
+                    raise ValueError(f'Invalid skeleton array: {f}')
+                fps = float(raw['fps']) if 'fps' in raw else FPS
+                if fps != FPS:
+                    raise ValueError(f'{f}: resample explicitly before using {fps} Hz clips')
+                seed_values = raw['seeds'].tolist() if 'seeds' in raw else [None] * len(k3d)
+            file_hash = hashlib.sha256(f.read_bytes()).hexdigest()
+            records = []
+            for b in range(len(k3d)):
+                cid = clip_id(k3d[b])
+                if assignments is not None:
+                    if cid not in assignments:
+                        raise ValueError(f'Clip absent from split manifest: {f.name} sample {b}')
+                    if assignments[cid] != split:
+                        continue
+                skeleton = to_scene(k3d[b], pelvis_world, facing_deg, floor_z, height)
+                palm = palm_path(skeleton, hand)
+                for a, z in segment_ranges(palm):
+                    records.append(MotionRecord(palm[a:z], dict(clip_id=cid, file=str(f), file_sha256=file_hash,
+                        sample_index=b, generation_seed=seed_values[b], start_frame=a, end_frame_exclusive=z,
+                        fps=fps, hand=hand, split=split, scene_transform=dict(
+                            pelvis_world=np.asarray(pelvis_world).tolist(), facing_deg=float(facing_deg),
+                            floor_z=float(floor_z), height=float(height))), skeleton[a:z]))
+            self.records[f.stem] = records
+            self.motions[f.stem] = [r.path for r in records]
 
     def keys(self, prefix: str = '') -> list[str]:
         return [k for k, v in self.motions.items() if k.startswith(prefix) and v]
 
     def pool(self, keys: list[str]) -> list[np.ndarray]:
         """Stored motions of the given library keys (a trailing '*' matches a key prefix)."""
+        return [r.path for r in self.pool_records(keys)]
+
+    def pool_records(self, keys: list[str]) -> list[MotionRecord]:
         names = [n for k in keys for n in (self.keys(k[:-1]) if k.endswith('*') else [k]) if n in self.motions]
-        return [m for n in dict.fromkeys(names) for m in self.motions[n]]
+        return [m for n in dict.fromkeys(names) for m in self.records[n]]
 
 
 def warp(motion: np.ndarray, p0, p1) -> np.ndarray:

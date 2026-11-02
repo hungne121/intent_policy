@@ -2,15 +2,15 @@
 \chapter{GIỚI THIỆU CHUNG}
 \label{chap:introduction}
 
-Chương này trình bày tổng quan về học bắt chước cho robot thao tác, làm tiền đề cho bối cảnh nghiên cứu: robot làm việc cùng con người và vì sao robot cần đoán trước ý định của người. Tiếp theo, các hướng tiếp cận nhận biết ý định hiện nay được đưa vào thảo luận. Từ hạn chế của các hướng này, chương nêu động lực của khóa luận. Phần cuối là nội dung thực hiện và bố cục của khóa luận.
+Chương này trình bày tổng quan về học bắt chước cho robot thao tác, làm tiền đề cho bối cảnh nghiên cứu: robot làm việc cùng con người và vì sao robot cần đoán trước ý định của người. Tiếp theo, các hướng tiếp cận nhận biết ý định hiện nay được đưa vào thảo luận. Từ hạn chế của các hướng này, chương nêu động lực của khóa luận. Phần cuối là nội dung thực hiện và bố cục của khóa luận. Điều này đến từ sự phát triển nhanh chóng 
 
-\section{Tổng quan về học bắt chước cho robot thao tác}
-\label{sec:intro-il}
+\section{Bối cảnh}
+\label{sec:intro-background}
 
-\subsection{Học bắt chước và nhân bản hành vi}
+\subsection{Tầm quan trọng của Cộng tác Người-Robot}
 
-Học bắt chước (imitation learning) huấn luyện chính sách điều khiển robot từ các lượt trình diễn của chuyên gia, thay vì lập trình từng hành vi bằng tay. Dạng đơn giản nhất là nhân bản hành vi (behavior cloning): học có giám sát một ánh xạ từ quan sát $o_t$ sang hành động $a_t$. Hạn chế cơ bản của nhân bản hành vi là lệch phân phối: khi chính sách mắc một lỗi nhỏ, nó đi vào những trạng thái mà chuyên gia chưa từng gặp, và lỗi tích lũy theo thời gian~\cite{ross2011dagger}. Hai hướng khắc phục phổ biến là thu thêm nhãn chuyên gia trên chính các trạng thái mà chính sách đi tới (DAgger~\cite{ross2011dagger}), hoặc bơm nhiễu vào hành động của chuyên gia ngay khi trình diễn để dữ liệu bao phủ cả các trạng thái lệch (DART~\cite{laskey2017dart}).
-
+Lĩnh vực Robotics hiện tại đang phát triển nhanh chóng và mạnh mẽ nhờ vào sự tiến bộ trong công nghệ hiện đại từ thiết kế phần cứng, công nghệ cảm biến, các thuật toán điều khiển, học máy và đặc biệt là trí tuệ nhân tạo. Dựa trên sự nâng đỡ của những công nghệ này mà robot đã dần trở thành một phần quan trọng và thiết yếu trong xã hội hiện đại. Các lĩnh vực ứng dụng Robot không chỉ giới hạn trong công nghiệp, sản xuất mà còn bao gồm: nông nghiệp, y tế, xây dựng, giáo dục cứu hộ, hậu cần và vận tải cùng nhiều lĩnh vực khác. 
+ 
 \subsection{ACT và phân đoạn hành động}
 
 ACT (Action Chunking with Transformers)~\cite{zhao2023act} là chính sách học bắt chước được dùng làm nền trong khóa luận. Mỗi bước, ACT nhận ảnh camera và trạng thái khớp, rồi dự đoán một \emph{đoạn} gồm $k$ hành động liên tiếp (action chunk) thay vì một hành động. Việc này làm giảm số lần ra quyết định và giảm lỗi tích lũy. ACT dùng bộ mã hóa ảnh ResNet18~\cite{he2016resnet}, một Transformer mã hóa -- giải mã~\cite{vaswani2017attention} và một bộ mã hóa CVAE~\cite{sohn2015cvae} để mô hình hóa sự khác nhau giữa các lần trình diễn. Khóa luận dùng bản cài đặt ACT của thư viện LeRobot~\cite{cadene2026lerobot}, với hành động liên tục gồm 6 góc khớp đích và độ mở tay kẹp, mỗi đoạn 40 bước (2\,s ở 20\,Hz).

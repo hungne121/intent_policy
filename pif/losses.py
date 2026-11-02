@@ -1,4 +1,4 @@
-"""PIF losses (handoff §5). Intent labels are never used here (handoff §0.4).
+"""PIF losses (docs/PIF.md). Intent labels are never used here (docs/PIF.md).
 
 For S sampled input frames t of each window and every valid code Z = (r, k):
   L_pred(Z)   = sum_h tv_h ( mean_j |ô^j_{t+h}(Z) - sg(o^j_{t+h})| + |û_{t+h}(Z) - sg(u_{t+h})| )   (L1, mean over dims)
@@ -18,7 +18,7 @@ import torch
 
 
 def temperature(step: int, cfg: dict) -> float:
-    t = cfg['temperature']
+    t = cfg['loss']['temperature']
     a = min(step / max(t['anneal_steps'], 1), 1.0)
     return float(t['t0'] * (t['t_min'] / t['t0']) ** a)                # geometric anneal t0 -> t_min
 
@@ -30,6 +30,7 @@ class SIGReg:
                                                               num_slices=num_slices)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        self.loss.to(x.device)                      # the lejepa module keeps its integration points as a CPU buffer
         return self.loss(x.float())
 
 
@@ -75,8 +76,10 @@ def pif_losses(model, batch, cfg: dict, step: int, sigreg: SIGReg, n_sample: int
     l_kl = (b * (log_b + torch.log(n_valid)[:, None, None, None])).masked_fill(~vz[:, None], 0).flatten(2).sum(-1)
     l_kl = (l_kl * valid[:, :L]).sum() / valid[:, :L].sum()
     ev = valid.reshape(-1)
-    l_sig = sigreg(e.reshape(B * N, d)[ev]) + sigreg(o[obj_mask[:, None].expand(B, N, K) & valid[..., None]])
-    lw = cfg['loss_weights']
+    cap = cfg['loss']['sigreg_max_samples']
+    sub = lambda x: x[torch.randperm(len(x), device=x.device, generator=rng)[:cap]] if len(x) > cap else x
+    l_sig = sigreg(sub(e.reshape(B * N, d)[ev])) + sigreg(sub(o[obj_mask[:, None].expand(B, N, K) & valid[..., None]]))
+    lw = cfg['loss']['weights']
     total = (l_predict + lw['filter'] * l_filter + lw['sigreg'] * l_sig + lw['occ'] * l_occ + lw['ent'] * l_ent
              + lw['kl'] * l_kl)
     with torch.no_grad():

@@ -1,4 +1,4 @@
-"""Per-frame PIF tokens (handoff §2, updated by HANDOFF_PIF_CORRECTIONS.md #14 / #17 / #18).
+"""Per-frame PIF tokens (docs/PIF.md §5).
 
 Every domain reader (sim: pif/data/episode_reader.py, HABIT: pif/data/habit.py) produces the same *episode* dict at
 the PIF rate, positions in the table frame (z = 0 on the table top, metres):
@@ -22,7 +22,7 @@ the PIF rate, positions in the table frame (z = 0 on the table top, metres):
   holding   [T]
 
 A token at frame t uses frames t and t - 1 only. Hidden keypoints / objects keep their token with zeros and visible = 0
-(handoff §2: never removed). Positions and velocities are normalised with train statistics (`norm_stats`); one position
+(docs/PIF.md: never removed). Positions and velocities are normalised with train statistics (`norm_stats`); one position
 mean / std is shared by human and object tokens so their relative geometry (where a hand points / goes) is kept.
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ def backward_velocity(pos: np.ndarray, vis: np.ndarray, fps: float) -> np.ndarra
 
 def norm_stats(episodes: list[dict]) -> dict:
     """Train-set statistics: position mean / std per axis over visible human keypoints and objects, velocity std per
-    axis over visible human keypoints (stored with the checkpoint, handoff §2)."""
+    axis over visible human keypoints (stored with the checkpoint, docs/PIF.md)."""
     pos = np.concatenate([e['human_pos'][e['human_vis']] for e in episodes] + [e['obj_pos'][e['obj_vis']] for e in episodes])
     vel = np.concatenate([backward_velocity(e['human_pos'], e['human_vis'], e['fps'])[e['human_vis']] for e in episodes])
     return dict(pos_mean=pos.mean(0).astype(np.float32), pos_std=pos.std(0).astype(np.float32) + 1e-6,

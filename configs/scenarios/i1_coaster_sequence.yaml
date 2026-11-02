@@ -1,0 +1,242 @@
+# v7 I1 (docs/PIF.md §8.12). Collection-ready 2026-10-30 18:5x: gated pilots nominal 39/40 episodes, C3 / C4 early /
+# C4 late pass after the fixes recorded in PIF §8.12 (gate: configs/experiments/ten_task_v7.yaml).
+scenario_id: i1_coaster_sequence
+collection_ready: true
+task_code: T3
+role: instructor
+goal: Người đặt liên tiếp ba đế tại vị trí liên tục; robot tự lấy và đặt đủ ba cốc
+  trong cùng một scene vật lý.
+task: Đặt lần lượt ba cốc lên ba đế người đặt, rồi trở về nghỉ.
+seed: 0
+scene:
+  # robot grasp (base_env assisted grasp): attach at the physics substep of the two-finger contact and hold 0.5 mm
+  # past the contact width; finger-object overlap can 3.4-3.75 -> 2.4-2.9 mm, cup 1.2 -> 1.04 mm (pilot 2026-10-30)
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0005
+  human:
+    hand_mesh_mode: compiled_variants
+    # rigid grasp: a held coaster keeps its pose in the hand (it turns with the hand); measured 2026-10-30: with the
+    # coaster axis-aligned in the world the turning hand sank 2-3 mm into it while lowering
+    held_object_frame: hand
+  base: ../scene/common.yaml
+  objects:
+    C1:
+      shape: cup
+      size:
+      - 0.036
+      - 0.085
+      color: white
+      label: C1 white cup
+    C2:
+      shape: cup
+      size:
+      - 0.036
+      - 0.085
+      color: white
+      label: C2 white cup, identical to C1
+    C3:
+      shape: cup
+      size:
+      - 0.036
+      - 0.085
+      color: green
+      label: C3 green cup
+    CO1:
+      shape: cylinder
+      size:
+      - 0.045
+      - 0.003
+      color: cork
+      label: coaster 1
+    CO2:
+      shape: cylinder
+      size:
+      - 0.045
+      - 0.003
+      color: cork
+      label: coaster 1
+    CO3:
+      shape: cylinder
+      size:
+      - 0.045
+      - 0.003
+      color: cork
+      label: coaster 1
+  zone_markers: false
+scene_variation:
+  variant: coaster
+  cup: C1
+  coaster: CO1
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+  sequence:
+    destination_min_xy:
+    - 0.18
+    - -0.2
+    destination_max_xy:
+    - 0.38
+    - -0.04
+    minimum_spacing_m: 0.115
+    # the arm folds onto the held cup for spots near its base (pilot 2026-10-30): keep R_SAFE = 0.22 m out
+    # (scripted_expert.R_SAFE, the near-singular band above the base)
+    min_base_distance_m: 0.22
+    # other table work before the 2nd / 3rd coaster (hand at rest), uniform: some rounds the robot waits for the
+    # human, some the human for the robot (design range, no source; the robot needs ~6.5 s per cup, the human ~3.5 s)
+    pause_before_s: [0.5, 5.0]
+    sampling_attempts: 500
+    sampling_restarts: 20
+    items:
+    - cup: C1
+      coaster: CO1
+      cup_xy:
+      - 0.07
+      - 0.28
+      coaster_xy:
+      - 0.34
+      - -0.28
+    - cup: C2
+      coaster: CO2
+      cup_xy:
+      - 0.31
+      - 0.28
+      coaster_xy:
+      - 0.45
+      - -0.28
+    - cup: C3
+      coaster: CO3
+      cup_xy:
+      - 0.28
+      - 0.14
+      coaster_xy:
+      - 0.56
+      - -0.28
+human_behavior:
+  type: t3_coaster
+  cue_onset_s:     # first coaster: before or after the robot has the first cup (it lifts it at ~3.6 s)
+  - 0.4
+  - 3.5
+  take_reach_s:
+  - 0.8
+  - 1.2
+  carry_s:
+  - 1.0
+  - 1.5
+  lower_s:
+  - 0.4
+  - 0.6
+  carry_height_m: 0.12
+  # palm point -> lowest vertex of the 'grasp' hand mesh, measured over 60 reachable poses of the I1 area
+  # (2026-10-30): 81.9-85.3 mm (median 84.7); + coaster half thickness 3 mm, rounded up: the fingertips rest on the
+  # coaster (0.7-4 mm above its top), none inside it. 0.03 put the fingers through the coaster into the table.
+  grip_dz_m: 0.089
+  spot_jitter_m: 0.02
+  point_s:
+  - 1.0
+  - 1.0
+  point_dwell_s:
+  - 0.3
+  - 0.5
+  rest_s:
+  - 0.9
+  - 1.2
+  speed_scale:
+  - 0.8
+  - 1.25
+  motion_bank:
+    # HY-Motion 1.0-Lite clips generated for the 10 tasks (2026-10-30), split by source clip; demos use `train`
+    folder: outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out
+    split_manifest: outputs/human_motion/hymotion_ten_tasks_2026-10-30/splits.json
+    split: train
+    min_dist_m: 0.08         # v6 values (configs/scenarios v6, motion_bank.py doc): shorter moves are minimum-jerk
+    min_cos: 0.3             #   (Flash & Hogan 1985 point-to-point model), logged as such in motion_source
+    extent_ratio:
+    - 0.4
+    - 2.5
+    table_edge_y: -0.36
+    table_margin_m: 0.03
+    holding_margin_m: 0.08
+    robot_clear_m: 0.15
+    max_dev_ratio: 0.25
+    labels:                  # every right-palm segment of the train clips, chosen by direction / extent / straightness
+      reach_coaster: ['*']
+      carry_coaster: ['*']
+      lower_coaster: ['*']
+      withdraw: ['*']
+      source_approach: ['*']
+      source_raise: ['*']
+      withdraw_raise: ['*']
+      withdraw_clear_sources: ['*']
+  # reaction law: a motion waits while its straight path passes within robot_clear_m of the robot (max 3 s)
+  yield_to_robot:
+    max_wait_s: 3.0
+    lookahead_s: 0.25   # mid-motion: the hand holds while its path 0.25 s ahead is < 0.12 m from the robot
+  # whole-hand clearance refinement of every motion (scripted_human._clear_hand, exact mesh geometry)
+  hand_clearance:
+    window_s: 0.25
+    iterations: 3
+  # people set a coaster down flat: its tilt in the hand is taken out over the second half of the lowering
+  level_on_put:
+    labels: [lower_coaster]
+    from_progress: 0.5
+  source_approach_height_m: 0.14
+  source_raise_s: 0.4
+  source_approach_s: 0.6
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+expert:
+  trigger: cue_complete
+  travel_dz: 0.2
+timing:
+  timeout_s: 120
+  stable_s: 0.5
+success_conditions:
+  on_coaster_xy_m: 0.02
+  object_speed_max: 0.04
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps:
+- coaster_placed_CO1
+- coaster_placed_CO2
+- coaster_placed_CO3
+- cup_grasped_C1
+- cup_on_coaster_C1
+- sequence_round_complete_C1
+- cup_grasped_C2
+- cup_on_coaster_C2
+- sequence_round_complete_C2
+- cup_grasped_C3
+- cup_on_coaster_C3
+- sequence_round_complete_C3
+applicable_metrics:
+- CSR
+- CT
+- IR
+- TSync
+- Rsp
+- OC
+- AM
+- WCR
+- WCD
+- CRsp
+metric_params:
+  rsp_trigger:
+    event_type: protocol_step_complete
+    step: coaster_taken
+  rsp_response: robot_motion_start
+  ir_start:
+    event_type: protocol_step_complete
+    step: coaster_placed
+  tsync_human:
+    event_type: protocol_step_complete
+    step: coaster_placed
+  tsync_robot:
+    event_type: protocol_step_complete
+    step: cup_on_coaster
+  am_cue_complete:
+    event_type: protocol_step_complete
+    step: coaster_placed
+  commit_stage: region

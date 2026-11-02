@@ -1,4 +1,4 @@
-"""Measure the intent-perception constants on a recorded dataset (INTENT_ACT_GUIDE_v2.md §9.2, §9.3, M0 answers) and
+"""Measure the intent-perception constants on a recorded dataset (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §9.2, §9.3, M0 answers) and
 optionally write them into configs/intent_schema.yaml:
 
   ray      pointing-ray error (index base -> index tip vs the pointed place) over the pointing holds: mean, std, p95

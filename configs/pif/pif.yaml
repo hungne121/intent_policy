@@ -164,8 +164,9 @@ v6_object_forecast:         # M5: can the future position of an object the human
   observers: {released: null}   # + fine-tuned via --set; held object = wrist forecast + current wrist->object offset
 
 v6_expert:                  # non-privileged belief of the v6 experts (intent_policy/intent/goal_belief.py, PIF.md §2.4)
-  checkpoint_path: outputs/forecast_ft/2026-10-24_23-44/best.pt   # ManiCast fine-tuned on v6 motion, frozen
-  beta_from_error_mm: 59.0  # as v6_goal (the forecaster's measured 1 s wrist error)
+  checkpoint_path: outputs/forecast_ft/2026-10-31_08-42/best.pt   # ManiCast fine-tuned on v8 ten-task motion, frozen
+                            #   (PIF §8.12 31/10; v6 weights: outputs/forecast_ft/2026-10-24_23-44/best.pt)
+  beta_from_error_mm: 76.4  # the forecaster's measured 1 s wrist error (val transition, best epoch; v6 weights: 59.0)
   pointing_sigma_deg: 4.61  # as v6_goal (intent_schema.yaml cone_sigma_deg)
                             # S = the wrist where the current motion started (Dragan 2013); at rest the belief of the
                             # last gesture is kept until the next motion (memory); T1 items open while the robot holds

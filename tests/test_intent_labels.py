@@ -1,4 +1,4 @@
-"""Intent contract and sources (INTENT_ACT_GUIDE_v2.md M1-M2): schema, simulator segments, validate_intent,
+"""Intent contract and sources (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] M1-M2): schema, simulator segments, validate_intent,
 hindsight / perfect / predicted outputs on recorded episodes, causality, and the labelled LeRobot dataset."""
 import json
 

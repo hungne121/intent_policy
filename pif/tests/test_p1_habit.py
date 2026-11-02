@@ -2,7 +2,7 @@
 import numpy as np
 
 from pif.data.habit import debounce, gripper_events, runs
-from pif.perception.habit_perception import backproject, fit_plane, table_frame, track
+from pif.perception.lift import backproject, fit_plane, table_frame, track
 
 
 def test_runs_and_debounce():
@@ -53,13 +53,14 @@ def test_backproject_roundtrip():
     assert np.allclose(backproject(u, v, p[2], f, cx, cy), p)
 
 
-def test_track_keeps_identity_and_label():
-    dets = [[dict(label='box', score=0.9, xyz=np.array([0.0, 0, 0])), dict(label='box', score=0.8, xyz=np.array([0.3, 0, 0]))],
-            [dict(label='box', score=0.9, xyz=np.array([0.31, 0, 0])), dict(label='box', score=0.8, xyz=np.array([0.01, 0, 0]))],
-            [dict(label='bread', score=0.9, xyz=np.array([0.0, 0, 0]))]]
-    tr = track(dets, gate=0.1)
-    assert [t['label'] for t in tr] == ['box', 'box', 'bread']
-    assert sorted(tr[0]['frames']) == [0, 1] and np.allclose(tr[0]['frames'][1]['xyz'], [0.01, 0, 0])
+def test_track_fixed_count():
+    """Two containers, a spurious third detection never becomes a track; identities follow the nearest position."""
+    d = lambda x, s=0.9: dict(score=s, xyz=np.array([x, 0.0, 0.0]))
+    frames = [[d(0.0), d(0.3)], [d(0.31), d(0.01), d(0.9, 0.5)], [d(0.02)], []]
+    p = track(frames, count=2)
+    assert p.shape == (4, 2, 3)
+    assert np.allclose(p[1, :, 0], [0.01, 0.31]) and np.isclose(p[2, 0, 0], 0.02) and np.isnan(p[2, 1]).all()
+    assert np.isnan(p[3]).all()
 
 
 def test_movement_onset_from_baseline():

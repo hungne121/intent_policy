@@ -1,4 +1,4 @@
-"""Task and intent tokens in LeRobot ACT (INTENT_ACT_GUIDE_v2.md §4.6): baseline identity, task token, contract
+"""Task and intent tokens in LeRobot ACT (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §4.6): baseline identity, task token, contract
 inputs and gradients, group dropout tokens, target swap, ensembling reset; plus checkpoints, evaluation-time group
 keep, xi normalisation and the training-script path."""
 import argparse

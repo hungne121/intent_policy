@@ -1,7 +1,7 @@
-"""Torch dataset of PIF windows (handoff §3).
+"""Torch dataset of PIF windows (docs/PIF.md).
 
 A sample starts at frame s of an episode and holds L = seq_seconds * fps input frames followed by H_max = max horizon
-future frames (the prediction targets of handoff §5, encoded by the target encoder, never model inputs):
+future frames (the prediction targets of docs/PIF.md, encoded by the target encoder, never model inputs):
 
   human     [L + H_max, J, 7]   objects [L + H_max, K, 6]   obj_type [K]   holding [L + H_max]
   valid     [L + H_max]  frame exists (False past the episode end -> loss masked)
@@ -12,7 +12,7 @@ Tokens of the input frames only use frames <= tau (backward velocity uses frame 
 Training augmentation (input frames only, the future targets stay clean): Gaussian keypoint noise (sigma
 `keypoint_noise_m`, before the velocity so it carries the noise), joint drop (p `joint_drop`), whole-frame human drop
 (p `frame_drop`), random object order (the model must be permutation invariant).
-Eval labels (pif/data/labels.py) are only returned with `cfg.supervised_warmstart` (handoff §0.4).
+Eval labels (pif/data/labels.py) are only returned with `cfg.supervised_warmstart` (docs/PIF.md).
 """
 from __future__ import annotations
 import numpy as np
@@ -26,7 +26,7 @@ class PIFWindowDataset(Dataset):
     def __init__(self, episodes: list[dict], cfg: dict, stats: dict | None = None, train: bool = True,
                  labels: list[dict] | None = None, seed: int = 0):
         self.episodes, self.cfg, self.stats, self.train = episodes, cfg, stats, train
-        self.labels = labels if cfg.get('supervised_warmstart') else None
+        self.labels = labels if cfg['train']['supervised_warmstart'] else None
         fps = cfg['fps']
         self.L = int(round(cfg['seq_seconds'] * fps))
         self.horizons = np.array([int(round(h * fps)) for h in cfg['horizons_s']])

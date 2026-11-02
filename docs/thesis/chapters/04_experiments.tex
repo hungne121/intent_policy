@@ -1,0 +1,284 @@
+% !TEX root = ../main.tex
+\chapter[DỮ LIỆU, THÍ NGHIỆM VÀ KẾT QUẢ]{DỮ LIỆU, THÍ NGHIỆM\\VÀ KẾT QUẢ}
+\label{chap:experiments}
+
+Chương này trình bày dữ liệu và các phép kiểm chứng đã thực hiện. Mục~\ref{sec:exp-habit} mô tả ba task HABIT được chọn. Mục~\ref{sec:exp-labels} trình bày luật suy nhãn đánh giá và kiểm chứng trên video. Mục~\ref{sec:exp-perception} kiểm chứng pipeline nhận thức bằng số đo. Mục~\ref{sec:exp-sim} trình bày dữ liệu mô phỏng. Mục~\ref{sec:exp-eval} trình bày thiết kế đánh giá PIF. Mục~\ref{sec:exp-tests} liệt kê các kiểm thử tự động. Mục~\ref{sec:exp-status} tổng hợp kết quả hiện có và các việc còn chờ.
+
+\section{Dữ liệu HABIT}
+\label{sec:exp-habit}
+
+\subsection{Lý do dùng dữ liệu người thật trước}
+
+Trước đây, khóa luận dùng bộ đo DeePoint~\cite{nakamura2023deepoint} tinh chỉnh trên ảnh người mô phỏng. Trong một phép thử nội bộ (19/10/2026), bản tinh chỉnh này nhận đúng 0/6 lần chỉ tay của người thật, trong khi mô hình gốc nhận đúng 6/6. Kết quả này cho thấy rủi ro mô hình học được đặc điểm của người mô phỏng thay vì của người thật. Vì vậy PIF được xây dựng và đánh giá trên dữ liệu người thật HABIT~\cite{song2026habit} trước. HABIT là bản preprint, nhưng dữ liệu công khai (giấy phép CC-BY-4.0): hơn 10\,000 episode, 60 task, 10\,Hz, robot hai tay Franka, năm camera RGB.
+
+\subsection{Ba task được chọn}
+
+Khóa luận chọn ba task cỡ vừa, mỗi vai một task, theo hai tiêu chí: robot chỉ dùng từng tay một (để hợp với robot một tay UR3e sau này), và đồ vật đơn giản, dễ mô phỏng (Bảng~\ref{tab:habit-tasks}, Hình~\ref{fig:habit-tasks}). Tỉ lệ frame cả hai tay cùng chạy trong số frame có tay chạy là 0.25 (S8789), 0.08 (S8791) và 0.12 (S6760). Các task bị loại vì robot dùng hai tay cùng lúc có tỉ lệ này từ 0.24 đến 0.83.
+
+\begin{table}[H]
+  \centering
+  \caption{Ba task HABIT được chọn}
+  \label{tab:habit-tasks}
+  \small
+  \begin{tabularx}{\textwidth}{@{}l c c X X@{}}
+    \toprule
+    Task (vai) & Episode & Frame & Cảnh và hành vi & Ý định cần đoán \\
+    \midrule
+    S8789 (Supervisor) & 208 & 67\,082 & 4 hộp kín giống hệt nhau thẳng hàng; ổ bánh trên đĩa. Người chỉ nhanh vào một hộp, robot bỏ bánh vào hộp đó & hộp nào (1 trong 4), lúc nào ra lệnh \\
+    S8791 (Coworker) & 119 & 44\,609 & robot bỏ bánh từ khay vào hộp trống; người đóng nắp hộp vừa có bánh & tay người sắp vào hộp nào, lúc nào \\
+    S6760 (Collaborator) & 127 & 50\,080 & robot đưa tấm mạch; người nhận, kiểm tra, rồi chìa ra trả; robot đặt vào khay & lúc nào người sẵn sàng nhận / trả, tay ở đâu \\
+    \midrule
+    Tổng & 454 & 161\,771 & & \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{habit_S8789_ep13_front.jpg}\caption{S8789}\end{subfigure}\hfill
+  \begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{habit_S8791_ep40_front.jpg}\caption{S8791}\end{subfigure}\hfill
+  \begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{habit_S6760_ep30_front.jpg}\caption{S6760}\end{subfigure}
+  \caption{Ảnh camera \texttt{front\_view} của ba task (HABIT~\cite{song2026habit}, CC-BY-4.0)}
+  \label{fig:habit-tasks}
+\end{figure}
+
+\subsection{Đặc điểm cần lưu ý của dữ liệu}
+
+Khi đọc dữ liệu, khóa luận phát hiện và xử lý các đặc điểm sau:
+\begin{itemize}
+  \item không có keypoint, depth, vị trí vật hay thông số camera;
+  \item vị trí của hai tay robot nằm trong hai hệ đế riêng, không có phép biến đổi giữa chúng;
+  \item không có nhãn thời điểm bắt đầu cử chỉ; nhãn hoạt động của người tính cả lúc người đứng chờ;
+  \item robot được người điều khiển từ xa và phản ứng ngay, nên đáp án có thể lộ qua chuyển động của robot;
+  \item chỉ số nhãn của hai cấu hình \texttt{sample} và \texttt{full} khác nhau; video ghi mã av1 nhưng thực tế là h264.
+\end{itemize}
+
+\section{Luật suy nhãn đánh giá và kiểm chứng}
+\label{sec:exp-labels}
+
+Nhãn chỉ dùng để đánh giá, không dùng để huấn luyện.
+
+\subsection{Ngưỡng đóng của tay kẹp}
+
+Ngưỡng 0.5 cho độ đóng của tay kẹp không dùng được với ổ bánh mềm: tay kẹp chỉ đóng tới 0.4--0.6. Có 31/208 episode S8789 và 9/119 episode S8791 không bao giờ vượt 0.5. Phân bố độ đóng có hai đỉnh (mở $\approx0$ và đang kẹp), nên ngưỡng được chọn tự động bằng cách cực đại hóa phương sai giữa hai nhóm trên toàn bộ mẫu của mỗi task\todo{kiểm toàn văn bài gốc của phương pháp Otsu trước khi trích dẫn}. Một trạng thái phải kéo dài ít nhất 0.3\,s để loại các lần đóng mở chập chờn 1--2 frame. Kết quả ở Bảng~\ref{tab:gripper}: số lần kẹp mỗi episode khớp với quy trình của từng task.
+
+\begin{table}[H]
+  \centering
+  \caption{Ngưỡng tay kẹp và số lần kẹp mỗi episode}
+  \label{tab:gripper}
+  \small
+  \begin{tabular}{@{}l c l l@{}}
+    \toprule
+    Task & Ngưỡng & Số lần kẹp mỗi episode & Tay robot \\
+    \midrule
+    S8789 & 0.252 & 1 lần: 198; 2 lần: 9; 0 lần: 1 & robot0: 102, robot1: 105 \\
+    S8791 & 0.303 & 2 lần: 114; 3 lần: 4; 1 lần: 1 & chỉ robot1 \\
+    S6760 & 0.477 & 2 lần: 127/127 & robot0 đưa, robot1 nhận \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Luật cho từng task}
+
+\textbf{S8789.} Hộp đích là chỗ robot thả bánh: tay của lần kẹp cuối và tọa độ $y$ của đầu kẹp lúc mở (trong hệ đế của tay đó). Mỗi tay phục vụ hai hộp. Vị trí thả tạo thành hai cụm tách nhau ít nhất 18\,cm, mỗi cụm rộng khoảng 7\,cm. Đánh số 1--4 từ trái sang phải nhìn từ robot, mỗi hộp có 47--54 episode. Luật này chỉ chắc cho buổi thu chính (260414, 190/208 episode): cả 14 episode của buổi 260415 đều bị gán vào hộp 4, nhiều khả năng do buổi đó xếp hộp khác. Các episode của hai buổi còn lại bị loại khỏi đánh giá.
+
+\textbf{S8791.} Hộp người sắp đóng nắp là hộp robot vừa thả bánh vào. Hai hộp xếp trước -- sau theo trục $x$ của robot1 (cụm 0.35--0.45\,m và 0.55--0.65\,m, khoảng trống 12\,cm).
+
+\textbf{S6760.} Cả 127 episode có cùng chuỗi sự kiện: robot0 đóng (lấy tấm mạch) $\to$ robot0 mở (người đã cầm) $\to$ robot1 đóng (robot nhận lại) $\to$ robot1 mở (đặt vào khay). Thời điểm người sẵn sàng trả là lúc robot1 đóng.
+
+\subsection{Kiểm chứng trên video}
+
+Hình~\ref{fig:label-check} và Bảng~\ref{tab:label-check} cho thấy kết quả đối chiếu luật với video. Sáu episode đều khớp. Mới kiểm sáu episode thì chưa đủ để kết luận cho toàn bộ; kiểm trên toàn bộ cần keypoint của pipeline nhận thức (so hướng chỉ tay với hộp đích).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{check_s8789_ep2700.jpg}\\[2pt]
+  \includegraphics[width=0.49\textwidth]{check_s8791_ep7188.jpg}\hfill
+  \includegraphics[width=0.49\textwidth]{check_s6760_ep5551.jpg}
+  \caption{Ảnh kiểm nhãn. Trên: S8789 ep 2700, người chỉ hộp ngoài cùng bên trái từ 19.2\,s, robot thả bánh vào đó. Dưới trái: S8791 ep 7188, người đóng nắp đúng hộp vừa có bánh. Dưới phải: S6760 ep 5551, robot0 mở tay đúng lúc người cầm tấm mạch (HABIT~\cite{song2026habit})}
+  \label{fig:label-check}
+\end{figure}
+
+\begin{table}[H]
+  \centering
+  \caption{Đối chiếu luật suy nhãn với video}
+  \label{tab:label-check}
+  \small
+  \begin{tabularx}{\textwidth}{@{}l X c@{}}
+    \toprule
+    Episode & Quan sát & Khớp \\
+    \midrule
+    S8789 ep 2700 (hộp 1) & chỉ hộp ngoài cùng bên trái từ 19.2\,s, \emph{trong lúc} robot mang bánh & có \\
+    S8789 ep 2781 (hộp 4) & chỉ hộp ngoài cùng bên phải từ khoảng 21.7\,s & có \\
+    S8789 ep 2723 (hộp 2) & robot thả vào hộp thứ hai; không thấy rõ tay chỉ trong các frame đã lấy & hộp khớp \\
+    S8789 ep 2747 (hộp 3) & chỉ hộp 3 lúc 10.6\,s, \emph{trước} khi robot kẹp bánh & có \\
+    S8791 ep 7188 & robot thả bánh vào hộp gần lúc 14.8\,s; người lấy nắp rồi đóng đúng hộp đó & có \\
+    S6760 ep 5551 & robot0 mở lúc 22.5\,s khi người cầm tấm mạch; robot1 nhận lại lúc 35.3\,s & có \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Hai phát hiện ảnh hưởng tới cách đánh giá. Thứ nhất, ở S8789 người chỉ tay lúc trước, lúc sau khi robot kẹp bánh. Vì robot phản ứng ngay, đáp án lộ qua chuyển động của robot khi robot mang bánh về phía hộp. Do đó dự đoán sớm được đánh giá trên các frame \emph{trước khi robot rời đĩa} (Hình~\ref{fig:timeline}). Thứ hai, ở S8791 hành động của người có hai đích nối tiếp: lấy nắp trước, rồi tới hộp.
+
+\begin{figure}[H]
+  \centering
+  \fitfig{\input{figures/tikz/s8789_timeline}}
+  \caption{Dòng thời gian một episode S8789 (ep 2700) và cửa sổ đánh giá dự đoán sớm. Mốc kẹp và thả lấy từ tay kẹp; mốc rời đĩa ước theo ảnh}
+  \label{fig:timeline}
+\end{figure}
+
+\section{Kiểm chứng pipeline nhận thức}
+\label{sec:exp-perception}
+
+\subsection{Độ chính xác 3D}
+\label{sec:exp-depth}
+
+HABIT không có ground truth 3D. Khóa luận dựng một mốc tham chiếu từ động học robot: trong hệ đế của \emph{cùng một tay}, khoảng cách giữa hai cụm vị trí thả bánh bằng khoảng cách thật giữa hai hộp kề nhau. Ở buổi thu chính, khoảng cách hộp 1--2 là 0.248\,m và hộp 3--4 là 0.257\,m. Độ phân tán vị trí thả trong một cụm có độ lệch chuẩn 1.5--2.5\,cm, nên mốc này có sai số cỡ 2\,cm.
+
+Phép đo: với 20 episode trải đều của buổi thu chính, lấy 5 frame đầu (người đứng chờ, robot chưa che hộp), giữ các frame phát hiện đủ 4 hộp, ước lượng tâm 3D của từng hộp và so khoảng cách hai hộp kề nhau với mốc. Kết quả ở Bảng~\ref{tab:depth} và Hình~\ref{fig:depth-check}.
+
+\begin{table}[H]
+  \centering
+  \caption{Độ chính xác khoảng cách hai hộp kề nhau và tốc độ trên GPU GTX 1650 (4\,GB)}
+  \label{tab:depth}
+  \small
+  \begin{tabular}{@{}l c c c@{}}
+    \toprule
+    Mô hình depth & Thời gian/frame & Sai số trung vị & Sai số p90 \\
+    \midrule
+    Depth Pro & \multicolumn{3}{c}{không chạy được: hết bộ nhớ GPU} \\
+    MoGe-2 ViT-S, mức phân giải 9 & 3.3\,s & 0.9\,cm$^\ast$ & 2.0\,cm$^\ast$ \\
+    MoGe-2 ViT-S, mức phân giải 3 & 1.4\,s & \textbf{0.58\,cm} & \textbf{1.65\,cm} \\
+    MoGe-2 ViT-S, mức phân giải 0--1 & \multicolumn{3}{c}{không trả về depth hợp lệ} \\
+    \bottomrule
+  \end{tabular}\\[2pt]
+  {\footnotesize $^\ast$ đo bằng phiên bản code trước khi tổ chức lại, 18 episode}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \fitfig{\input{figures/tikz/depth_check}}
+  \caption{Khoảng cách hai hộp kề nhau ước lượng bằng MoGe-2 (mức phân giải 3) so với mốc từ động học robot (đường đứt nét), 20 episode S8789}
+  \label{fig:depth-check}
+\end{figure}
+
+Sai số ở mức phân giải 3 nhỏ hơn sai số của chính mốc tham chiếu và nhỏ hơn nhiều so với khoảng cách 25\,cm giữa hai hộp, nên được chọn làm mặc định. Phép đo này mới áp dụng cho \emph{vật nằm trên bàn}; sai số của keypoint tay (nằm trên mặt bàn, dễ lẫn nền) chưa được đo.
+
+\subsection{Keypoint, vật và tốc độ}
+
+Chạy thử trên S8789 ep 2700 cho thấy:
+\begin{itemize}
+  \item Cổ tay, gốc và đầu ngón trỏ nằm đúng vị trí, kể cả lúc người chỉ tay.
+  \item Score của RTMW là độ tin cậy chưa chuẩn hóa (0.5--9.8), không phải xác suất. Đầu (mũi) nằm ngoài khung ảnh vẫn có score 1.1--1.7 và bị đặt sát mép trên ảnh; vai sát mép có score 3.4--4.4. Ngưỡng 0.3 vì vậy không phân biệt được điểm thấy và điểm do mô hình tự đoán ra.\todo{chọn luật visible cho keypoint ngoài khung}
+  \item Grounding DINO phát hiện đĩa và bánh với score 0.7--0.9. Bốn hộp chỉ có score 0.38--0.39, sát ngưỡng 0.35, nên có frame mất một hộp. Bản tracking đầu tiên tạo 13 track cho 7 vật; bản hiện tại giới hạn số track theo số vật khai báo (Mục~\ref{sec:method-perception}).
+\end{itemize}
+
+\begin{table}[H]
+  \centering
+  \caption{Thời gian xử lý từng thành phần trên laptop (GTX 1650, CPU)}
+  \label{tab:speed}
+  \small
+  \begin{tabular}{@{}l l c@{}}
+    \toprule
+    Thành phần & Thiết bị & Thời gian/frame \\
+    \midrule
+    RTMW (performance / balanced) & CPU & 0.48\,s / 0.34\,s \\
+    Grounding DINO tiny & GPU & 1.10\,s \\
+    MoGe-2 ViT-S (mức 9 / mức 3) & GPU & 3.3\,s / 1.4\,s \\
+    Cả pipeline (RTMW chạy song song) & & khoảng 3.2\,s \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Với tốc độ này, toàn bộ 161\,771 frame của ba task cần khoảng 140 giờ trên laptop. Khóa luận chạy 40 episode S8789 trên laptop cho thí nghiệm đầu tiên, và chuẩn bị sẵn job cho máy trạm để chạy toàn bộ.
+
+\section{Dữ liệu mô phỏng}
+\label{sec:exp-sim}
+
+Mô phỏng gồm năm task T1--T5 với tay máy UR3e trong MuJoCo~\cite{todorov2012mujoco} và một mô hình người lập trình sẵn (chi tiết trong \texttt{docs/sim/README.md}). Bộ dữ liệu trình diễn hiện có (\texttt{intent\_act\_late\_v5}, 559 episode, 20\,Hz) không lưu vị trí vật theo từng frame, không lưu vật đang cầm và chỉ lưu 6 khớp người. Khóa luận phát lại từng episode từ cấu hình, seed và đặc tả đã lưu để bổ sung các trường này. Mã mô phỏng đã thay đổi sau khi thu dữ liệu, nên việc phát lại dùng mã ở commit lúc thu.
+
+Kết quả: 543/559 episode trùng khớp tuyệt đối với dữ liệu gốc. 16 episode còn lại (đều là trao vật) trùng số frame, vật đang cầm và keypoint (sai lệch $\le7\times10^{-7}$), chỉ trạng thái robot lệch tối đa 0.0036 do tiếp xúc khi trao vật. Các episode này được chấp nhận vì trạng thái robot không phải đầu vào của PIF.
+
+\begin{table}[H]
+  \centering
+  \caption{Dữ liệu mô phỏng cho PIF (10\,Hz, cửa sổ 4\,s)}
+  \label{tab:sim-data}
+  \small
+  \begin{tabular}{@{}l r r r c r@{}}
+    \toprule
+    Task & Episode & Frame & Mẫu & $K$ & Cử chỉ có đích \\
+    \midrule
+    T1 chỉ vật rồi chỉ chỗ đặt & 120 & 16\,629 & 11\,949 & 6 & 240 \\
+    T2 trao vật & 141 & 20\,776 & 15\,277 & 6 & 423 \\
+    T3 hỗ trợ theo quy trình & 83 & 14\,256 & 11\,019 & 7 & 166 \\
+    T4 người xâm nhập & 72 & 9\,768 & 6\,960 & 4 & 72 \\
+    T4 phủ định & 46 & 5\,294 & 3\,500 & 4 & 46 \\
+    T5 đổi ý & 97 & 22\,335 & 18\,552 & 6--7 & 334 \\
+    \midrule
+    Tổng & 559 & 89\,058 & 67\,257 & 4--7 & 1\,281 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.55\textwidth]{sim_tokens_T1.png}
+  \caption{Token của một episode T1 nhìn từ trên xuống (hệ bàn): quỹ đạo cổ tay và đầu ngón trỏ, vị trí đầu và cuối của các đối tượng. Khối B1 được robot mang tới vạch P1}
+  \label{fig:sim-tokens}
+\end{figure}
+
+\section{Thiết kế đánh giá PIF}
+\label{sec:exp-eval}
+
+Thí nghiệm đầu tiên dùng 40 episode S8789 trải đều trên task. Cứ 5 episode (xếp theo chỉ số) thì giữ 1 làm tập kiểm, tức 8 episode kiểm và 32 episode huấn luyện. Với mỗi episode kiểm, PIF chạy nhân quả trên toàn episode và lấy niềm tin trên đối tượng $b_t(k)=\sum_r b_t(r,k)$. Các chỉ số:
+\begin{itemize}
+  \item \textbf{Độ chính xác đích theo thời gian}: tỉ lệ frame mà $\arg\max_k b_t(k)$ trên 4 hộp trùng hộp đích, theo từng khoảng 1\,s tính ngược từ lúc robot thả bánh;
+  \item \textbf{Độ chính xác trước khi robot rời đĩa}: tại frame cuối trước khi bánh rời khỏi đĩa (Hình~\ref{fig:timeline});
+  \item \textbf{Số mã quan hệ được dùng}: $\exp(H(\bar p(r)))$, để phát hiện sụp mã.
+\end{itemize}
+Ba mốc so sánh: đoán bừa (1/4); \emph{hướng chỉ tay} (hộp có góc nhỏ nhất với tia từ gốc tới đầu ngón trỏ của tay vươn xa hơn), là một bộ nhận dạng lệnh tức thời không cần học; và \emph{vị trí bánh} (hộp gần bánh nhất), mốc này cho biết khi nào đáp án đã lộ qua chuyển động robot. Nhãn đích lấy từ luật thả bánh (Mục~\ref{sec:exp-labels}), chỉ giữ episode mà luật trùng với nguồn độc lập thứ hai: hộp gần bánh nhất 1\,s sau khi thả.
+
+Câu hỏi đặt ra cho thí nghiệm đầu tiên: (1) PIF có học mà không sụp không; (2) trước khi robot rời đĩa, PIF có đoán đúng hơn đoán bừa và hơn hướng chỉ tay tức thời không; (3) khi người đã rút tay, niềm tin còn giữ đích không.
+
+\section{Kiểm thử phần mềm}
+\label{sec:exp-tests}
+
+Mã nguồn có 21 kiểm thử tự động, chạy trong khoảng 4\,s:
+\begin{itemize}
+  \item token: kích thước và kiểu dữ liệu; mask khi $K$ khác nhau; khớp bị che có giá trị 0; vận tốc là sai phân lùi;
+  \item nhân quả: thay đổi frame sau $t$ không làm đổi token và niềm tin tại $\le t$;
+  \item hoán vị đối tượng làm token và niềm tin hoán vị theo;
+  \item nhãn đánh giá không lọt vào mẫu huấn luyện;
+  \item niềm tin có tổng bằng 1, không có NaN, đối tượng padding có xác suất 0;
+  \item một bước huấn luyện cho mất mát và gradient hữu hạn;
+  \item hình học: mặt phẳng RANSAC, hệ bàn trực chuẩn, chiếu ngược, tracking giữ đúng số vật;
+  \item lọc chập chờn của tay kẹp, phát hiện onset trên chuyển động tổng hợp có nhiễu 2\,mm.
+\end{itemize}
+
+\section{Kết quả hiện có và việc còn chờ}
+\label{sec:exp-status}
+
+\begin{table}[H]
+  \centering
+  \caption{Trạng thái các hạng mục tại thời điểm viết (23/10/2026)}
+  \label{tab:status}
+  \small
+  \begin{tabularx}{\textwidth}{@{}X l@{}}
+    \toprule
+    Hạng mục & Trạng thái \\
+    \midrule
+    Tải dữ liệu ba task HABIT (454 episode) & xong \\
+    Luật suy nhãn và kiểm chứng trên 6 video & xong \\
+    Chọn mô hình depth bằng số đo (MoGe-2, mức 3) & xong \\
+    Trích xuất nhận thức 40 episode S8789 trên laptop & đang chạy (khoảng 11 giờ) \\
+    Mô hình PIF, hàm mất mát, huấn luyện, đánh giá (mã nguồn) & xong, đã kiểm thử \\
+    Huấn luyện và đánh giá PIF trên S8789 & \textcolor{red}{chờ dữ liệu} \\
+    Luật \texttt{visible} cho keypoint ngoài khung & \textcolor{red}{cần quyết định} \\
+    Sai số 3D của keypoint tay; nhiễu RealSense & chưa đo \\
+    Trích xuất toàn bộ ba task (máy trạm) & job đã sẵn sàng, chưa chạy \\
+    Nối PIF vào ACT, so sánh ba chính sách A, B, D & chưa làm \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\todo{điền kết quả huấn luyện và đánh giá PIF trên S8789 khi có}

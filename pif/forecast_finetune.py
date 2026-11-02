@@ -49,7 +49,8 @@ def windows(npz, fc, cfg) -> tuple[np.ndarray, np.ndarray]:
 def wrist_err(pred: np.ndarray, gt: np.ndarray) -> dict:
     e = np.linalg.norm(pred[:, :, WRISTS] - gt[:, :, WRISTS], axis=-1)        # [N, 25, 2]
     return dict(ade_mm=round(float(e.mean()) * 1000, 1), at_0_5s_mm=round(float(e[:, 11].mean()) * 1000, 1),
-                at_1s_mm=round(float(e[:, -1].mean()) * 1000, 1), n=int(len(e)))
+                at_1s_mm=round(float(e[:, -1].mean()) * 1000, 1), n=int(len(e)),
+                at_1s_left_mm=round(float(e[:, -1, 0].mean()) * 1000, 1), at_1s_right_mm=round(float(e[:, -1, 1].mean()) * 1000, 1))
 
 
 @torch.no_grad()
@@ -122,11 +123,16 @@ def main():
         preds = {'fine-tuned': predict(net, hist, dev), f"released '{ft['init']}'": predict(base, hist, dev),
                  'current pose': np.repeat(hist[:, -1:], gt.shape[1], 1),
                  'constant velocity': hist[:, -1:] + vel[:, None] * np.arange(1, gt.shape[1] + 1)[None, :, None, None]}
+        for path in ft.get('compare') or []:          # earlier fine-tuned weights on the same test windows
+            old = ManiCastForecaster(dict(cfg, forecast=dict(f, checkpoint_path=path))).net.to(dev).eval()
+            preds[f'previous {path}'] = predict(old, hist, dev)
         res[name] = {k: wrist_err(p, gt) for k, p in preds.items()}
-        rows += [f"| {name} | {k} | {v['ade_mm']} | {v['at_0_5s_mm']} | {v['at_1s_mm']} | {v['n']} |" for k, v in res[name].items()]
+        rows += [f"| {name} | {k} | {v['ade_mm']} | {v['at_0_5s_mm']} | {v['at_1s_mm']} | {v['at_1s_left_mm']} | {v['at_1s_right_mm']} | {v['n']} |"
+                 for k, v in res[name].items()]
     (out / 'results.json').write_text(json.dumps(res, indent=1))
-    rep = [f'# ManiCast fine-tuned on v6 sim motion ({out.name})', '', f"best epoch {best[1]} (val transition wrist ADE {best[0]} mm)",
-           '', '| windows | forecaster | wrist ADE mm | at 0.5 s | at 1 s | n |', '|---|---|---|---|---|---|'] + rows
+    rep = [f"# ManiCast fine-tuned on {f['data']['out']} ({out.name})", '', f"best epoch {best[1]} (val transition wrist ADE {best[0]} mm)",
+           '', '| windows | forecaster | wrist ADE mm | at 0.5 s | at 1 s | at 1 s left | at 1 s right | n |',
+           '|---|---|---|---|---|---|---|---|'] + rows
     (out / 'report.md').write_text('\n'.join(rep) + '\n')
     print('\n'.join(rep))
     print(f'-> {out}')

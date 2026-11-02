@@ -1,4 +1,4 @@
-"""Record real hand keypoints (RGB-D + MediaPipe Hands) to measure the PredictedSource noise (INTENT_ACT_GUIDE_v2.md
+"""Record real hand keypoints (RGB-D + MediaPipe Hands) to measure the PredictedSource noise (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]
 §3.3, M0 answer): the 6 contract keypoints (wrist, index base = MCP, index tip, both hands), the pointing ray (index
 base -> tip), detection flags and timestamps.
 

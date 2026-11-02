@@ -1,17 +1,16 @@
-"""P1 tests (handoff §3 "Test P1"): token shapes / dtypes, padding mask with different K, causality, backward velocity,
+"""P1 tests (docs/PIF.md): token shapes / dtypes, padding mask with different K, causality, backward velocity,
 object permutation; eval labels stay out of the training samples."""
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
-import yaml
-
+from pif.config import load_config
 from pif.data.dataset import PIFWindowDataset, collate
 from pif.data.tokens import HUMAN_DIM, OBJECT_DIM, backward_velocity, build_tokens, norm_stats, permute_objects
 
 ROOT = Path(__file__).resolve().parents[2]
-CFG = yaml.safe_load((ROOT / 'configs/pif/base.yaml').read_text())
+CFG = load_config('configs/pif/pif.yaml')
 J = len(CFG['tokens']['keypoints'])
 
 
@@ -117,7 +116,7 @@ def test_no_labels_in_training_samples():
     ep = episode(T=60)
     x = PIFWindowDataset([ep], CFG, train=True, labels=[dict(target=1)])[0]
     assert 'labels' not in x
-    y = PIFWindowDataset([ep], dict(CFG, supervised_warmstart=True), train=True, labels=[dict(target=1)])[0]
+    y = PIFWindowDataset([ep], dict(CFG, train=dict(CFG['train'], supervised_warmstart=True)), train=True, labels=[dict(target=1)])[0]
     assert y['labels'] == dict(target=1)
 
 
@@ -126,18 +125,15 @@ REPLAY = ROOT / 'outputs/pif/sim_replay/intent_act_late_v5'
 
 @pytest.mark.skipif(not (REPLAY / 'episode_000000.npz').exists(), reason='sim replay not available')
 def test_sim_episode_reader():
-    from pif.data.episode_reader import load_meta, read_sim_dataset
-    from pif.data.labels import TARGET_NONE, sim_labels
-    ds_root = ROOT / 'outputs/datasets/intent_act_late_v5'
-    ep = read_sim_dataset(ds_root, REPLAY, CFG, episodes=[0])[0]
-    meta = load_meta(ds_root)[0]                              # T1: B1 (twin B1p) -> P1, 250 frames at 20 fps
+    from pif.data.sim import TARGET_NONE, labels, load_meta, read_episode
+    meta = load_meta(CFG['sim'])[0]                             # T1: B1 (twin B1p) -> P1, 250 frames at 20 fps
+    ep = read_episode(meta, CFG['sim'], CFG['fps'], CFG['tokens']['keypoints'], CFG['tokens']['object_types'])
     assert len(ep['holding']) == 125 and ep['meta']['stride'] == 2
     assert ep['obj_names'][-3:] == ['P1', 'P2', 'U'] and ep['human_pos'].shape == (125, J, 3)
     assert abs(np.median(ep['obj_pos'][0, :, 2])) < 0.05     # table frame: objects near z = 0
     held = ep['holding'][ep['holding'] >= 0]
     assert len(held) and np.all(np.array(ep['obj_names'])[held] == 'B1')
     assert ep['obj_done'][-1, ep['obj_names'].index('B1')] and ep['obj_has_item'][-1, ep['obj_names'].index('P1')]
-    lab = sim_labels(meta, ep, CFG)
+    lab = labels(meta, ep, CFG['sim'])
     targets = [(g['label'], g['target']) for g in lab['gestures'] if g['target'] != TARGET_NONE]
     assert targets == [('point_object', ep['obj_names'].index('B1')), ('point_place', ep['obj_names'].index('P1'))]
-    assert set(lab['intent_dest']) == {ep['obj_names'].index('P1')}

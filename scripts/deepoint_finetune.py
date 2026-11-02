@@ -3,7 +3,7 @@
 (DP-base config), `PointingModule` (loss = cross-entropy of pointing / not + angular error of the direction; Adam,
 lr 1e-4) and their class-balanced `WeightedRandomSampler` (`utils.subset_weight`).
 
-Taken from the paper / code (docs/requirements/INTENT_ACT_v3.2.md §4.2c):
+Taken from the paper / code (docs/intent_act/INTENT_ACT_v3.2.md §4.2c):
   - initialisation: the released weights (models/weight.ckpt);
   - batch size 64, Adam 1e-4 (paper §5; `configure_optimizers`);
   - pointing and non-pointing samples drawn evenly (paper; `subset_weight`);

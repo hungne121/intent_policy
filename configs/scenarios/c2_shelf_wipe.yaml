@@ -1,0 +1,124 @@
+# v10 C2 (docs/PIF.md §8.12 "5 task bổ sung theo HABIT", 01/11/2026; HABIT S6218 'Shelf cleaning' adapted): three
+# sections side by side with an item on each; the human lifts the item of a section of their choice and holds it up
+# until the robot has wiped that section, then puts it back. Prototype for the v9 G3 gate: layout values are design
+# values, to be checked by pilots (reach, contacts) before any collection. The robot wipes with its closed gripper.
+scenario_id: c2_shelf_wipe
+task_code: T3
+role: collaborator
+goal: The human lifts the item of one section; the robot wipes that section while the item is held up.
+task: Wipe the section whose item the person lifts, while they hold it, then return to rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0
+  human:
+    hand_mesh_mode: compiled_variants
+    held_object_frame: hand
+  objects:
+    S_A: {shape: box, size: [0.0125, 0.0125, 0.0125], color: yellow, label: item on section A}
+    S_B: {shape: box, size: [0.0125, 0.0125, 0.0125], color: green, label: item on section B}
+    S_C: {shape: box, size: [0.0125, 0.0125, 0.0125], color: red, label: item on section C}
+  zone_markers: false
+  decor:                            # the sections: thin pads 8 x 8 cm, 10 cm apart (centre to centre)
+  - {name: PAD_A, type: box, xy: [0.20, -0.06], size: [0.04, 0.04, 0.001], color: tray}
+  - {name: PAD_B, type: box, xy: [0.30, -0.06], size: [0.04, 0.04, 0.001], color: tray2}
+  - {name: PAD_C, type: box, xy: [0.40, -0.06], size: [0.04, 0.04, 0.001], color: tray}
+scene_variation:
+  variant: coaster                  # spec / human generator of the v6 coaster task (overridden below)
+  cup: S_A
+  coaster: S_B
+  object_jitter_m: 0.0
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+  c2:
+    items: [S_A, S_B, S_C]          # item i on pad i
+    pads: {PAD_A: [0.20, -0.06], PAD_B: [0.30, -0.06], PAD_C: [0.40, -0.06]}   # robot reach <= 0.40 < R_eff 0.43;
+                                    #   human depth 0.30 m from the table edge (comfortable 0.25-0.30, configs/layout.yaml)
+    pad_half_m: 0.04
+    restore_m: 0.07                 # put back within this of the pad centre (prototype: the put-back aim lands 4-6 cm off,
+                                    #   the held item's offset from the palm changes over the move; fix before pilots)
+    jitter_m: 0.008
+    yaw_rad: 0.1
+    pause_s: [0.5, 2.0]             # the human's own pace between sections (design range)
+    wipe_z_max_m: 0.035             # the TCP this low over a pad counts as wiping ...
+    wipe_path_m: 0.18               # ... this much horizontal path = the pad is wiped
+human_behavior:
+  type: t3_coaster
+  cue_onset_s: [0.4, 1.5]
+  take_reach_s: [0.8, 1.2]
+  carry_s: [0.8, 1.1]
+  lower_s: [0.5, 0.7]
+  carry_height_m: 0.04
+  lift_m: 0.10
+  grip_dz_m: 0.101                  # 'grasp' hand 85.3 mm below the palm (I1, 60 poses) + cube half 12.5 + 3 mm
+  hold_offset: [0.0, -0.22, 0.25]   # the lifted item held here (from its section, z above the table) while it is wiped:
+                                    #   >= GUARD_OCCUPIED_XY 0.14 from the section, else the guarded robot stops short;
+                                    #   at 0.17 the forearm still hung over the middle section (01/11)
+  pad_top_m: 0.002
+  clear_m: 0.10                     # the item is put back once the robot's TCP is this far (horizontally) from it
+  spot_jitter_m: 0.0
+  point_s: [1.0, 1.0]
+  point_dwell_s: [0.3, 0.5]
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  motion_bank:
+    folder: outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out
+    split_manifest: outputs/human_motion/hymotion_ten_tasks_2026-10-30/splits.json
+    split: train
+    min_dist_m: 0.08
+    min_cos: 0.3
+    extent_ratio: [0.4, 2.5]
+    table_edge_y: -0.36
+    table_margin_m: 0.03
+    holding_margin_m: 0.08
+    robot_clear_m: 0.15
+    max_dev_ratio: 0.25
+    labels:
+      reach_item: ['*']
+      lift_item: ['*']
+      put_back: ['*']
+      withdraw_item: ['*']
+      withdraw: ['*']
+  hand_clearance: {window_s: 0.25, iterations: 3}
+  yield_to_robot: {max_wait_s: 3.0, lookahead_s: 0.25, wait_for_bank: true, before_start: false,
+                   exempt_labels: [wait_wiped]}
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+expert:
+  rule: observed
+  travel_dz: 0.15
+  decision:                         # docs/PIF.md §8.12 "Công thức quyết định và phục hồi" (both rules, only the input differs)
+    sigma_m: 0.0795                 # alpha = 1 / sigma: ManiCast wrist error at 1 s on transitions (outputs/forecast_ft/2026-10-31_08-42)
+    beta: 1.0                       # heading weight (Fang et al. 2026)
+    still_speed: 0.01               # m/s: below it a hand counts as still (heading term 0); the mannequin at rest does not drift
+    velocity_window_s: 0.2          # the seen wrist velocity over this window
+    tau: 0.5                        # commit threshold on the group belief (Fang et al. 2026: 0.5), calibrated per rule below
+    eps: 0.10                       # target rate of wrong commitments (design value, no source)
+    eta: 0.05                       # Conformal Decision Theory step (Lekeufack et al. 2024)
+  staging_offset: [0.0, 0.20]       # waiting point: above the middle section, this far towards the robot (v9 G2); at 0.12
+                                    #   the human waited: no library reach passed robot_clear_m from it
+  reach_m: 0.42                     # stroke ends within R_eff 0.43 (configs/layout.yaml) - 1 cm
+  standoff_offset: [0.0, 0.16]      # wait 16 cm beyond the section (robot side) until it is clear, not over it
+  wipe_dz: 0.02                     # TCP height above the table while wiping (closed fingertips just above the pad)
+  stroke_m: 0.03                    # strokes +-3 cm across the pad centre ...
+  strokes: 4                        # ... this many (4 x 6 cm = 0.24 m > wipe_path_m)
+  yield_while_wiping: true          # as W3: rise once any human body proxy is this close ...
+  yield_distance_m: 0.08
+  yield_rise_m: 0.10
+  conflict_m: 0.14
+  conflict_z_m: 0.25
+  wait_xy: [0.30, 0.06]
+timing:
+  timeout_s: 90
+  stable_s: 0.5
+success_conditions:
+  object_speed_max: 0.04
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [robot_at_rest]
+applicable_metrics: [CSR, CT]
+metric_params: {}

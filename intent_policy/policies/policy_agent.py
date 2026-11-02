@@ -112,6 +112,10 @@ class PolicyAgent(Agent):
                 from intent_policy.benchmark.counterfactual import slot_partners
                 self.swap = slot_partners(scenario.variation['spec'])
         elif self.online_intent is not None:
+            if self.manicast:
+                from intent_policy.intent.forecast_fault import ForecastFault
+                fault = scenario.cfg.expert.get('forecast_fault')
+                self.online_intent.fault = ForecastFault(**fault) if fault is not None else None
             self.online_intent.reset()
 
     def act(self, obs: dict) -> Decision:

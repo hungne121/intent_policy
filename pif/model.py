@@ -1,4 +1,4 @@
-"""Predictive Intent Filter (handoff §4; Huang 2026, "Your Probabilistic JEPA Is Secretly a Hidden Markov Model").
+"""Predictive Intent Filter (docs/PIF.md; Huang 2026, "Your Probabilistic JEPA Is Secretly a Hidden Markov Model").
 
 FrameEncoder f  : Transformer over one frame's token set -> e_t (CLS, pooled), o_t^k (per object), u_t (human).
 BeliefFilter    : m_t = GRU(m_{t-1}, e_t); evidence log e_t(r, k) = MLP_r(m_t) + <W m_t, o_t^k> (k = none: learned
@@ -128,15 +128,15 @@ class Predictor(nn.Module):
 
 class PIF(nn.Module):
     def __init__(self, cfg: dict):
+        """cfg: the full PIF config (configs/pif/pif.yaml): `model`, `tokens`, `horizons_s`."""
         super().__init__()
-        d, R = cfg['d_model'], cfg['num_relations']
-        ab = cfg.get('ablation') or {}
-        self.history = not ab.get('no_filter', False)
-        self.encoder = FrameEncoder(d, cfg['encoder_layers'], cfg['heads'], len(cfg['tokens']['keypoints']),
+        m = cfg['model']
+        d, R = m['d_model'], m['num_relations']
+        self.history = not m['no_filter']
+        self.encoder = FrameEncoder(d, m['encoder_layers'], m['heads'], len(cfg['tokens']['keypoints']),
                                     len(cfg['tokens']['object_types']))
         self.filter = BeliefFilter(d, R)
-        self.predictor = Predictor(d, R, len(cfg['horizons_s']), cfg.get('predictor_hidden', 2 * d),
-                                   history=ab.get('predictor_sees_history', False))
+        self.predictor = Predictor(d, R, len(cfg['horizons_s']), m['predictor_hidden'], history=m['predictor_sees_history'])
 
     def encode(self, batch):
         return self.encoder(batch['human'], batch['objects'], batch['obj_type'], batch['obj_mask'], batch['holding'])

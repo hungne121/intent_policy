@@ -1,0 +1,33 @@
+% !TEX root = ../main.tex
+\chapter{KẾT LUẬN}
+\label{chap:conclusions}
+
+\section{Những công việc đã thực hiện}
+
+Khóa luận xác định ba thứ mà ACT gốc không tự có khi làm việc cùng con người: bộ nhớ về những gì người đã ra hiệu, dự đoán sớm trước khi cử chỉ kết thúc, và tín hiệu chuyển động của tay người. Từ phân tích các hướng nhận biết ý định hiện có, khóa luận đề xuất mô hình ý định PIF: niềm tin có cấu trúc trên các cặp (quan hệ, đối tượng), lọc đệ quy với xác suất giữ ý định, và học bằng cách dự đoán tương lai mà không cần nhãn ý định. Các kết quả cụ thể:
+\begin{enumerate}
+  \item Đầu vào thống nhất dạng token trong hệ tọa độ bàn, không phụ thuộc bố trí của mô phỏng và vị trí camera, dùng chung cho mô phỏng, dữ liệu người thật và hệ thật.
+  \item Pipeline nhận thức chuyển video RGB của HABIT thành token 3D. Mô hình depth được chọn bằng một mốc đo từ động học robot: sai số khoảng cách giữa hai hộp kề nhau có trung vị 0.58\,cm.
+  \item Luật suy nhãn đánh giá cho ba task HABIT, với ngưỡng tay kẹp đo từ dữ liệu, kiểm chứng trên video, và phát hiện các giới hạn của dữ liệu (đáp án lộ qua chuyển động robot; luật chỉ chắc cho buổi thu chính).
+  \item Cài đặt đầy đủ PIF (0.84 triệu tham số) cùng hàm mất mát, huấn luyện, đánh giá và 21 kiểm thử tự động về nhân quả, bất biến hoán vị và tính đúng của niềm tin.
+  \item Dữ liệu mô phỏng cho PIF: 559 episode được phát lại để bổ sung vị trí vật, vật đang cầm và 11 khớp người.
+\end{enumerate}
+
+\section{Hạn chế}
+
+\begin{itemize}
+  \item Chưa có kết quả huấn luyện PIF; câu hỏi PIF có học được ý định mà không cần nhãn hay không vẫn còn mở.
+  \item Cơ sở hình thức gần nhất cho việc xem JEPA xác suất như một HMM là một bản preprint chưa qua phản biện, nên khóa luận chỉ dựa vào các thành phần đã được công bố. Việc dùng posterior hindsight làm mục tiêu cho bộ lọc là lựa chọn thiết kế, chưa có bằng chứng thực nghiệm.
+  \item Mô hình keypoint đang dùng (RTMW) là báo cáo kỹ thuật chưa qua phản biện, và cách xác định keypoint nằm ngoài khung ảnh chưa được giải quyết.
+  \item Pipeline nhận thức chạy chậm trên laptop (khoảng 3.2\,s mỗi frame). Sai số 3D mới được đo cho vật nằm trên bàn.
+  \item Dữ liệu HABIT là thao tác hai tay với robot được điều khiển từ xa, khác với robot một tay tự hành ở hệ đích.
+\end{itemize}
+
+\section{Hướng phát triển}
+
+\begin{enumerate}
+  \item Huấn luyện và đánh giá PIF trên 40 episode S8789, so với các mốc đoán bừa, hướng chỉ tay và vị trí bánh; sau đó mở rộng ra ba task trên máy trạm.
+  \item Đo sai số 3D của keypoint tay, và đo nhiễu của camera RealSense khi hệ thật được lắp.
+  \item Chạy các ablation của thiết kế: bỏ bộ lọc, cho bộ dự đoán thấy lịch sử, đổi số quan hệ $R$, và so token 2D với token 3D ước lượng.
+  \item Đưa ba task HABIT vào mô phỏng (người đứng đối diện robot, vật thay bằng hình cơ bản), rồi nối PIF vào ACT và so sánh ba chính sách A, B, D để trả lời RQ1.1, RQ1.2 và RQ2.
+\end{enumerate}

@@ -1,0 +1,38 @@
+% Kiến trúc PIF: encoder theo frame, bộ lọc niềm tin (GRU + cập nhật kiểu HMM), bộ dự đoán chỉ thấy frame hiện tại.
+\begin{tikzpicture}[node distance=4mm and 5mm]
+  % --- frame t ---
+  \node[blk, minimum width=22mm] (xt) {Token frame $t$\\[-1pt]{\figs $\mathbf{x}_t$: người, đối tượng, robot}};
+  \node[blk, below=6mm of xt, minimum width=22mm] (enc) {Frame encoder $f$\\[-1pt]{\figs Transformer 2 lớp, 4 head}};
+  \draw[arr] (xt) -- (enc);
+  \node[lab, below=4mm of enc, align=center] (out) {$\mathbf{e}_t$ (gộp), $\{\mathbf{o}_t^k\}$, $\mathbf{u}_t$};
+  \draw[arr] (enc) -- (out);
+
+  % --- bộ lọc niềm tin ---
+  \node[blk2, right=11mm of xt, minimum width=28mm] (gru) {GRU\\[-1pt]{\figs $\mathbf{m}_t=\mathrm{GRU}(\mathbf{m}_{t-1},\mathbf{e}_t)$}};
+  \node[blk2, below=4mm of gru, minimum width=28mm] (ev) {Bằng chứng\\[-1pt]{\figs $\log e_t(r,k)=\mathrm{MLP}_r(\mathbf{m}_t)$}\\[-2pt]{\figs $+\langle W\mathbf{m}_t,\mathbf{o}^k_t\rangle$}};
+  \node[blk2, below=4mm of ev, minimum width=28mm] (keep) {Xác suất giữ ý định\\[-1pt]{\figs $\rho_t=\sigma(\mathrm{MLP}(\mathbf{m}_t))$}};
+  \node[blk2, right=5mm of ev, minimum width=30mm, minimum height=24mm] (upd) {\textbf{Cập nhật niềm tin}\\[3pt]
+       {\figs $b^-_t=\rho_t\, b_{t-1}+(1-\rho_t)\,\mathcal{U}$}\\[2pt]
+       {\figs $b_t\propto e_t\odot b^-_t$}\\[2pt]{\figs (log-space, mask padding)}};
+  \node[box, draw=black, fill=white, right=5mm of upd, minimum width=14mm] (bt) {$b_t(r,k)$\\[-1pt]{\figs $r\!\in\!1..R$}\\[-2pt]{\figs $k\!\in\!\{\varnothing\}\!\cup\!1..K$}};
+  \draw[arr] (gru) -- (ev);
+  \draw[arr] (ev) -- (keep);
+  \draw[arr] (ev) -- (upd);
+  \draw[arr] (keep.east) -| ($(upd.south)+(-6mm,0)$);
+  \draw[arr] (upd) -- (bt);
+  \draw[arr] (bt.north) |- ++(0,8mm) -| node[lab, pos=0.25, above] {$b_{t-1}\to b_t$: lọc đệ quy} ($(upd.north)+(4mm,0)$);
+  \draw[arr] (out.east) -| ($(gru.west)+(-4mm,0)$) -- (gru.west);
+  \draw[arr] ($(out.east)+(0,0)$) -| ($(ev.west)+(-4mm,-2mm)$) -- ($(ev.west)+(0,-2mm)$);
+  \node[grp, fit=(gru)(ev)(keep)(upd)(bt), label={[lab, anchor=south west]north west:\textbf{Bộ lọc niềm tin} (nhân quả: chỉ dùng frame $\le t$)}] {};
+
+  % --- bộ dự đoán + mục tiêu tương lai ---
+  \node[blk, below=17mm of keep, minimum width=40mm] (pred) {Bộ dự đoán $g(\mathbf{e}_t,\; C_r+\mathbf{o}^k_t,\; h)$\\[-1pt]
+       {\figs mọi mã $Z=(r,k)$}\\[-2pt]{\figs chân trời $h\in\{0.5,1,2,4\}$\,s}};
+  \node[blk, right=7mm of pred, minimum width=24mm] (loss) {$L_{\text{pred}}(Z)$\\[-1pt]{\figs L1 giữa dự đoán $\hat{\mathbf{o}}^j_{t+h},\hat{\mathbf{u}}_{t+h}$}\\[-2pt]{\figs và $\mathrm{sg}(\mathbf{o}^j_{t+h}),\mathrm{sg}(\mathbf{u}_{t+h})$}};
+  \node[blk, right=10mm of loss, minimum width=20mm] (xth) {Token frame $t{+}h$\\[-1pt]{\figs qua $f$, dừng}\\[-2pt]{\figs gradient (sg)}};
+  \draw[arr] (out.south) |- (pred.west) node[lab, pos=0.75, above] {$\mathbf{e}_t,\mathbf{o}_t$};
+  \draw[arr] (xth) -- node[lab, above] {mục tiêu} (loss);
+  \draw[arr] (pred) -- (loss);
+  \draw[dashed, cTodo, line width=0.7pt] (keep.south) -- node[lab, right, text=black] {\textbf{không} nối: $g$ không thấy $\mathbf{m}_t$ / lịch sử} (pred.north -| keep.south);
+  \node[cPart, font=\large] at ($(keep.south)!0.5!(pred.north -| keep.south)$) {$\times$};
+\end{tikzpicture}

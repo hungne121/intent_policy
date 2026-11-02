@@ -1,0 +1,115 @@
+# v7 W2 (Cowork; docs/PIF.md §8.6 'W2 thay thế'): the human carries a long tray with both hands across the shared area
+# and back; the robot puts its cubes into its box (W1's robot task) and yields the whole tray's swept area.
+# scenarios/w2_tray_carry.py, experts/w1_expert.py (the held tray's footprint as the human's extent).
+scenario_id: w2_tray_carry
+collection_ready: true
+task_code: T3
+role: cowork
+goal: The human carries a tray across the shared area and back; the robot puts its cubes into its box meanwhile.
+task: Put the blue cubes into your box without getting in the way of the tray, then return to rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0005
+  human:
+    hand_mesh_mode: compiled_variants
+    held_object_frame: hand
+  objects:
+    RB1: {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: robot cube 1}
+    RB2: {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: robot cube 2}
+    RB3: {shape: box, size: [0.02, 0.02, 0.02], color: blue, label: robot cube 3}
+    # 0.3 kg; torsional friction 0.1 (default 0.01 let the thin, light tray turn / slide ~3 mm in 3 s at rest)
+    TR: {shape: box, size: [0.15, 0.05, 0.008], color: tray, mass: 0.3, friction: '2.0 0.1 0.001',
+         label: long tray (30 x 10 cm) carried with both hands}
+  zone_markers: false
+  decor:                            # open boxes 16 x 14 x 5 cm, 4 mm walls: a 2 x 2 grid of 4 cm cubes, 3 / 2 cm apart
+  - {name: RBOX, type: open_box, xy: [0.30, 0.19], half: [0.08, 0.07], height: 0.05, wall: 0.004, color: box}
+  # (no human box in W2: the tray at the right spot overlapped it and jammed into its walls, 2026-10-30)
+scene_variation:
+  variant: coaster                  # spec / human generator of the v6 coaster task (overridden below)
+  cup: RB1
+  coaster: TR
+  object_jitter_m: 0.0
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+  w2:
+    tray: TR
+    spot_left: [0.17, -0.20]        # tray centre; hands +-0.13 m: within the human's reach at x 0.30 (both sides)
+    spot_right: [0.43, -0.20]
+    spot_jitter_m: 0.01
+    carries: 2                      # across, a pause, back
+    pause_s: [0.5, 4.0]
+  w1:
+    robot_items: [RB1, RB2, RB3]
+    human_items: []
+    area_min_xy: [0.18, -0.08]      # the robot cubes >= 7 cm from the tray band (y -0.25 .. -0.15; at 3 cm the gripper
+                                    #   took the tray with a cube, pilot 2026-10-30)
+    area_max_xy: [0.46, 0.04]
+    robot_reach_m: 0.40             # the robot's items within R_eff 0.43 (configs/layout.yaml) - 3 cm
+    box_clearance_m: 0.06           # items this far outside the boxes (the open gripper spans ~4 cm around a cube)
+    min_base_distance_m: 0.24       # > R_SAFE 0.22 (scripted_expert)
+    min_spacing_m: 0.10             # > open gripper span + finger: at 0.07 the fingers touched the neighbour cube
+    yaw_rad: 0.1                    # the gripper closes along world x; 0.3 rad turned cubes met the descending fingers
+    sampling_attempts: 500
+    sampling_restarts: 20
+    human_pause_s: [0.3, 3.0]       # the human's own pace between items (design range)
+    robot_box: {xy: [0.30, 0.19], half: [0.08, 0.07], height: 0.05}
+    human_box: {xy: [0.55, -0.24], half: [0.08, 0.07], height: 0.05}   # off the human's body (0.47 -0.27: carried cubes met the pelvis)
+    drop_slots: [[-0.035, -0.03], [0.035, -0.03], [-0.035, 0.03], [0.035, 0.03]]   # the n-th item into the n-th slot
+human_behavior:
+  type: t3_coaster
+  cue_onset_s: [0.4, 2.0]
+  take_reach_s: [0.8, 1.2]
+  carry_s: [1.6, 2.2]
+  lower_s: [0.4, 0.6]
+  carry_height_m: 0.10
+  hands_apart_m: 0.26               # both hands near the tray's ends
+  grip_offset_xy: [0.13, 0.0]       # the right palm over the tray's right end (the human's right = +x)
+  grip_dz_m: 0.094                  # 'grasp' hand 85.3 mm below the palm + tray half thickness 8 mm
+  spot_jitter_m: 0.0
+  point_s: [1.0, 1.0]
+  point_dwell_s: [0.3, 0.5]
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  motion_bank:
+    folder: outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out
+    split_manifest: outputs/human_motion/hymotion_ten_tasks_2026-10-30/splits.json
+    split: train
+    min_dist_m: 0.08
+    min_cos: 0.3
+    extent_ratio: [0.4, 2.5]
+    table_edge_y: -0.36
+    table_margin_m: 0.03
+    holding_margin_m: 0.08
+    robot_clear_m: 0.15
+    max_dev_ratio: 0.25
+    labels:
+      reach_tray: ['*']
+      lift_tray: ['*']
+      carry_tray: ['*']
+      lower_tray: ['*']
+      withdraw: ['*']
+  hand_clearance: {window_s: 0.25, iterations: 3}
+  yield_to_robot: {max_wait_s: 3.0, lookahead_s: 0.25, wait_for_bank: true, before_start: false}   # v9 G1: the human has priority (PIF §8.12)
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+expert:
+  rule: observed
+  travel_dz: 0.15
+  conflict_m: 0.14                  # = GUARD_OCCUPIED_XY of the expert (a hand this close occupies a place)
+  conflict_z_m: 0.25
+  wait_xy: [0.18, 0.14]             # the robot's waiting point, on its own side near its box
+timing:
+  timeout_s: 90
+  stable_s: 0.5
+success_conditions:
+  object_speed_max: 0.04
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [robot_at_rest]
+applicable_metrics: [CSR, CT]
+metric_params: {}

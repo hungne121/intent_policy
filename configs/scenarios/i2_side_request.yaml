@@ -1,0 +1,117 @@
+# v7 I2 (Instructor; docs/PIF.md §8.6 / §8.11): the hand held out chooses the side (left hand: an item of the left
+# cluster) the robot takes an item from, into the tray. scenarios/i2_side_request.py, experts/i2_expert.py.
+scenario_id: i2_side_request
+collection_ready: true
+task_code: T3
+role: instructor
+goal: The human holds out the left or right hand; the robot puts an item of that side into the tray.
+task: Put an item from the side the person holds a hand out to into the tray, then return to rest.
+seed: 0
+scene:
+  base: ../scene/common.yaml
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0005
+  human:
+    hand_mesh_mode: compiled_variants
+    held_object_frame: hand
+  objects:
+    L1: {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: left cluster item 1}
+    L2: {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: left cluster item 2}
+    R1: {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: right cluster item 1}
+    R2: {shape: box, size: [0.02, 0.02, 0.02], color: yellow, label: right cluster item 2}
+  zone_markers: false
+  decor:                            # open boxes 16 x 14 x 5 cm, 4 mm walls: a 2 x 2 grid of 4 cm cubes, 3 / 2 cm apart
+  - {name: RBOX, type: open_box, xy: [0.25, 0.25], half: [0.08, 0.07], height: 0.05, wall: 0.004, color: box}
+scene_variation:
+  variant: coaster                  # spec / human generator of the v6 coaster task (overridden below)
+  cup: L1
+  coaster: R1
+  object_jitter_m: 0.0
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+  i2:
+    # the human's left (-x) / right (+x), 0.22-0.41 m from the base, >= 0.19 m beyond the held-out hand (y -0.20):
+    # at y -0.10 the arm grasping next to the held-out hand kept backing off while the hand waited (2026-10-30)
+    clusters: {l: [0.22, 0.03], r: [0.40, 0.05]}
+    items: {l: [L1, L2], r: [R1, R2]}
+    cluster_offsets: [[0.0, -0.04], [0.0, 0.04]]       # 8 cm apart (the open gripper must not meet the neighbour)
+    jitter_m: 0.008
+    requests: 3                     # repeated on the critical path (docs/PIF.md §8.12, v9 Đ4; at most 2 per side)
+    pause_s: [0.5, 3.0]
+    out_s: [0.8, 1.2]
+    distractor_p: 0.5               # a hand first goes to the chest (adjusting clothes): moving is not yet asking
+    adjust_s: [0.3, 0.8]
+  w1:
+    robot_items: [L1, L2, R1, R2]
+    human_items: []
+    area_min_xy: [0.18, -0.19]      # the shared area, within the human's comfortable reach
+    area_max_xy: [0.46, 0.04]
+    robot_reach_m: 0.40             # the robot's items within R_eff 0.43 (configs/layout.yaml) - 3 cm
+    box_clearance_m: 0.06           # items this far outside the boxes (the open gripper spans ~4 cm around a cube)
+    min_base_distance_m: 0.24       # > R_SAFE 0.22 (scripted_expert)
+    min_spacing_m: 0.10             # > open gripper span + finger: at 0.07 the fingers touched the neighbour cube
+    yaw_rad: 0.1                    # the gripper closes along world x; 0.3 rad turned cubes met the descending fingers
+    sampling_attempts: 500
+    sampling_restarts: 20
+    human_pause_s: [0.3, 3.0]       # the human's own pace between items (design range)
+    robot_box: {xy: [0.25, 0.25], half: [0.08, 0.07], height: 0.05}
+    human_box: {xy: [0.55, -0.24], half: [0.08, 0.07], height: 0.05}   # off the human's body (0.47 -0.27: carried cubes met the pelvis)
+    drop_slots: [[-0.035, -0.03], [0.035, -0.03], [-0.035, 0.03], [0.035, 0.03]]   # the n-th item into the n-th slot
+human_behavior:
+  type: t3_coaster
+  cue_onset_s: [0.4, 1.5]
+  take_reach_s: [0.8, 1.2]
+  carry_s: [0.9, 1.3]
+  lower_s: [0.4, 0.6]
+  carry_height_m: 0.04
+  grip_dz_m: 0.106
+  spot_jitter_m: 0.0
+  point_s: [1.0, 1.0]
+  point_dwell_s: [0.3, 0.5]
+  rest_s: [0.9, 1.2]
+  speed_scale: [0.8, 1.25]
+  signal_xyz: {l: [0.18, -0.20, 0.80], r: [0.42, -0.20, 0.80]}   # the hand held out forward towards its side's cluster
+  chest_xyz: {l: [0.26, -0.40, 0.95], r: [0.34, -0.40, 0.95]}    # adjusting clothes: about 5 cm forward of the hanging hand
+  items: {l: [L1, L2], r: [R1, R2]}
+  motion_bank:
+    folder: outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out
+    split_manifest: outputs/human_motion/hymotion_ten_tasks_2026-10-30/splits.json
+    split: train
+    min_dist_m: 0.08
+    min_cos: 0.3
+    extent_ratio: [0.4, 2.5]
+    table_edge_y: -0.36
+    table_margin_m: 0.03
+    holding_margin_m: 0.08
+    robot_clear_m: 0.15
+    max_dev_ratio: 0.25
+    labels:
+      request_out: ['*']
+      request_back: ['*']
+      adjust: ['*']
+      adjust_back: ['*']
+  hand_clearance: {window_s: 0.25, iterations: 3}
+  yield_to_robot: {max_wait_s: 3.0, lookahead_s: 0.25, wait_for_bank: true}
+intention_change:
+  probability: 0.0
+  late_trigger_m: 0.15
+expert:
+  rule: observed
+  travel_dz: 0.15
+  conflict_m: 0.14                  # = GUARD_OCCUPIED_XY of the expert (a hand this close occupies a place)
+  conflict_z_m: 0.25
+  wait_xy: [0.18, 0.14]             # the robot's waiting point, on its own side near its box
+  extend_m: 0.12                    # a request: the wrist this far forward of where it hangs: midpoint of the measured
+                                    #   request reach 0.182-0.195 m and adjusting reach <= 0.065 m (12 seeds, 2026-10-30)
+timing:
+  timeout_s: 90
+  stable_s: 0.5
+success_conditions:
+  object_speed_max: 0.04
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+safety_constraints:
+  forbid_human_contact: true
+protocol_steps: [robot_at_rest]
+applicable_metrics: [CSR, CT]
+metric_params: {}

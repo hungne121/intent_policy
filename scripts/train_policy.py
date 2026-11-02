@@ -445,7 +445,14 @@ def main():
             count[ep_meta[e]['scenario_id']] = count.get(ep_meta[e]['scenario_id'], 0) + 1
             ep_meta[e]['_n'] = count[ep_meta[e]['scenario_id']]
         episodes = [e for e in episodes if ep_meta[e]['_n'] <= args.episodes_per_task]
-    train_eps, val_eps = (list(map(episodes.__getitem__, ix)) for ix in split_episodes(len(episodes), args.val_every))
+    split_source = exp.get('data', {}).get('split_source', 'legacy_index')
+    if split_source == 'episode_metadata':
+        from intent_policy.intent.data_split import provenance_split
+        train_eps, val_eps = provenance_split(ep_meta, episodes)
+    elif split_source == 'legacy_index':
+        train_eps, val_eps = (list(map(episodes.__getitem__, ix)) for ix in split_episodes(len(episodes), args.val_every))
+    else:
+        raise ValueError(f'Unknown data.split_source: {split_source}')
     if args.exclude_tasks:
         drop = set(args.exclude_tasks)
         train_eps, val_eps = [e for e in train_eps if tasks.get(e) not in drop], [e for e in val_eps if tasks.get(e) not in drop]

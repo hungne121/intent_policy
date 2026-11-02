@@ -32,18 +32,30 @@ class GoalBelief:
         cfg = load_config(str(ROOT / 'configs/pif/pif.yaml'), [])
         self.cfg, ve = cfg, cfg['v6_expert']
         self.ve = ve
-        if rule not in ('early', 'late'):
-            raise ValueError(f'GoalBelief rule must be early | late, got {rule!r}')
+        if rule not in ('early', 'late', 'observed'):
+            raise ValueError(f'GoalBelief rule must be early | late | observed, got {rule!r}')
         self.rule = rule
         self.fps = float(cfg['fps'])
         self.every = int(round(1.0 / (self.fps * scenario.dt)))       # control ticks per belief frame (20 Hz -> 10 Hz)
         self.beta = 1000.0 / float(ve['beta_from_error_mm'])
         self.kappa = 1.0 / np.radians(float(ve['pointing_sigma_deg'])) ** 2
         self.kappa_dir = 1.0 / np.radians(float(ve['reach_dir_sigma_deg'])) ** 2
-        self.fc = ManiCastForecaster(dict(cfg, forecast=dict(cfg['forecast'], checkpoint_path=ve['checkpoint_path'])))
+        # `late` remains the historical baseline for reproducibility. `observed`
+        # has no forecaster and no gesture-end gate (PIF §8.12).
+        self.fc = None if rule == 'observed' else ManiCastForecaster(
+            dict(cfg, forecast=dict(cfg['forecast'], checkpoint_path=ve['checkpoint_path'])))
+        from intent_policy.intent.forecast_fault import ForecastFault
+        fault = scenario.cfg.expert.get('forecast_fault') if hasattr(scenario, 'cfg') else None
+        self.forecast_fault = ForecastFault(**fault) if fault is not None and rule != 'observed' else None
+        # C3 anchored on a human motion (v7): expert.forecast_fault_anchor {labels, yaw_deg [lo, hi], extra_s, ramp_s,
+        # arm}: the window opens when the first motion with one of `labels` starts and ends extra_s after it; the turn
+        # (sign and size) is drawn from the episode seed. The realised window -> scenario.realized_forecast_fault
+        # (episode metadata, so the offline tokens get the same fault).
+        anchor = scenario.cfg.expert.get('forecast_fault_anchor') if hasattr(scenario, 'cfg') else None
+        self.fault_anchor = anchor if anchor is not None and rule != 'observed' else None
         self.t_out = np.arange(1, 11) / 10.0
         self.speed, self.travel_dz = float(speed), float(travel_dz)
-        self.approach_star = 0.0 if rule == 'early' else None    # early: act on the distribution from the start
+        self.approach_star = 0.0 if rule in ('early', 'observed') else None
         self.pause_timeout_s = 0.0
         self.last_point_t = None
         self.top, self.probs = None, None                        # (device API, unused here)
@@ -78,6 +90,7 @@ class GoalBelief:
         self.b_obj = np.full(len(self.obj_keys), 1.0 / max(len(self.obj_keys), 1))
         self.b_zone = np.full(len(self.zone_keys), 1.0 / max(len(self.zone_keys), 1))
         self.forecast = None                                         # [10, 3] wrist 0.1 .. 1.0 s ahead (world)
+        self.forecast_left = None                                    # the same for the left wrist (v7 I2)
         self.moving, self.peak, self.moved_from, self.onset = False, 0.0, None, None
         self.after_motion = False                                    # the hand stopped after its latest motion
         self.still_n = 0                                             # consecutive slow frames
@@ -101,7 +114,7 @@ class GoalBelief:
         brings nothing more (C_wait -> inf, b* -> 0): commit to the most probable candidate if there was evidence.
         Late rule (A): only the complete case."""
         if kind == 'object' and len(self.obj_keys) == 1:   # one always-needed object (T2 can, T3 cup): early fetches
-            return 0.0 if self.rule == 'early' or self.complete('object') else 2.0   # it at once, late (A) only once the
+            return 0.0 if self.rule in ('early', 'observed') or self.complete('object') else 2.0
         if len(self.zone_keys if kind == 'zone' else self.obj_keys) < 2:          #   human's request is complete
             return 0.0                       # one candidate: nothing to choose (PIF.md §2.1: A responds when it is clear)
         if self.after_motion and self.evidence.get(kind):
@@ -142,10 +155,31 @@ class GoalBelief:
             # late expert: it committed the stale zone at the next request)
             self.b_zone = np.full(len(self.zone_keys), 1.0 / len(self.zone_keys))
             self.evidence['zone'] = False
-        if T >= 5:
+        if self.fault_anchor is not None and self.forecast_fault is None:
+            seg = sc.human.segment
+            if seg is not None and seg.label in self.fault_anchor['labels']:
+                from intent_policy.intent.forecast_fault import ForecastFault
+                a = self.fault_anchor
+                rng = np.random.default_rng([int(sc.seed), 202])
+                yaw = float(rng.choice([-1, 1]) * rng.uniform(*a['yaw_deg']))
+                fault = dict(start_s=round(float(sc.time), 4), end_s=round(float(seg.end_t + a['extra_s']), 4),
+                             yaw_deg=yaw, arm=a.get('arm', 'right'), ramp_s=float(a['ramp_s']))
+                self.forecast_fault = ForecastFault(**fault)
+                sc.realized_forecast_fault = fault
+        if T >= 5 and self.fc is not None:
             mk, waist = self.fc.to_comad({k: kp[-5:, i] for i, k in enumerate(NEED)})
             p = self.fc.forecast(mk[None], waist[None], np.arange(-4, 1) / self.fps, self.t_out)
-            self.forecast = self.fc.from_comad(p[0, :, 6])
+            if self.forecast_fault is None:
+                self.forecast = self.fc.from_comad(p[0, :, 6])
+                self.forecast_left = self.fc.from_comad(p[0, :, 5])        # (markers: 5 LWristOut, 6 RWristOut)
+            else:
+                from intent_policy.intent.forecast_fault import corrupt_forecast
+                future = self.fc.from_comad(p[:, :, 1:7])
+                now = kp[-1:, :6]
+                xi = corrupt_forecast(future - now[:, None], now, np.array([sc.time]),
+                                      self.t_out, self.forecast_fault)
+                self.forecast = (xi + now[:, None])[0, :, 5]
+                self.forecast_left = (xi + now[:, None])[0, :, 4]          # (our joints: 4 l_wrist, 5 r_wrist)
         if not self.moving and not stopped:
             return                                                   # at rest: keep the belief of the last gesture
         S = self.onset[None]                                         # (Dragan 2013: the path from the motion's start)
@@ -156,14 +190,15 @@ class GoalBelief:
                                        ('zone', self.zone_keys, self.zone_pos, self.zone_reach)):
             if len(keys) < 2 or not self._open(kind):
                 continue
-            Q = Q_fc if self.ve['use_forecast'][kind] else Q_obs
+            use_forecast = self.rule != 'observed' and self.ve['use_forecast'][kind]
+            Q = Q_fc if use_forecast else Q_obs
             prog = np.linalg.norm(S - pos, axis=1) - np.linalg.norm(Q - pos, axis=1)
             sh = kp[-1, 1]                   # right shoulder: a reach extends the arm, a withdrawal brings the hand back
             extend = float(np.linalg.norm(Q[0] - sh) - np.linalg.norm(S[0] - sh))
             signal = self.pointing[-1] or self.sc.human.hand_shape == 'offer'   # a communicative hand shape (point /
             if not signal and (prog.max() < float(self.ve['moving_m']) or extend < float(self.ve['moving_m'])):  # open palm)
                 continue                     # not a reach towards a candidate (withdrawing): no evidence, keep the belief
-            st = np.array([stopped or (f_stop and self.ve['use_forecast'][kind])])   # observed stop always counts
+            st = np.array([stopped or (f_stop and use_forecast)])
             b = posterior(S, Q, pos, self.beta, ray, self.kappa, st, reach, self.kappa_dir)[0]
             if kind == 'object':
                 self.b_obj = b

@@ -13,6 +13,14 @@ HAND_OUT = ('waiting_offer', 'take_object', 'pulling', 'wait_release', 'released
 
 class FetchReturnTask(HandoverTask):
     v6_plan = 'fetch_return'                    # the expert's v6 plan (scripted_expert._task_steps)
+
+    @property
+    def expert_class(self):
+        # v7 C1 (expert.separation): the T2 expert with separation monitoring (experts/c1_expert.py); legacy: None
+        if self.cfg.expert.get('separation'):
+            from intent_policy.experts.c1_expert import C1Expert
+            return C1Expert
+        return None
     cue_complete_step = 'hand_ready'            # expert trigger cue_complete: the open hand is out
 
     def zone_pos(self, key: str) -> np.ndarray:
@@ -26,7 +34,10 @@ class FetchReturnTask(HandoverTask):
             return p                                  #   (observable); before that the nominal zone (non-privileged)
         if key == spec['return_hand'] and self.human.selected_target == key and 'object_transferred' in self.protocol_done:
             return p + np.r_[prm['return_offset'], float(self.cfg.human_behavior['return_dz_m'])]
-        return p + np.r_[prm['hand_offset'], 0.0]
+        out = p + np.r_[prm['hand_offset'], 0.0]
+        if self.cfg.human_behavior.get('zone_at_palm_height') and key == self.human.selected_target:
+            out[2] = float(self.human.pos[2])   # v7: the open hand's actual height (seen), e.g. lifted over the own cup
+        return out
 
     def human_context(self) -> dict:
         """The human aims at the nominal zones and adds its own offsets (sim/scripted_human.WorkerReceiver); the robot

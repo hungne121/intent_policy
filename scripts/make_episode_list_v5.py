@@ -1,4 +1,4 @@
-"""Episode lists v5 (docs/specs/EPISODE_PLAN_v5.md): design cells -> seed selection -> demo / eval lists.
+"""Episode lists v5 (docs/sim/episode_plan_v5.md): design cells -> seed selection -> demo / eval lists.
 
   1. Design cells per task (plan §3): trajectory cells crossed in full, perception factors cycled round-robin in a
      fixed order inside the trajectory cells, stratified timings stored as ranges in the spec (drawn uniformly
@@ -547,7 +547,7 @@ def main():
         print(report[-1], flush=True)
     if report:
         name = 'summary.md' if set(args.splits) <= {'demo', 'eval'} else f"{'_'.join(args.splits)}_summary.md"
-        (out_dir / name).write_text('# Episode lists v5 (docs/specs/EPISODE_PLAN_v5.md)\n\n' + '\n'.join(report) + '\n')
+        (out_dir / name).write_text('# Episode lists v5 (docs/sim/episode_plan_v5.md)\n\n' + '\n'.join(report) + '\n')
 
 
 if __name__ == '__main__':

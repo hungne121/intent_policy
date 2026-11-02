@@ -1,0 +1,249 @@
+% !TEX root = ../main.tex
+\chapter[HỆ THỐNG ĐỀ XUẤT: MÔ HÌNH Ý ĐỊNH PIF]{HỆ THỐNG ĐỀ XUẤT:\\MÔ HÌNH Ý ĐỊNH PIF}
+\label{chap:method}
+
+Chương này trình bày hệ thống đề xuất. Mục~\ref{sec:method-overview} giới thiệu tổng quan và các nguyên tắc thiết kế. Mục~\ref{sec:method-tokens} định nghĩa đầu vào thống nhất dưới dạng token. Mục~\ref{sec:method-pif} trình bày mô hình PIF và các hàm mất mát. Mục~\ref{sec:method-perception} trình bày pipeline chuyển video HABIT thành token. Mục~\ref{sec:method-act} mô tả cách nối PIF vào ACT. Mục~\ref{sec:method-software} mô tả cách tổ chức phần mềm.
+
+\section{Tổng quan hệ thống}
+\label{sec:method-overview}
+
+Hình~\ref{fig:system} cho thấy luồng dữ liệu của hệ thống. Ba nguồn dữ liệu (mô phỏng, HABIT, camera RealSense của hệ thật) được đưa về \emph{cùng một dạng} token trong hệ tọa độ bàn. Với mô phỏng, token lấy trực tiếp từ ground truth. Với video, token do pipeline nhận thức sinh ra. PIF nhận chuỗi token và xuất ra niềm tin $b_t(r,k)$ về ý định của người ở mỗi frame. Sau khi PIF được huấn luyện và đánh giá riêng, nó được đóng băng và nối vào ACT.
+
+\begin{figure}[H]
+  \centering
+  \fitfig{\input{figures/tikz/system_overview}}
+  \caption{Tổng quan hệ thống. Màu khung cho biết trạng thái triển khai tại thời điểm viết}
+  \label{fig:system}
+\end{figure}
+
+Thiết kế tuân theo bốn nguyên tắc:
+\begin{enumerate}
+  \item \textbf{Nhân quả tuyệt đối.} Đầu vào của PIF tại $t$ chỉ dùng dữ liệu tại các thời điểm $\le t$. Tương lai chỉ được dùng làm mục tiêu huấn luyện. Điều này được kiểm bằng kiểm thử tự động (Mục~\ref{sec:exp-tests}).
+  \item \textbf{Không dùng nhãn ý định khi huấn luyện.} Nhãn (đích thật, thời điểm) chỉ dùng để đánh giá. Mã huấn luyện có lệnh kiểm tra chặn việc nạp nhãn.
+  \item \textbf{Huấn luyện PIF riêng trước, rồi mới nối vào ACT.} Lý do: đánh giá được ý định một cách độc lập; phép kiểm hoán đổi ý định (RQ1.1) chỉ có nghĩa khi niềm tin là một đầu vào cố định; và dễ gỡ lỗi.
+  \item \textbf{Mọi tham số nằm trong file cấu hình}, kèm nguồn hoặc số đo. Thêm hay đổi một thành phần (ví dụ mô hình depth) chỉ cần sửa cấu hình.
+\end{enumerate}
+
+\section{Đầu vào thống nhất}
+\label{sec:method-tokens}
+
+\subsection{Hệ tọa độ bàn}
+
+Mọi vị trí được biểu diễn trong \emph{hệ tọa độ bàn}: trục $z$ vuông góc mặt bàn hướng lên, gốc nằm trên mặt bàn ở phía robot, trục $x$ hướng từ phía robot sang phía người, trục $y=z\times x$ hướng về bên trái robot. Vì không phụ thuộc vị trí camera, cùng một mô hình dùng được cho mọi nguồn dữ liệu.
+\begin{itemize}
+  \item \textbf{Mô phỏng:} hệ thế giới dịch xuống mặt bàn ($z\leftarrow z-0.62$\,m). Gốc nằm dưới đế robot.
+  \item \textbf{HABIT:} không có thông số camera. Mặt bàn được ước lượng từ depth (Mục~\ref{sec:method-perception}). Gốc là hình chiếu tâm camera lên mặt bàn. Camera đặt giữa hai tay robot, nên gốc này gần với gốc của mô phỏng.
+\end{itemize}
+
+\subsection{Token người}
+
+Mỗi frame có $J=11$ token người, mỗi token là một khớp (Bảng~\ref{tab:keypoints}). Mỗi token gồm vị trí 3D $\mathbf{p}_{t,j}$, vận tốc 3D và cờ \texttt{visible}. Vận tốc là sai phân lùi, để chỉ dùng quá khứ:
+\begin{equation}
+  \mathbf{v}_{t,j}=f_s\,(\mathbf{p}_{t,j}-\mathbf{p}_{t-1,j}),
+  \label{eq:velocity}
+\end{equation}
+với $f_s=10$\,Hz; $\mathbf{v}_{t,j}=\mathbf{0}$ khi $t=0$ hoặc khi khớp bị che ở $t$ hay $t-1$. Khớp bị che vẫn giữ token, với giá trị 0 và \texttt{visible}$=0$.
+
+\begin{table}[H]
+  \centering
+  \caption{Mười một khớp của token người và nguồn của từng khớp}
+  \label{tab:keypoints}
+  \small
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Khớp & Mô phỏng & HABIT (chỉ số COCO-WholeBody) \\
+    \midrule
+    cổ tay phải / trái & khớp cổ tay của mô hình người & 10 / 9 \\
+    gốc ngón trỏ phải / trái & gốc tia ngón trỏ & 117 / 96 \\
+    đầu ngón trỏ phải / trái & đầu tia ngón trỏ & 120 / 99 \\
+    vai phải / trái & gốc đoạn cánh tay trên & 6 / 5 \\
+    khuỷu phải / trái & gốc đoạn cẳng tay & 8 / 7 \\
+    đầu & tâm khối đầu & 0 (mũi) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Token đối tượng}
+
+Mỗi đối tượng \emph{nhìn thấy được} trong cảnh là một token, gồm vị trí 3D, hai cờ \texttt{has\_item} (có vật đặt trên hoặc trong nó) và \texttt{done} (robot đã xong việc với nó), cờ \texttt{visible} và một nhúng loại chung trong ba loại: \emph{vật}, \emph{vật chứa}, \emph{bề mặt đặt}. Ba điểm thiết kế quan trọng:
+\begin{itemize}
+  \item Token \textbf{không mang tên vùng} của bố trí mô phỏng (các ô S1--S6, vùng P, H, U). Các vùng đó chỉ dùng để đặt vật và chấm nhãn khi đánh giá. Nhờ vậy PIF không học thuộc bố trí của mô phỏng.
+  \item Số đối tượng $K$ thay đổi theo cảnh (padding và mask), và đích được chỉ bằng con trỏ tới token.
+  \item Mô hình bất biến với thứ tự đối tượng: hoán vị các token làm niềm tin hoán vị theo (có kiểm thử).
+\end{itemize}
+
+\subsection{Token robot}
+
+Token robot chỉ chứa \texttt{holding}: robot đang cầm đối tượng nào, hoặc không cầm gì. Vị trí và vận tốc của tay robot \emph{không} được đưa vào, để PIF không học suy ý định từ chuyển động của robot (nguồn của lỗi copycat ở Mục~\ref{sec:bg-act}).
+
+\subsection{Tần số và nhân quả}
+
+PIF chạy ở 10\,Hz, thời gian tính bằng giây. Dữ liệu mô phỏng (20\,Hz) được lấy mỗi 2 frame một. Dữ liệu HABIT (10\,Hz) giữ nguyên và không nội suy lên 20\,Hz, vì frame nội suy tại $t+0.05$\,s phải dùng frame $t+0.1$\,s, tức là dùng tương lai. Khi chạy cùng ACT ở 20\,Hz, niềm tin được giữ nguyên giữa hai lần cập nhật.
+
+\section{Mô hình PIF}
+\label{sec:method-pif}
+
+Hình~\ref{fig:pif-arch} cho thấy kiến trúc của PIF. Biến ý định là cặp $Z=(r,k)$, với $r\in\{1,\dots,R\}$ là \emph{quan hệ} giữa người và đối tượng (ví dụ ``robot nên làm trên vật này'', ``tay người sắp vào vùng này'') và $k\in\{\varnothing,1,\dots,K\}$ là đối tượng, trong đó $\varnothing$ là ``không có đích''. Các quan hệ không được đặt tên trước; mô hình tự học chúng.
+
+\begin{figure}[H]
+  \centering
+  \fitfig{\input{figures/tikz/pif_architecture}}
+  \caption{Kiến trúc PIF. Bộ dự đoán chỉ thấy frame hiện tại và mã $Z$, không thấy lịch sử}
+  \label{fig:pif-arch}
+\end{figure}
+
+\subsection{Bộ mã hóa frame}
+
+Các token của một frame (11 token người, $K$ token đối tượng, 1 token robot và 1 token tổng hợp) được chiếu về $d=128$ chiều, cộng nhúng khớp hoặc nhúng loại, rồi qua một Transformer 2 lớp, 4 head~\cite{vaswani2017attention}, có mask cho đối tượng padding. Đầu ra gồm $\mathbf{e}_t$ (token tổng hợp), $\mathbf{o}^k_t$ (từng đối tượng) và $\mathbf{u}_t$ (trung bình các token người).
+
+\subsection{Bộ lọc niềm tin}
+
+Bộ lọc áp dụng cấu trúc lọc của HMM (phương trình~\eqref{eq:forward}) với bằng chứng và xác suất giữ ý định học được:
+\begin{align}
+  \mathbf{m}_t &= \mathrm{GRU}(\mathbf{m}_{t-1},\mathbf{e}_t), \label{eq:pif-gru}\\
+  \log e_t(r,k) &= \mathrm{MLP}_r(\mathbf{m}_t)+\tfrac{1}{\sqrt d}\big\langle W\mathbf{m}_t,\;\mathbf{o}^k_t\big\rangle, \label{eq:pif-evidence}\\
+  \rho_t &= \sigma\big(\mathrm{MLP}(\mathbf{m}_t)\big), \label{eq:pif-keep}\\
+  b^-_t &= \rho_t\, b_{t-1}+(1-\rho_t)\,\mathcal{U}, \qquad b_t(r,k)\propto e_t(r,k)\,b^-_t(r,k), \label{eq:pif-update}
+\end{align}
+với $\mathbf{o}^{\varnothing}_t$ là một nhúng học được và $\mathcal{U}$ là phân phối đều trên các mã hợp lệ. Phương trình~\eqref{eq:pif-update} chính là bước dự đoán với ma trận chuyển ``giữ hoặc chọn lại''~\eqref{eq:sticky} và bước cập nhật theo bằng chứng. Mọi phép tính làm trong không gian log để ổn định số. Số hạng thứ hai của~\eqref{eq:pif-evidence} là tích vô hướng với nhúng của từng đối tượng, nên khi hoán vị các đối tượng, niềm tin trên $k$ hoán vị theo.
+
+\subsection{Bộ dự đoán}
+
+Bộ dự đoán $g$ nhận $\mathbf{e}_t$ của \emph{frame hiện tại}, nhúng của mã $Z$ là $C_r+\mathbf{o}^k_t$ và nhúng chân trời $h\in\{0.5,1,2,4\}$\,s, rồi dự đoán nhúng tương lai của từng đối tượng $\hat{\mathbf{o}}^j_{t+h}(Z)$ và của người $\hat{\mathbf{u}}_{t+h}(Z)$. Bộ dự đoán \emph{không} nhận $\mathbf{m}_t$ hay bất kỳ lịch sử nào. Đây là cơ chế quan trọng nhất của thiết kế: mọi thông tin vượt quá frame hiện tại mà có ích cho việc dự đoán tương lai buộc phải đi qua $Z$. Vì vậy niềm tin trên $Z$ không thể bị bỏ qua, và bộ nhớ về lệnh của người phải nằm trong niềm tin. Phiên bản cho bộ dự đoán thấy lịch sử được giữ làm ablation.
+
+\subsection{Hàm mất mát}
+
+Hình~\ref{fig:pif-training} tóm tắt cách huấn luyện. Với mỗi frame $t$ và mỗi mã hợp lệ $Z$, lỗi dự đoán là
+\begin{equation}
+  L_{\text{pred}}(Z)=\sum_{h} m_h\Big(\frac{1}{K}\sum_j\big\|\hat{\mathbf{o}}^j_{t+h}(Z)-\mathrm{sg}(\mathbf{o}^j_{t+h})\big\|_1+\big\|\hat{\mathbf{u}}_{t+h}(Z)-\mathrm{sg}(\mathbf{u}_{t+h})\big\|_1\Big),
+  \label{eq:lpred}
+\end{equation}
+với $m_h=0$ khi $t+h$ vượt quá cuối episode. Các nhúng mục tiêu lấy từ cùng bộ mã hóa áp lên frame $t+h$, có dừng gradient. Từ lỗi này, mô hình tính một \emph{posterior hindsight}, tức là niềm tin về mã đúng khi đã biết tương lai:
+\begin{equation}
+  w(Z)=\mathrm{softmax}_Z\big(-L_{\text{pred}}(Z)/T\big),
+  \label{eq:hindsight-post}
+\end{equation}
+với nhiệt độ $T$ giảm dần từ 1 về 0.1. Các số hạng mất mát:
+\begin{align}
+  \mathcal{L}_{\text{predict}} &= \textstyle\sum_Z \mathrm{sg}(w(Z))\,L_{\text{pred}}(Z), \label{eq:lpredict}\\
+  \mathcal{L}_{\text{filter}} &= \mathrm{KL}\big(\mathrm{sg}(w)\,\big\|\,b_t\big), \label{eq:lfilter}
+\end{align}
+cùng SIGReg trên $\mathbf{e}_t,\mathbf{o}_t$, số hạng chống sụp mã~\eqref{eq:state-reg} trên $p(r)=\sum_k w(r,k)$ và số hạng nén $\beta\,\mathrm{KL}(b_t\|\mathcal{U})$. Số hạng~\eqref{eq:lpredict} là một bước EM mềm: mã giải thích tương lai tốt nhất được học nhiều nhất. Số hạng~\eqref{eq:lfilter} \emph{chưng cất} posterior hindsight (dùng tương lai) vào niềm tin $b_t$ (chỉ dùng quá khứ), nên lúc chạy chỉ cần bộ mã hóa và bộ lọc. Tổng mất mát:
+\begin{equation}
+  \mathcal{L}=\mathcal{L}_{\text{predict}}+\lambda_f\mathcal{L}_{\text{filter}}+\lambda_s\mathcal{L}_{\text{SIGReg}}+\mathcal{L}_{\text{state}}+\beta\,\mathcal{L}_{\text{KL}}.
+  \label{eq:ltotal}
+\end{equation}
+Việc dùng posterior hindsight~\eqref{eq:hindsight-post} làm mục tiêu cho bộ lọc là một lựa chọn thiết kế của khóa luận. Cấu trúc lọc đệ quy và số hạng chống sụp mã dựa trên các cơ sở ở Chương~\ref{chap:background}.
+
+\begin{figure}[H]
+  \centering
+  \fitfig{\input{figures/tikz/pif_training}}
+  \caption{Tín hiệu huấn luyện của PIF: lỗi dự đoán theo từng mã, posterior hindsight và chưng cất vào niềm tin nhân quả}
+  \label{fig:pif-training}
+\end{figure}
+
+\subsection{Thông số}
+
+\begin{table}[H]
+  \centering
+  \caption{Thông số của PIF (\texttt{configs/pif/pif.yaml})}
+  \label{tab:pif-params}
+  \small
+  \begin{tabularx}{\textwidth}{@{}lX@{}}
+    \toprule
+    Thông số & Giá trị \\
+    \midrule
+    chiều nhúng $d$, số lớp, số head & 128, 2, 4 \\
+    số quan hệ $R$ & 8 \\
+    cửa sổ đầu vào; chân trời dự đoán & 4\,s (40 frame); $\{0.5,1,2,4\}$\,s \\
+    nhiệt độ $T$ & $1\to0.1$ trong 20\,000 bước \\
+    trọng số $\lambda_f,\lambda_s,\lambda_{\text{occ}},\lambda_{\text{ent}},\beta$ & 1, 0.05, 0.1, 0.01, 0.001 \\
+    tăng cường dữ liệu & che khớp $p=0.1$, che cả người $p=0.05$, nhiễu keypoint 5\,mm, xáo thứ tự đối tượng \\
+    tối ưu & AdamW, lr $3\times10^{-4}$, batch 32 \\
+    số tham số & 0.84 triệu (encoder 0.40, bộ lọc 0.14, bộ dự đoán 0.30) \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+Các trọng số là điểm khởi đầu của thiết kế, sẽ chỉnh theo số mã được dùng và đường mất mát. Mức nhiễu keypoint 5\,mm là giá trị tạm, sẽ thay bằng số đo (Mục~\ref{sec:exp-depth}). Số tham số thấp hơn mức 1--3 triệu của thiết kế ban đầu; mô hình chưa được tăng kích thước vì chạy trên GPU 4\,GB.
+
+\section{Pipeline nhận thức cho HABIT}
+\label{sec:method-perception}
+
+Dữ liệu HABIT chỉ có video RGB và không có thông số camera. Pipeline ở Hình~\ref{fig:perception} chuyển video thành token qua hai bước. Bước thứ nhất nặng, chạy một lần cho mỗi frame. Bước thứ hai nhẹ, nên khi đổi tham số hình học hay tracking thì không phải chạy lại bước thứ nhất.
+
+\begin{figure}[H]
+  \centering
+  \fitfig{\input{figures/tikz/perception_pipeline}}
+  \caption{Pipeline nhận thức HABIT gồm hai bước. Mỗi mô hình được chọn theo tên trong \texttt{configs/pif/habit.yaml}}
+  \label{fig:perception}
+\end{figure}
+
+\subsection{Bước trích xuất}
+
+Mỗi frame chạy ba mô hình đã công bố, dùng nguyên trọng số gốc:
+\begin{itemize}
+  \item \textbf{RTMW}~\cite{jiang2024rtmw}: 133 keypoint toàn thân 2D, chạy trên CPU song song với hai mô hình GPU;
+  \item \textbf{MoGe-2} ViT-S~\cite{wang2025moge2}: depth theo mét và tiêu cự. Depth Pro~\cite{bochkovskii2025depthpro} không chạy được trên GPU 4\,GB; MoGe-2 ViT-S (35 triệu tham số) chỉ cần 1.2\,GB. Mức phân giải được chọn bằng số đo (Mục~\ref{sec:exp-depth});
+  \item \textbf{Grounding DINO}~\cite{liu2024groundingdino}: hộp bao của các vật theo tên khai báo cho từng task, cộng ``robot gripper'' (chỉ dùng để suy \texttt{holding}, không thành token).
+\end{itemize}
+Kết quả lưu lại gồm: keypoint và score; depth trung vị trong cửa sổ $5\times5$ quanh mỗi keypoint; hộp vật kèm depth ở phần lõi hộp; và các mẫu điểm của nửa dưới ảnh ngoài các hộp vật (ứng viên mặt bàn).
+
+\subsection{Bước dựng token}
+
+\textbf{Mặt bàn.} Các mẫu điểm được chiếu ngược ra 3D bằng tiêu cự $f$ (trung vị theo episode, vì camera đứng yên) và tâm ảnh $(c_x,c_y)$:
+\begin{equation}
+  \mathbf{p}=z\left(\frac{u-c_x}{f},\;\frac{v-c_y}{f},\;1\right).
+  \label{eq:backproject}
+\end{equation}
+Mặt phẳng $\mathbf{n}^\top\mathbf{p}+d=0$ được tìm bằng RANSAC (ngưỡng 1\,cm), rồi chỉnh lại bằng bình phương tối thiểu trên các điểm nằm trong. Dấu được chọn sao cho $d>0$, tức là $\mathbf{n}$ hướng về phía camera. Hệ bàn khi đó là
+\begin{equation}
+  \mathbf{z}=\mathbf{n},\quad \mathbf{o}=-d\,\mathbf{n},\quad
+  \mathbf{x}=\frac{\mathbf{e}_3-(\mathbf{n}^\top\mathbf{e}_3)\mathbf{n}}{\|\mathbf{e}_3-(\mathbf{n}^\top\mathbf{e}_3)\mathbf{n}\|},\quad
+  \mathbf{y}=\mathbf{z}\times\mathbf{x},\qquad
+  \mathbf{p}_{\text{bàn}}=[\mathbf{x}\ \mathbf{y}\ \mathbf{z}]^\top(\mathbf{p}-\mathbf{o}),
+  \label{eq:table-frame}
+\end{equation}
+với $\mathbf{e}_3$ là trục quang học. Như vậy $\mathbf{x}$ là hình chiếu trục quang học lên mặt bàn, hướng từ phía robot sang phía người.
+
+\textbf{Keypoint 3D.} Mỗi keypoint được chiếu ngược theo~\eqref{eq:backproject} rồi đổi sang hệ bàn theo~\eqref{eq:table-frame}. Keypoint được coi là thấy khi score đạt ngưỡng và nằm trong ảnh. Luật này chưa xử lý được trường hợp RTMW vẫn trả về đầu và vai nằm ngoài khung ảnh (Mục~\ref{sec:exp-perception}).
+
+\textbf{Tracking.} Với mỗi loại vật, cấu hình khai báo số lượng có trong cảnh, lấy theo mô tả task của HABIT (ví dụ S8789: 4 hộp, 1 ổ bánh, 1 đĩa). Mỗi frame, các phát hiện được ghép với track hiện có bằng thuật toán Hungarian theo khoảng cách 3D. Track mới chỉ được tạo khi chưa đủ số lượng. Vật không được phát hiện ở một frame giữ vị trí lần cuối thấy, với \texttt{visible}$=0$.
+
+\textbf{Vật robot đang cầm.} Robot được coi là đang cầm khi một tay kẹp đóng, theo dữ liệu gripper trong parquet và ngưỡng của từng task (Mục~\ref{sec:exp-labels}). Vật được cầm là vật thuộc loại ``có thể cầm'' của task (bánh, tấm mạch) nằm gần tay kẹp được phát hiện nhất trong ảnh.
+
+\section{Nối PIF vào ACT}
+\label{sec:method-act}
+
+Phần này là kế hoạch, chưa được cài đặt. PIF đã huấn luyện được đóng băng và chạy nhân quả cùng ACT. Mỗi bước, ba token được thêm vào Transformer của ACT:
+\begin{equation}
+  \textsc{intent\_obj}=\sum_k b_t(k)\,\mathbf{o}^k_t,\qquad
+  \textsc{intent\_rel}=\sum_r b_t(r)\,C_r,\qquad
+  \textsc{conf}=\big(H(b_t),\,\rho_t\big).
+  \label{eq:act-tokens}
+\end{equation}
+Các đối chứng bắt buộc là: ACT gốc; ACT có thêm 2--4 frame lịch sử; ACT với ý định có giám sát. Phép kiểm RQ1.1 hoán đổi niềm tin sang một đối tượng cùng loại khác và đo tỉ lệ hành động thay đổi theo. Dữ liệu trình diễn cho ACT được sinh bởi expert phản ứng theo niềm tin, có bơm nhiễu kiểu DART~\cite{laskey2017dart} để chính sách học cách phục hồi khi niềm tin thay đổi.
+
+\section{Tổ chức phần mềm}
+\label{sec:method-software}
+
+Mã nguồn được tổ chức xoay quanh file cấu hình (Bảng~\ref{tab:software}). Một lần chạy được mô tả bởi một file cấu hình trung tâm (\texttt{configs/pif/pif.yaml}), gộp cấu hình dữ liệu HABIT và mô phỏng. Các mô hình nhận thức được đăng ký theo tên, nên thay mô hình chỉ cần đổi tên trong cấu hình. Mỗi lần chạy lưu lại cấu hình đầy đủ, seed, mã commit và thống kê chuẩn hóa.
+
+\begin{table}[H]
+  \centering
+  \caption{Các thành phần phần mềm của PIF}
+  \label{tab:software}
+  \small
+  \begin{tabularx}{\textwidth}{@{}lX@{}}
+    \toprule
+    Thành phần & Chức năng \\
+    \midrule
+    \texttt{configs/pif/\{pif,habit,sim\}.yaml} & toàn bộ tham số, kèm nguồn hoặc số đo \\
+    \texttt{pif/config.py} & đọc cấu hình (gộp file, ghi đè từ dòng lệnh), đăng ký thành phần theo tên \\
+    \texttt{pif/data/} & token, dataset cửa sổ 4\,s, dữ liệu HABIT (tải, luật nhãn), mô phỏng (phát lại, nhãn) \\
+    \texttt{pif/perception/} & các mô hình nhận thức, bước trích xuất, bước dựng token, công cụ kiểm tra \\
+    \texttt{pif/model.py}, \texttt{pif/losses.py} & mô hình PIF và hàm mất mát \\
+    \texttt{pif/train.py}, \texttt{pif/eval.py} & huấn luyện và đánh giá \\
+    \texttt{pif/tests/} & 21 kiểm thử tự động \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

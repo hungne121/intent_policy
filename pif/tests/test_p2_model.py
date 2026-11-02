@@ -1,19 +1,19 @@
-"""P2 tests (handoff §4 "Test P2"): forward with different K, belief sums to 1 without NaN, causality, object
+"""P2 tests (docs/PIF.md): forward with different K, belief sums to 1 without NaN, causality, object
 permutation, parameter count; one loss step runs and is finite."""
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
-import yaml
 
+from pif.config import load_config
 from pif.data.dataset import PIFWindowDataset, collate
 from pif.losses import SIGReg, pif_losses
-from pif.model.pif import PIF
+from pif.model import PIF
 from test_p1_data import episode
 
 ROOT = Path(__file__).resolve().parents[2]
-CFG = yaml.safe_load((ROOT / 'configs/pif/base.yaml').read_text())
+CFG = load_config('configs/pif/pif.yaml')
 
 
 def batch(seed=0):
@@ -26,7 +26,7 @@ def test_forward_belief_normalised():
     m = PIF(CFG).eval()
     b = batch()
     log_b, rho = m.infer(b)
-    assert log_b.shape == (2, b['human'].shape[1], CFG['num_relations'], 6)
+    assert log_b.shape == (2, b['human'].shape[1], CFG['model']['num_relations'], 6)
     p = log_b.exp()
     assert torch.isfinite(log_b[p > 0]).all()
     assert torch.allclose(p.flatten(2).sum(-1), torch.ones(p.shape[:2]), atol=1e-5)

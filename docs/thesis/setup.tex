@@ -94,7 +94,13 @@
 \usepackage[noend]{algpseudocode}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta, positioning}
+\usetikzlibrary{arrows.meta, positioning, fit, backgrounds, calc, shapes.geometric, decorations.pathreplacing}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\input{figures/tikz/styles}  % bảng màu + style chung của sơ đồ
+% \fitfig{...}: sơ đồ rộng hơn dòng thì thu nhỏ vừa dòng, không thì giữ nguyên cỡ
+\newsavebox{\fitfigbox}
+\newcommand{\fitfig}[1]{\sbox{\fitfigbox}{#1}\ifdim\wd\fitfigbox>\linewidth\resizebox{\linewidth}{!}{\usebox{\fitfigbox}}\else\usebox{\fitfigbox}\fi}
 \usepackage{enumitem}
 \setlist{nosep}
 \setlist[itemize,enumerate]{leftmargin=*, labelindent=0.5in}

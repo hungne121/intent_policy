@@ -62,7 +62,7 @@ class OnlineManiCast:
 
     name = 'manicast_v6'
 
-    def __init__(self, schema: dict, fps: float = 20.0, forecaster=None):
+    def __init__(self, schema: dict, fps: float = 20.0, forecaster=None, fault=None):
         if list(schema['keypoints']) != MANICAST:
             raise ValueError(f"schema keypoints {schema['keypoints']} != {MANICAST}")
         self.schema, self.fps = schema, float(fps)
@@ -70,6 +70,7 @@ class OnlineManiCast:
         self.t_out = horizons(schema)
         self.n = history_len(self.fps)
         self.hist: list[np.ndarray] = []
+        self.fault = fault
 
     def reset(self) -> None:
         self.hist = []
@@ -79,4 +80,7 @@ class OnlineManiCast:
         self.hist = (self.hist + [kp])[-self.n:]
         window = np.stack(self.hist)                 # forecast_xi pads the missing start with the first frame
         xi = forecast_xi(window, self.fc, self.fps, self.t_out)[-1:]
+        if self.fault is not None:
+            from intent_policy.intent.forecast_fault import corrupt_forecast
+            xi = corrupt_forecast(xi, kp[None], np.array([scenario.time]), self.t_out, self.fault)
         return {k: v[0] for k, v in neutral_contract(self.schema, xi).items()}

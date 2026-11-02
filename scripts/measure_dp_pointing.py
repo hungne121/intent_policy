@@ -1,6 +1,6 @@
 """Real pointing kinematics from the DP dataset (DeePoint, Nakamura et al. ICCV 2023: 33 people, triangulated 3D
 keypoints at 15 fps, pointing labels = the hold), written as the sampling distributions of the simulated human
-(assets/human/dp_pointing_kinematics.json; docs/requirements/INTENT_ACT_v3.2.md §4.2d).
+(assets/human/dp_pointing_kinematics.json; docs/intent_act/INTENT_ACT_v3.2.md §4.2d).
 
 Per labelled pointing (pointing arm: shoulder / elbow / wrist = COCO 6 / 8 / 10 or 5 / 7 / 9):
   approach_s   the wrist's approach motion before the label: from the speed rising above `frac` of the approach peak

@@ -1,10 +1,10 @@
-"""Add intent fields of the contract (INTENT_ACT_GUIDE_v2.md §2) to a recorded LeRobotDataset, in place.
+"""Add intent fields of the contract (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §2) to a recorded LeRobotDataset, in place.
 
 Per frame and per source (columns `intent_<src>.<field>`, validated by intent/contract.validate_intent):
   hs   HindsightSource           ground truth + true future (ceiling)
   pp   PerfectPerceptionSource   causal, clean keypoints
   pr0 .. pr<R-1>  PredictedSource R noisy replicas (noise_scale drawn per replica; 0 until measured: "chưa hiệu chỉnh")
-  pd   device (contract v3.2, docs/requirements/INTENT_ACT_v3.2.md §5; intent/source_v32.py): the measuring device's
+  pd   device (contract v3.2, docs/intent_act/INTENT_ACT_v3.2.md §5; intent/source_v32.py): the measuring device's
        belief the expert acted on + kinematic fields, recorded during the collection (meta/intent_pd/, trigger device;
        validated by validate_intent_v32); its device settings go to meta/intent_schema.json `device`
 plus `hri.task_id` (T1-T4), meta/intent_segments.json (ground-truth segments) and meta/intent_schema.json.

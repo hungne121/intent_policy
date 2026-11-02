@@ -5,6 +5,8 @@
 # -> generate (resumable) -> tar. Log: hymotion_run.log. The last line is HYMOTION_DONE <tar> once the tar is written.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+MOTION_CONFIG="${HYMOTION_CONFIG:-$HERE/hymotion_v6.yaml}"
+test -f "$MOTION_CONFIG"
 LOG="$HERE/hymotion_run.log"
 exec >>"$LOG" 2>&1
 step() { echo; echo "===== [$(date '+%F %T')] $*"; }
@@ -35,8 +37,8 @@ huggingface-cli download Qwen/Qwen3-8B --local-dir ckpts/Qwen3-8B
 du -sh ckpts/*
 
 step "5/6 Generate"
-cp "$HERE/gen_motions.py" "$HERE/hymotion_v6.yaml" .
-USE_HF_MODELS=0 python gen_motions.py --config hymotion_v6.yaml --model ckpts/tencent/HY-Motion-1.0-Lite --out "$WORK/hymotion_out"
+cp "$HERE/gen_motions.py" .
+USE_HF_MODELS=0 python gen_motions.py --config "$MOTION_CONFIG" --model ckpts/tencent/HY-Motion-1.0-Lite --out "$WORK/hymotion_out"
 nvidia-smi --query-gpu=memory.used --format=csv
 
 step "6/6 Pack"

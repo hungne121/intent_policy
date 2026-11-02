@@ -1,0 +1,70 @@
+# Candidates only; each raw clip must pass task-specific retarget/scene filtering.
+# New generation namespace; never use legacy-bank samples as unseen forecast test.
+model: HY-Motion-1.0-Lite
+cfg_scale: 5.0
+generation_seed: 20261029
+seed_range: [1000000, 2000000]
+seeds: 8
+generation_batch_size: 4
+sample_splits: [train, train, train, train, train, train, val, test]
+prompts:
+  i1_coaster_place:
+    d: 4.5
+    text: A person standing at a table picks up a coaster with the right hand, places it on the table, and withdraws the hand.
+  i1_coaster_redirect:
+    d: 5.0
+    text: A person carries a coaster toward a table spot, changes direction before placing it at another spot, then withdraws the right hand.
+  i2_request_left:
+    d: 3.5
+    text: A person standing at a table raises and extends the left hand to receive an object, then lowers it.
+  i2_request_right:
+    d: 3.5
+    text: A person standing at a table raises and extends the right hand to receive an object, then lowers it.
+  i3_receive_tray:
+    d: 4.5
+    text: A person standing at a table brings both hands forward to receive a small tray, holds them steady, then withdraws them.
+  c1_work_finish:
+    d: 5.0
+    text: A person finishes adjusting a small object with both hands, sets a screwdriver aside, and extends the open right hand to receive something.
+  c1_request_withdraw:
+    d: 4.5
+    text: A person extends an open right hand to receive something, withdraws it before receiving, then resumes adjusting an object on the table.
+  c2_rack_lift:
+    d: 4.5
+    text: A person grasps a dish rack with both hands, raises it above the table, holds it level, then puts it down.
+  c2_rack_regrip:
+    d: 5.0
+    text: A person places both hands on a dish rack, adjusts the grip without lifting, then lifts the rack and holds it level.
+  c3_bring_cloth:
+    d: 4.5
+    text: A person picks up a folded cloth with the right hand, brings it to a tray on the table, and spreads it.
+  c3_cloth_redirect:
+    d: 5.0
+    text: A person carries a cloth toward one tray, redirects the right hand to another tray, and spreads the cloth there.
+  c4_store_drawer:
+    d: 4.5
+    text: A person carries a folded towel with both hands toward an open drawer, places it inside, and withdraws both hands.
+  c4_drawer_redirect:
+    d: 5.0
+    text: A person carries a folded towel toward one drawer, changes direction toward another drawer, and places the towel inside.
+  w1_sort_parts:
+    d: 5.0
+    text: A person standing at a cluttered table picks up a small part, inspects it close to the body, and places it in a box.
+  w1_inspect_shared:
+    d: 4.5
+    text: A person holds a small part with the left hand over the middle of a table, inspects it, then brings it toward the body.
+  w2_carry_tray_left:
+    d: 4.5
+    text: A person standing at a table carries a loaded tray with both hands across the table toward the left and sets it down.
+  w2_carry_tray_right:
+    d: 4.5
+    text: A person standing at a table carries a loaded tray with both hands across the table toward the right and sets it down.
+  w2_tray_reverse:
+    d: 5.0
+    text: A person carries a tray with both hands across a table, pauses, reverses direction, and sets the tray down.
+  w3_brief_withdraw_return:
+    d: 4.5
+    text: A person inspects an object in the middle of a table, briefly withdraws the right hand, then reaches back to continue inspecting.
+  w3_finish_withdraw:
+    d: 4.5
+    text: A person finishes inspecting an object in the middle of a table, withdraws both hands toward the body, and rests them.
