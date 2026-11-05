@@ -176,3 +176,14 @@ Các mức kiểm dưới đây bổ sung lịch sử ở trên; không hàm ý 
 Đã đọc lại các đoạn mô hình và bảng 1 ManiCast, workflow HABIT và thí nghiệm đổi goal của *I've Changed My Mind* qua alphaXiv. Consensus Pro phản biện toàn thiết kế trong [thread này](https://consensus.app/search/critically-audit-the-theoretical-and-experimental-/tTQirRjPSTq_CA6J34nn4w/); báo cáo được lưu nguyên văn tại `docs/reports/theory_audit_2026-10-28/`. Báo cáo tổng hợp là tài liệu hỗ trợ, không phải bài gốc hoặc kết quả thực nghiệm của hệ.
 
 Kiểm độc lập và điều chỉnh suy luận ở `docs/PIF.md` §8.9: không suy mọi baseline đều chậm hơn từ bảng 1; không suy forecast + MPC chứng minh ACT+D-tok; không suy thiếu conditional predictor/confidence đồng nghĩa ACT không thể thích nghi. HRIBench 2025 (Shi et al., VLM perception) được báo cáo Consensus dẫn là bài khác HRIBench 2026 (Liu et al., scenario collaboration), không dùng thay bằng chứng của nhau. Chỉ dùng nguồn gốc trong mục E theo phạm vi đã nêu.
+
+## G. Nguồn cho quyết định C1 / W3 / C4 (04/11/2026 15:35)
+
+Kiểm tên bài / tác giả / năm qua tìm kiếm web (04/11 15:4x), chưa đọc toàn văn. Các nguồn chỉ hỗ trợ nguyên lý, không chứng minh sửa đổi qua cổng trên simulator của dự án (`docs/PIF.md` §8.13).
+
+| Nguồn | Mức đã kiểm | Dùng và giới hạn |
+|---|---|---|
+| [Ortenzi, Cosgun, Pardi, Chan, Croft, Kulić. Object Handovers: a Review for Robotics, IEEE T-RO 37(6), 2021](https://arxiv.org/abs/2007.12952) | Metadata (DOI 10.1109/TRO.2021.3075365), tóm tắt | C1: giai đoạn trao (người nhận chạm vật → bên đưa nhả); tiếp xúc tay–vật trong giai đoạn này là bình thường. |
+| [Marra, Berti, Caddeo, Natale. Temporal Tactile Encoding and Compliance for Intent-Aware Robot-to-Human Bimanual Handover, 2026](https://arxiv.org/abs/2609.05282) | Tóm tắt arXiv (preprint) | C1: chạm / kéo thoáng qua chưa đủ kết luận ý định nhận; chỉ nhả khi tín hiệu nhận kéo dài. Bài dùng cảm biến xúc giác thật, sim dùng trạng thái nắm. |
+| [Duan, Wang et al. Reactive Human-to-Robot Dexterous Handovers for Anthropomorphic Hand, IEEE T-RO, 2025](https://doi.org/10.1109/TRO.2024.3508194) | Metadata IEEE / AMiner | Người dùng dẫn; hướng ngược (người → robot), phản ứng theo chuyển động người. Chỉ tham khảo nguyên lý. |
+| [Tonola, Faroni, Abdolshah, Hamad, Haddadin, Pedrocchi, Beschi. Reactive and Safety-Aware Path Replanning for Collaborative Applications, IEEE T-ASE, 2025](https://arxiv.org/abs/2503.07192) | Tóm tắt arXiv / metadata (DOI 10.1109/TASE.2025.3607037) | W3: đổi đường đi theo trạng thái người (chi phí dựa ISO/TS 15066) thay vì chỉ dừng / giảm tốc trên quỹ đạo cố định. Dự án không dùng planner MARSHA; chỉ rút về vùng chờ. |

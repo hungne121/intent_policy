@@ -3,13 +3,15 @@
 Khoá luận: policy ACT (LeRobot) dùng dự báo chuyển động người (ManiCast) để hỗ trợ **sớm** và **biết sửa** khi dự báo sai, cho tương tác người–robot trên bàn (UR3e, MuJoCo).
 
 ## Đọc theo thứ tự
-1. `docs/PIF.md`: tài liệu gốc duy nhất — §1–§2 (mục tiêu, hai claim, nguyên tắc), §3–§4 (hệ thống, task sâu T2 với 4 trường hợp), **§8 (mọi quyết định đang hiệu lực + những gì chưa chốt)**, §9 (trạng thái), §10 (quy tắc).
-2. `docs/sim/PIPELINE_v6.md`: việc đang làm (A / B / D trên kịch bản v6), lệnh từng bước, file nào làm gì, bẫy đã gặp.
+0. **Hồ sơ đề tài** `docs/ho_so/` (quy chế 02/QC-VH, 06/11/2026): `README.md` (mục lục theo hạng mục: tổng thể, thu dữ liệu, dự báo, train, chạy policy / test, vận hành, luận văn) và `DOI_CHIEU.md`. Đầu phiên chạy `./run.sh scripts/ho_so.py kiem`; trước mỗi việc chạy `./run.sh scripts/ho_so.py tra --hm <mã> --pham-vi <task>` để biết văn bản nào đang hiệu lực.
+1. `docs/PIF.md`: toàn văn các quyết định — §1–§2 (mục tiêu, hai claim, nguyên tắc), §3–§4 (hệ thống, task sâu T2 với 4 trường hợp), **§8 (các quyết định; trạng thái hiệu lực của từng dòng xem ở sổ đăng ký)**, §9 (trạng thái), §10 (quy tắc).
+2. `docs/sim/PIPELINE_v6.md`: pipeline v6 (A / B / D trên kịch bản v6), lệnh từng bước, bẫy đã gặp. Đã lưu trữ từ khi sang bộ 10 task; hướng dẫn chạy mới đang chờ quyết (tờ trình 03/TTr-VH).
 3. `docs/references.md`: nguồn đã dùng và mức đã kiểm. `docs/sim/scenarios_v6_proposal.md`: chi tiết kịch bản v6 và số đo expert.
 
 ## Quy tắc bắt buộc
 - Trả lời và viết tài liệu bằng **tiếng Việt**, câu ngắn, thuật ngữ giữ tiếng Anh. Mỗi cập nhật ghi **giờ thật** (`date`), tài liệu ghi ngày + phiên bản.
-- Quyết định mới: ghi vào `docs/PIF.md` §8 **trước**, kèm nguồn (tên bài, tác giả, năm) hoặc số đo. Không tự đổi quyết định đã chốt.
+- Quyết định mới: ghi toàn văn (PIF §8 hoặc thư mục hạng mục trong `docs/ho_so/`) và **đăng ký vào sổ** `docs/ho_so/so_dang_ky.yaml` **trước** khi làm, kèm nguồn (tên bài, tác giả, năm) hoặc số đo. Không tự đổi quyết định đã chốt. Hai văn bản khác nhau về cùng một vấn đề: áp văn bản cấp cao hơn, cùng cấp thì văn bản ban hành sau; ngoài hai trường hợp đó thì lập tờ trình (TTr) xin ý kiến, không tự giải.
+- Nghiệm thu mỗi hạng mục (thu dữ liệu, train, test) bằng biên bản (BB) người dùng ký, kèm quyết định phê duyệt; chưa có quyết định phê duyệt thì chưa sang bước sau.
 - Làm đúng việc được giao; job dài / tốn tiền thì hỏi trước. Người dùng **duyệt video demo trước khi train**.
 - Có bằng chứng (xem từng frame, đo) rồi mới nêu nguyên nhân. Sửa 2–3 lần một lỗi không xong thì dừng, báo cáo.
 - Kết quả của expert kịch bản chỉ là chẩn đoán / trần; claim cần kết quả của policy đã học.

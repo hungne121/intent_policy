@@ -1,0 +1,1527 @@
+# Sổ đăng ký văn bản — hồ sơ đề tài ACT + ManiCast. Quy chế: docs/ho_so/QUY_CHE_HO_SO.md (02/QC-VH).
+# Lập 06/11/2026 (đăng ký bù toàn bộ văn bản tới 06/11 01:58). Mã: <LOẠI>-<HẠNG MỤC>-<số>.
+# Trường: loai, hm (chính trước, liên quan sau), cap (1–3; bỏ trống với TTr / BC / BB / HD lưu trữ), ngay, ban_hanh,
+#   trich_yeu, pham_vi, chu_de, trang_thai, thay / sua / bo / can_cu (mã văn bản), noi_luu, moc (chuỗi nằm đúng
+#   trong dòng toàn văn; mục đầu là chỗ trỏ tới), moc_pif (dòng PIF thuộc văn bản này khi toàn văn nằm nơi khác), ghi_chu.
+# noi_luu: đường dẫn trong repo, URL, hoặc "bo_nho:<tệp>" (chỉ có trong bộ nhớ agent).
+
+bo_qua_moc:   # dòng PIF có chữ "người dùng" nhưng không phải văn bản cần đăng ký riêng (lý do)
+  - moc: "- **I3 — Dừng khay:**"
+    ly_do: "đề xuất thiết kế 28/10, thuộc hồ sơ BC-DL-03"
+  - moc: "- **C3 và C4:** giữ thiết kế trải khăn"
+    ly_do: "đề xuất thiết kế 28/10, thuộc BC-DL-03"
+  - moc: "- **W2 thay thế — Người mang vật lớn đi qua"
+    ly_do: "đề xuất thiết kế 28/10, thuộc BC-DL-03"
+  - moc: "**Preview I3 (28/10/2026 06:50):**"
+    ly_do: "preview 28/10, thuộc BC-DL-03"
+  - moc: "**Tiếp tục 29/10/2026 18:19:**"
+    ly_do: "nhật ký triển khai QD-DL-17"
+  - moc: "**Kết quả pilot I1 bình thường (30/10/2026 17:32):**"
+    ly_do: "số đo pilot, thuộc BC-DL-04"
+  - moc: "| C1 scenario | `c1_handover`"
+    ly_do: "đặc tả C1 ngày 30/10, đã thay bằng thiết kế C1 sau (QD-DL-32, QD-DL-39)"
+  - moc: "| Hàng thu | Sau I1: C3"
+    ly_do: "nhật ký thu v9"
+  - moc: "| Pilot | 5/8 seed cả hai phía qua cổng. Early và observed"
+    ly_do: "số đo pilot W1"
+  - moc: "| C1 hai vùng: đo trước khi dựng (01/11 12:53) |"
+    ly_do: "chẩn đoán, dẫn tới QD-DL-26"
+  - moc: "- **Phân bố P_T (train, early)**"
+    ly_do: "số đo bước G2 của KH-TT-01"
+  - moc: "- **Gộp dataset bằng LeRobot `aggregate_datasets` hỏng 3 lần"
+    ly_do: "sự cố, dẫn tới QD-DL-31"
+  - moc: "- **G3 của I3 (03/11 14:20)**"
+    ly_do: "số đo G3"
+  - moc: "- **C4 hai tay (03/11 15:09)"
+    ly_do: "triển khai QD-DL-32"
+  - moc: "- **Đáy thùng hộp — một vòng, không đạt"
+    ly_do: "thử nghiệm được duyệt, không đạt; C4 sau đó đổi thiết kế (QD-DL-39)"
+  - moc: "- **C4 hạ độ cao thả — một lần thử, không đạt"
+    ly_do: "thử nghiệm được duyệt, không đạt; C4 sau đó đổi thiết kế (QD-DL-39)"
+  - moc: "- **Pilot cổng I3 (03/11 17:18"
+    ly_do: "pilot"
+  - moc: "- **W3 quan sát hai tay (03/11 16:47)**"
+    ly_do: "triển khai QD-DL-32"
+  - moc: "- **W3 vòng 03/11 (18:27"
+    ly_do: "triển khai QD-DL-35"
+  - moc: "- **I3 điểm gắp (03/11 18:41)**"
+    ly_do: "probe hình học"
+  - moc: "- **C1 regression sau over_hand 0,025"
+    ly_do: "regression"
+  - moc: "- **W3 vòng 2 (03/11 20:25"
+    ly_do: "triển khai QD-DL-36"
+  - moc: "- **I3 gắp lại (03/11 20:40)**"
+    ly_do: "probe hình học"
+  - moc: "- **W3 hướng nhường — dừng sau 3 lần thử"
+    ly_do: "dừng theo quy tắc sửa 2–3 lần; dẫn tới QD-DL-39"
+  - moc: "- **Thu v10 (04/11 13:13"
+    ly_do: "nhật ký thu v10"
+  - moc: "- **C1 thu đến 15:17**"
+    ly_do: "nhật ký thu v10"
+  - moc: "- **Hiện trạng C2 (S6218 lau ô kệ)"
+    ly_do: "trạng thái C2; dẫn tới QD-DL-43"
+  - moc: "- **Video duyệt v9**"
+    ly_do: "trạng thái duyệt video v9; thuộc BB-DL-01"
+  - moc: "- **Thu C4 dừng vì RAM (05/11 11:48)**"
+    ly_do: "sự cố vận hành"
+  - moc: "| Kết quả pilot C1 bình thường |"
+    ly_do: "số đo pilot, thuộc BC-DL-04"
+  - moc: "| Thu I1 | Bắt đầu 30/10 19:23"
+    ly_do: "nhật ký thu, thuộc QD-DL-21"
+
+van_ban:
+
+# ───────────────────────── TT — Tổng thể đề án ─────────────────────────
+
+  - so: DA-TT-01
+    loai: ĐA
+    hm: [TT, DL, DB, HL, KT]
+    cap: 1
+    ngay: "2026-10-25 13:48"
+    ban_hanh: người dùng
+    trich_yeu: "Đề án đề tài (PIF bản 25/10): mục tiêu, hai claim, câu hỏi Q1–Q3, nguyên tắc (§2), hệ thống ManiCast → motion token → ACT, dữ liệu và expert, train, đánh giá (§1–§7)."
+    pham_vi: [tat_ca]
+    chu_de: [de_tai.muc_tieu, de_tai.nguyen_tac]
+    trang_thai: da_sua
+    can_cu: [QD-TT-01, QD-LV-04]
+    noi_luu: docs/PIF.md
+    moc: ["## 1. Mục tiêu và hai claim"]
+    ghi_chu: "Phần còn nguyên giá trị: §1, §2, §3 (kiến trúc). Đã bị sửa: §3 checkpoint ManiCast (QD-DB-04), §4 T2 sâu (QD-TT-03), §5 định nghĩa expert (QD-DL-16), §6–§7 trình tự train / đánh giá (KH-TT-01). Chữ trong PIF §3–§6 chưa cập nhật theo các văn bản sửa. Kim chỉ nam 24/10 (PIF §0 cũ, JEPA, ADR-001) đã bị thay khi viết lại PIF 25/10."
+
+  - so: QD-TT-01
+    loai: QĐ
+    hm: [TT]
+    cap: 1
+    ngay: "2026-10-25"
+    ban_hanh: người dùng (duyệt góp ý của agent khác)
+    trich_yeu: "Hai claim: hỗ trợ sớm là mục tiêu tối ưu chính; sửa sai khi dự báo sai hoặc người đổi ý là yêu cầu thích nghi."
+    pham_vi: [tat_ca]
+    chu_de: [de_tai.muc_tieu]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Mục tiêu | Hai claim §1"]
+
+  - so: QD-TT-02
+    loai: QĐ
+    hm: [TT, DB, HL]
+    cap: 1
+    ngay: "2026-10-25"
+    ban_hanh: người dùng
+    trich_yeu: "Danh mục bãi bỏ, không dùng lại: PIF v3 / HMM (ADR-001) và pilot HABIT; DeePoint và ngưỡng belief 0.7 / 0.9; expert cue_onset / cue_complete làm expert chính; chia demo 6 nhóm; vẽ dự báo lên ảnh; model C."
+    pham_vi: [tat_ca]
+    chu_de: [huong_cu]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Đã bỏ (không dùng lại):**"]
+
+  - so: QD-TT-03
+    loai: QĐ
+    hm: [TT, DL]
+    cap: 1
+    ngay: "2026-10-27 16:20"
+    ban_hanh: người dùng
+    trich_yeu: "Mở rộng khoảng 10 task: Instructor ~3, Collaborator ~4, Cowork ~3; mỗi task tối đa 3 ý định; dựng kịch bản theo HABIT và HRIBench; viết kịch bản trước, chờ duyệt."
+    pham_vi: [tat_ca]
+    chu_de: [bo_task]
+    trang_thai: hieu_luc
+    thay: [QD-DL-01]
+    sua: [DA-TT-01]
+    noi_luu: docs/PIF.md
+    moc: ["| Mở rộng task (27/10 16:20) |"]
+
+  - so: QD-TT-04
+    loai: QĐ
+    hm: [TT, DL, HL, VH]
+    cap: 2
+    ngay: "2026-11-02 18:08"
+    ban_hanh: người dùng
+    trich_yeu: "Bốn quyết định cho bộ 10 task: (1) ô Instructor thứ 3 là task HABIT mới, duyệt trước khi dựng; (2) bộ v9 chờ ablation C4 rồi mới quyết thu lại; (3) duyệt hết clip rồi mới train; (4) train trên RunPod, ngân sách $15."
+    pham_vi: [tat_ca]
+    chu_de: [bo_task, du_lieu.thu_lai, duyet_truoc_train, train.may, ngan_sach]
+    trang_thai: da_sua
+    sua: [QD-DL-15]
+    thay: [QD-DL-19, QD-HL-01]
+    can_cu: [QD-DL-26, QD-VH-03]
+    noi_luu: docs/PIF.md
+    moc: ["| Bốn quyết định cho bộ 10 task (02/11 18:08, người dùng) |"]
+    ghi_chu: "Ý (2) bị QD-DL-32 (03/11) thay: giữ v9, không thu lại. Ý (4) sửa ngân sách $4,50 của QD-DL-15 thành $15 và thay phạm vi 'người khác train' của QD-DL-19."
+
+  - so: KH-TT-01
+    loai: KH
+    hm: [TT, HL, KT, DL]
+    cap: 2
+    ngay: "2026-11-03 12:50"
+    ban_hanh: người dùng ("ok triển khai")
+    trich_yeu: "Kế hoạch triển khai ACT + ManiCast với transition-aware importance sampling: giữ nguyên kiến trúc; D0 lấy mẫu đều, D1 lấy mẫu Q = 0,5P + 0,5P_T (ManiCast §4.1); baseline A, D, B, D-CV; thứ tự G0 audit → G1 hoàn thiện demo → G2 index → G3 train D0 / D1 (RunPod) → G4 đánh giá closed-loop → G5 kết luận; chỉ số sớm, phục hồi, an toàn theo task / case, CI 95 %."
+    pham_vi: [tat_ca, A, B, D, D-CV]
+    chu_de: [ke_hoach, mo_hinh, train.lay_mau, danh_gia]
+    trang_thai: hieu_luc
+    sua: [DA-TT-01, QD-HL-02, QD-KT-03]
+    thay: [QD-HL-06]
+    lien_quan: [QD-KT-04, QD-LV-02]
+    noi_luu: docs/PIF.md
+    moc: ["## 8.13 Kế hoạch triển khai ACT + ManiCast"]
+    ghi_chu: "Bước G0–G5 của kế hoạch trùng ký hiệu với cổng G1–G4 của task (xem TTR-VH-02)."
+
+  - so: TTR-TT-01
+    loai: TTr
+    hm: [TT, HL, DL]
+    ngay: "2026-10-25"
+    ban_hanh: agent (danh sách 'Chưa chốt' trong PIF §8)
+    trich_yeu: "Sáu mục chưa chốt từ 25/10: (1) T2 chỉ phần đưa lon; (2) sửa lỗi gripper (dải nhả 0,03–0,05 làm rơi lon); (3) độ dài và siêu tham số train (~40 lần nhìn mỗi frame, lr 4e-5 với batch 32); (4) pretrain chung rồi finetune A / D, hay train riêng; (5) mức tham chiếu 'người tự làm' để đo lợi ích cộng tác; (6) task token khi nhiều task."
+    pham_vi: [tat_ca]
+    chu_de: [train.cau_hinh, chua_chot_25_10]
+    trang_thai: cho_quyet
+    noi_luu: docs/PIF.md
+    moc: ["**Chưa chốt (đang chờ người dùng):**"]
+    ghi_chu: "Mục (6) đã đến hạn vì KH-TT-01 là một ACT đa task. Mục (3), (4) cần chốt trước bước train G3. Mục (1) đã được QD-DL-05 trả lời một phần."
+
+  - so: BC-TT-01
+    loai: BC
+    hm: [TT, DB]
+    ngay: "2026-10-16"
+    ban_hanh: agent
+    trich_yeu: "Tài liệu hướng IntentACT v3.2 (thiết kế, code, văn liệu, kiểm predictor) 16–19/10."
+    chu_de: [huong_cu]
+    trang_thai: luu_tru
+    noi_luu: docs/intent_act/INTENT_ACT_v3.2.md
+    ghi_chu: "Cùng thư mục: INTENT_ACT_v3.2_CODE.md, lit_early_handover.md, lit_early_intent_and_wrong_intent.md, predictor_validation.md. Bị bỏ khi viết lại PIF 25/10."
+
+  - so: BC-TT-02
+    loai: BC
+    hm: [TT]
+    ngay: "2026-10-23"
+    ban_hanh: agent
+    trich_yeu: "Báo cáo giai đoạn PIF v3 (P0, P1, pilot HABIT, khảo sát, related work, đánh giá ManiCast) 23–25/10."
+    chu_de: [huong_cu]
+    trang_thai: luu_tru
+    noi_luu: docs/reports/PIF_P0.md
+    ghi_chu: "Cùng nhóm: PIF_P1.md, PIF_pilot.md, PIF_pilot/report.md, PIF_survey.md, PIF_related_work.md, PIF_manicast_eval.md."
+
+  - so: BC-TT-03
+    loai: BC
+    hm: [TT, DL, DB]
+    ngay: "2026-11-02 12:54"
+    ban_hanh: agent khác (phản biện)
+    trich_yeu: "Phản biện của agent khác (alphaXiv) về thiết kế expert và cách dùng ManiCast; đầu vào của QD-DL-29."
+    chu_de: [phan_bien]
+    trang_thai: hieu_luc
+    noi_luu: docs/reports/phan_bien_alphaxiv_2026-11-02.md
+    moc_pif: ["| Phản biện của agent khác (02/11 17:12) |"]
+
+  - so: BC-TT-04
+    loai: BC
+    hm: [TT, DL, DB]
+    ngay: "2026-11-02 17:10"
+    ban_hanh: agent
+    trich_yeu: "Hỏi ý agent khác (phản biện lần 2) trước quyết định khai thác hết ManiCast."
+    chu_de: [phan_bien]
+    trang_thai: hieu_luc
+    noi_luu: docs/reports/hoi_y_agent_2026-11-02.md
+
+  - so: BC-TT-05
+    loai: BC
+    hm: [TT]
+    ngay: "2026-10-25 11:12"
+    ban_hanh: agent
+    trich_yeu: "Trạng thái 25/10 (PIF §9): kết quả train v6 đầu tiên, việc tiếp theo của giai đoạn T2."
+    chu_de: [trang_thai]
+    trang_thai: luu_tru
+    noi_luu: docs/PIF.md
+    moc: ["## 9. Trạng thái (25/10/2026 11:12)", "| **Tiếp theo** |"]
+    ghi_chu: "Trạng thái hiện hành xem sổ này và báo cáo mới nhất (BC-DL-09)."
+
+  - so: HD-TT-01
+    loai: HD
+    hm: [TT, LV]
+    cap: 3
+    ngay: "2026-11-04 15:36"
+    ban_hanh: agent
+    trich_yeu: "Danh sách nguồn tham khảo và mức đã kiểm của từng nguồn."
+    chu_de: [nguon]
+    trang_thai: hieu_luc
+    lien_quan: [QD-LV-03]
+    noi_luu: docs/references.md
+
+# ───────────────────────── DL — Thu dữ liệu ─────────────────────────
+
+  - so: HD-DL-01
+    loai: HD
+    hm: [DL]
+    ngay: "2026-09-29"
+    ban_hanh: agent
+    trich_yeu: "Đặc tả dựng cảnh T1–T5 (giai đoạn đầu)."
+    chu_de: [canh]
+    trang_thai: luu_tru
+    noi_luu: docs/sim/scene_construct.md
+
+  - so: HD-DL-02
+    loai: HD
+    hm: [DL]
+    ngay: "2026-10-03"
+    ban_hanh: agent
+    trich_yeu: "Kế hoạch episode v5."
+    chu_de: [canh]
+    trang_thai: luu_tru
+    noi_luu: docs/sim/episode_plan_v5.md
+
+  - so: HD-DL-03
+    loai: HD
+    hm: [DL]
+    ngay: "2026-10-23"
+    ban_hanh: agent
+    trich_yeu: "README mô phỏng (giai đoạn v6)."
+    chu_de: [canh]
+    trang_thai: luu_tru
+    noi_luu: docs/sim/README.md
+
+  - so: QD-DL-01
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-25 11:11"
+    ban_hanh: người dùng
+    trich_yeu: "Task sâu T2 (đưa lon) với 4 trường hợp C1 bình thường, C2 mơ hồ, C3 dự báo sai, C4 đổi ý; làm C1 trước rồi trộn."
+    pham_vi: [T2]
+    chu_de: [bo_task]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["| Task sâu | **T2, 4 trường hợp C1–C4**"]
+    ghi_chu: "C1–C4 ở đây là trường hợp của T2, khác task C1–C4 của bộ 10 task (xem TTR-VH-02)."
+
+  - so: QD-DL-02
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-25"
+    ban_hanh: người dùng
+    trich_yeu: "Expert không đặc quyền: expert sớm dùng hindsight optimization trên belief lập kế hoạch ngược; expert muộn dùng cùng belief, chờ cử chỉ xong."
+    pham_vi: [tat_ca]
+    chu_de: [expert.dinh_nghia]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["| Expert | Không đặc quyền"]
+
+  - so: QD-DL-03
+    loai: QĐ
+    hm: [DL, HL]
+    cap: 2
+    ngay: "2026-10-25"
+    ban_hanh: người dùng
+    trich_yeu: "Vòng 2 dùng DAgger (rollout policy, expert gắn nhãn lại); không AutoIntervene."
+    pham_vi: [tat_ca]
+    chu_de: [vong_2]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Vòng 2 | DAgger"]
+
+  - so: QD-DL-04
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-25 13:48"
+    ban_hanh: người dùng
+    trich_yeu: "Cách dựng 4 trường hợp của T2 (cases[seed % 4]; lưỡng lự; cốc riêng của người; rút tay khi robot cách 10–25 cm; expert huỷ khi tay thôi ngửa ≥ 0,2 s)."
+    pham_vi: [T2]
+    chu_de: [task.C1]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["| T2 bốn trường hợp, cách dựng (25/10 13:48) |"]
+
+  - so: HD-DL-04
+    loai: HD
+    hm: [DL]
+    ngay: "2026-10-25"
+    ban_hanh: agent
+    trich_yeu: "Đề xuất kịch bản v6 và số đo expert."
+    chu_de: [canh]
+    trang_thai: luu_tru
+    noi_luu: docs/sim/scenarios_v6_proposal.md
+
+  - so: HD-DL-05
+    loai: HD
+    hm: [DL, HL]
+    ngay: "2026-10-25 11:14"
+    ban_hanh: agent
+    trich_yeu: "Pipeline v6 (A / B / D trên kịch bản v6): lệnh từng bước."
+    chu_de: [pipeline]
+    trang_thai: luu_tru
+    noi_luu: docs/sim/PIPELINE_v6.md
+    ghi_chu: "CLAUDE.md và đầu PIF vẫn gọi đây là 'việc đang làm' (xem TTR-VH-03)."
+
+  - so: BC-DL-01
+    loai: BC
+    hm: [DL]
+    ngay: "2026-10-25"
+    ban_hanh: agent
+    trich_yeu: "Báo cáo T2 sâu (25/10)."
+    chu_de: [task.C1]
+    trang_thai: luu_tru
+    noi_luu: docs/reports/T2_deep_2026-10-25.md
+
+  - so: QD-DL-05
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-27"
+    ban_hanh: người dùng
+    trich_yeu: "T2 (nay là C1) chỉ phần đưa lon; nếu có phần lấy lại thì người phải làm việc có mục đích, hợp lý với đồ được lấy lại."
+    pham_vi: [C1]
+    chu_de: [task.C1]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| T2 hiện tại (27/10) |"]
+
+  - so: QD-DL-06
+    loai: QĐ
+    hm: [DL, KT]
+    cap: 2
+    ngay: "2026-10-27"
+    ban_hanh: người dùng
+    trich_yeu: "Dataset hoàn thiện gồm: vị trí tay liên tục; kiểm từng tập kể cả tay xuyên vật; test ngoài phân phối (chuyển động người không có trong train, đổi ánh sáng / màu); nhiễu tư thế người như bộ ước lượng thật."
+    pham_vi: [tat_ca]
+    chu_de: [du_lieu.yeu_cau, test.ood]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Dataset hoàn thiện (27/10) |"]
+    ghi_chu: "Phần test ngoài phân phối và nhiễu tư thế chưa làm."
+
+  - so: QD-DL-07
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-27 18:10"
+    ban_hanh: người dùng
+    trich_yeu: "Duyệt tài liệu kịch bản v7 cho 10 task (Claude Docs TNBrZ2xjRDEPjcej5TQGGK); preview mỗi task 1 tập."
+    pham_vi: [tat_ca]
+    chu_de: [bo_task]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["| Kịch bản v7 (27/10 18:10) |"]
+
+  - so: QD-DL-08
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-27 22:12"
+    ban_hanh: người dùng
+    trich_yeu: "Rà v7 theo claim 1: thiết kế lại cả 10 task, giữ 3 / 4 / 3; mỗi task cần hành động sớm có ích, đo thời gian hoàn thành mục tiêu chung, có dự báo từ chuyển động tay; giữ D-tok; đặc trưng suy từ forecast chỉ dùng để phân tích."
+    pham_vi: [tat_ca]
+    chu_de: [tieu_chi_task]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["| Rà lại v7 theo claim 1 (27/10/2026 22:12) |"]
+
+  - so: QD-DL-09
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-28 05:27"
+    ban_hanh: người dùng
+    trich_yeu: "Chuỗi chỉnh kịch bản 10 task ngày 28/10 (05:27–06:55): viết lại nội dung §8.2, preview 5 task HABIT, giữ T2 / S7238 / S6002, 7 đề xuất mới và góp ý, bổ sung hai vai, bộ 50 preview."
+    pham_vi: [tat_ca]
+    chu_de: [bo_task]
+    trang_thai: het_hieu_luc
+    thay: [QD-DL-07]
+    noi_luu: docs/PIF.md
+    moc: ["| Chỉnh nội dung kịch bản (28/10/2026 05:27) |", "| Preview 5 task HABIT (28/10/2026 05:42) |", "| Giữ 3 task, đề xuất thêm 7 (28/10/2026 05:57) |", "| Preview 7 đề xuất mới (28/10/2026 06:01) |", "| Góp ý bảy preview (28/10/2026 06:29) |", "| Bổ sung hai vai, chọn lọc Collaborator (28/10/2026 06:34) |", "| Bộ 50 preview (28/10/2026 06:55) |", "**Trạng thái:** người dùng giữ T2 cũ"]
+    ghi_chu: "Chuỗi chỉnh đã xong; phần còn hiệu lực nằm ở QD-DL-10 và config v9 (I1, I2, C3, W1, W2)."
+
+  - so: QD-DL-10
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-28 06:46"
+    ban_hanh: người dùng
+    trich_yeu: "Cowork ưu tiên an toàn, độ mượt và không gián đoạn người (W1 phải có nhánh hết lựa chọn an toàn); I1 nhiều đế đặt tuần tự ở vị trí ngẫu nhiên khả thi; I2 tay trái / phải chọn phía vật."
+    pham_vi: [I1, I2, W1, W2, W3]
+    chu_de: [task.cowork, task.I1, task.I2]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["| Chỉnh task và mục tiêu Cowork (28/10/2026 06:46) |"]
+
+  - so: QD-DL-11
+    loai: QĐ
+    hm: [DL, KT]
+    cap: 2
+    ngay: "2026-10-28 15:29"
+    ban_hanh: người dùng
+    trich_yeu: "Case theo từng task, bỏ yêu cầu phủ đều 4 case; một nhóm nhỏ kiểm sâu; dự báo sai gồm lỗi thật của ManiCast và dự báo bị làm sai có kiểm soát, báo cáo riêng."
+    pham_vi: [tat_ca]
+    chu_de: [case]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["| Chọn task và case tự nhiên (28/10/2026 15:29) |", "**Đã thống nhất với người dùng:**"]
+
+  - so: QD-DL-12
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-28 15:47"
+    ban_hanh: người dùng
+    trich_yeu: "Kiểm chứng thiết kế qua alphaXiv và Consensus: chấp nhận như giả thuyết phối hợp dự báo ngắn hạn; dựng preview chọn lọc."
+    pham_vi: [tat_ca]
+    chu_de: [phan_bien]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Kiểm chứng qua hai nguồn và preview chọn lọc (28/10/2026 15:47) |"]
+
+  - so: BC-DL-02
+    loai: BC
+    hm: [DL]
+    ngay: "2026-10-28 15:47"
+    ban_hanh: agent
+    trich_yeu: "Báo cáo phản biện lý thuyết của Consensus (nguyên văn)."
+    chu_de: [phan_bien]
+    trang_thai: luu_tru
+    noi_luu: "docs/reports/theory_audit_2026-10-28/Critically audit the theoretical and experimental design below for tabletop huma.md"
+
+  - so: QD-DL-13
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-28 16:44"
+    ban_hanh: người dùng (phản biện gallery 26 clip)
+    trich_yeu: "Đổi ý phải có hai mức: lúc sớm chi phí thấp và lúc muộn chi phí cao (trục mức cam kết); thiết kế theo chi phí phục hồi."
+    pham_vi: [I1, I3, C3, C4]
+    chu_de: [case.switch]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["## 8.10 Sửa thiết kế theo mức cam kết và chi phí phục hồi", "**Nguồn quyết định:** người dùng phản biện gallery"]
+
+  - so: QD-DL-14
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-28"
+    ban_hanh: người dùng
+    trich_yeu: "Làm lại preview cả 10 task theo phần chuẩn bị và mức cam kết (§8.11)."
+    pham_vi: [tat_ca]
+    chu_de: [preview]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["## 8.11 Làm lại đủ 10 video", "**Hoàn tất preview — 29/10/2026 10:28"]
+
+  - so: BC-DL-03
+    loai: BC
+    hm: [DL]
+    ngay: "2026-10-28"
+    ban_hanh: agent
+    trich_yeu: "Hồ sơ thiết kế task 27–28/10 (§8.1–§8.9): rà v7, 10 task chỉnh, task HABIT, đề xuất, vai, storyboard, giá trị chẩn đoán, đối chiếu dịch vụ."
+    chu_de: [bo_task]
+    trang_thai: luu_tru
+    noi_luu: docs/PIF.md
+    moc: ["## 8.1 Rà v7 theo dự báo chuyển động và claim 1"]
+
+  - so: QD-DL-15
+    loai: QĐ
+    hm: [DL, HL, KT, VH]
+    cap: 2
+    ngay: "2026-10-29 11:20"
+    ban_hanh: người dùng
+    trich_yeu: "Ủy quyền: thu đủ demo train, validation và test cho 10 task, hai bộ sớm / muộn ghép cặp; bỏ trường hợp mơ hồ đợt này; tập trung đổi ý sớm / muộn và can thiệp đầu ra ManiCast; RunPod tối đa $4,50 thay $15."
+    pham_vi: [tat_ca]
+    chu_de: [bo_thu, ngan_sach, test.thu]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["**Ủy quyền mới của người dùng:**"]
+    ghi_chu: "Ngân sách đã bị QD-TT-04 (02/11) sửa thành $15. Phần thu test chưa làm."
+
+  - so: QD-DL-16
+    loai: QĐ
+    hm: [DL]
+    cap: 1
+    ngay: "2026-10-29 11:20"
+    ban_hanh: người dùng
+    trich_yeu: "Định nghĩa thay §3 / §5: bộ muộn (observed) chỉ dùng thông tin quan sát, hành động ngay khi đủ bằng chứng, không chờ cử chỉ kết thúc; bộ sớm (early) dùng forecast nhân quả để chuẩn bị kịp lúc, không vào vùng chưa an toàn; đổi ý sớm / muộn là trục mức cam kết riêng."
+    pham_vi: [tat_ca]
+    chu_de: [expert.dinh_nghia]
+    trang_thai: hieu_luc
+    thay: [QD-DL-02]
+    sua: [DA-TT-01]
+    noi_luu: docs/PIF.md
+    moc: ["**Định nghĩa thay các mô tả cũ ở §3/§5:**"]
+
+  - so: QD-DL-17
+    loai: QĐ
+    hm: [DL, KT]
+    cap: 2
+    ngay: "2026-10-29 11:20"
+    ban_hanh: người dùng
+    trich_yeu: "Cổng thu dữ liệu người HY-Motion: giữ raw skeleton và metadata; chia nhóm theo clip gốc; test không dùng clip đã fine-tune ManiCast; kiểm sau retarget (hai tay, thân, tầm với, xuyên vật); không âm thầm thay HY-Motion bằng min-jerk."
+    pham_vi: [tat_ca]
+    chu_de: [hymotion, test.tach_clip]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Cổng thu dữ liệu:**"]
+
+  - so: QD-DL-18
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-29 11:21"
+    ban_hanh: người dùng
+    trich_yeu: "Cổng loại demo va chạm: lọc khắt khe (xuyên người / robot / vật, quệt, làm vật xê dịch); thu bù tới đủ số tập đạt; kiểm ở từng physics substep; tiếp xúc đúng thao tác khai báo theo cặp geom và pha, không miễn cả vật đang cầm."
+    pham_vi: [tat_ca]
+    chu_de: [cong_va_cham]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["### Cổng loại demo va chạm (29/10/2026 11:21)"]
+
+  - so: HD-DL-06
+    loai: HD
+    hm: [DL]
+    ngay: "2026-10-29 11:20"
+    ban_hanh: agent
+    trich_yeu: "Kịch bản v7 (10 task bản 29/10)."
+    chu_de: [bo_task]
+    trang_thai: luu_tru
+    noi_luu: docs/sim/scenarios_v7.md
+
+  - so: QD-DL-19
+    loai: QĐ
+    hm: [DL, HL]
+    cap: 2
+    ngay: "2026-10-30 07:30"
+    ban_hanh: người dùng
+    trich_yeu: "Phạm vi: chỉ thu đủ episode train; phần train do người khác làm, không thao tác RunPod; quota 1650 train mỗi bộ là dự trù."
+    pham_vi: [tat_ca]
+    chu_de: [train.may, quota]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["**Phạm vi mới 30/10/2026 07:30 (+07):**"]
+
+  - so: QD-DL-20
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-31 04:4x"
+    ban_hanh: người dùng ("ok okok thử xem")
+    trich_yeu: "Duyệt hướng thiết kế lại theo trần dự báo: tiêu chí Đ1–Đ4 (người chờ robot sau khi lộ đích; việc robot phụ thuộc đích; đích lộ trong chuyển động; lặp trên đường găng) và cổng G1–G4 (Cowork người ưu tiên; baseline chuẩn bị chung công bằng; cổng oracle 10 seed ghép cặp trước khi thu; số đo theo vai); làm I2 trước."
+    pham_vi: [tat_ca]
+    chu_de: [tieu_chi_task, cong_g3]
+    trang_thai: hieu_luc
+    can_cu: [HD-DL-07]
+    noi_luu: docs/PIF.md
+    moc: ["| Duyệt hướng | Tiêu chí thiết kế Đ1–Đ4"]
+    ghi_chu: "Giờ theo mục 'Thiết kế lại theo trần dự báo (31/10 04:4x)'; câu duyệt không ghi giờ. Đăng ký bù lúc đối chiếu lần 1."
+
+  - so: QD-DL-21
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-31 07:2x"
+    ban_hanh: người dùng ("cứ làm hết đi… cho đến khi thu đủ bộ dataset")
+    trich_yeu: "Thu đến hết bộ dữ liệu v9; I1 giữ như v8 làm đối chứng 'robot không trên đường găng' (agent chọn, người dùng có thể đổi); C3 đủ 4 case; một tiến trình thu một lúc."
+    pham_vi: [I1, I2, C3, W1, W2]
+    chu_de: [task.I1]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Chạy đến hết bộ dữ liệu (31/10 07:2x) |"]
+    ghi_chu: "Vai trò của I1 vẫn chờ người dùng xác nhận (TTR-DL-01)."
+
+  - so: QD-DL-22
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-31 07:5x"
+    ban_hanh: agent (theo QD-DL-10)
+    trich_yeu: "Cowork người ưu tiên (G1): human_behavior.yield_to_robot.before_start = false cho W1 / W2; người vẫn dừng khi robot trong 0,12 m."
+    pham_vi: [W1, W2]
+    chu_de: [task.cowork]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-10, QD-DL-20]
+    noi_luu: docs/PIF.md
+    moc: ["| Cowork người ưu tiên (G1) (31/10 07:5x) |"]
+
+  - so: QD-DL-23
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-31 09:21"
+    ban_hanh: người dùng
+    trich_yeu: "Thu v9: configs/experiments/ten_task_v9.yaml → outputs/datasets/ten_task_v9; chuỗi I2 → I1 → C3 → W1 → W2, mỗi case 50 train + 10 val, ghép cặp early / observed, cổng va chạm v8."
+    pham_vi: [I1, I2, C3, W1, W2, v9]
+    chu_de: [thu.v9]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Thu v9 (31/10 09:21) |"]
+
+  - so: QD-DL-24
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-10-31 15:06"
+    ban_hanh: người dùng ("ít cũng phải 10")
+    trich_yeu: "Claim dataset cần ít nhất 10 task; thu và kiểm xong 5 task v9 trước rồi mới tính 5 task còn lại; quota mỗi case 50 train + 10 val."
+    pham_vi: [tat_ca]
+    chu_de: [bo_task, quota]
+    trang_thai: hieu_luc
+    thay: [QD-DL-19]
+    can_cu: [QD-TT-03]
+    noi_luu: docs/PIF.md
+    moc: ["| Mục tiêu 10 task (31/10 15:06) |"]
+
+  - so: HD-DL-07
+    loai: HD
+    hm: [DL]
+    cap: 3
+    ngay: "2026-10-31 04:38"
+    ban_hanh: agent (người dùng duyệt bộ tiêu chí trong QD-DL-25)
+    trich_yeu: "Đề xuất kịch bản v9: tiêu chí Đ1–Đ5 và cổng G1–G4 cho task mới."
+    chu_de: [tieu_chi_task]
+    trang_thai: hieu_luc
+    lien_quan: [QD-DL-08]
+    noi_luu: docs/sim/scenarios_v9_proposal.md
+
+  - so: BC-DL-04
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-01 01:27"
+    ban_hanh: agent
+    trich_yeu: "Bộ v9 thu xong: 5 task, 11 case, 22 chunk, mỗi case 50 train + 10 val cặp (1320 tập, ~4 GB); kèm pilot và G3 các task v9 (31/10)."
+    pham_vi: [v9]
+    chu_de: [thu.v9]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Bộ v9 thu xong (01/11 01:27) |"]
+
+  - so: QD-DL-25
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-01 12:46"
+    ban_hanh: người dùng (duyệt đề xuất của agent)
+    trich_yeu: "5 task bổ sung C1 / C2 / C4 / I3 / W3 theo Đ1–Đ4 / G1–G4; quy trình mỗi task: kiểm trên giấy → dựng → cổng lợi thời gian (G3) → pilot va chạm → clip duyệt → thu 50 + 10 mỗi case; task không qua G3 vẫn vào dataset làm đối chứng."
+    pham_vi: [C1, C2, C4, I3, W3]
+    chu_de: [bo_task, cong_g3, quy_trinh_task]
+    trang_thai: da_sua
+    sua: [QD-DL-08]
+    can_cu: [QD-DL-24, QD-DL-20]
+    noi_luu: docs/PIF.md
+    moc: ["| 5 task bổ sung (01/11 12:46) |"]
+
+  - so: QD-DL-26
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-01 14:55"
+    ban_hanh: người dùng ("4 cái kia ok")
+    trich_yeu: "Chọn task theo HABIT: C2 = S6218 lau ô kệ, C4 = S7025 phân loại rác, W3 = S7236 lăn bụi, C1 giữ bố cục gốc (đối chứng + claim 2), I3 phương án chỉ tay chỗ đặt; bỏ ngăn kéo và dừng khay; thêm tiêu chí Đ5."
+    pham_vi: [C1, C2, C4, I3, W3]
+    chu_de: [bo_task]
+    trang_thai: da_sua
+    sua: [QD-DL-25, QD-DL-10]
+    noi_luu: docs/PIF.md
+    moc: ["| 5 task bổ sung theo HABIT (01/11 14:55) |"]
+
+  - so: QD-DL-27
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-01 17:01"
+    ban_hanh: người dùng
+    trich_yeu: "Expert early tận dụng ManiCast tốt nhất có thể; nới an toàn thì nới như nhau cho observed và early; phục hồi khi đoán sai hoặc người đổi ý là quan trọng nhất; mỗi task Collaborator / Instructor mới có 3 case phục hồi: forecast_fault, switch_before_commit, switch_after_commit."
+    pham_vi: [tat_ca]
+    chu_de: [expert.toi_uu, case]
+    trang_thai: da_sua
+    sua: [QD-DL-11]
+    noi_luu: docs/PIF.md
+    moc: ["| Hướng tối ưu expert ManiCast (01/11 17:01) |"]
+
+  - so: QD-DL-28
+    loai: QĐ
+    hm: [DL, DB]
+    cap: 3
+    ngay: "2026-11-01 17:08"
+    ban_hanh: người dùng
+    trich_yeu: "Thay luật tay của expert bằng công thức có nguồn (Fang và cộng sự 2026, Eq. 4–5), áp giống nhau cho observed và early, chỉ khác đầu vào."
+    pham_vi: [tat_ca]
+    chu_de: [expert.niem_tin]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["| Công thức quyết định và phục hồi của expert (01/11 17:08) |"]
+
+  - so: QD-DL-29
+    loai: QĐ
+    hm: [DL, DB]
+    cap: 2
+    ngay: "2026-11-02 18:05"
+    ban_hanh: người dùng ("phải exploit hết manicast", "làm hết rồi train D 10 task")
+    trich_yeu: "Khai thác hết ManiCast: niềm tin cập nhật một lần mỗi bước quan sát thật; gộp các mốc dự báo thành đặc trưng; bỏ trọng số α_k = 1/sai số; đo offline trước khi thêm trọng số."
+    pham_vi: [tat_ca]
+    chu_de: [expert.niem_tin, manicast]
+    trang_thai: hieu_luc
+    sua: [QD-DL-28]
+    can_cu: [BC-TT-03, BC-TT-04]
+    lien_quan: [QD-DB-01, QD-DB-04]
+    noi_luu: docs/PIF.md
+    moc: ["| Khai thác hết ManiCast: quyết định sau phản biện lần 2 (02/11 18:05) |"]
+
+  - so: QD-DL-30
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-02 18:15"
+    ban_hanh: người dùng ("cũng được")
+    trich_yeu: "I3 mới: phân loại đồ theo hướng tay (HABIT S5334): robot nhấc từng món, người vung tay trái / phải, robot bỏ vào giỏ bên đó; 4 lượt; 4 case."
+    pham_vi: [I3]
+    chu_de: [task.I3]
+    trang_thai: da_sua
+    sua: [QD-DL-26]
+    noi_luu: docs/PIF.md
+    moc: ["| I3 mới: phân loại đồ theo hướng tay (02/11 18:15) |"]
+
+  - so: BC-DL-05
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-02 18:50"
+    ban_hanh: agent
+    trich_yeu: "Đính chính: switch_after_commit của v9 chạy theo đồng hồ người, không có lỗi ghép cặp; giữ nguyên v9."
+    pham_vi: [v9, I1, C3]
+    chu_de: [case.switch, du_lieu.thu_lai]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Đính chính: trigger đổi ý muộn của v9 (02/11 18:50) |"]
+
+  - so: TTR-DL-01
+    loai: TTr
+    hm: [DL]
+    ngay: "2026-11-02 19:0x"
+    ban_hanh: agent ('Còn mở' trong PIF §8.12)
+    trich_yeu: "Còn mở: mức lợi tối thiểu của cổng G3 (chưa có nguồn, mới báo khoảng tin cậy); I1 đổi workflow hay giữ làm đối chứng."
+    pham_vi: [I1]
+    chu_de: [cong_g3, task.I1]
+    trang_thai: cho_quyet
+    noi_luu: docs/PIF.md
+    moc: ["| Còn mở |"]
+
+  - so: QD-DL-31
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-03 13:52"
+    ban_hanh: người dùng ("ok làm đi")
+    trich_yeu: "Gộp dataset bằng cách làm phẳng human.keypoints [9, 3] → [27] trong bản tạm (LeRobot aggregate_datasets hỏng với cột 2-D)."
+    pham_vi: [v9]
+    chu_de: [du_lieu.gop]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Gộp xong theo hướng người dùng duyệt (03/11 13:52"]
+
+  - so: QD-DL-32
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-03 14:0x"
+    ban_hanh: người dùng
+    trich_yeu: "Triển khai 03/11: hai tay ưu tiên C1 / C2 / C4, giữ phép thử hai tay của I2, W3 quan sát cả hai tay; τ chỉ hiệu chỉnh cho C4 trên seed 300200+; C1 giữ case rút tay rồi xin lại (withdraw_and_retry), không giao lon khi người đã rút; giữ 660 tập v9 đã xác minh, không thu lại; I3 tiếp tục G3; không đổi kiến trúc ACT, không train."
+    pham_vi: [C1, C2, C4, I2, I3, W3, v9]
+    chu_de: [hai_tay, task.C1, task.C4, du_lieu.thu_lai]
+    trang_thai: da_sua
+    sua: [QD-TT-04]
+    thay: [QD-DL-04]
+    lien_quan: [QD-DL-05]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định triển khai 03/11 (người dùng, 14:0x)**"]
+
+  - so: QD-DL-33
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-03 15:15"
+    ban_hanh: người dùng
+    trich_yeu: "C4 thử phương án kẹp mép +y, tối đa một vòng sửa; I3 gán bên đích theo loại món (S5334); τ C4 (observed 0,61 / early 0,56) là ứng viên; không thu lại v9, không train trước khi kiểm chứng và duyệt demo."
+    pham_vi: [C4, I3]
+    chu_de: [task.C4, task.I3]
+    trang_thai: da_sua
+    sua: [QD-DL-30]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định triển khai 03/11 15:15 (người dùng)**"]
+    ghi_chu: "Thiết kế kẹp thùng của C4 đã bị thay bằng khay nông (QD-DL-39); τ C4 còn dùng hay không chưa ghi."
+
+  - so: QD-DL-34
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-03 16:20"
+    ban_hanh: người dùng
+    trich_yeu: "C4 'blocked — chưa qua cổng dữ liệu'; giữ kẹp mép +y, yaw −90°, hai tay, drop_dz +0,03; không đổi vật lý MuJoCo, collision geometry, ngưỡng 1 mm."
+    pham_vi: [C4]
+    chu_de: [task.C4, cong_va_cham]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["**Trạng thái C4 (người dùng 03/11 ~16:20)"]
+
+  - so: QD-DL-35
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-03 18:27"
+    ban_hanh: người dùng
+    trich_yeu: "Xử lý W3 → I3 → C1 → C4: W3 chỉ cho tiếp xúc lau × tấm lót trong pha lau, lún ≤ 1 mm; I3 giữ hình món, không nới ngưỡng 3,5 mm; C1 sửa waypoint mang lon; C4 đặt món có kiểm soát."
+    pham_vi: [W3, I3, C1, C4]
+    chu_de: [task.W3, task.I3, task.C1, task.C4, cong_va_cham]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định xử lý các task (03/11 18:27, người dùng)**"]
+
+  - so: QD-DL-36
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-03 20:21"
+    ban_hanh: người dùng
+    trich_yeu: "Audit va chạm thêm robot × mặt bàn và vật robot đang cầm, ở mọi physics substep, không whitelist ngầm, có test chứng minh cổng bắt được va chạm mới; W3 chỉ cho tiếp xúc đầu lift_wipe ≤ 1 mm; I3 mở kẹp vừa món khi gắp lại; C1 giữ over_hand_clearance 0,025; cấm nới ngưỡng."
+    pham_vi: [tat_ca]
+    chu_de: [cong_va_cham, task.W3, task.I3, task.C1]
+    trang_thai: hieu_luc
+    sua: [QD-DL-18, QD-DL-35]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định W3 / I3 / collision audit (03/11 20:21, người dùng)**"]
+
+  - so: QD-DL-37
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-04 08:34"
+    ban_hanh: người dùng
+    trich_yeu: "Sau regression có audit bàn: lỗi là hình học của kịch bản, không sửa ACT / ManiCast; giữ 660 tập v9; I3 đổi món cao ~4 cm và đo lại G3; W3 trace khay và thử khe lau +2,5 mm; C1 sửa phối hợp tay–lon; C4 ưu tiên thùng nông; kiểm hình học + quỹ đạo trước pilot, kiểm mọi cặp va chạm."
+    pham_vi: [I3, W3, C1, C4]
+    chu_de: [task.I3, task.W3, task.C1, task.C4, quy_trinh_kiem]
+    trang_thai: da_sua
+    sua: [QD-DL-35, QD-DL-30]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 04/11/2026 08:34 (người dùng)"]
+
+  - so: QD-DL-38
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-04 12:00"
+    ban_hanh: người dùng ("hoàn thiện nốt rồi thu đủ đi rồi cho mình xem duyệt")
+    trich_yeu: "Áp các hướng sửa đề xuất lúc 09:39, thu đủ quota 50 + 10 mỗi case, làm clip duyệt trước khi train."
+    pham_vi: [I3, W3, C1, C4]
+    chu_de: [thu.v10]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 04/11/2026 ~12:00 (người dùng)**"]
+
+  - so: QD-DL-39
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-04 15:35"
+    ban_hanh: người dùng (qua phiên intent-policy-c5)
+    trich_yeu: "C1 phân biệt chạm / đã nhận / rút trước khi nhận, chỉ nhả khi người đã nhận (Ortenzi et al., T-RO); W3 rút về vùng chờ ngoài đường tay (Tonola et al. 2025); C4 bỏ thùng sâu, dùng khay nông rộng có tay cầm phía robot; cổng giữ nguyên; giữ I3 và C1 nominal / forecast_fault; không trộn demo của hai định nghĩa case mà không ghi phiên bản."
+    pham_vi: [C1, W3, C4, v10, v10b]
+    chu_de: [task.C1, task.W3, task.C4, du_lieu.phien_ban]
+    trang_thai: da_sua
+    sua: [QD-DL-37, QD-DL-33, QD-DL-32]
+    thay: [QD-DL-34]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 04/11/2026 ~15:35", "- **Dữ liệu**: I3 (chuỗi 4) giữ nguyên"]
+
+  - so: BC-DL-06
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-04 19:57"
+    ban_hanh: agent
+    trich_yeu: "Thu v10 xong: outputs/datasets/ten_task_v10 (2,3 GB), 12 chunk (I3 4 case, C1 nominal / forecast_fault)."
+    pham_vi: [v10, I3, C1]
+    chu_de: [thu.v10]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Thu v10 xong (04/11 19:57)**"]
+
+  - so: QD-DL-40
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-04 20:15"
+    ban_hanh: người dùng (qua phiên intent-policy-c5)
+    trich_yeu: "'Lỗi số ít thì thôi': sau sửa, chỉ còn lỗi số ít thì chấp nhận và thu với cổng loại tập lỗi; số ít ≈ tỷ lệ loại như case đã nhận và tập loại không tập trung đúng tương tác cần học."
+    pham_vi: [tat_ca]
+    chu_de: [ty_le_loai]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 04/11/2026 ~20:15"]
+
+  - so: QD-DL-41
+    loai: QĐ
+    hm: [DL, VH]
+    cap: 2
+    ngay: "2026-11-04 2x:xx"
+    ban_hanh: người dùng
+    trich_yeu: "Vòng 3: W3 không lau vùng xung đột, chỉ rút theo đường đã kiểm; C1 rút tay trước tiếp xúc lon; C4 vòng 3, không khả thi thì dừng C4; phân loại 49 test FAIL; pilot rồi regression đầy đủ; giữ 12 chunk v10; montage trước khi train; không train."
+    pham_vi: [W3, C1, C4, v10]
+    chu_de: [task.W3, task.C1, task.C4, quy_tac_dung]
+    trang_thai: da_sua
+    sua: [QD-DL-39]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 04/11/2026 (tối, người dùng)"]
+    ghi_chu: "PIF chỉ ghi 'tối' (trước khi triển khai 21:55); không biết giờ chính xác."
+
+  - so: BC-DL-07
+    loai: BC
+    hm: [DL, VH]
+    ngay: "2026-11-05 00:14"
+    ban_hanh: agent
+    trich_yeu: "Phân loại 49 test FAIL: đều có từ trước (viết cho T1–T4); riêng test_training_resume_is_exact cần kiểm trước khi train."
+    chu_de: [test_code]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Phân loại 49 test FAIL (05/11 00:14"]
+
+  - so: QD-DL-42
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-05 0x:xx"
+    ban_hanh: người dùng
+    trich_yeu: "Tiếp tục C1 withdraw_and_retry và C4 (cốt lõi khả năng phục hồi); sửa theo nguyên nhân, không thử từng tham số; thất bại thì báo vì sao và đề xuất có căn cứ, không tự bỏ task vì đã qua 3 vòng; C1 huỷ bám tay khi người rút, phát hiện từ quan sát (observed) hoặc ManiCast (early); C4 xử lý ba lỗi hình học; thu v10b 50 + 10 mỗi case; chưa train."
+    pham_vi: [C1, C4, v10b]
+    chu_de: [task.C1, task.C4, quy_tac_dung]
+    trang_thai: hieu_luc
+    sua: [QD-DL-41]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 05/11/2026 (người dùng) — sửa lại"]
+    ghi_chu: "PIF không ghi giờ (sau bảng PASS / FAIL 01:45, trước sửa C1 05:57)."
+
+  - so: QD-DL-43
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-05 09:00"
+    ban_hanh: người dùng ("Ok", qua phiên intent-policy-c5)
+    trich_yeu: "C2 (S6218) áp hướng sửa của W3; G3 vẫn âm thì C2 vào dataset làm đối chứng; thu khi chỉ còn lỗi số ít (loại ≲ 15–20 %, không tập trung ở tương tác cần học); cắt clip duyệt cho dữ liệu v10b."
+    pham_vi: [C2, v10b]
+    chu_de: [task.C2, ty_le_loai]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-25, QD-DL-40]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 05/11/2026 ~09:00"]
+
+  - so: QD-DL-44
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-05 13:00"
+    ban_hanh: người dùng ("mình tắt bớt rồi đấy làm tiếp đi")
+    trich_yeu: "Thu tiếp C4 (thiết kế khay đã qua cổng 48 / 48) rồi C2 nominal vào ten_task_v10b."
+    pham_vi: [C4, C2, v10b]
+    chu_de: [thu.v10b]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**Người dùng 05/11 ~13:00:"]
+
+  - so: BC-DL-08
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-06 00:18"
+    ban_hanh: agent
+    trich_yeu: "Thu v10b xong: outputs/datasets/ten_task_v10b (4,7 GB), 14 chunk (W3, C1 withdraw_and_retry, C4 4 case, C2); kèm G3 C4 / C2 trên thiết kế v10b."
+    pham_vi: [v10b, W3, C1, C4, C2]
+    chu_de: [thu.v10b]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["**v10b thu xong (06/11 00:18)**", "**G3 C4 / C2 trên thiết kế v10b (05/11 12:01"]
+
+  - so: QD-DL-45
+    loai: QĐ
+    hm: [DL, HL]
+    cap: 2
+    ngay: "2026-11-06 01:11"
+    ban_hanh: người dùng ("rất vô lí, bỏ đi … tốn tài nguyên")
+    trich_yeu: "Bỏ phía observed của case forecast_fault: không đưa vào bộ train (build_training_set.py --skip-cases forecast_fault); đợt thu sau chỉ thu phía early; file hiện có chưa xoá."
+    pham_vi: [I1, I3, C1, C3, C4]
+    chu_de: [case.forecast_fault, du_lieu.bo_train]
+    trang_thai: hieu_luc
+    sua: [QD-DL-27]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 06/11/2026 01:11 (người dùng): bỏ phía observed của case forecast_fault**"]
+
+  - so: BC-DL-09
+    loai: BC
+    hm: [DL, KT]
+    ngay: "2026-11-06 01:21"
+    ban_hanh: agent
+    trich_yeu: "Báo cáo duyệt dữ liệu 10 task, bản 1: 24 case, 48 chunk, bảng thu, G3 từng task (I3 đo lại +0,47 s), giới hạn, việc chờ người dùng."
+    pham_vi: [tat_ca]
+    chu_de: [nghiem_thu.du_lieu, cong_g3]
+    trang_thai: hieu_luc
+    noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
+    moc: ["## 5. G3 I3 đo lại (món 4 cm)"]
+    moc_pif: ["**G3 I3 đo lại sau khi đổi món 4 cm (06/11 01:11"]
+
+  - so: TTR-DL-02
+    loai: TTr
+    hm: [DL]
+    ngay: "2026-11-06 01:21"
+    ban_hanh: agent
+    trich_yeu: "Xin ý kiến: xoá file forecast_fault phía observed (~1,0 GB) hay giữ."
+    pham_vi: [I1, I3, C1, C3, C4]
+    chu_de: [case.forecast_fault]
+    trang_thai: cho_quyet
+    can_cu: [QD-DL-45]
+    noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
+
+  - so: TTR-DL-03
+    loai: TTr
+    hm: [DL]
+    ngay: "2026-11-06 01:21"
+    ban_hanh: agent
+    trich_yeu: "Xin ý kiến: C4 giữ thiết kế khay (giá trị ở case phục hồi, G3 −0,10 s) hay chỉnh để lợi sớm quay lại."
+    pham_vi: [C4]
+    chu_de: [task.C4]
+    trang_thai: cho_quyet
+    noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
+
+  - so: TTR-DL-04
+    loai: TTr
+    hm: [DL, KT]
+    ngay: "2026-11-06 01:21"
+    ban_hanh: agent
+    trich_yeu: "Xin ý kiến: đo thêm G3 cho I1 / C3 (10 seed), C1 và W3 trên bản hiện tại."
+    pham_vi: [I1, C3, C1, W3]
+    chu_de: [cong_g3]
+    trang_thai: cho_quyet
+    noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
+
+  - so: BB-DL-01
+    loai: BB
+    hm: [DL]
+    ngay: "2026-11-06 01:58"
+    ban_hanh: agent lập, người dùng chấm và ký
+    trich_yeu: "Biên bản nghiệm thu dữ liệu demo 10 task (bộ v9, v10, v10b): 34 hạng mục, clip từng case, kết luận từng task, chọn C4 và G3 cần đo thêm; phản hồi lưu trong cơ sở dữ liệu của trang."
+    pham_vi: [tat_ca, v9, v10, v10b]
+    chu_de: [nghiem_thu.du_lieu]
+    trang_thai: cho_quyet
+    can_cu: [BC-DL-09]
+    noi_luu: https://claude.ai/artifact/L7aEMTmqmVnc4UniCwzrev
+    ghi_chu: "Bản giấy cùng hạng mục: docs/reports/phieu_duyet_10_task_2026-11-06.md. Ký xong thì lập QĐ phê duyệt kết quả nghiệm thu dữ liệu, mở bước train."
+
+  - so: BC-DL-10
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-06 02:02"
+    ban_hanh: agent
+    trich_yeu: "Ghi nhận khi lập biên bản: hai cặp clip từng tập của C4 giống hệt từng byte giữa early và observed (forecast_fault tập 0 seed 3010000; switch_before tập 1 seed 3020001); chưa tra nguyên nhân."
+    pham_vi: [C4, v10b]
+    chu_de: [task.C4]
+    trang_thai: hieu_luc
+    noi_luu: https://claude.ai/artifact/L7aEMTmqmVnc4UniCwzrev
+
+# ───────────────────────── DB — Dự báo ─────────────────────────
+
+  - so: QD-DB-01
+    loai: QĐ
+    hm: [DB]
+    cap: 2
+    ngay: "2026-10-24"
+    ban_hanh: người dùng (24/10; nhắc lại 25/10 10:54)
+    trich_yeu: "Ý định của D chỉ lấy từ ManiCast (motion token); không thêm hướng chỉ, không DeePoint (chỉ tay là lệnh, không phải dự đoán)."
+    pham_vi: [D]
+    chu_de: [manicast]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Ý định của D |"]
+
+  - so: QD-DB-02
+    loai: QĐ
+    hm: [DB]
+    cap: 2
+    ngay: "2026-10-24 18:2x"
+    ban_hanh: người dùng
+    trich_yeu: "Dùng ManiCast bản fine-tune trên chuyển động sim theo đúng công thức của tác giả; đóng băng khi dùng cho ACT."
+    pham_vi: [D]
+    chu_de: [manicast]
+    trang_thai: da_sua
+    lien_quan: [QD-DB-01]
+    noi_luu: docs/PIF.md
+    moc: ["| ManiCast | Bản fine-tune trên chuyển động sim"]
+
+  - so: QD-DB-03
+    loai: QĐ
+    hm: [DB]
+    cap: 2
+    ngay: "2026-10-25"
+    ban_hanh: người dùng
+    trich_yeu: "Dự báo tác động lên môi trường: để sau."
+    chu_de: [du_bao.moi_truong]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Dự báo tác động lên môi trường |"]
+
+  - so: QD-DB-04
+    loai: QĐ
+    hm: [DB]
+    cap: 3
+    ngay: "2026-10-31 09:0x"
+    ban_hanh: agent (theo QD-DB-02)
+    trich_yeu: "ManiCast fine-tune lại trên chuyển động v8: outputs/forecast_ft/2026-10-31_08-42/best.pt, sai số cổ tay tại 1 s 79,5 mm (bản cũ 87,7)."
+    pham_vi: [D, v9, v10, v10b]
+    chu_de: [manicast]
+    trang_thai: hieu_luc
+    sua: [QD-DB-02]
+    noi_luu: docs/PIF.md
+    moc: ["| ManiCast v8, kết quả (31/10 09:0x) |"]
+
+  - so: QD-DB-05
+    loai: QĐ
+    hm: [DB, DL]
+    cap: 2
+    ngay: "2026-11-02 19:0x"
+    ban_hanh: người dùng ("CV nếu đã dùng là dùng kết hợp quỹ đạo và dùng cho tất luôn")
+    trich_yeu: "Luật CV (ngoại suy vận tốc cổ tay 0,2 s, 8 mốc) có trong cổng G3 của mọi task, đọc quỹ đạo cùng cách với ManiCast."
+    pham_vi: [tat_ca, D-CV]
+    chu_de: [du_bao.cv, cong_g3]
+    trang_thai: hieu_luc
+    lien_quan: [QD-DL-25]
+    noi_luu: docs/PIF.md
+    moc: ["| CV dùng cho mọi task (02/11 19:0x, người dùng) |"]
+
+  - so: TTR-DB-01
+    loai: TTr
+    hm: [DB, DL]
+    ngay: "2026-11-02 19:0x"
+    ban_hanh: agent
+    trich_yeu: "Xin xác nhận cách đọc quỹ đạo chung 'closest' cho ManiCast và CV (với endpoint, CV bị phạt vì vượt đích)."
+    chu_de: [du_bao.cv]
+    trang_thai: cho_quyet
+    can_cu: [QD-DB-05]
+    noi_luu: docs/PIF.md
+    moc: ["| CV dùng cho mọi task (02/11 19:0x, người dùng) |"]
+
+# ───────────────────────── HL — Train ─────────────────────────
+
+  - so: QD-HL-01
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-10-12"
+    ban_hanh: người dùng
+    trich_yeu: "Đóng gói từng gói train, commit lên online; mọi bước nặng chạy trên máy trạm; dữ liệu qua Hugging Face Hub."
+    chu_de: [train.may]
+    trang_thai: bi_thay
+    noi_luu: "bo_nho:workstation-training.md"
+
+  - so: QD-HL-02
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-10-24"
+    ban_hanh: người dùng (24/10; nhắc lại 25/10 10:54)
+    trich_yeu: "Mô hình: A và D-tok trước, cùng số bước; B sau; bỏ vẽ dự báo lên ảnh (D-img); bỏ C."
+    pham_vi: [A, B, D]
+    chu_de: [mo_hinh]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["| Mô hình | **A và D-tok trước**"]
+
+  - so: QD-HL-03
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-10-24"
+    ban_hanh: người dùng (22–24/10)
+    trich_yeu: "Policy là ACT hành động liên tục, chunk 40 bước ở 20 Hz; không Diffusion Policy, không flow matching."
+    pham_vi: [A, B, D]
+    chu_de: [policy.kien_truc]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Policy | ACT liên tục"]
+
+  - so: QD-HL-04
+    loai: QĐ
+    hm: [HL]
+    cap: 3
+    ngay: "2026-10-25 11:13"
+    ban_hanh: người dùng
+    trich_yeu: "Đợt train cho báo cáo 25/10: T2 phần đưa lon, A và D-tok train riêng, 20k bước batch 32, lr 4e-5."
+    pham_vi: [A, D, T2]
+    chu_de: [train.dot]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Đợt train cho báo cáo 25/10"]
+
+  - so: QD-HL-05
+    loai: QĐ
+    hm: [HL]
+    cap: 3
+    ngay: "2026-10-25 13:48"
+    ban_hanh: người dùng
+    trich_yeu: "Đợt train 4 trường hợp T2: fine-tune A và D-tok 15k bước, lấy mẫu khung then chốt ×3 (Wen et al. 2021)."
+    pham_vi: [A, D, T2]
+    chu_de: [train.dot]
+    trang_thai: het_hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Train đợt 4 trường hợp (25/10 13:48) |"]
+    ghi_chu: "Cách lấy mẫu của đợt sau theo KH-TT-01 (D0 / D1)."
+
+  - so: BC-HL-01
+    loai: BC
+    hm: [HL]
+    ngay: "2026-10-25 09:34"
+    ban_hanh: agent
+    trich_yeu: "Phân tích thất bại ACT v6: không lỗi pipeline; train quá ít (~6 lần nhìn mỗi frame); lỗi gripper làm rơi lon."
+    chu_de: [train.cau_hinh]
+    trang_thai: luu_tru
+    noi_luu: docs/reports/ACT_v6_failure_analysis.md
+
+  - so: QD-HL-06
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-10-27"
+    ban_hanh: người dùng
+    trich_yeu: "Đợt train tới chỉ D-tok, trên toàn bộ task; train từ đầu hay fine-tune còn đang bàn."
+    pham_vi: [D]
+    chu_de: [mo_hinh]
+    trang_thai: bi_thay
+    noi_luu: docs/PIF.md
+    moc: ["| Train đợt tới (27/10) |"]
+
+  - so: TTR-HL-01
+    loai: TTr
+    hm: [HL]
+    ngay: "2026-11-06 01:21"
+    ban_hanh: agent
+    trich_yeu: "Đề xuất kiểm test_training_resume_is_exact (resume khi train) trước bước train."
+    chu_de: [test_code]
+    trang_thai: cho_quyet
+    can_cu: [BC-DL-07]
+    noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
+
+  - so: TTR-HL-02
+    loai: TTr
+    hm: [HL]
+    ngay: "2026-11-06 02:30"
+    ban_hanh: agent (đối chiếu lần 1)
+    trich_yeu: "Xin xác nhận cách chia train / val: đề án §6 ghi 80 / 20 theo episode; dữ liệu đã thu tách sẵn 50 train + 10 val mỗi case (seed riêng, ≈ 83 / 17)."
+    chu_de: [train.chia_tap]
+    trang_thai: cho_quyet
+    can_cu: [DA-TT-01, QD-DL-24]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    moc: ["so: TTR-HL-02"]
+
+# ───────────────────────── KT — Chạy policy và test ─────────────────────────
+
+  - so: QD-KT-01
+    loai: QĐ
+    hm: [KT]
+    cap: 1
+    ngay: "2026-10-24 15:02"
+    ban_hanh: người dùng
+    trich_yeu: "Không inference-time steering, không bộ giám sát commit sau ACT; thời điểm commit học từ demo."
+    pham_vi: [tat_ca]
+    chu_de: [policy.giam_sat]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Không giám sát |"]
+
+  - so: QD-KT-02
+    loai: QĐ
+    hm: [KT]
+    cap: 3
+    ngay: "2026-10-25 06:50"
+    ban_hanh: agent (theo bài ACT, có số đo)
+    trich_yeu: "Chạy policy với temporal ensembling m = 0,01 (bài ACT); đo trên B cũ: không ensembling 0 / 40, có 8 / 40."
+    pham_vi: [A, B, D]
+    chu_de: [policy.chay]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Chạy policy | Temporal ensembling"]
+
+  - so: BC-KT-01
+    loai: BC
+    hm: [KT, DB]
+    ngay: "2026-10-25 10:19"
+    ban_hanh: agent
+    trich_yeu: "Câu hỏi grounding (policy gắn dự báo với người / vật thế nào); chốt chỉ motion token, kiểm bằng hoán đổi / che dự báo."
+    chu_de: [danh_gia]
+    trang_thai: luu_tru
+    noi_luu: docs/reports/ACT_intent_grounding_question.md
+
+  - so: QD-KT-03
+    loai: QĐ
+    hm: [KT]
+    cap: 1
+    ngay: "2026-10-25 13:48"
+    ban_hanh: người dùng (đề án §7)
+    trich_yeu: "Đánh giá: báo cáo theo từng case và trên toàn bộ test; bắt buộc hoán đổi và che dự báo để kiểm D có dùng dự báo; seed đánh giá tách seed demo; cùng tập episode cho mọi mô hình."
+    pham_vi: [tat_ca]
+    chu_de: [danh_gia]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["## 7. Đánh giá"]
+    ghi_chu: "Chỉ số chi tiết theo KH-TT-01 (03/11)."
+
+  - so: QD-KT-04
+    loai: QĐ
+    hm: [KT, LV]
+    cap: 2
+    ngay: "2026-10-15"
+    ban_hanh: người dùng (góp ý trong tài liệu)
+    trich_yeu: "Chỉ số thời gian (TSync, thời gian phản hồi, thời gian đáp ứng) phải giảm khi có ý định; tỷ lệ thành công không cần khác nhiều; tự đo tham số, không hỏi thầy."
+    pham_vi: [tat_ca]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    noi_luu: "bo_nho:thesis-timing-metrics-priority.md"
+
+# ───────────────────────── VH — Vận hành ─────────────────────────
+
+  - so: QD-VH-01
+    loai: QĐ
+    hm: [VH]
+    cap: 3
+    ngay: "2026-10-04"
+    ban_hanh: người dùng ("không được gọn gàng nhanh lẹ như lerobot")
+    trich_yeu: "Đầu ra kiểu LeRobot: mỗi lần thu / train / đánh giá / video ghi vào outputs/<loại>/<ngày>/<giờ>_<tên>/ kèm log và lệnh; video đánh giá ghi ngay trong lần chạy; clip demo cắt từ dataset, không mô phỏng lại."
+    chu_de: [dau_ra]
+    trang_thai: hieu_luc
+    noi_luu: "bo_nho:lerobot-style-outputs.md"
+
+  - so: QD-VH-02
+    loai: QĐ
+    hm: [VH]
+    cap: 1
+    ngay: "2026-10-25 11:12"
+    ban_hanh: người dùng
+    trich_yeu: "PIF.md là tài liệu gốc duy nhất, bỏ nội dung cũ; mọi quyết định ghi ở §8 trước rồi mới làm."
+    chu_de: [tai_lieu]
+    trang_thai: da_sua
+    noi_luu: docs/PIF.md
+    moc: ["| Tài liệu | PIF.md là tài liệu gốc duy nhất", "**Đây là tài liệu gốc duy nhất**"]
+
+  - so: QD-VH-03
+    loai: QĐ
+    hm: [VH, DL, HL]
+    cap: 1
+    ngay: "2026-10-25"
+    ban_hanh: người dùng (quy tắc; nhắc lại 02/11 18:08)
+    trich_yeu: "Người dùng xem và duyệt video demo trước khi train."
+    pham_vi: [tat_ca]
+    chu_de: [duyet_truoc_train]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Duyệt demo |", "- **Trước khi thu lớn:** pilot nhỏ"]
+
+  - so: QC-VH-01
+    loai: QC
+    hm: [VH, LV]
+    cap: 1
+    ngay: "2026-10-25 11:14"
+    ban_hanh: người dùng
+    trich_yeu: "Quy tắc làm việc: tiếng Việt, giờ thật; làm đúng việc, job dài / tốn tiền hỏi trước, hết mốc dừng chờ duyệt; quyết định và tham số có nguồn hoặc số đo; có bằng chứng rồi mới nêu nguyên nhân; claim cần kết quả policy đã học; sửa 2–3 lần không xong thì dừng báo; commit không ghi công Claude; laptop giữ ≥ 3 GB RAM, choom, ≤ 2 worker; không sửa lerobot/; tổ chức theo config; RunPod chuẩn bị trước, theo dõi ≤ 5 phút, xoá pod ngay."
+    pham_vi: [tat_ca]
+    chu_de: [quy_tac.lam_viec]
+    trang_thai: hieu_luc
+    noi_luu: CLAUDE.md
+    moc: ["## Quy tắc bắt buộc"]
+    ghi_chu: "Bản trong PIF §10 cùng nội dung."
+
+  - so: QD-VH-04
+    loai: QĐ
+    hm: [VH, DL]
+    cap: 3
+    ngay: "2026-10-31 09:21"
+    ban_hanh: agent (sau sự cố kiểm toàn vẹn)
+    trich_yeu: "Trong lúc thu không sửa .py / .yaml / .sh trong intent_policy/, scripts/, configs/ (kiểm toàn vẹn sẽ dừng bộ thu); sửa code cho đợt sau làm trong worktree."
+    chu_de: [quy_tac.thu]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["| Thu v9 (31/10 09:21) |"]
+
+  - so: QC-VH-02
+    loai: QC
+    hm: [VH, TT]
+    cap: 1
+    ngay: "2026-11-06 02:20"
+    ban_hanh: người dùng (06/11, 02:09–02:20)
+    trich_yeu: "Quy chế quản lý hồ sơ đề tài: sổ đăng ký văn bản, hạng mục, loại, số hiệu, cấp, trạng thái; áp văn bản cấp cao hơn, cùng cấp thì văn bản sau; nghiệm thu bằng biên bản kèm quyết định phê duyệt; đối chiếu thường xuyên."
+    pham_vi: [tat_ca]
+    chu_de: [tai_lieu]
+    trang_thai: hieu_luc
+    sua: [QD-VH-02]
+    noi_luu: docs/ho_so/QUY_CHE_HO_SO.md
+    moc_pif: ["**Quyết định 06/11/2026 02:09–02:20 (người dùng): quản lý hồ sơ đề tài"]
+
+  - so: TTR-VH-01
+    loai: TTr
+    hm: [VH]
+    ngay: "2026-11-06 01:21"
+    ban_hanh: agent
+    trich_yeu: "Xin ý kiến: gộp code worktree ../intent_policy_dev (branch dev-v10-fixes, bản thu v10b) vào cây chính và commit."
+    chu_de: [code.git]
+    trang_thai: cho_quyet
+    noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
+
+  - so: TTR-VH-02
+    loai: TTr
+    hm: [VH, TT, DL]
+    ngay: "2026-11-06 02:30"
+    ban_hanh: agent (đối chiếu lần 1)
+    trich_yeu: "Ký hiệu trùng nghĩa: G1–G5 là bước của kế hoạch 03/11 nhưng G1–G4 cũng là cổng của task (G1 người ưu tiên, G3 lợi thời gian); C1–C4 vừa là trường hợp của T2 (§4) vừa là task Collaborator. Đề xuất đổi tên bước kế hoạch thành B0–B5 và gọi trường hợp T2 theo tên."
+    chu_de: [ky_hieu]
+    trang_thai: cho_quyet
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    moc: ["so: TTR-VH-02"]
+
+  - so: TTR-VH-03
+    loai: TTr
+    hm: [VH]
+    ngay: "2026-11-06 02:30"
+    ban_hanh: agent (đối chiếu lần 1)
+    trich_yeu: "CLAUDE.md và đầu PIF vẫn gọi docs/sim/PIPELINE_v6.md là 'việc đang làm', trong khi việc hiện tại là bộ 10 task (v9 / v10 / v10b). Đề xuất viết hướng dẫn chạy mới cho bộ 10 task và chuyển PIPELINE_v6 sang lưu trữ."
+    chu_de: [tai_lieu, pipeline]
+    trang_thai: cho_quyet
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    moc: ["so: TTR-VH-03"]
+
+# ───────────────────────── LV — Luận văn ─────────────────────────
+
+  - so: QD-LV-01
+    loai: QĐ
+    hm: [LV]
+    cap: 2
+    ngay: "2026-10-02"
+    ban_hanh: người dùng
+    trich_yeu: "Luận văn viết bằng LaTeX trong docs/thesis/, theo thể thức luận văn chương trình quốc tế UET nhưng viết tiếng Việt; TinyTeX, XeLaTeX + biber, LaTeX Workshop."
+    chu_de: [luan_van.the_thuc]
+    trang_thai: hieu_luc
+    noi_luu: "bo_nho:thesis-latex-setup.md"
+
+  - so: QD-LV-02
+    loai: QĐ
+    hm: [LV]
+    cap: 3
+    ngay: "2026-10-04"
+    ban_hanh: người dùng
+    trich_yeu: "Chỉ số HRIBench: công thức không kiểm được (thiếu Appendix A trên arXiv), TSync là điểm 0–1, Safety gộp; báo cáo là 'kiểu HRIBench'."
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    noi_luu: "bo_nho:hribench-metric-status.md"
+
+  - so: QD-LV-03
+    loai: QĐ
+    hm: [LV, VH]
+    cap: 1
+    ngay: "2026-10-15"
+    ban_hanh: người dùng ("nguồn từ này về sau trích tên bài tên tác giả năm thôi")
+    trich_yeu: "Trích nguồn chỉ ghi tên bài, tác giả, năm (không URL, không số arXiv); mọi phản biện phải dựa trên nghiên cứu hoặc số đo kiểm được."
+    chu_de: [nguon]
+    trang_thai: hieu_luc
+    noi_luu: "bo_nho:citation-format.md"
+
+  - so: QD-LV-04
+    loai: QĐ
+    hm: [LV, TT]
+    cap: 1
+    ngay: "2026-10-24 06:25"
+    ban_hanh: người dùng ("ghi nhớ kĩ")
+    trich_yeu: "Ba câu hỏi cốt lõi: Q1 policy nhận ý định dự đoán có làm sớm / nhanh hơn; Q2 ý định sai thì policy có sửa được không; Q3 benchmark HRI (phần lớn sim, sau ~100 tập robot thật)."
+    chu_de: [de_tai.muc_tieu]
+    trang_thai: hieu_luc
+    noi_luu: docs/PIF.md
+    moc: ["Câu hỏi khoá luận: Q1"]
