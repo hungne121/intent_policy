@@ -1,0 +1,232 @@
+scenario: c2_shelf_wipe
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      idle_clearance_m: 0.005
+      hand_rest:
+      - 0.51
+      - -0.36
+      - 0.685
+    objects:
+      S_A:
+        shape: box
+        size:
+        - 0.0125
+        - 0.0125
+        - 0.0125
+        color:
+        - 0.8
+        - 0.25
+        - 0.2
+        - 1.0
+        label: tea box
+      S_B:
+        shape: cylinder
+        size:
+        - 0.0125
+        - 0.0125
+        color:
+        - 0.95
+        - 0.8
+        - 0.3
+        - 1.0
+        label: spice jar
+      S_C:
+        shape: box
+        size:
+        - 0.0125
+        - 0.009
+        - 0.0125
+        color:
+        - 0.35
+        - 0.65
+        - 0.85
+        - 1.0
+        label: soap bar
+      SPONGE:
+        shape: sponge
+        size:
+        - 0.02
+        - 0.015
+        - 0.0075
+        handle:
+        - 0.008
+        - 0.01
+        - 0.015
+        color:
+        - 0.98
+        - 0.85
+        - 0.2
+        - 1.0
+        handle_color:
+        - 0.15
+        - 0.45
+        - 0.8
+        - 1.0
+        mass: 0.02
+        label: sponge with handle
+    decor:
+    - name: SH_A
+      type: open_box
+      xy:
+      - 0.2
+      - -0.06
+      half:
+      - 0.05
+      - 0.05
+      height: 0.025
+      wall: 0.003
+      color:
+      - 0.72
+      - 0.55
+      - 0.36
+      - 1.0
+    - name: SH_B
+      type: open_box
+      xy:
+      - 0.3
+      - -0.06
+      half:
+      - 0.05
+      - 0.05
+      height: 0.025
+      wall: 0.003
+      color:
+      - 0.72
+      - 0.55
+      - 0.36
+      - 1.0
+    - name: SH_C
+      type: open_box
+      xy:
+      - 0.4
+      - -0.06
+      half:
+      - 0.05
+      - 0.05
+      height: 0.025
+      wall: 0.003
+      color:
+      - 0.72
+      - 0.55
+      - 0.36
+      - 1.0
+  scene_variation:
+    c2:
+      floor_m: 0.003
+      tool: SPONGE
+      tool_park_xy:
+      - 0.12
+      - 0.16
+      tool_grasp:
+        pad_below_tcp_m: 0.0373
+        opening_m: 0.016
+        close_ticks: 15
+      dirt:
+        grid: 4
+        pitch_m: 0.018
+        half_m:
+        - 0.006
+        - 0.008
+        half_thick_m: 0.0003
+        jitter_m: 0.002
+        color:
+        - 0.3
+        - 0.22
+        - 0.13
+        - 1.0
+        contact_m: 0.002
+        coverage: 0.9
+  expert:
+    wipe_pattern: boustrophedon
+    rows_m:
+    - -0.02
+    - 0.0
+    - 0.02
+    stroke_m: 0.015
+    tool_press_m: 0.0002
+  human_behavior:
+    raise_s:
+    - 0.32
+    - 0.48
+    approach_descend_s:
+    - 0.28
+    - 0.42
+    pad_top_m: 0.003
+    set_down:
+      xy:
+      - 0.55
+      - -0.19
+      gap_m: 0.0005
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+scene_coverage_reviewed: true
+gate:
+  object_decor_pairs:
+  - SPONGE
+  allowed_contacts:
+  - geom_a: SPONGE_geom
+    geom_b: decor_SH_A_0
+    robot_stages:
+    - descend_wipe
+    - wipe
+  - geom_a: SPONGE_geom
+    geom_b: decor_SH_A_0
+    robot_stages:
+    - lift_wipe
+    - retreat_claim
+    robot_stage_window_s: 0.05
+  - geom_a: SPONGE_geom
+    geom_b: decor_SH_B_0
+    robot_stages:
+    - descend_wipe
+    - wipe
+  - geom_a: SPONGE_geom
+    geom_b: decor_SH_B_0
+    robot_stages:
+    - lift_wipe
+    - retreat_claim
+    robot_stage_window_s: 0.05
+  - geom_a: SPONGE_geom
+    geom_b: decor_SH_C_0
+    robot_stages:
+    - descend_wipe
+    - wipe
+  - geom_a: SPONGE_geom
+    geom_b: decor_SH_C_0
+    robot_stages:
+    - lift_wipe
+    - retreat_claim
+    robot_stage_window_s: 0.05
+  contact_rules:
+  - kind: robot_manipulation
+    max_penetration_m: 0.003
+    stages:
+    - close_hand
+  - kind: table_support
+    max_penetration_m: 0.001
+  - kind: support
+    max_penetration_m: 0.002
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    stages:
+    - reach_item
+    - descend_item
+    - put_back
+    - set_down_item
+  require_hymotion_labels:
+  - reach_item
+  hymotion_allow_short: true
+cases:
+  nominal: {}
+source_definition: ten_task_v10b (06/11/2026), redo per 01/BB-DL / 01/KH-DL

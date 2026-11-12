@@ -1,0 +1,136 @@
+scenario: c3_cloth_bowl
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      idle_clearance_m: 0.005
+      hand_rest:
+      - 0.51
+      - -0.36
+      - 0.685
+    decor:
+    - name: TA
+      type: box
+      xy:
+      - 0.25
+      - 0.08
+      size:
+      - 0.075
+      - 0.065
+      - 0.003
+      color: tray2
+    - name: TB
+      type: box
+      xy:
+      - 0.39
+      - -0.14
+      size:
+      - 0.075
+      - 0.065
+      - 0.003
+      color: tray2
+  human_behavior:
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+    wait_offsets_xy:
+      TA:
+      - 0.17
+      - 0.0
+      TB:
+      - 0.16
+      - 0.0
+  scene_variation:
+    c3:
+      trays:
+        TA:
+        - 0.25
+        - 0.08
+        TB:
+        - 0.39
+        - -0.14
+      cloth_xy:
+      - 0.62
+      - -0.26
+  expert:
+    hold_offsets_xy:
+      TA:
+      - -0.03
+      - 0.13
+      TB:
+      - -0.12
+      - 0.14
+    safe_retarget: true
+scene_coverage_reviewed: true
+gate:
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:
+    - onto_cloth_lower
+    - settle_before_release
+    - release
+    - put_back_lower
+  - kind: robot_manipulation
+    max_penetration_m: 0.003
+    stages:
+    - close
+    - settle_grasp
+    - lift
+    - hold_aside
+    - await_cloth
+    - onto_cloth_transport
+    - onto_cloth_lower
+    - settle_before_release
+    - release
+    - retreat
+    - put_back_transport
+    - put_back_lower
+  - kind: support
+    max_penetration_m: 0.002
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    stages:
+    - reach_cloth
+  require_hymotion_labels:
+  - carry_cloth
+  - withdraw
+cases:
+  nominal: {}
+  forecast_fault:
+    scene_variation:
+      c3:
+        forecast_fault:
+          factor:
+          - 0.8
+          - 1.2
+          extra_s: 0.5
+          ramp_s: 0.2
+  switch_before_commit:
+    scene_variation:
+      c3:
+        switch:
+          kind: before
+          hold_s:
+          - 0.1
+          - 0.6
+  switch_after_commit:
+    scene_variation:
+      c3:
+        switch:
+          kind: after
+          clock: human_arrival
+          delay_s:
+          - 3.9
+          - 4.9
+source_definition: ten_task_v9 (06/11/2026), redo per 01/BB-DL / 01/KH-DL
+case_validators:
+  switch_after_commit: c3_after_lift

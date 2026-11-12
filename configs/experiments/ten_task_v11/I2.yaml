@@ -1,0 +1,134 @@
+scenario: i2_side_request
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      hang_blend_m: 0.1
+      hang_rest_upright: true
+      idle_clearance_m: 0.005
+      hang_blend_palm_up: true
+    objects:
+      L1:
+        grasp_dz: 0.015
+        color: yellow
+        label: left kind (yellow) item 1
+      L2:
+        grasp_dz: 0.015
+        color: yellow
+        label: left kind (yellow) item 2
+      R1:
+        grasp_dz: 0.015
+        color: blue
+        label: right kind (blue) item 1
+      R2:
+        grasp_dz: 0.015
+        color: blue
+        label: right kind (blue) item 2
+    decor:
+    - name: RBOX
+      type: open_box
+      xy:
+      - 0.25
+      - 0.25
+      half:
+      - 0.08
+      - 0.08
+      height: 0.05
+      wall: 0.004
+      color: box
+  human_behavior:
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+  scene_variation:
+    i2:
+      distractor_p: 0.0
+      start_motion:
+        forward_m:
+        - 0.03
+        - 0.05
+        up_m:
+        - 0.06
+        - 0.09
+        duration_s:
+        - 0.6
+        - 1.0
+        rest_s:
+        - 0.3
+        - 0.8
+    w1:
+      robot_box:
+        xy:
+        - 0.25
+        - 0.25
+        half:
+        - 0.08
+        - 0.08
+        height: 0.05
+        wall: 0.004
+      drop_slots:
+      - - 0.0
+        - -0.05
+      - - 0.0
+        - 0.0
+      - - 0.0
+        - 0.05
+  expert:
+    extend_m: 0.093
+    place_gap_m: 0.005
+scene_coverage_reviewed: true
+gate:
+  container_exempt: true
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:
+    - close
+    - settle_grasp
+    - lift
+    - lower_box
+    - release
+  - kind: robot_manipulation
+    max_penetration_m: 0.0035
+    stages:
+    - descend
+    - settle_before_grasp
+    - close
+    - settle_grasp
+    - lift
+    - to_box
+    - lower_box
+    - release
+    - retreat
+  - kind: container
+    max_penetration_m: 0.002
+  - kind: support
+    max_penetration_m: 0.002
+  require_hymotion_labels:
+  - request_out
+cases:
+  nominal:
+    scene_variation:
+      i2:
+        signal_hold_s:
+        - 1.0
+        - 1.5
+    human_behavior:
+      signal_xyz:
+        l:
+        - 0.16
+        - -0.25
+        - 0.72
+        r:
+        - 0.44
+        - -0.25
+        - 0.72
+source_definition: ten_task_v9 (06/11/2026), redo per 01/BB-DL / 01/KH-DL

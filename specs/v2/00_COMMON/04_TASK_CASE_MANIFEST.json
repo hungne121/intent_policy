@@ -1,0 +1,114 @@
+[
+  {
+    "task_id": "I1",
+    "case_id": "nominal",
+    "group": "Instructor",
+    "observed_doc": "01_INSTRUCTOR/I1_OBSERVED.md",
+    "intent_doc": "01_INSTRUCTOR/I1_INTENT.md"
+  },
+  {
+    "task_id": "I2",
+    "case_id": "nominal",
+    "group": "Instructor",
+    "observed_doc": "01_INSTRUCTOR/I2_OBSERVED.md",
+    "intent_doc": "01_INSTRUCTOR/I2_INTENT.md"
+  },
+  {
+    "task_id": "I3",
+    "case_id": "nominal",
+    "group": "Instructor",
+    "observed_doc": "01_INSTRUCTOR/I3_OBSERVED.md",
+    "intent_doc": "01_INSTRUCTOR/I3_INTENT.md"
+  },
+  {
+    "task_id": "I3",
+    "case_id": "switch_before_commit",
+    "group": "Instructor",
+    "observed_doc": "01_INSTRUCTOR/I3_OBSERVED.md",
+    "intent_doc": "01_INSTRUCTOR/I3_INTENT.md"
+  },
+  {
+    "task_id": "I3",
+    "case_id": "switch_after_commit",
+    "group": "Instructor",
+    "observed_doc": "01_INSTRUCTOR/I3_OBSERVED.md",
+    "intent_doc": "01_INSTRUCTOR/I3_INTENT.md"
+  },
+  {
+    "task_id": "C1",
+    "case_id": "nominal",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C1_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C1_INTENT.md"
+  },
+  {
+    "task_id": "C1",
+    "case_id": "switch_before_commit",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C1_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C1_INTENT.md"
+  },
+  {
+    "task_id": "C1",
+    "case_id": "switch_after_commit",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C1_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C1_INTENT.md"
+  },
+  {
+    "task_id": "C2",
+    "case_id": "nominal",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C2_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C2_INTENT.md"
+  },
+  {
+    "task_id": "C3",
+    "case_id": "nominal",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C3_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C3_INTENT.md"
+  },
+  {
+    "task_id": "C4",
+    "case_id": "nominal",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C4_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C4_INTENT.md"
+  },
+  {
+    "task_id": "C4",
+    "case_id": "switch_before_commit",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C4_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C4_INTENT.md"
+  },
+  {
+    "task_id": "C4",
+    "case_id": "switch_after_commit",
+    "group": "Collaborator",
+    "observed_doc": "02_COLLABORATOR/C4_OBSERVED.md",
+    "intent_doc": "02_COLLABORATOR/C4_INTENT.md"
+  },
+  {
+    "task_id": "W1",
+    "case_id": "nominal",
+    "group": "Coworker",
+    "observed_doc": "03_COWORKER/W1_OBSERVED.md",
+    "intent_doc": "03_COWORKER/W1_INTENT.md"
+  },
+  {
+    "task_id": "W2",
+    "case_id": "nominal",
+    "group": "Coworker",
+    "observed_doc": "03_COWORKER/W2_OBSERVED.md",
+    "intent_doc": "03_COWORKER/W2_INTENT.md"
+  },
+  {
+    "task_id": "W3",
+    "case_id": "nominal",
+    "group": "Coworker",
+    "observed_doc": "03_COWORKER/W3_OBSERVED.md",
+    "intent_doc": "03_COWORKER/W3_INTENT.md"
+  }
+]

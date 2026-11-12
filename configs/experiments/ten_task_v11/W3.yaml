@@ -1,0 +1,82 @@
+scenario: w3_lint_roll
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      idle_clearance_m: 0.005
+      hand_rest:
+      - 0.51
+      - -0.36
+      - 0.685
+    # v11 (spec W3 bản 2 §6.2): 16 cm trays on cloth pads within the robot's wiping reach (0.18-0.42 m: PAD_B's +x half
+    # was out of reach at 0.41), the robot holds C2's sponge, dirt marks vanish where it passes (>= 90 % = wiped)
+    objects:
+      TA: {shape: box, size: [0.08, 0.05, 0.008], color: tray, mass: 0.3, friction: '2.0 0.1 0.001', label: tray A (16 x 10 cm)}
+      TB: {shape: box, size: [0.08, 0.05, 0.008], color: tray2, mass: 0.3, friction: '2.0 0.1 0.001', label: tray B (16 x 10 cm)}
+      SPONGE: {shape: sponge, size: [0.02, 0.015, 0.0075], handle: [0.008, 0.010, 0.015], color: [0.98, 0.85, 0.20, 1.0],
+               handle_color: [0.15, 0.45, 0.80, 1.0], mass: 0.02, label: sponge with handle}
+    decor:
+    - {name: PAD_A, type: box, xy: [0.21, -0.07], size: [0.08, 0.05, 0.001], color: [0.62, 0.66, 0.72, 1.0]}
+    - {name: PAD_B, type: box, xy: [0.39, -0.07], size: [0.08, 0.05, 0.001], color: [0.62, 0.66, 0.72, 1.0]}
+  scene_variation:
+    w3:
+      pads: {PAD_A: [0.21, -0.07], PAD_B: [0.39, -0.07]}
+    c2:
+      pads: {PAD_A: [0.21, -0.07], PAD_B: [0.39, -0.07]}   # (the dirt marks are laid from these)
+      floor_m: 0.002                # the pad's top: the sponge wipes there
+      tool: SPONGE
+      tool_park_xy: [0.12, 0.16]
+      tool_grasp: {pad_below_tcp_m: 0.0373, opening_m: 0.016, close_ticks: 15}   # as C2 (gripper_probe.py 06/11)
+      dirt:
+        grid: 3
+        pitch_m: 0.02               # marks over +-2.8 cm; the boustrophedon below covers +-5 cm x +-3.5 cm
+        half_m: [0.006, 0.008]
+        half_thick_m: 0.0003
+        jitter_m: 0.003
+        color: [0.30, 0.22, 0.13, 1.0]
+        contact_m: 0.002
+        coverage: 0.9               # 49/QĐ-DL (C2 Q3, same rule)
+  expert:
+    conflict_trays_m: null          # 49/QĐ-DL: no waiting because the other tray is near; claim + verified retreat stay
+    wipe_pattern: boustrophedon     # as C2 (Choset 2001)
+    rows_m: [-0.02, 0.0, 0.02]
+    stroke_m: 0.03
+    tool_press_m: 0.0005
+  human_behavior:
+    hands_apart_m: 0.16             # both hands at the 16 cm tray's ends
+    grip_offset_xy: [0.08, 0.0]
+    two_hand_reach: true            # the left hand with the right in reach_tray / withdraw (it jumped: 8.0 m/s, 13:35)
+    hand_clearance: {shape_by_progress: true}
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+scene_coverage_reviewed: true
+gate:
+  object_decor_pairs: [SPONGE]      # the held sponge x the pads (as C2)
+  allowed_contacts:                 # its bottom on the pad being wiped, while wiping (<= pair max 1 mm), as C2
+  - {geom_a: SPONGE_geom, geom_b: decor_PAD_A_0, robot_stages: [descend_wipe, wipe]}
+  - {geom_a: SPONGE_geom, geom_b: decor_PAD_A_0, robot_stages: [lift_wipe, retreat_claim], robot_stage_window_s: 0.05}
+  - {geom_a: SPONGE_geom, geom_b: decor_PAD_B_0, robot_stages: [descend_wipe, wipe]}
+  - {geom_a: SPONGE_geom, geom_b: decor_PAD_B_0, robot_stages: [lift_wipe, retreat_claim], robot_stage_window_s: 0.05}
+  human_motion_check:
+    max_hold_gap_m: 0.005           # 49/QĐ-DL (W1 rule), both hands on the tray
+  contact_rules:
+  - kind: robot_manipulation        # the fingers on the sponge's handle (held all along)
+    max_penetration_m: 0.003
+    stages: [close_hand]
+  - kind: table_support
+    max_penetration_m: 0.001
+  - kind: support
+    max_penetration_m: 0.002
+  require_hymotion_labels: []
+cases:
+  nominal: {}
+source_definition: ten_task_v10b (06/11/2026), redo per 01/BB-DL / 01/KH-DL

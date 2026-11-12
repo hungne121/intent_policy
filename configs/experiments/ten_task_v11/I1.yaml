@@ -1,0 +1,131 @@
+scenario: i1_coaster_sequence
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      idle_clearance_m: 0.005
+      hand_rest:
+      - 0.51
+      - -0.36
+      - 0.685
+  scene_variation:
+    sequence:
+      # 49/QĐ-DL Q2 (06/11): the coaster stack at the human's right, beyond the robot's reach. v9 row (x 0.34 / 0.45 /
+      # 0.56, y -0.28): forearm 4.6 / 9.8 mm into the torso above / at CO1, the rest hand 1.8 mm into CO3. This row
+      # (geom_probe.py 06/11 19:3x, outputs/diag/i1_v11_2026-11-06): arm clear of the body by >= 104 mm at every
+      # approach / reach pose, rest hand > 30 mm from every coaster, hand 19-20 mm from the next coaster still there
+      items:
+      - cup: C1
+        coaster: CO1
+        cup_xy: [0.07, 0.28]
+        coaster_xy: [0.60, -0.26]
+      - cup: C2
+        coaster: CO2
+        cup_xy: [0.31, 0.28]
+        coaster_xy: [0.70, -0.26]
+      - cup: C3
+        coaster: CO3
+        cup_xy: [0.28, 0.14]
+        coaster_xy: [0.80, -0.26]
+      # a spot whose put / carry-end pose has the arm < 1 cm from the own body is not drawn (the gate's slab check,
+      # 1 cm as human_behavior.body_clearance.margin_m; the near-left part of the region measured up to 76 mm inside)
+      destination_body_clearance_m: 0.01
+      # a spot is not drawn if the grasp hand, lowered there, would need lifting over a cup on an earlier spot: same
+      # measure as hand_clearance_lift (gap 3 mm) and reserved_obstacles (footprint + 1 cm); no new tolerance (max_lift_m
+      # is _clear_hand's own "no lift" limit). Probe 07/11 (scripts/diag/i1_hand_footprint_probe.py): the hand needs
+      # 0.117-0.140 m towards the human, minimum_spacing_m is 0.115; seed 300103 static +82.8 mm, simulated +82.6 mm
+      destination_hand_clearance:
+        gap_m: 0.003
+        pad_m: 0.01
+        max_lift_m: 0.0001
+        samples: 7
+  human_behavior:
+    level_on_put:
+      labels: [lower_coaster, set_down_coaster]
+      sync_weld_pose: true
+    # set_down_gap_m is the release limit (SequentialCoasterHuman._put); aim below it: aiming at the limit itself refused
+    # seed 300100 CO2 at 0.5003 mm (07/11). Second-pass error measured -0.021..+0.0003 mm around the aim (5 distinct releases)
+    set_down_gap_m: 0.0005
+    set_down_aim_m: 0.00045
+    # the planner's own gap (hand_clearance_lift held_margin, default 0.5 mm = the release limit) pushed that aim back up:
+    # second pass +0.1018 mm, released at 0.545 mm (seed 300103, 07/11). Below the aim for this motion only; gate unchanged
+    hand_clearance:
+      held_margin_by_label:
+        set_down_coaster: 0.0002
+      # only the meshes shown at each sample (as W1-W3): testing 'relaxed' from the first sample of a withdraw, still shown
+      # as 'grasp', lifted sample 1 by 173 mm: palm +169 mm in one tick, head 3.46 m/s (seed 300103, 07/11)
+      shape_by_progress: true
+      # that alone left +138 mm in one tick, 2.946 m/s, 58.9 m/s2 (gate limit 3 m/s only just met, same seed)
+      preserve_start_clearance: true
+    set_down_s: 0.3
+    set_down_passes: 2
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+scene_coverage_reviewed: true
+gate:
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:            # the cup the robot grasps still stands on the table (pilot 13:14: C1-C3 x table 0.0 mm)
+    - close
+    - settle_grasp
+    - lift
+    - lower
+    - settle_before_release
+    - release
+  - kind: robot_manipulation
+    max_penetration_m: 0.003
+    stages:
+    - close
+    - settle_grasp
+    - lift
+    - transport
+    - above_spot
+    - approach_spot
+    - await_coaster
+    - lower
+    - settle_before_release
+    - release
+    - retreat
+    - clear_up
+  - kind: support
+    max_penetration_m: 0.002
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    stages:
+    - reach_coaster
+    - source_approach
+  require_hymotion_labels:
+  - carry_coaster
+  - withdraw
+  - source_approach
+cases:
+  nominal: {}
+  forecast_fault:
+    scene_variation:
+      sequence:
+        forecast_fault:
+          yaw_deg:
+          - 45
+          - 75
+          extra_s: 0.5
+          ramp_s: 0.2
+  switch_before_commit:
+    scene_variation:
+      sequence:
+        switch:
+          kind: before
+          # 49/QĐ-DL Q1: carried all the way to A, held over A for hold_s (human clock, seed), then on to B. v9 turned
+          # at 40-70 % of the way, 0.35-1.16 s into the carry: early had barely moved (spec dac_ta_v11/I1.md)
+          hold_s: [0.1, 0.6]
+          min_turn_m: 0.15
+source_definition: ten_task_v9 (06/11/2026), redo per 01/BB-DL / 01/KH-DL; I1 spec v2 49/QĐ-DL (switch_after dropped)

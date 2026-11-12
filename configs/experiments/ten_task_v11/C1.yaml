@@ -1,0 +1,124 @@
+scenario: c1_handover
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      idle_clearance_m: 0.005
+      hand_rest:
+      - 0.51
+      - -0.36
+      - 0.685
+  human_behavior:
+    cue_onset_s: [0.4, 0.8]         # 01/KH-DL 1b (49/QĐ-DL): the first move after >= 0.4 s of ManiCast history ([0.2, 0.6]
+                                    #   started it before); the range keeps its 0.4 s width
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+scene_coverage_reviewed: true
+rules:
+  early:
+    expert:
+      trigger: goal
+      goal_rule: early
+      grasp_settle_ticks: 0
+      guard_withdrawal: true
+      over_hand_clearance_m: 0.025
+      guard_reaching_hand:
+        react_s: 0.15
+  observed:
+    expert:
+      trigger: goal
+      goal_rule: observed
+      grasp_settle_ticks: 0
+      guard_withdrawal: true
+      over_hand_clearance_m: 0.025
+      guard_reaching_hand:
+        react_s: 0.15
+gate:
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:
+    - close
+    - settle_grasp
+    - lift
+  - kind: robot_manipulation
+    max_penetration_m: 0.003
+    stages:
+    - close
+    - settle_grasp
+    - lift
+    - to_staging
+    - staging
+    - zone_hedge
+    - over_hand
+    - settle_over_hand
+    - to_handover
+    - time_descent
+    - descend
+    - await_let_go
+    - wait_pull
+    - release
+  - kind: support
+    max_penetration_m: 0.002
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    stages:
+    - work
+    - take_object
+    - pulling
+    - wait_release
+    - reach_own
+    - grasp_own
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    objects:
+    - CAN
+    stages:
+    - reach_out
+    - waiting_offer
+    robot_stages:
+    - to_handover
+    - wait_pull
+    - release
+  - kind: handover
+    max_penetration_m: 0.001
+    stages:
+    - take_object
+    - pulling
+    - wait_release
+  require_hymotion_labels:
+  - reach_out
+cases:
+  nominal: {}
+  forecast_fault:
+    expert:
+      forecast_fault_anchor:
+        labels:
+        - reach_out
+        yaw_deg:
+        - 45
+        - 75
+        extra_s: 0.5
+        ramp_s: 0.2
+  withdraw_and_retry:
+    human_behavior:
+      withdraw_lower:
+        dz_m: 0.05
+        back_m: 0.1
+        s: 0.5
+      cancel_before_contact_m: 0.03
+      cases:
+      - C4
+      cancel_after_ready_s:
+      - 0.1
+      - 1.6
+source_definition: ten_task_v10 (06/11/2026), redo per 01/BB-DL / 01/KH-DL

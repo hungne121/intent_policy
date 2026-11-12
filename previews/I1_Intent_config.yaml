@@ -1,0 +1,257 @@
+applicable_metrics:
+- CSR
+- CT
+- IR
+- TSync
+- Rsp
+- OC
+- AM
+- WCR
+- WCD
+- CRsp
+collection_ready: false
+expert:
+  rule: early
+  travel_dz: 0.2
+  trigger: cue_complete
+goal: Three identical cups on three coasters placed by the human, left middle right.
+human_behavior:
+  body_clearance:
+    iterations: 6
+    margin_m: 0.01
+    max_depth_m: 0.001
+  carry_height_m: 0.12
+  carry_s:
+  - 1.0
+  - 1.5
+  cue_onset_s:
+  - 0.4
+  - 3.5
+  grip_dz_m: 0.089
+  hand_clearance:
+    held_margin_by_label:
+      set_down_coaster: 0.0002
+    iterations: 3
+    preserve_start_clearance: true
+    shape_by_progress: true
+    window_s: 0.25
+  level_on_put:
+    from_progress: 0.5
+    labels:
+    - lower_coaster
+    - set_down_coaster
+    sync_weld_pose: true
+  lower_s:
+  - 0.4
+  - 0.6
+  motion_bank: null
+  point_dwell_s:
+  - 0.3
+  - 0.5
+  point_s:
+  - 1.0
+  - 1.0
+  rest_s:
+  - 0.9
+  - 1.2
+  set_down_aim_m: -0.0002
+  set_down_gap_m: 0.0005
+  set_down_passes: 2
+  set_down_s: 0.3
+  source_approach_height_m: 0.14
+  source_approach_s: 0.6
+  source_raise_s: 0.4
+  speed_scale:
+  - 0.8
+  - 1.25
+  spot_jitter_m: 0.02
+  take_reach_s:
+  - 0.8
+  - 1.2
+  type: t3_coaster
+  yield_to_robot:
+    before_start: false
+    lookahead_s: 0.25
+    max_wait_s: 3.0
+intention_change:
+  late_trigger_m: 0.15
+  probability: 0.0
+metric_params:
+  am_cue_complete:
+    event_type: protocol_step_complete
+    step: coaster_placed
+  commit_stage: region
+  ir_start:
+    event_type: protocol_step_complete
+    step: coaster_placed
+  rsp_response: robot_motion_start
+  rsp_trigger:
+    event_type: protocol_step_complete
+    step: coaster_taken
+  tsync_human:
+    event_type: protocol_step_complete
+    step: coaster_placed
+  tsync_robot:
+    event_type: protocol_step_complete
+    step: cup_on_coaster
+protocol_steps:
+- coaster_placed_CO1
+- coaster_placed_CO2
+- coaster_placed_CO3
+- cup_grasped_C1
+- cup_on_coaster_C1
+- sequence_round_complete_C1
+- cup_grasped_C2
+- cup_on_coaster_C2
+- sequence_round_complete_C2
+- cup_grasped_C3
+- cup_on_coaster_C3
+- sequence_round_complete_C3
+role: instructor
+safety_constraints:
+  forbid_human_contact: true
+scenario_id: i1_coaster_sequence
+scene:
+  base: ../scene/common.yaml
+  cameras:
+    high:
+      fovy: 65
+      pos:
+      - 0.4
+      - 1.15
+      - 1.85
+      target:
+      - 0.4
+      - -0.04
+      - 0.85
+    top:
+      fovy: 65
+      pos:
+      - 0.4
+      - 0.05
+      - 1.85
+      target:
+      - 0.4
+      - 0.05
+      - 0.62
+  grasp_attach_substep: true
+  grasp_hold_squeeze_m: 0.0
+  human:
+    hand_mesh_mode: compiled_variants
+    hand_rest:
+    - 0.51
+    - -0.36
+    - 0.685
+    held_object_frame: hand
+    idle_clearance_m: 0.005
+    idle_palm_offset:
+    - 0.12
+    - 0.07
+    - 0.5
+  objects:
+    C1:
+      color: white
+      label: identical white cup
+      shape: cup
+      size:
+      - 0.036
+      - 0.085
+    C2:
+      color: white
+      label: identical white cup
+      shape: cup
+      size:
+      - 0.036
+      - 0.085
+    C3:
+      color: white
+      label: identical white cup
+      shape: cup
+      size:
+      - 0.036
+      - 0.085
+    CO1:
+      color: cork
+      label: coaster 1
+      shape: cylinder
+      size:
+      - 0.045
+      - 0.003
+    CO2:
+      color: cork
+      label: coaster 1
+      shape: cylinder
+      size:
+      - 0.045
+      - 0.003
+    CO3:
+      color: cork
+      label: coaster 1
+      shape: cylinder
+      size:
+      - 0.045
+      - 0.003
+  zone_markers: false
+scene_variation:
+  coaster: CO1
+  cup: C1
+  object_jitter_m: 0.008
+  object_yaw_rad: 0.2
+  robot_home_jitter_rad: 0.04
+  sequence:
+    destination_body_clearance_m: 0.01
+    destination_hand_clearance:
+      gap_m: 0.003
+      max_lift_m: 0.0001
+      pad_m: 0.01
+      samples: 7
+    destination_max_xy:
+    - 0.38
+    - -0.04
+    destination_min_xy:
+    - 0.18
+    - -0.2
+    items:
+    - coaster: CO1
+      coaster_xy:
+      - 0.6
+      - -0.26
+      cup: C1
+      cup_xy:
+      - 0.07
+      - 0.28
+    - coaster: CO2
+      coaster_xy:
+      - 0.7
+      - -0.26
+      cup: C2
+      cup_xy:
+      - 0.31
+      - 0.28
+    - coaster: CO3
+      coaster_xy:
+      - 0.8
+      - -0.26
+      cup: C3
+      cup_xy:
+      - 0.28
+      - 0.14
+    min_base_distance_m: 0.22
+    minimum_spacing_m: 0.115
+    pause_before_s:
+    - 0.0
+    - 0.0
+    sampling_attempts: 500
+    sampling_restarts: 20
+  variant: coaster
+seed: 0
+success_conditions:
+  object_speed_max: 0.04
+  on_coaster_xy_m: 0.02
+  other_object_moved_max_m: 0.02
+  rest_tolerance_m: 0.04
+task: Đặt lần lượt ba cốc lên ba đế người đặt, rồi trở về nghỉ.
+task_code: T3
+timing:
+  stable_s: 0.5
+  timeout_s: 100.0

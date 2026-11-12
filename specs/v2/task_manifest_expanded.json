@@ -1,0 +1,250 @@
+{
+  "source": {
+    "reference": "specs/00_COMMON/04_TASK_CASE_MANIFEST.json",
+    "sha256": "69ea1f08af75239452cd823a3b38223776f3512c4229f0686049874e425f3177",
+    "files_sha256": {
+      "00_COMMON/01_RULES_AND_INTERFACES.md": "c050a67232dce142fcbc907ac464550d579ed72702c546089791530a4ad1df86",
+      "00_COMMON/02_CASE_MATRIX.md": "dcfcdbf778ad1bc7947e78b2e197cbd1950a4aabf2a7d96fc04c8faa7f7298ad",
+      "00_COMMON/03_VERIFICATION_AND_METRICS.md": "9a2d646098d46a0ef8c0b8442282864d8157dc55d992b12230f329067a1a5d27",
+      "00_COMMON/04_TASK_CASE_MANIFEST.json": "69ea1f08af75239452cd823a3b38223776f3512c4229f0686049874e425f3177",
+      "00_COMMON/05_SYSTEM_ARCHITECTURE_REFERENCE.md": "7ca0e73b726e356678fd5f6cdc864b72f266d792d6fe6ac04592ce5ead096a64",
+      "00_COMMON/06_POLICY_LEARNING_REFERENCE.md": "7c5e29aded3c3b637b73b46d93c39b3bd11c0c0568fa76cbddf0d2b018625bc5",
+      "00_README_START_HERE.md": "18062637539caf1108b5ed7d952da4a3326a543d92d37dc89f841bfdbcfe881c",
+      "01_INSTRUCTOR/I1_INTENT.md": "b25bd50aa6bb3e04b9a63a703394f1bf41926aa20aef3ca0598748943a6c31b8",
+      "01_INSTRUCTOR/I1_OBSERVED.md": "6b4fb81658157efed13e174d1de689538b37a55d64b84608bba1fd4d86fc1b08",
+      "01_INSTRUCTOR/I2_INTENT.md": "f8681693bdfa05dece0950fb11d647c9cece8b2115c4adf9fa1b4ef7c6050572",
+      "01_INSTRUCTOR/I2_OBSERVED.md": "88e622423f75e18c855fe91f1b5d71a52d49d07ff930b8ed5d9321351fb68518",
+      "01_INSTRUCTOR/I3_INTENT.md": "66ab26f376c80cf12e6c015cf4b545838d67e3f24448f94165064cc7a7b4e961",
+      "01_INSTRUCTOR/I3_OBSERVED.md": "e0579e5d63448abcc715c66119b919b5a48430370729b3f55c8f4db3ab374637",
+      "02_COLLABORATOR/C1_INTENT.md": "2cab2203f3077534727f869db7b0eb82f6e7f40be11926694d724c92f64ee7ca",
+      "02_COLLABORATOR/C1_OBSERVED.md": "779894accef6ff9c9d179465ff8c7b41f2ff4a67a41abdcbee8d4866c2d290f5",
+      "02_COLLABORATOR/C2_INTENT.md": "37f207d28c6927a269eb0f45d3364a944a2db05f771f2954dda2cdabdd32b41d",
+      "02_COLLABORATOR/C2_OBSERVED.md": "300565236f598fb4ce9d9181f89a2ad467f72145f68c3cddbde1e606f1da18c3",
+      "02_COLLABORATOR/C3_INTENT.md": "af28757b71d92be00530b0c2efc3ab00a145f3018dee0aea381551ca0ecff119",
+      "02_COLLABORATOR/C3_OBSERVED.md": "11d8c651627b2fd642424ef2deb507cb30928aca1282ced6377e875eab39d19f",
+      "02_COLLABORATOR/C4_INTENT.md": "9380ea808e5fa3b4a24893fbb7548a7bb82e4d6e26e4ff4e6118d43cf6f5a9ce",
+      "02_COLLABORATOR/C4_OBSERVED.md": "153fa92a963a15d4f17034dc90254c927d9c52bac2054e7178af77c0c4a0b364",
+      "03_COWORKER/W1_INTENT.md": "69fc7f4b3244a7790dfe375cd6cc96baaae08084869c4420595872aea87c343b",
+      "03_COWORKER/W1_OBSERVED.md": "67254c21fff2fb89a54b2d8b0a12c73b67a5e0be84e6d89847134dd5632bca7b",
+      "03_COWORKER/W2_INTENT.md": "1342e6e245e740b08896bb13104e098db2d96d7f4e045d7f7f5fbdff06b36de8",
+      "03_COWORKER/W2_OBSERVED.md": "de0b60b23bb82c6401610a671383bcedccec0b18c1638b0748161302bbdcac88",
+      "03_COWORKER/W3_INTENT.md": "1d9388d60ebb93163e823f91141152f9bd5fce565c0a20f2963f07dde357c9e1",
+      "03_COWORKER/W3_OBSERVED.md": "2da022af84fb9dd91b6d0539265eb58b58b4db92f3f6f6d2aea7ff5150635bcb",
+      "C1_AMENDMENT_2026-11-10.md": "d4b6c55dc0952e624e9340c9672fa30cc09bbd7d24553ff158e9b4f932234cd0"
+    }
+  },
+  "status": "design_only_not_pilot_validated",
+  "tasks": [
+    {
+      "id": "I1",
+      "group": "Instructor",
+      "scene": "## A. Bố trí scene và vật thể\n1. Ba cốc giống hệt nhau nằm trước robot, trong tầm gắp; mỗi cốc có ID nội bộ để kiểm tra nhưng ID không cấp cho ACT.\n2. Người cầm hoặc lần lượt lấy ba lót; các vùng đặt nằm trái, giữa, phải; vị trí chính xác trong mỗi vùng thay đổi theo seed.\n3. Một lót chỉ được tính sẵn sàng đặt khi đã chạm bàn, ổn định và bàn tay người rời vùng cấm đặt.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Người lần lượt mang từng lót đến vùng ngẫu nhiên chưa dùng, đặt xuống, rút tay, tiếp tục lót sau.\n2. Tốc độ, quỹ đạo, khoảng dừng và thứ tự trái/giữa/phải khác nhau giữa episode; không thay đổi lựa chọn giữa chừng.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Đúng 3 cốc tương ứng 3 lót; không trùng cốc, không dùng lại cốc đã đặt.\n- Không thả cốc khi lót chưa ổn định hoặc tay người chưa rời vùng.",
+      "event_labels": "## G. Log và đo lường\n- Mỗi lượt: t_lót_ổn_định, t_robot_ready, t_cốc_đặt; độ trễ từ lúc lót ổn định đến cốc được đặt (không âm), tổng 3 lượt.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Đúng 3 cốc tương ứng 3 lót; không trùng cốc, không dùng lại cốc đã đặt.\n- Không thả cốc khi lót chưa ổn định hoặc tay người chưa rời vùng.",
+      "source_location": "01_INSTRUCTOR/I1_OBSERVED.md",
+      "intent_source": "01_INSTRUCTOR/I1_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Ba cốc ở nguồn; ba vùng lót trống. | Cầm/nhặt lót đầu, chưa đặt. | Nhận diện nhiệm vụ đã được giao qua scene; giữ tư thế an toàn, có thể tiếp cận vùng nguồn cốc. | task_active |\n| 1 | Một lót đang trên tay người. | Đưa lót tới vùng được chọn, đường đi chưa hoàn tất. | Theo dõi tay và lót; được chuẩn bị gripper hoặc tiếp cận cốc, không được giả định đích cuối. | human_motion_onset |\n| 2 | Đích lót đang dần lộ ra. | Tiếp tục di chuyển lót về khu vực đặt. | Nếu vị trí lót đã quan sát đủ rõ và vùng đường đi an toàn, chọn cốc chưa dùng và bắt đầu vận chuyển; nếu chưa rõ, làm prep không phụ thuộc đích. | target_observed |\n| 3 | Lót đã chạm bàn nhưng tay có thể còn ở gần. | Thả lót, rút tay. | Đưa cốc tới vị trí dựa trên quan sát; chưa hạ khi bàn tay chưa rời vùng. | human_ready |\n| 4 | Lót đứng yên, vùng đặt trống. | Rút về/nhặt lót tiếp theo. | Căn chỉnh cốc, hạ và nhả vào đúng lót; kiểm tra cốc đứng vững. | place_complete |\n| 5 | Còn hai lót chưa đặt. | Lặp lại với các lót tiếp theo. | Tiếp tục theo scene hiện tại, không sử dụng cốc đã đặt. | repeat |\n| 6 | Ba lót đã có cốc. | Ngừng thao tác. | Rút tay về nghỉ, xác nhận đủ 3/3. | episode_end |",
+          "source_location": "01_INSTRUCTOR/I1_OBSERVED.md#C."
+        }
+      ]
+    },
+    {
+      "id": "I2",
+      "group": "Instructor",
+      "scene": "## A. Bố trí scene và vật thể\n1. Ba đĩa nhận xếp trái/giữa/phải trước người; một chiếc bánh trên đĩa nguồn ở phía robot, thẳng trục đĩa giữa.\n2. Các đĩa có vị trí cố định trong scene nhưng được jitter nhỏ để tránh học một quỹ đạo tuyệt đối; cử chỉ người chỉ một đĩa ngẫu nhiên.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Hai tay thả lỏng; một tay đưa lên chỉ vào đúng một đĩa, giữ chỉ đủ để thấy rõ, sau đó hạ xuống.\n2. Không đổi chỉ dẫn trong nominal; không áp đặt robot phải chờ đến khi người đã hạ tay nếu đã có đủ bằng chứng và an toàn.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Bánh ở đúng đĩa được chỉ, không chỉ dựa trên hướng cuối cổ tay nếu chưa xác nhận bằng quan sát.\n- Bánh không bị đặt sớm khi người còn chiếm vùng đặt.",
+      "event_labels": "## G. Log và đo lường\n- t_chỉ_bắt_đầu, t_chỉ_rõ, t_robot_pick, t_place; tốc độ đáp ứng từ cử chỉ và CT.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Bánh ở đúng đĩa được chỉ, không chỉ dựa trên hướng cuối cổ tay nếu chưa xác nhận bằng quan sát.\n- Bánh không bị đặt sớm khi người còn chiếm vùng đặt.",
+      "source_location": "01_INSTRUCTOR/I2_OBSERVED.md",
+      "intent_source": "01_INSTRUCTOR/I2_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Ba đĩa trống, bánh nguồn chưa được lấy. | Hai tay nghỉ. | Quan sát, có thể sẵn sàng tiếp cận bánh nếu task active. | task_active |\n| 1 | Một trong ba đĩa được chỉ. | Đưa tay lên bắt đầu chỉ. | Theo dõi hướng tay; chưa quyết định đĩa nếu cử chỉ còn mơ hồ. | gesture_onset |\n| 2 | Hướng chỉ tay đủ rõ. | Giữ tư thế chỉ tại đích ngẫu nhiên. | Khóa lựa chọn hiện quan sát, tiến tới/gắp bánh từ đĩa nguồn. | target_observed |\n| 3 | Người rút tay khỏi vùng đặt. | Hạ tay về nghỉ. | Mang bánh tới đĩa vừa được chỉ, căn chỉnh và tránh tay người. | robot_transport |\n| 4 | Đĩa đích trống và an toàn. | Quan sát robot. | Đặt bánh, nhả, rút gripper. | place_complete |\n| 5 | Bánh ở đúng đĩa. | Kết thúc. | Xác minh mục tiêu qua vị trí bánh. | episode_end |",
+          "source_location": "01_INSTRUCTOR/I2_OBSERVED.md#C."
+        }
+      ]
+    },
+    {
+      "id": "I3",
+      "group": "Instructor",
+      "scene": "## A. Bố trí scene và vật thể\n1. Hai khay nguồn giống nhau trước người; mỗi khay có một chiếc bánh loại X và một chiếc loại Y.\n2. Một đĩa nhận trống phía robot. Lựa chọn là một trong bốn chiếc bánh cụ thể, phân biệt cả khay lẫn loại bánh.\n3. Có vùng đặt trả hợp lệ cho mỗi bánh, robot có thể hoàn trả bánh A khi đổi ý muộn.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Nominal: chỉ rõ một bánh rồi hạ tay.\n2. Switch: chỉ bánh A đủ rõ, sau đó chuyển cử chỉ sang bánh B khác A; lịch đổi ý phát hành từ motion clip cố định.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Phân biệt bánh bằng khay/slot, không chỉ loại; chỉ một bánh cuối cùng ở đĩa nhận.\n- Switch_after: bánh A phải được trả vào khay nguồn/vùng trả hợp lệ trước khi gắp B.",
+      "event_labels": "## G. Log và đo lường\n- t_gesture, t_pick_A, t_switch, t_pick_B, t_place, thời gian phục hồi và tỷ lệ chọn nhầm.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Phân biệt bánh bằng khay/slot, không chỉ loại; chỉ một bánh cuối cùng ở đĩa nhận.\n- Switch_after: bánh A phải được trả vào khay nguồn/vùng trả hợp lệ trước khi gắp B.",
+      "source_location": "01_INSTRUCTOR/I3_OBSERVED.md",
+      "intent_source": "01_INSTRUCTOR/I3_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Hai khay chứa đủ bốn bánh. | Hai tay nghỉ. | Ở tư thế sẵn sàng; nhận dạng nguồn và đĩa nhận. | task_active |\n| 1 | Người bắt đầu chỉ một trong bốn bánh. | Đưa tay về bánh mục tiêu. | Quan sát hướng tay và vị trí đầu ngón; chưa đoán đích cuối từ ID script. | gesture_onset |\n| 2 | Bánh mục tiêu đã có dấu hiệu nhận biết. | Giữ chỉ dẫn. | Xác định đúng chiếc bánh vật lý (khay + slot), tiếp cận từ hướng khả thi. | target_observed |\n| 3 | Cử chỉ đủ rõ. | Rút tay khỏi vùng gắp. | Gắp đúng bánh, nhấc lên an toàn. | robot_commit |\n| 4 | Đĩa nhận trống. | Quan sát. | Vận chuyển bánh về đĩa nhận; xác minh không có chỉ dẫn mới. | transport |\n| 5 | Vùng đĩa nhận trống. | Không can thiệp. | Đặt bánh, nhả, rút tay. | transfer_complete |\n| 6 | Đĩa nhận chứa bánh đã chọn. | Kết thúc. | Xác minh đúng bánh và kết thúc. | episode_end |",
+          "source_location": "01_INSTRUCTOR/I3_OBSERVED.md#C."
+        },
+        {
+          "id": "switch_before_commit",
+          "description": "## D. Case `switch_before_commit` — đổi ý sớm\n\n**Điều kiện tạo case:** Người đã biểu lộ mục tiêu A bằng hành động có thể quan sát, rồi đổi sang B. Tại mốc đổi ý, robot của pilot tham chiếu chưa thực hiện bước phụ thuộc vào A cần hoàn tác. Khi chạy mô hình khác phải giữ nguyên clip người, báo `semantic_mismatch` nếu quan hệ cam kết không đạt.\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Bốn bánh đều còn nguồn. | Chỉ bánh A đủ để nhận ra. | Quan sát và có thể tiến tới A; chưa gắp A. | target_A |\n| 1 | A chưa bị gắp. | Chuyển cử chỉ rõ ràng A → B (B khác A). | Hủy đích A sau khi quan sát, đổi tiếp cận tới B; không gắp A. | switch_observed |\n| 2 | B còn nguồn. | Giữ chỉ B rồi rút tay. | Gắp B, đặt vào đĩa nhận, về nghỉ. | complete |\n\n\n**Đầu ra bắt buộc:** Đích B được thực hiện; vật/khay/linh kiện A không bị thao tác sai sau khi tín hiệu đổi ý được quan sát đủ rõ.",
+          "source_location": "01_INSTRUCTOR/I3_OBSERVED.md#D."
+        },
+        {
+          "id": "switch_after_commit",
+          "description": "## E. Case `switch_after_commit` — đổi ý muộn\n\n**Điều kiện tạo case:** Lựa chọn A đã khiến robot pilot tham chiếu thực sự gắp/nhấc vật A trước thời điểm switch; người đổi sang B **trước khi chuyển giao/đặt xong**. Không đổi lịch người riêng cho bản Intent. Nếu một chính sách chưa commit thì phải báo khác biệt trạng thái thay vì tự cho nó xem nhãn SA.\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Bốn bánh đều còn nguồn. | Chỉ bánh A. | Gắp và nhấc A dựa trên tín hiệu hiện tại. | commit_A |\n| 1 | A đang được robot giữ, chưa đặt lên đĩa nhận. | Đổi cử chỉ A → B trước khi robot đặt A. | Khi quan sát switch, dừng đặt A vào đĩa nhận; giữ chắc A. | switch_observed |\n| 2 | Khay nguồn A còn vùng trả hợp lệ. | Giữ chỉ B. | Trả A về vùng nguồn hợp lệ; xác minh A ổn định. | undo |\n| 3 | B vẫn còn nguồn. | Giữ/hoàn tất chỉ B. | Gắp B rồi đặt vào đĩa nhận; về nghỉ. | complete |\n\n\n**Đầu ra bắt buộc:** Hoàn tác thao tác cũ khi cần rồi hoàn thành B, không làm sai trạng thái các vật còn lại; đo thời gian phục hồi, sai-cam-kết và can thiệp an toàn.",
+          "source_location": "01_INSTRUCTOR/I3_OBSERVED.md#E."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "group": "Collaborator",
+      "scene": "## A. Bố trí scene và vật thể\n1. Hai khay trái và phải trên bàn, mỗi khay đặt một chiếc cốc; khay tách đủ để robot cầm cốc mà không chắn đường người.\n2. Người xuất hiện từ vị trí xa bàn, cầm khăn thứ nhất, đi đến trước khay muốn trải; sau đó xử lý khay còn lại bằng khăn thứ hai.\n3. Một vùng tạm giữ cốc an toàn cho robot (cầm trên không hoặc bệ phụ hợp lệ) được xác định trong scene; không buộc người chờ tại một mốc giây cứng.\n\nCẬP NHẬT 10/11/2026: mỗi khay có khăn đặt sẵn phía trước; người đi từ xa tới khay được chọn rồi cầm khăn của khay đó và mở ra. Không còn cầm khăn trong lúc đi tới. Xem specs/C1_AMENDMENT_2026-11-10.md; giữ các điều kiện thành công và hai lượt.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Từ xa đi về khay A/B ngẫu nhiên, đứng phía trước khay, mở khăn và chuẩn bị trải khi cốc được nhấc.\n2. Trải khăn xong và rút tay, sau đó chuyển khay còn lại.\n3. SB: đang đi về A thì rẽ sang B trước khi robot nhấc cốc A; SA: đã thể hiện đứng trước A, robot nhấc cốc A rồi người đổi quyết định đi sang B, chưa trải khăn ở A.\n\nCẬP NHẬT 10/11/2026: mỗi khay có khăn đặt sẵn phía trước; người đi từ xa tới khay được chọn rồi cầm khăn của khay đó và mở ra. Không còn cầm khăn trong lúc đi tới. Xem specs/C1_AMENDMENT_2026-11-10.md; giữ các điều kiện thành công và hai lượt.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Người phải đi từ vị trí xa và đứng trước khay lựa chọn; đây là cue chính, không thay bằng tay chỉ.\n- Không được trải khăn khi cốc còn trên khay; không được đặt cốc lại khi tay người/khăn chưa rời.\n- Hai cốc cuối cùng đúng khay và hai khăn nằm dưới cốc đúng vị trí.",
+      "event_labels": "## G. Log và đo lường\n- t_đi_từ_xa, t_đứng_trước_khay, t_nhấc_cốc, t_trải_xong, t_đặt_cốc; thời gian chờ người trước khi khay trống.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Người phải đi từ vị trí xa và đứng trước khay lựa chọn; đây là cue chính, không thay bằng tay chỉ.\n- Không được trải khăn khi cốc còn trên khay; không được đặt cốc lại khi tay người/khăn chưa rời.\n- Hai cốc cuối cùng đúng khay và hai khăn nằm dưới cốc đúng vị trí.",
+      "source_location": "02_COLLABORATOR/C1_OBSERVED.md",
+      "intent_source": "02_COLLABORATOR/C1_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Hai khay trái/phải mỗi khay một cốc. | Đứng xa, cầm khăn 1. | Ở vị trí nghỉ; có thể chuẩn bị vị trí trung gian dùng được cho hai khay. | task_active |\n| 1 | Người đang ở xa và bắt đầu tới bàn. | Đi về phía khay ngẫu nhiên A. | Theo dõi vị trí/hướng tiếp cận; chưa biết chắc khay, không tự nhấc một cốc chỉ từ reset. | human_motion_onset |\n| 2 | Người tiến gần khay A. | Đi tiếp tới vị trí đứng trước A. | Khi bằng chứng hiện tại đủ rõ, tiếp cận cốc A; tránh chiếm đường đi người. | target_observed |\n| 3 | Người đứng trước A và chuẩn bị trải. | Mở khăn, đưa tới khay A nhưng chưa kéo dưới cốc. | Gắp và nhấc cốc A khỏi khay; kiểm tra cốc đã rời bề mặt và vùng trải trống. | robot_commit |\n| 4 | Vùng trải khay A đã trống. | Trải khăn lên khay A. | Giữ cốc ở vùng tạm an toàn, không hạ chồng lên tay/khăn đang di chuyển. | human_work |\n| 5 | Khăn A được trải phẳng. | Rút tay khỏi khay A. | Hạ cốc vào đúng khay A trên khăn sau khi xác nhận trống và ổn định. | place_complete |\n| 6 | Một khay đã xong. | Lấy/mở khăn 2 và đi sang khay còn lại. | Rút tay và tiếp tục quan sát; không tự nhấc cốc còn lại khi người chưa tiến hành lượt tiếp. | repeat |\n| 7 | Hai khay được trải khăn, cốc được trả lại. | Kết thúc. | Về nghỉ, xác nhận 2/2. | episode_end |\n\nCẬP NHẬT 10/11/2026: mỗi khay có khăn đặt sẵn phía trước; người đi từ xa tới khay được chọn rồi cầm khăn của khay đó và mở ra. Không còn cầm khăn trong lúc đi tới. Xem specs/C1_AMENDMENT_2026-11-10.md; giữ các điều kiện thành công và hai lượt.",
+          "source_location": "02_COLLABORATOR/C1_OBSERVED.md#C."
+        },
+        {
+          "id": "switch_before_commit",
+          "description": "## D. Case `switch_before_commit` — đổi ý sớm\n\n**Điều kiện tạo case:** Người đã biểu lộ mục tiêu A bằng hành động có thể quan sát, rồi đổi sang B. Tại mốc đổi ý, robot của pilot tham chiếu chưa thực hiện bước phụ thuộc vào A cần hoàn tác. Khi chạy mô hình khác phải giữ nguyên clip người, báo `semantic_mismatch` nếu quan hệ cam kết không đạt.\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Hai khay trái/phải chưa trải, người ở xa. | Mang khăn 1 đi theo hướng khay A. | Quan sát hướng di chuyển; có thể tiến tư thế trung gian. | approach_A |\n| 1 | Người chưa đứng vào vị trí trải A; cốc A vẫn ở khay. | Rẽ đi sang B, tiếp tục tiến tới đứng trước B. | Cập nhật khay mục tiêu theo vị trí/di chuyển thực; không nhấc A. | switch_observed |\n| 2 | Người đứng trước B. | Mở khăn, chờ B được làm trống. | Nhấc cốc B; chờ người trải B rồi trả cốc B. | complete_B |\n| 3 | B đã hoàn thành. | Đi sang A trải khăn thứ hai. | Hỗ trợ trải A và về nghỉ. | complete_A |\n\n\n**Đầu ra bắt buộc:** Đích B được thực hiện; vật/khay/linh kiện A không bị thao tác sai sau khi tín hiệu đổi ý được quan sát đủ rõ.\n\nCẬP NHẬT 10/11/2026: mỗi khay có khăn đặt sẵn phía trước; người đi từ xa tới khay được chọn rồi cầm khăn của khay đó và mở ra. Không còn cầm khăn trong lúc đi tới. Xem specs/C1_AMENDMENT_2026-11-10.md; giữ các điều kiện thành công và hai lượt.",
+          "source_location": "02_COLLABORATOR/C1_OBSERVED.md#D."
+        },
+        {
+          "id": "switch_after_commit",
+          "description": "## E. Case `switch_after_commit` — đổi ý muộn\n\n**Điều kiện tạo case:** Lựa chọn A đã khiến robot pilot tham chiếu thực sự gắp/nhấc vật A trước thời điểm switch; người đổi sang B **trước khi chuyển giao/đặt xong**. Không đổi lịch người riêng cho bản Intent. Nếu một chính sách chưa commit thì phải báo khác biệt trạng thái thay vì tự cho nó xem nhãn SA.\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Người xa bàn, cả hai khay chưa trải. | Đi tới A, mở khăn/đứng trước A. | Nhấc cốc A khi quan sát thấy yêu cầu đủ rõ. | commit_A |\n| 1 | Cốc A đã được robot nhấc nhưng khăn chưa trải. | Rời vị trí A, quay sang đi tới B. | Nhận ra người không còn chuẩn bị trải A; giữ cốc A an toàn. | switch_observed |\n| 2 | Khay A còn trống khăn. | Đi tới B. | Đặt trả cốc A lên khay A (chưa trải), không chờ người quay lại. | undo |\n| 3 | Người đứng trước B. | Mở khăn, chờ B trống. | Nhấc cốc B; giữ trong khi người trải; đặt lại B đúng lúc. | complete_B |\n| 4 | B xong. | Lấy khăn thứ hai, đi lại A. | Nhấc A, chờ trải khăn A, đặt lại A, về nghỉ. | complete_A |\n\n\n**Đầu ra bắt buộc:** Hoàn tác thao tác cũ khi cần rồi hoàn thành B, không làm sai trạng thái các vật còn lại; đo thời gian phục hồi, sai-cam-kết và can thiệp an toàn.\n\nCẬP NHẬT 10/11/2026: mỗi khay có khăn đặt sẵn phía trước; người đi từ xa tới khay được chọn rồi cầm khăn của khay đó và mở ra. Không còn cầm khăn trong lúc đi tới. Xem specs/C1_AMENDMENT_2026-11-10.md; giữ các điều kiện thành công và hai lượt.",
+          "source_location": "02_COLLABORATOR/C1_OBSERVED.md#E."
+        }
+      ],
+      "amendment_source": "C1_AMENDMENT_2026-11-10.md"
+    },
+    {
+      "id": "C2",
+      "group": "Collaborator",
+      "scene": "## A. Bố trí scene và vật thể\n1. Kệ dài giữa người và robot; một cốc và một khối đại diện đồng hồ trên hai vị trí riêng, mỗi vị trí có vết bẩn dưới vật.\n2. Người giữ khăn lau nhỏ ở đầu episode; thứ tự nhấc cốc hay đồng hồ ngẫu nhiên.\n3. Vùng tiếp nhận khăn và vùng chuyển giao phải có thể tiếp cận an toàn.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Đưa khăn cho robot và chờ robot giữ chắc rồi thả.\n2. Nhấc ngẫu nhiên vật đầu, giữ nó lên khỏi vùng bẩn; sau khi robot rút tay mới đặt vật lại; lặp với vật thứ hai.\n3. Cuối lượt nhận lại khăn khi robot đã đưa ra và chưa nhả.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Chỉ lau khi đúng vật đã nhấc và vết bẩn thực tế lộ.\n- Đặt vật lại chỉ sau khi robot rút khỏi vùng; không thả khăn trước khi người giữ.",
+      "event_labels": "## G. Log và đo lường\n- Độ trễ từ lúc vùng bẩn trống đến robot bắt đầu lau; thời gian người phải giữ vật chờ robot rút.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Chỉ lau khi đúng vật đã nhấc và vết bẩn thực tế lộ.\n- Đặt vật lại chỉ sau khi robot rút khỏi vùng; không thả khăn trước khi người giữ.",
+      "source_location": "02_COLLABORATOR/C2_OBSERVED.md",
+      "intent_source": "02_COLLABORATOR/C2_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Hai vật đang che hai vết bẩn. | Cầm khăn lau. | Giữ tay kẹp trống, sẵn sàng tiếp nhận. | task_active |\n| 1 | Người đưa khăn về robot. | Chìa khăn để trao. | Đưa gripper tới điểm nhận đang quan sát, kẹp khăn. | handover_start |\n| 2 | Robot đã kẹp khăn. | Thả khăn, rút tay. | Chỉ kéo khăn về khi quyền giữ vật đã chuyển thành công. | handover_complete |\n| 3 | Hai vật còn trên kệ. | Chọn ngẫu nhiên cốc/đồng hồ; bắt đầu nâng vật đầu. | Quan sát vật nào được nhấc, có thể chuẩn bị tư thế lau chung. | human_motion_onset |\n| 4 | Vết bẩn thứ nhất lộ ra khi vật đã rời kệ. | Giữ vật ở độ cao tránh va chạm. | Đi tới vùng trống vừa lộ, lau bề mặt tương ứng. | wipe_start |\n| 5 | Vết bẩn thứ nhất đã sạch. | Chờ robot rút khỏi vùng rồi đặt lại vật. | Rút khăn hoàn toàn khỏi vùng trước khi người hạ vật. | wipe_end |\n| 6 | Vật đầu đã đặt lại. | Nhấc vật còn lại. | Di chuyển sang vị trí trống tiếp theo khi được phép. | repeat |\n| 7 | Vết bẩn thứ hai lộ ra. | Giữ vật thứ hai. | Lau vùng bẩn còn lại, rút khỏi vùng. | wipe_end_2 |\n| 8 | Hai vật đã ở lại vị trí đầu. | Đưa tay ra nhận khăn. | Đưa khăn về tay người. | return_handover |\n| 9 | Người nắm khăn. | Giữ chắc khăn rồi rút tay. | Xác nhận người giữ khăn mới nhả, về nghỉ. | episode_end |",
+          "source_location": "02_COLLABORATOR/C2_OBSERVED.md#C."
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "group": "Collaborator",
+      "scene": "## A. Bố trí scene và vật thể\n1. Khay lớn, dài nằm giữa người và robot, có tay nắm phía người và phía robot.\n2. Người cầm khăn bằng một tay và dùng tay còn lại nắm một tay nắm; robot kẹp tay nắm phía mình.\n3. Mô hình vật lý phải có cách mô phỏng hai điểm nâng ổn định và vùng lau mặt bàn dưới khay.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Dùng tay trống nắm tay nắm phía người, chờ robot nắm chắc; cùng nâng khay.\n2. Giữ khay bằng một tay, dùng tay kia lau phần bàn vừa lộ; rút khăn ra rồi cùng hạ; cuối cùng buông tay nắm.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Hai tác nhân thực sự cùng nâng và hạ một khay; không lược thành chỉ robot tự nâng.\n- Độ nghiêng, độ cao và tiếp xúc phải hợp lý; hạ sau khi tay lau đã rời gầm.",
+      "event_labels": "## G. Log và đo lường\n- Độ lệch thời điểm/độ cao nâng và hạ giữa người–robot, thời gian người chờ robot gắp tay nắm.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Hai tác nhân thực sự cùng nâng và hạ một khay; không lược thành chỉ robot tự nâng.\n- Độ nghiêng, độ cao và tiếp xúc phải hợp lý; hạ sau khi tay lau đã rời gầm.",
+      "source_location": "02_COLLABORATOR/C3_OBSERVED.md",
+      "intent_source": "02_COLLABORATOR/C3_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Khay nằm trên bàn; hai tay nắm rảnh. | Một tay giữ khăn, tay kia nghỉ. | Ở tư thế nghỉ, quan sát tay người. | task_active |\n| 1 | Người đưa tay trống đến tay nắm. | Tiếp cận và nắm tay nắm phía mình. | Có thể tiếp cận tay nắm phía robot, tránh làm khay xoay. | human_grasp |\n| 2 | Người nắm tay nắm. | Chờ robot sẵn sàng. | Kẹp tay nắm phía robot và xác nhận grasp. | robot_grasp |\n| 3 | Cả hai tác nhân nắm khay. | Bắt đầu nâng khay. | Nâng đồng bộ với chuyển động người, kiểm soát độ nghiêng và lực/constraint. | lift_onset |\n| 4 | Khay đã ở cao độ đủ để lau. | Giữ khay, tay cầm khăn lau mặt bàn bên dưới. | Duy trì khay ổn định, không đẩy/giật theo chuyển động khăn. | wipe_under |\n| 5 | Vùng dưới khay đã sạch. | Rút tay cầm khăn khỏi gầm khay. | Không hạ trước khi đường hạ trống. | wipe_end |\n| 6 | Hai bên còn nắm khay. | Hạ khay. | Hạ đồng bộ, giảm nghiêng và đặt khay an toàn. | lower_onset |\n| 7 | Khay đã đặt vững. | Buông tay nắm phía người. | Nhả tay nắm khi khay đứng vững, rút về nghỉ. | episode_end |",
+          "source_location": "02_COLLABORATOR/C3_OBSERVED.md#C."
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "group": "Collaborator",
+      "scene": "## A. Bố trí scene và vật thể\n1. Đế lắp có ba ổ trái/giữa/phải, mỗi ổ cần một linh kiện tương ứng (ký hiệu A/B/C hoặc hình dạng/độ tương thích khác).\n2. Ba linh kiện ở vùng robot gắp được; có vị trí trả lại linh kiện đang cầm an toàn trong case SA.\n3. Người chọn thứ tự lắp ngẫu nhiên, mỗi lượt đưa tay tới vùng ổ cần lắp và ngửa bàn tay ngay tại đó.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Trong mỗi lượt chọn một ổ còn trống, đưa tay tới vùng đó, ngửa bàn tay chờ nhận linh kiện.\n2. Khi linh kiện đã được người giữ chắc, lắp ngay vào ổ tương ứng và chuyển lượt tiếp.\n3. SB: tay định tới A rồi đổi đến B trước khi robot gắp linh kiện A; SA: đổi sang B sau khi robot gắp linh kiện A nhưng trước khi trao.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Ba ổ lắp đúng linh kiện; mỗi lượt người ngửa tay ngay tại ổ, không dời tay tới khay nhận riêng.\n- Robot nhả linh kiện khi người thật sự nắm, không theo forecast; SA phải trả A rồi gắp B.",
+      "event_labels": "## G. Log và đo lường\n- t_tay_bắt_đầu, t_tay_ngửa, t_robot_ready, t_handover, t_install, chờ người, trả sai linh kiện, recovery.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Ba ổ lắp đúng linh kiện; mỗi lượt người ngửa tay ngay tại ổ, không dời tay tới khay nhận riêng.\n- Robot nhả linh kiện khi người thật sự nắm, không theo forecast; SA phải trả A rồi gắp B.",
+      "source_location": "02_COLLABORATOR/C4_OBSERVED.md",
+      "intent_source": "02_COLLABORATOR/C4_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Ba ổ trống; ba linh kiện tại nguồn. | Hai tay nghỉ. | Nhận diện trạng thái đế và linh kiện, giữ gripper an toàn. | task_active |\n| 1 | Người bắt đầu hướng tay về một ổ. | Đưa tay về ổ lựa chọn A. | Quan sát động tác; có thể chuẩn bị đi tới khu vực lấy linh kiện. | human_motion_onset |\n| 2 | Tay người gần ổ A. | Ngửa lòng bàn tay tại vị trí lắp. | Xác định ổ qua vị trí tay thực; chọn đúng linh kiện tương ứng, gắp. | target_observed |\n| 3 | Tay đang mở tại A. | Giữ lòng bàn tay nhận. | Đưa linh kiện đến tư thế trao phù hợp với tay đang quan sát, không ép vào tay. | transport |\n| 4 | Tay người chạm và nắm vật. | Nắm chắc linh kiện. | Xác nhận vật được người giữ (ownership/contact), rồi nhả và rút. | handover_complete |\n| 5 | Ổ A còn trống cho đến khi lắp xong. | Đưa linh kiện vào ổ A, lắp và rút tay. | Không xâm nhập vùng lắp, cập nhật trạng thái ổ đã đầy. | install_complete |\n| 6 | Còn hai ổ trống. | Chọn ổ tiếp theo, lặp lại. | Lặp lại các bước tương ứng, không lấy lại linh kiện đã trao. | repeat |\n| 7 | Đủ ba linh kiện đúng ổ. | Kết thúc. | Về nghỉ, xác minh 3/3. | episode_end |",
+          "source_location": "02_COLLABORATOR/C4_OBSERVED.md#C."
+        },
+        {
+          "id": "switch_before_commit",
+          "description": "## D. Case `switch_before_commit` — đổi ý sớm\n\n**Điều kiện tạo case:** Người đã biểu lộ mục tiêu A bằng hành động có thể quan sát, rồi đổi sang B. Tại mốc đổi ý, robot của pilot tham chiếu chưa thực hiện bước phụ thuộc vào A cần hoàn tác. Khi chạy mô hình khác phải giữ nguyên clip người, báo `semantic_mismatch` nếu quan hệ cam kết không đạt.\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Ba ổ còn trống, linh kiện A/B/C tại nguồn. | Đưa tay theo hướng ổ A. | Quan sát, có thể chuẩn bị lấy linh kiện chung; chưa gắp A. | approach_A |\n| 1 | Robot chưa gắp linh kiện A. | Chuyển hướng tới ổ B. | Cập nhật đích; không gắp A. | switch_observed |\n| 2 | Tay người ngửa ngay tại ổ B. | Giữ lòng bàn tay sẵn sàng nhận. | Gắp linh kiện B, trao đúng tay, chỉ nhả khi người giữ. | handover_B |\n| 3 | Ổ B đã lắp. | Tiếp tục hai ổ còn lại. | Hỗ trợ các lượt khác theo nominal. | complete |\n\n\n**Đầu ra bắt buộc:** Đích B được thực hiện; vật/khay/linh kiện A không bị thao tác sai sau khi tín hiệu đổi ý được quan sát đủ rõ.",
+          "source_location": "02_COLLABORATOR/C4_OBSERVED.md#D."
+        },
+        {
+          "id": "switch_after_commit",
+          "description": "## E. Case `switch_after_commit` — đổi ý muộn\n\n**Điều kiện tạo case:** Lựa chọn A đã khiến robot pilot tham chiếu thực sự gắp/nhấc vật A trước thời điểm switch; người đổi sang B **trước khi chuyển giao/đặt xong**. Không đổi lịch người riêng cho bản Intent. Nếu một chính sách chưa commit thì phải báo khác biệt trạng thái thay vì tự cho nó xem nhãn SA.\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Ba ổ trống, linh kiện còn nguồn. | Đưa tay tới ổ A. | Gắp và nâng linh kiện A, bắt đầu đưa về phía A. | commit_A |\n| 1 | Robot đang giữ A, người chưa nắm A. | Rút hướng A, đưa tay tới B. | Sau khi quan sát đổi ý, dừng trao A, giữ chắc vật. | switch_observed |\n| 2 | Bàn tay người ngửa tại ổ B. | Chờ nhận đúng B. | Trả linh kiện A về khay nguồn ổn định; không giao A tại B. | undo |\n| 3 | Linh kiện B còn nguồn. | Giữ tay nhận tại B. | Gắp B, trao vào tay, xác nhận người nắm rồi nhả. | handover_B |\n| 4 | Ổ B được lắp, còn A/C. | Lắp B rồi tiếp các ổ còn lại. | Hỗ trợ cho tới khi đủ ba ổ. | complete |\n\n\n**Đầu ra bắt buộc:** Hoàn tác thao tác cũ khi cần rồi hoàn thành B, không làm sai trạng thái các vật còn lại; đo thời gian phục hồi, sai-cam-kết và can thiệp an toàn.",
+          "source_location": "02_COLLABORATOR/C4_OBSERVED.md#E."
+        }
+      ]
+    },
+    {
+      "id": "W1",
+      "group": "Coworker",
+      "scene": "## A. Bố trí scene và vật thể\n1. Bố trí bốn khay theo thứ tự nguồn bánh (4 bánh), khay nhận L, khay nhận R, nguồn lon (2 lon), với vùng thao tác chung ở hai khay nhận.\n2. Người có kẹp gắp bánh; robot gắp lon bằng gripper; người làm nhanh hơn robot có thể đang gắp bánh thứ 3 khi robot mới xử lý lon thứ 2.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Gắp lần lượt bốn bánh từ nguồn và bỏ ngẫu nhiên vào L hoặc R; không cần cân bằng số bánh nếu bản gốc không yêu cầu.\n2. Không chờ robot trừ khi có xung đột không gian thực tế; rút tay về nghỉ sau bánh thứ tư.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Mỗi khay nhận đúng một lon, tổng bốn bánh đều ở hai khay nhận.\n- Không ép mỗi khay phải có đúng hai bánh nếu không có trong yêu cầu người dùng.\n- Không cản trở người chỉ để tăng tốc độ robot.",
+      "event_labels": "## G. Log và đo lường\n- Thời gian robot bị nhường đường, overlap thời gian làm việc, CT của nhóm, va chạm người/kẹp/robot.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Mỗi khay nhận đúng một lon, tổng bốn bánh đều ở hai khay nhận.\n- Không ép mỗi khay phải có đúng hai bánh nếu không có trong yêu cầu người dùng.\n- Không cản trở người chỉ để tăng tốc độ robot.",
+      "source_location": "03_COWORKER/W1_OBSERVED.md",
+      "intent_source": "03_COWORKER/W1_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Bốn bánh ở nguồn, hai khay nhận trống, hai lon ở nguồn. | Cầm kẹp gắp bánh. | Nhận nhiệm vụ đặt một lon vào mỗi khay nhận; chọn lon ở nguồn. | task_active |\n| 1 | Người thao tác ở khay nhận. | Gắp bánh đầu, đặt ngẫu nhiên L/R. | Tiếp cận và nhấc lon thứ nhất; theo dõi tay/kẹp người để chọn đường vào khay trống an toàn. | parallel_start |\n| 2 | Khay nhận có thể đang bị kẹp người chiếm. | Gắp bánh thứ hai. | Đặt lon thứ nhất vào khay nhận gần robot nếu không xung đột; nếu xung đột, điều chỉnh nhịp/tư thế. | can_place_1 |\n| 3 | Người tiếp tục bánh 3. | Gắp bánh thứ ba. | Gắp lon thứ hai, theo dõi khay còn thiếu lon. | can_pick_2 |\n| 4 | Người có thể thao tác khay bất kỳ. | Gắp bánh thứ tư. | Đặt lon thứ hai vào khay chưa có lon khi an toàn. | can_place_2 |\n| 5 | Bốn bánh đã phân bổ, hai khay mỗi khay có một lon. | Rút tay và kẹp. | Rút gripper về nghỉ, kiểm tra kết quả. | episode_end |",
+          "source_location": "03_COWORKER/W1_OBSERVED.md#C."
+        }
+      ]
+    },
+    {
+      "id": "W2",
+      "group": "Coworker",
+      "scene": "## A. Bố trí scene và vật thể\n1. Ba khay đích cho đỏ, xanh dương và xanh lục; sáu khối nguồn mỗi màu hai khối nằm ngẫu nhiên trên vùng lấy chung.\n2. Khối có ID nguồn, màu, trạng thái hiện được giữ bởi ai; robot và người có thể tiếp cận một số khối giống nhau.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Lấy các khối theo thứ tự ngẫu nhiên, bỏ khay theo màu; người có thể làm nhanh hơn robot.\n2. Nếu vật đã bị robot giữ, người chọn vật khác còn sẵn; không dựng xung đột chủ ý thành biến thể.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Sáu khối đúng màu, không tranh chấp vật đang được người giữ/tiếp cận.\n- Không đưa nhãn vật người sẽ lấy từ human-script cho ACT.",
+      "event_labels": "## G. Log và đo lường\n- Tổng thời gian phân loại, tỷ lệ collision/near miss, số lần hai tác nhân chọn cùng vật, thời gian robot chờ.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Sáu khối đúng màu, không tranh chấp vật đang được người giữ/tiếp cận.\n- Không đưa nhãn vật người sẽ lấy từ human-script cho ACT.",
+      "source_location": "03_COWORKER/W2_OBSERVED.md",
+      "intent_source": "03_COWORKER/W2_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Ba khay màu, sáu khối chưa phân loại. | Hai tay nghỉ. | Quan sát các vật còn ở nguồn. | task_active |\n| 1 | Người chọn khối bất kỳ. | Đưa tay về một khối. | Chọn vật theo ưu tiên từ trái sang phải nhưng không chọn vật đang được người giữ/tiếp cận rõ. | parallel_start |\n| 2 | Cả hai ở vùng lấy chung. | Gắp một khối, nâng lên. | Gắp khối khác còn hợp lệ; nếu người đang gần vật robot định lấy, điều chỉnh chọn vật/đường. | object_claim |\n| 3 | Một số khối ở khay màu. | Đặt khối vào khay cùng màu. | Vận chuyển khối tới khay màu đúng; tránh tay người khi đặt. | place |\n| 4 | Còn khối chưa phân loại. | Lặp lại ngẫu nhiên. | Cập nhật trạng thái nguồn theo quan sát, không gắp lại vật đã được đặt. | repeat |\n| 5 | Sáu khối đã ở đúng khay. | Rút tay về nghỉ. | Rút về nghỉ, xác nhận 6/6. | episode_end |",
+          "source_location": "03_COWORKER/W2_OBSERVED.md#C."
+        }
+      ]
+    },
+    {
+      "id": "W3",
+      "group": "Coworker",
+      "scene": "## A. Bố trí scene và vật thể\n1. Hai hộp đích thuộc người và robot đặt dọc một bên bàn, vùng nguồn phía còn lại có 6 hoặc 7 vật với hình học đơn giản có thể cầm được.\n2. Ví dụ vật: bút, hộp bút, tẩy, cốc nhỏ, bình nước, hộp đồng hồ; số lượng và vị trí nguồn thay đổi giữa seed.\n3. Hộp phải đủ chỗ hoặc có cách xếp hợp lệ để không gây thất bại vật lý do chồng vật bất khả thi.",
+      "human_motion": "## B. Kịch bản người (cố định giữa hai phiên bản)\n1. Chọn ngẫu nhiên những vật còn trên bàn và đặt vào hộp phía mình tới khi hết.\n2. Có thể làm nhanh hơn robot và tự làm nhiều hơn; không đợi robot chỉ vì người chưa hoàn thành.",
+      "success_predicate": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Tất cả vật ban đầu đều nằm trong đúng một trong hai hộp; không bỏ sót hoặc xử lý hai lần.\n- Không tự bắt buộc phân chia số vật 50/50 — người có thể làm nhanh hơn robot.",
+      "event_labels": "## G. Log và đo lường\n- CT, số vật robot/người đóng gói, chờ do tranh chấp, số lần chọn vật trùng, va chạm.\n- Luôn lưu: `seed`, `human_clip_id`, `scene_init_hash`, `event_times`, `robot_action_trace`, `forecast_timestamp` (nếu Intent), `safety_override_count`, `outcome`.\n- Đánh giá paired Observed–Intent theo cùng clip người; mọi thay đổi lịch do điều kiện phối hợp vật lý phải được log.",
+      "constraints": "## F. Tiêu chuẩn thành công và điều kiện cấm\n- Tất cả vật ban đầu đều nằm trong đúng một trong hai hộp; không bỏ sót hoặc xử lý hai lần.\n- Không tự bắt buộc phân chia số vật 50/50 — người có thể làm nhanh hơn robot.",
+      "source_location": "03_COWORKER/W3_OBSERVED.md",
+      "intent_source": "03_COWORKER/W3_INTENT.md",
+      "cases": [
+        {
+          "id": "nominal",
+          "description": "## C. Case `nominal` — kịch bản từng bước\n\n| n | Scene / trạng thái | Human — hành động thực | Robot — hành động chuyên gia | Mốc log |\n|---:|---|---|---|---|\n| 0 | Hai hộp trống, 6–7 vật phân tán. | Hai tay nghỉ. | Đếm/nhận dạng vật còn trên bàn từ quan sát. | task_active |\n| 1 | Người tiếp cận nguồn. | Chọn vật bất kỳ còn trống. | Chọn vật hợp lệ gần robot, có thể chuẩn bị ngay. | parallel_start |\n| 2 | Người gắp một vật. | Nhấc, đưa về hộp của người. | Nhấc vật khác, tránh vật/tay người đang tiếp cận. | object_claim |\n| 3 | Hai tác nhân vận chuyển. | Đặt vật vào hộp người. | Đặt vật vào hộp robot với hướng cầm và chiều cao an toàn. | place |\n| 4 | Nguồn còn vật. | Lặp lại tới hết. | Cập nhật số vật và trạng thái đóng gói, ưu tiên vật gần nếu còn an toàn. | repeat |\n| 5 | Không còn vật nguồn chưa đóng gói. | Rút tay về nghỉ. | Rút về nghỉ, xác nhận tổng vật trong hai hộp bằng số ban đầu. | episode_end |",
+          "source_location": "03_COWORKER/W3_OBSERVED.md#C."
+        }
+      ]
+    }
+  ]
+}

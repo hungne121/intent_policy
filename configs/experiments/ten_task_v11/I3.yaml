@@ -1,0 +1,92 @@
+scenario: i3_direct_sort
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      hang_blend_m: 0.1
+      hang_rest_upright: true
+      idle_clearance_m: 0.005
+  human_behavior:
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    signal_xyz:
+      l:
+      - 0.34
+      - -0.23
+      - 0.8
+      r:
+      - 0.74
+      - -0.28
+      - 0.8
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+  scene_variation:
+    i3:
+      distractor_p: 0.0
+scene_coverage_reviewed: true
+gate:
+  container_exempt: true
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:
+    - close
+    - settle_grasp
+    - lift
+  - kind: robot_manipulation
+    max_penetration_m: 0.0035
+    stages:
+    - descend
+    - settle_before_grasp
+    - close
+    - settle_grasp
+    - lift
+    - hold_item
+    - choose
+    - to_box
+    - lower_box
+    - release
+    - retreat
+    - lift_redirect
+  - kind: container
+    max_penetration_m: 0.002
+  - kind: support
+    max_penetration_m: 0.002
+  require_hymotion_labels:
+  - direct_out
+cases:
+  nominal: {}
+  forecast_fault:
+    scene_variation:
+      i3:
+        forecast_fault:
+          factor:
+          - 0.8
+          - 1.2
+          extra_s: 0.5
+          ramp_s: 0.2
+  switch_before_commit:
+    scene_variation:
+      i3:
+        switch:
+          kind: before
+          progress:
+          - 0.7
+          - 0.95
+          progress_mode: 0.8
+  switch_after_commit:
+    scene_variation:
+      i3:
+        switch:
+          kind: after
+          delay_s:
+          - 0.3
+          - 1.0
+source_definition: ten_task_v10 (06/11/2026), redo per 01/BB-DL / 01/KH-DL

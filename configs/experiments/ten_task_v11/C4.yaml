@@ -1,0 +1,168 @@
+scenario: c4_waste_sort
+overrides:
+  # v11 redesign (docs/ho_so/01_thu_du_lieu/dac_ta_v11/C4.md bản 2, 49/QĐ-DL, 06/11/2026): 3 items of each kind, one
+  # kind per round; the tray set down in front of the body centre, the robot waits by it and takes it away once the
+  # kind is done. Layout values are design values checked by the geometry probe (outputs/diag/c4_v11_2026-11-06/).
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      hang_blend_m: 0.1
+      hang_rest_upright: true
+      idle_clearance_m: 0.005
+    objects:
+      W_C3: {shape: box, size: [0.0125, 0.0125, 0.0125], color: red, label: can waste 3}
+      W_P3: {shape: box, size: [0.0125, 0.0125, 0.0125], color: blue, label: plastic waste 3}
+  scene_variation:
+    c4:
+      rounds: true
+      items: [W_C1, W_C2, W_C3, W_P1, W_P2, W_P3]
+      kind: {W_C1: can, W_C2: can, W_C3: can, W_P1: plastic, W_P2: plastic, W_P3: plastic}
+      bins: {can: [0.13, 0.17], plastic: [0.34, 0.11]}   # v10b homes (IK, footprints checked 04/11; probe again)
+      # both sides of the tray at present_xy (x 0.21-0.39): each hand its own side, no crossing of the body (the left
+      # hand to the right-hand tray ended inside the torso, pilot 06/11 13:18); y -0.20 .. -0.08 = 16-28 cm from the
+      # table edge (items at y -0.25 put the right forearm 35 mm into the torso and the reach target inside the body)
+      pile_slots: [[0.06, -0.20], [0.13, -0.14], [0.06, -0.08], [0.54, -0.20], [0.47, -0.14], [0.54, -0.08]]
+      hand_split_x: 0.30            # the human's centre (stand_xy x): items left of it taken with the left hand
+      jitter_m: 0.008
+      item_pause_s: [0.3, 1.0]      # between the items of a round (design range)
+      round_pause_s: [0.5, 2.0]     # before the next kind (v10b pause_s)
+  human_behavior:
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+    cue_onset_s: [1.8, 3.0]         # the human starts after the robot is at its waiting point (home -> there 1.5 s, pilot
+                                    #   22:46; a cue at 0.7 s mixed the start-up move with the drift)
+    present_xy: [0.30, -0.13]       # the tray in front of the body centre: handle grasp (0.30, -0.025), 0.30 m from the base
+    hold_xyz:                       # waiting with the item (z above the table), on the near side of the tray, per hand
+      r: [0.40, -0.31, 0.17]
+      l: [0.20, -0.31, 0.17]
+    drop_slots: [[-0.045, 0.025], [0.045, 0.025], [0.0, -0.015]]  # 3 items, 6-9 cm apart; probe_layout2 22:3x: the near slots
+                                    #   across the body put the forearm 10-16 mm into the torso, these <= 0.8 mm with either hand
+    drop_order: {l: [0, 2, 1], r: [1, 2, 0]}   # first free slot, the hand's own side first (pilot 22:46)
+    place_gap_m: 0.002              # released 2 mm over the floor (5 mm: the item 2.3-2.5 mm into the floor on landing, 4 / 4
+                                    #   drops of pilot 22:46; gate container 2 mm)
+    left_front: false
+  expert:
+    v11:
+      drift: true                   # Javdani et al. 2018: act on the goal distribution before the commitment
+      wait_posture: {dy_m: 0.08}    # over the handle + 8 cm towards the robot: 18.5 cm from the tray centre (> robot_clear_m)
+      take_away_clear_m: 0.10       # the v10b hand-away distance (await_drop), now on the palm ahead for early
+      co_motion_guard: true         # 05/QĐ-TT: early reads the destination guard on the forecast hand
+      single_group: true            # one kind left: its tray, both rules (fair baseline, G2)
+  timing:
+    timeout_s: 150                  # 6 items + 2 tray rounds (v10b: 4 items 68 s)
+scene_coverage_reviewed: true
+gate:
+  container_exempt: true
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:
+    - close
+    - settle_grasp
+    - lift
+    - lift_present
+    - lift_redirect
+    - lower_present
+    - level_present
+    - settle_present
+    - release_present
+    - close_regrasp
+    - settle_regrasp
+    - lift_regrasp
+    - lower_home
+    - level_home
+    - settle_before_release
+    - release
+  - kind: robot_manipulation
+    max_penetration_m: 0.003
+    stages:
+    - close
+    - settle_grasp
+    - lift
+    - to_present
+    - lower_present
+    - hold_present
+    - lift_present
+    - level_present
+    - settle_present
+    - release_present
+    - clear_present
+    - close_regrasp
+    - settle_regrasp
+    - lift_regrasp
+    - to_home
+    - lower_home
+    - level_home
+    - settle_before_release
+    - release
+    - retreat
+  - kind: container
+    max_penetration_m: 0.002
+    objects:
+    - B_CAN
+    - B_PL
+  - kind: support
+    max_penetration_m: 0.002
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    stages:
+    - reach_item
+    - reach_item_f
+    - descend_item
+    - reach_decoy
+    - descend_decoy
+    - set_down_decoy
+    - lift_item
+    - lift_decoy
+    - return_decoy
+    - to_bin_front
+    - to_bin
+    - lower_into_bin
+    - rise_from_bin
+  require_hymotion_labels:
+  - reach_item
+  hymotion_allow_short: true
+collection_strata:
+  switch_after_commit: c4_after_seed_parity
+cases:
+  nominal: {}
+  forecast_fault:
+    scene_variation:
+      c4:
+        forecast_fault_round: true
+    expert:
+      forecast_fault_anchor:
+        labels:
+        - reach_item_f
+        yaw_deg:
+        - 45
+        - 75
+        extra_s: 0.5
+        ramp_s: 0.2
+  switch_before_commit:
+    scene_variation:
+      c4:
+        switch:
+          kind: before
+          switch_s: [0.8, 1.6]      # PLACEHOLDER: set from the nominal measurement of early's drift onset (spec §4)
+  switch_after_commit:
+    scene_variation:
+      c4:
+        switch:
+          kind: after
+          delay_s: {a: [0.3, 1.0], b: [3.0, 4.0]}   # PLACEHOLDER: from the nominal K1 / K2 times (spec §4)
+  co_motion:
+    scene_variation:
+      c4:
+        round_pause_s: [0.0, 0.0]   # the next kind right away: the robot takes the tray away / brings the next while the
+                                    #   human reaches and holds (the robot's co-motion rule is the same in every case)
+source_definition: ten_task_v10b (06/11/2026), redo per 01/BB-DL / 01/KH-DL

@@ -1,0 +1,84 @@
+scenario: w1_sorting
+overrides:
+  scene:
+    grasp_hold_squeeze_m: 0.0
+    human:
+      idle_palm_offset:
+      - 0.12
+      - 0.07
+      - 0.5
+      idle_clearance_m: 0.005
+      hand_rest:
+      - 0.51
+      - -0.36
+      - 0.685
+    objects:                        # v11 (spec W1 bản 2 §6.3): fingertips 0.01-0.06 mm into the table at `close` with
+      RB1: {grasp_dz: 0.014}        #   the default 0.012 (probe 06/11 19:24); +2 mm
+      RB2: {grasp_dz: 0.014}
+      RB3: {grasp_dz: 0.014}
+    decor:                          # low open trays 22 / 18 x 15 x 2.5 cm (RBOX wider: open fingers met its wall, 2.3 mm): the hand / gripper sets a cube down inside (the 5 cm
+                                    #   boxes: the hand stayed 7 cm up, cubes dropped, 1.2-2.5 mm into the table); HBOX off
+                                    #   the resting hand (it touched the old box, -2.0 mm @ idle, pilot 13:35)
+    - {name: RBOX, type: open_box, xy: [0.30, 0.19], half: [0.11, 0.075], height: 0.025, wall: 0.004, color: box}
+    - {name: HBOX, type: open_box, xy: [0.62, -0.10], half: [0.09, 0.075], height: 0.025, wall: 0.004, color: box}
+  scene_variation:
+    w1:
+      robot_box: {xy: [0.30, 0.19], half: [0.11, 0.075], height: 0.025, wall: 0.004}
+      human_box: {xy: [0.62, -0.10], half: [0.09, 0.075], height: 0.025, wall: 0.004}
+      drop_slots: [[-0.04, -0.03], [0.04, -0.03], [-0.04, 0.03], [0.04, 0.03]]
+      pair_m: [0.12, 0.14]          # each robot cube this far from a human cube (<= conflict_m 0.14): both need one place
+                                    #   (0.10: the grasping hand over the neighbour, lifted 6.5-9.6 mm, cube gap 11 mm)
+      human_area_min_xy: [0.35, -0.15]   # the arm >= 10 mm clear of the torso at the grasp (geom_w1.py 06/11: x 0.30,
+      human_area_max_xy: [0.47, 0.02]    #   y -0.175 was +7 mm inside; x >= 0.35 clear by >= 11 mm)
+  expert:
+    box_drop_gap_m: 0.005           # the cube's bottom 5 mm above the tray floor when the gripper opens
+    yield: {until_close: true, carry_path: true, log: true, carry_skip_m: 0.06}
+  human_behavior:
+    hand_clearance: {shape_by_progress: true, preserve_end_clearance: true}
+    body_clearance:
+      max_depth_m: 0.001
+      margin_m: 0.01
+      iterations: 6
+    motion_bank:
+      segment_tails: true
+      rest_ends_accel_mps2: 4.73
+scene_coverage_reviewed: true
+gate:
+  container_exempt: true
+  human_motion_check:
+    max_hold_gap_m: 0.005           # 49/QĐ-DL: held cube at the visible hand (good grasp 1.5 mm; the bug 34-39 mm)
+  contact_rules:
+  - kind: table_support
+    max_penetration_m: 0.001
+    robot_stages:                   # (close / settle_grasp / lift: the cube on the table under the grasp, as I3 / C4)
+    - close
+    - settle_grasp
+    - lift
+    - lower_box
+    - release
+  - kind: robot_manipulation
+    max_penetration_m: 0.0035
+    stages:
+    - descend
+    - settle_before_grasp
+    - close
+    - settle_grasp
+    - lift
+    - to_box
+    - lower_box
+    - release
+    - retreat
+  - kind: container
+    max_penetration_m: 0.002
+  - kind: support
+    max_penetration_m: 0.002
+  - kind: human_manipulation
+    max_penetration_m: 0.001
+    stages:
+    - reach_item
+  require_hymotion_labels:
+  - reach_item
+  - carry_item
+cases:
+  nominal: {}
+source_definition: ten_task_v9 (06/11/2026), redo per 01/BB-DL / 01/KH-DL
