@@ -11,7 +11,7 @@ from i3_self_check import I3SelfCheck
 from intent_policy.sim.scene_builder_v2 import weld_name
 from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 from intent_policy.benchmark.video import VideoWriter
-from intent_policy.experts.human_paced import observed_hand_speed, forecast_hand_speed, travel_ticks, HumanPace, CartesianFollower
+from intent_policy.experts.human_paced import observed_hand_speed, forecast_hand_speed, HumanPace, CartesianFollower, work_speed, WORK_ACCEL
 from contact_context import overlap_tolerance
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -29,7 +29,7 @@ def run(mode, seed, predictor, out):
     round_i=0;hp='walk';ht=0;hstart=human.hanging_palm(human.active);palm=hstart.copy();root_start=root.copy()
     held=None;human_events=[];events=[];trace=[];history=[];done_cups=[]
     phase='prepare';selected=None;start=d.site_xpos[env.tcp].copy();rt=0;count=1;prev=None
-    pace=HumanPace(DT);follower=CartesianFollower(DT)
+    pace=HumanPace(DT);follower=CartesianFollower(DT,acceleration=WORK_ACCEL)
     peak_speed=0.;forecast=None;observed_root=None;calibration=None
     _,robot,humans,world=geom_sets(m,positions)
     audit=DemoContactAudit(m,[PairRule(a,b,0.,0.) for a in humans for b in robot+world]+[PairRule(a,b,0.,0.) for a in robot for b in world])
@@ -121,12 +121,10 @@ def run(mode, seed, predictor, out):
             elif phase=='retreat':goal=np.r_[initial[selected][:2],.85]
             if goal is not None:
                 if prev!=phase:
-                    prev=phase;cap=.13 if phase in ('descend','replace') else .24
-                    count=travel_ticks(np.linalg.norm(goal-start),peak_speed,DT,max_speed_m_s=cap)
-                    if phase in ('close','release'):count=30 if phase=='close' else 12
+                    prev=phase;count=30 if phase=='close' else 12
                 r=min(1.,(tick-rt+1)/count)
-                limit=.13 if phase in ('descend','replace') else .24
-                command=np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp],goal,pace.speed(limit,following=phase=='approach'))),grip]
+                # C1 has no forecast-following motion phase yet: all robot work is independent.
+                command=np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp],goal,work_speed(phase))),grip]
                 if phase not in ('close','release'):r=1. if np.linalg.norm(d.site_xpos[env.tcp]-goal)<.004 else 0.
             else:r=0.;command=np.r_[d.qpos[env.qids],0.] if env.attached is not None else env.hold()
             env.step(command);mujoco.mj_forward(m,d)

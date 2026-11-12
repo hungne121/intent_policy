@@ -20,6 +20,22 @@ def forecast_hand_speed(displacements: np.ndarray, wrist_index: int, horizons_s:
     return float(np.median(np.linalg.norm(np.diff(future, axis=0), axis=1) / np.diff(times)))
 
 
+# Independent robot work (approach after a confirmed cue, grasp, lift, transport, place,
+# retreat, undo after a change of mind) runs at the same fixed pace in BOTH experts.
+# Horizontal pace matches the I1 preview (continuous_motion tcp_speed 0.39 m/s, accel 1.0);
+# vertical contact motion stays slower (0.34 m/s with a held cake overlapped the finger 6 mm,
+# docs/MANICAST_SPEED_CHECK.md). Human-paced following is reserved for the Intent expert
+# while it tracks a ManiCast forecast before the cue is confirmed (user, 2026-11-13 04:47).
+WORK_SPEED = {'horizontal': .36, 'vertical': .18}
+WORK_ACCEL = 1.0
+VERTICAL_PHASES = ('descend', 'lower_plate', 'return_lower', 'lower', 'replace', 'place_lower', 'wipe_lower')
+
+
+def work_speed(phase: str) -> float:
+    """Fixed independent pace for a robot phase (same in Observed and Intent)."""
+    return WORK_SPEED['vertical'] if phase in VERTICAL_PHASES else WORK_SPEED['horizontal']
+
+
 def robot_travel_speed(human_speed_m_s: float, max_speed_m_s: float = 0.34) -> float:
     """Bounded arm transport pace, matched approximately to a human hand."""
     return float(np.clip(0.10 + 0.85 * max(0.0, human_speed_m_s), 0.14, max_speed_m_s))

@@ -32,7 +32,7 @@ from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 from i3_self_check import I3SelfCheck as HumanSelfCheck
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, warp, sample, clip_id
 from intent_policy.experts.human_paced import (observed_hand_speed, forecast_hand_speed,
-                                                robot_travel_speed, travel_ticks, HumanPace, CartesianFollower)
+                                                HumanPace, CartesianFollower, work_speed, WORK_ACCEL)
 from intent_policy.benchmark.video import VideoWriter
 from i3_observed import select_pointed
 from dataset_records import validate_frames, write_episode
@@ -269,8 +269,9 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         human_history = []; prep_started = None; prep_from = None
         observed_history = []; observed_prep_started = None; observed_prep_from = None
         early_candidate = None; candidate_history = []
-        pace = HumanPace(DT); follower = CartesianFollower(DT)
+        pace = HumanPace(DT); follower = CartesianFollower(DT, acceleration=WORK_ACCEL)
         continuous_prep_goal = None; prep_follow_started = False
+        switched = False   # after an observed change of mind both experts react identically
         visible_still = 0; last_confirmation = None
         midpoint = np.array([.28 + SHIFT, -.10, .82])
         human_clock = 0; human_started = False; human_released = False
@@ -279,7 +280,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         return_tick = int(np.ceil((clip['gesture_onset_s'] + 3.15) / DT))
         human_target = np.asarray(positions[clip['target_A_evaluator_only']])
         initial_target_distance = np.linalg.norm(midpoint[:2] - human_target[:2])
-        speed_history = []; peak_hand_speed = 0.; stage_count_key = None; stage_count = 0
+        speed_history = []; peak_hand_speed = 0.; speed = None
         prediction_times = np.arange(1, 11) / 10
         attach_log = []; last_attached = None
         writer = VideoWriter(out_dir / 'top.mp4', width=640, height=480) if video else None
@@ -370,6 +371,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     selected = decided; source_pos = current[selected].copy(); phase = 'wait_hand_clear'
                     phases.append({'phase': phase, 't': tick * DT, 'item': selected})
                 elif decided is not None and selected is not None and decided != selected and phase in ('wait_hand_clear', 'approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open'):
+                    switched = True
                     if env.attached is not None:
                         pending = decided; phase = 'return_above'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
                         phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'new': pending})
@@ -381,7 +383,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     if clear_samples >= 3:
                         phase = 'approach'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
                         phases.append({'phase': phase, 't': tick * DT, 'item': selected})
-                    elif mode == 'intent':
+                    elif mode == 'intent' and not switched:
                         predicted = keypoint6[None, :, :] + forecast
                         predicted_distance = np.linalg.norm(predicted[:, 5, :] - current[selected], axis=1)
                         present_distance = np.linalg.norm(keypoint6[5] - current[selected])
@@ -401,17 +403,12 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                                'return_above': ([*source_pos[:2], .78], 33, 0.), 'return_lower': ([*source_pos[:2], .667], 27, 0.),
                                'return_open': ([*source_pos[:2], .667], 10, .085), 'return_retreat': ([*source_pos[:2], .78], 25, .085)}
                     goal, count, grip = targets[phase]
-                    if stage_count_key != (phase, stage_start):
-                        stage_count_key = (phase, stage_start)
-                        if phase not in ('close', 'open', 'return_open'):
-                            stage_count = travel_ticks(np.linalg.norm(np.asarray(goal) - trajectory_start),
-                                                       peak_hand_speed, env.dt, max_speed_m_s=.14 if phase in ('descend','lower_plate','return_lower') else .24)
-                        else:
-                            stage_count = count
-                    count = stage_count
                     u = min(1., (tick - stage_start + 1) / count)
-                    cap = .12 if phase in ('descend', 'lower_plate', 'return_lower') else .24
-                    xyz_cmd = follower.step(d.site_xpos[env.tcp], goal, pace.speed(cap, following=phase == 'approach'))
+                    # Human-paced following only while Intent approaches on a forecast that the
+                    # observed cue has not confirmed yet; every other phase is independent work.
+                    following = (mode == 'intent' and phase == 'approach' and decided is None and not switched)
+                    speed = pace.speed(.24, following=True) if following else work_speed(phase)
+                    xyz_cmd = follower.step(d.site_xpos[env.tcp], goal, speed)
                     q = env.solve_ik(xyz_cmd); command = np.r_[q, grip]
                     advance_phase = (u >= 1 if phase in ('close', 'open', 'return_open') else
                                      np.linalg.norm(d.site_xpos[env.tcp] - goal) < .004)
@@ -424,7 +421,8 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     # Intent follows the current ManiCast candidate at high Z;
                     # Observed stays at the shared midpoint until the ray is clear.
                     prep_goal = (continuous_prep_goal if mode == 'intent' and human_started and continuous_prep_goal is not None else midpoint)
-                    speed = pace.speed(.24, following=True) if human_started else .22
+                    following = mode == 'intent' and human_started and continuous_prep_goal is not None
+                    speed = pace.speed(.24, following=True) if following else work_speed('observe')
                     command = np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp], prep_goal, speed)), .085]
                 else:
                     command = env.hold()
@@ -480,7 +478,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                         phase = 'done'; phases.append({'phase': 'done', 't': (tick + 1) * DT})
                 trace.append({'t_s': tick * DT, 'qpos_for_audit': d.qpos.tolist(), 'observed_selection': selection, 'phase': phase,
                               'observed_hand_speed_m_s': measured_hand_speed, 'forecast_hand_speed_m_s': predicted_hand_speed if mode == 'intent' else None,
-                              'robot_command_speed_limit_m_s': pace.speed(.24, following=phase in ('observe','approach')),
+                              'robot_command_speed_limit_m_s': speed,
                               'command_speed_m_s': float(np.linalg.norm(follower.velocity)),
                               'human_filtered_speed_m_s': pace.filtered,
                               'selection': selected, 'tcp': d.site_xpos[env.tcp].tolist(),

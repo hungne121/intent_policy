@@ -16,7 +16,7 @@ from intent_policy.benchmark.video import VideoWriter
 from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, warp, sample, clip_id
 from intent_policy.experts.human_paced import (observed_hand_speed, forecast_hand_speed,
-                                                robot_travel_speed, travel_ticks, HumanPace, CartesianFollower)
+                                                HumanPace, CartesianFollower, work_speed, WORK_ACCEL)
 
 ROOT = Path(__file__).resolve().parents[1]
 DT = .05
@@ -73,8 +73,8 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
     selected=None; observed=[]; history=[]; events=[]; frames=[]; last_forecast=None
     ready_samples=0
     predicted=None; withdraw_tick=None; home_palm=human.hanging_palm(human.active)
-    wrist_history=[]; peak_hand_speed=0.; stage_key=None; stage_count=0
-    pace=HumanPace(DT); follower=CartesianFollower(DT)
+    wrist_history=[]; peak_hand_speed=0.
+    pace=HumanPace(DT); follower=CartesianFollower(DT,acceleration=WORK_ACCEL)
     writer=VideoWriter(out/f'I2_{"Intent" if mode=="intent" else "Observed"}.mp4',width=640,height=480)
     stages=['above_cake','wait_cue','descend','close','lift','wait_target','move_plate','lower_plate','release','retreat','settle']
     goals={'above_cake':(np.r_[source_xyz[:2],.80],30,.085),
@@ -131,9 +131,9 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 # Forecast can position the held cake above the predicted route,
                 # but final placement still waits for an observed target.
                 guess=PLATES[predicted]
-                current=d.site_xpos[env.tcp].copy();dest=np.array([guess[0],.10,.80])
-                step=(dest-current)*min(1.,.18*DT/max(np.linalg.norm(dest-current),1e-8))
-                early_command=np.r_[env.solve_ik(current+step),0.]
+                # Intent-only forecast following: drift toward the predicted plate at human pace.
+                dest=np.array([guess[0],.10,.80])
+                early_command=np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp],dest,pace.speed(.24,following=True))),0.]
             else:early_command=None
             pace.update(measured_speed,predicted_speed)
             peak_hand_speed=max(peak_hand_speed,measured_speed,predicted_speed)
@@ -151,17 +151,11 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 destination=PLATES[selected or predicted]
                 goal=np.r_[source_xyz[:2]+.35*(destination[:2]-source_xyz[:2]),.80]
             if goal is not None:
-                if stage_key!=(phase,stage_start):
-                    stage_key=(phase,stage_start)
-                    speed_cap={'descend':.14,'lift':.22,'move_plate':.34,
-                               'lower_plate':.14,'retreat':.34}.get(phase)
-                    stage_count=(travel_ticks(np.linalg.norm(np.asarray(goal)-start),peak_hand_speed,DT,
-                                              max_speed_m_s=speed_cap)
-                                 if speed_cap is not None else count)
-                count=stage_count
                 u=min(1.,(tick-stage_start+1)/count)
-                cap={'descend':.14,'lower_plate':.14}.get(phase,.24)
-                speed=.22 if phase=='above_cake' else pace.speed(cap,following=phase=='descend')
+                # Human-paced following only for the Intent lift that drifts toward the
+                # forecast plate before the pointing is confirmed; all else is independent work.
+                following=(mode=='intent' and phase=='lift' and selected is None)
+                speed=pace.speed(.24,following=True) if following else work_speed(phase)
                 target=follower.step(d.site_xpos[env.tcp],goal,speed)
                 command=np.r_[env.solve_ik(target),grip]
                 if phase not in ('close','release'):
