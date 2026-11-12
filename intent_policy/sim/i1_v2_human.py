@@ -26,6 +26,11 @@ class StackedCoasterHuman(SequentialCoasterHuman):
                 self.G_rest('withdraw', duration=p['rest_s'], shape='grasp'),
                 self.G_call(self._next_round)]
 
+    def free_pause(self):
+        # 13/11 (user): once the robot is prepared above the cup, the human places the coaster whenever they like
+        rng = getattr(self, 'pause_rng', None) or np.random.default_rng(917)
+        return float(rng.uniform(0.0, 2.0))
+
     def _put(self, t, ctx):
         super()._put(t, ctx)
         if self.human_round + 1 < len(self.rounds):
@@ -41,9 +46,10 @@ class StackedCoasterHuman(SequentialCoasterHuman):
         self.queue = [Gesture('wait', 'wait_robot_place_cup',
                               until=lambda tt, cc, cup=previous_cup:
                                   'cup_on_coaster_' + cup in cc['protocol_done']),
-                      Gesture('wait', 'wait_robot_grasp_next_cup',
+                      Gesture('wait', 'wait_robot_prepared_next_cup',
                               until=lambda tt, cc, cup=self.rounds[self.human_round]['cup']:
-                                  'cup_grasped_' + cup in cc['protocol_done']),
+                                  'robot_prepared_' + cup in cc['protocol_done']),
+                      Gesture('sleep', 'free_pause', duration=self.free_pause(), scale=False),
                       self.G_call(lambda tt, cc: self.emit('human_cue_onset',
                       modality='human_place', round=self.human_round))] + self.placing()
 
@@ -52,9 +58,10 @@ class StackedCoasterHuman(SequentialCoasterHuman):
             self.started = True
             self.queue = [Gesture('sleep', 'initial_still', duration=self.initial_still_s,
                                   scale=False),
-                          Gesture('wait', 'wait_robot_grasp_first_cup',
+                          Gesture('wait', 'wait_robot_prepared_first_cup',
                                   until=lambda tt, cc:
-                                      'cup_grasped_' + self.rounds[0]['cup'] in cc['protocol_done']),
+                                      'robot_prepared_' + self.rounds[0]['cup'] in cc['protocol_done']),
+                          Gesture('sleep', 'free_pause', duration=self.free_pause(), scale=False),
                           self.G_call(lambda tt, cc: self.emit('human_cue_onset',
                                       modality='human_place', round=self.human_round))] + self.placing()
         self.run_queue(t, ctx)

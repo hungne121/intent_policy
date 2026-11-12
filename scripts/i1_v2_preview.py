@@ -23,11 +23,17 @@ raw=_deep_merge(raw,{'collection_ready':False,'task_code':'T3','intention_change
  'goal':'Three identical cups on three coasters placed by the human, left middle right.',
  'expert':{'rule':'early' if args.mode=='intent' else 'observed'},'timing':{'timeout_s':100.},
  'scene':{'grasp_hold_squeeze_m':0.,'objects':{f'C{i}':{'color':'white','label':'identical white cup'} for i in (1,2,3)},
+          # 13/11 (user): the three cups stand in one row on one plate (visual slab, collision off in on_reset)
+          'decor':[{'name':'plate','type':'slab','xy':[.26,.26],'size':[.20,.07,.001],'color':'tray'}],
           'cameras':{'high':{'pos':[.4,1.15,1.85],'target':[.4,-.04,.85],'fovy':65},
                      'top':{'pos':[.4,.05,1.85],'target':[.4,.05,.62],'fovy':65}}},
  'human_behavior':{'yield_to_robot':{'before_start':False},'motion_bank':None,
                    'set_down_aim_m':-.0002},
- 'scene_variation':{'sequence':{'pause_before_s':[0.,0.]}}})
+ 'scene_variation':{'sequence':{'pause_before_s':[0.,0.],
+     # fixed cup row on the plate, ordered nearest-first from the robot's rest TCP (0.15, 0.00)
+     'items':[{'cup':'C1','coaster':'CO1','cup_xy':[.12,.26],'coaster_xy':[.60,-.26]},
+              {'cup':'C2','coaster':'CO2','cup_xy':[.26,.26],'coaster_xy':[.70,-.26]},
+              {'cup':'C3','coaster':'CO3','cup_xy':[.40,.26],'coaster_xy':[.80,-.26]}]}}})
 raw['scene_variation']['sequence'].pop('switch',None)
 raw['scene_variation']['sequence'].pop('forecast_fault',None)
 
@@ -72,6 +78,10 @@ class V2I1(CoasterSequenceTask):
         human.initial_still_s = float(np.random.default_rng([int(self.seed), 916]).uniform(2.6, 3.6))
         self.initial_still_s = human.initial_still_s
         self._apply_human_pose()
+        human.pause_rng = np.random.default_rng([int(self.seed), 917])
+        for g in range(self.env.model.ngeom):
+            if self.env.model.geom(g).name.startswith('decor_plate_'):
+                self.env.model.geom_contype[g] = 0; self.env.model.geom_conaffinity[g] = 0
         for i, item in enumerate(self.rounds):
             key = item['coaster']
             adr = self.qadr[key]
@@ -84,6 +94,15 @@ class V2I1(CoasterSequenceTask):
             self.attach_to_hand(key)
             self.start_pos[key] = self.pos(key).copy()
         mujoco.mj_forward(self.env.model, self.env.data)
+
+    def update_task(self):
+        # The robot's preparation pose above the cup it will take is the observable cue the human waits for.
+        cup = self.robot_target()
+        if ('robot_prepared_' + cup) not in self.protocol_done and 'cup_grasped_' + cup not in self.protocol_done:
+            tcp = self.tcp(); above = self.grasp_point(cup)
+            if np.linalg.norm(tcp[:2] - above[:2]) < .02 and tcp[2] > above[2] + .03 and np.linalg.norm(self.env.data.qvel[self.env.dids]) < .3:
+                self.protocol('robot_prepared_' + cup, 'robot', object=cup)
+        super().update_task()
 
     def step(self, command):
         import mujoco
@@ -129,7 +148,7 @@ try:
     save_record(record,OUT/f'{NAME}_episode.json.gz')
     summary={k:record[k] for k in ('success','failure','duration_s','wall_time_s','protocol_steps_completed')}
     summary.update(mode=args.mode, forecast_source='manicast' if args.mode=='intent' else 'none', source_spec='specs/01_INSTRUCTOR/I1_OBSERVED.md',
-        human_source='seeded I1 stacked-coaster scripted human',initial_still_s=sc.initial_still_s,
+        human_source='seeded I1 stacked-coaster scripted human; waits for the robot preparation pose above the next cup',initial_still_s=sc.initial_still_s,
         stack_settles=getattr(sc,'stack_settles',[]),
         status='visual review preview; not an accepted dataset episode',
         limitations=['assisted robot grasp','seeded scripted human rather than HY-Motion replay',
