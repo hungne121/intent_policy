@@ -4,9 +4,9 @@ One seed produces one human clip (shared by both experts), two rollouts, an
 interpolated swept audit, an eleven-check quality report with measured values,
 metadata separated from policy frames, and a gated NPZ staging record via
 ``dataset_records.write_episode``. Rejected episodes are logged with reasons,
-never written as data. The robot behaviour is the ``--hymotion
---predictive-prep-experiment`` path of ``i3_cases_pilot.py``; only the human
-clip (target choice, timing, small spatial jitter) varies with the seed.
+never written as data. The expert uses a shared neutral preparation, continuous human-paced ManiCast
+approach, and a human who withdraws after seeing correct robot motion. Each
+realized human trajectory and its interaction events are saved for paired audits.
 
 Evaluator-only knowledge (targets, switch schedule, case) never reaches the
 controller: it reads keypoints, current object poses and, for Intent, the real
@@ -32,7 +32,7 @@ from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 from i3_self_check import I3SelfCheck as HumanSelfCheck
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, warp, sample, clip_id
 from intent_policy.experts.human_paced import (observed_hand_speed, forecast_hand_speed,
-                                                robot_travel_speed, travel_ticks)
+                                                robot_travel_speed, travel_ticks, HumanPace, CartesianFollower)
 from intent_policy.benchmark.video import VideoWriter
 from i3_observed import select_pointed
 from dataset_records import validate_frames, write_episode
@@ -180,7 +180,7 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
     b_name = str(rng.choice([c for c in CAKES if c != a_name])) if case != 'nominal' else None
     onset = .25 + float(rng.uniform(0., .4))
     switch_at = {'nominal': None, 'switch_before_commit': 2.5 + float(rng.uniform(-.3, .3)) + onset - .25,
-                 'switch_after_commit': float(rng.uniform(7.0, 7.2))}[case]
+                 'switch_after_commit': float(rng.uniform(6.4, 6.6))}[case]
     source = ROOT / 'outputs/hymotion_v2_candidates/hymotion_out' / ('i3_point_cake.npz' if case == 'nominal' else 'i3_switch.npz')
     with np.load(source, allow_pickle=False) as raw:
         k3d = raw['keypoints3d'][0].copy(); hy_seed = int(raw['seeds'][0]); prompt = str(raw['text'])
@@ -201,32 +201,24 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
         audit = DemoContactAudit(m, [PairRule(x, y, 0., 0.) for x in arms for y in world_g + robot_g])
         check = HumanSelfCheck(m)
         A = np.array(positions[a_name]); B = np.array(positions[b_name]) if b_name else A
-        arm_a = np.array([A[0], -.32, .84]); arm_b = np.array([B[0], -.32, .84])
+        arm_a = np.array([A[0], A[1] - .27, .84]); arm_b = np.array([B[0], B[1] - .27, .84])
         rows = []; first_self = None; first_pair = None
         for tick in range(360):
             t = tick * DT
-            reach = smooth((t - onset) / 1.35)
+            reach = smooth((t - onset) / 2.10)
             clear = home + np.array([.12, 0., .03]); pre = smooth((t - onset) / .75)
             switch = 0. if switch_at is None else smooth((t - switch_at) / .8)
-            end = (onset + 3.15) if case in ('nominal', 'switch_after_commit') else (switch_at + 1.8)
+            end = (onset + 3.15) if case == 'nominal' else (switch_at + 1.8)
             back = smooth((t - end) / 1.)
             current = home + (clear - home) * pre + (arm_a - clear) * reach + switch * (arm_b - arm_a)
             deviation_a = motion_deviation(motion_path, reach)
             deviation_b = motion_deviation(motion_path_b, reach)
             current = current + (1 - switch) * deviation_a + switch * deviation_b
-            palm = current * (1. - back) + home * back
+            palm = (1. - back)**2 * current + 2 * (1. - back) * back * clear + back**2 * home
             direction = A + (B - A) * switch
             active = reach * (1 - back)
-            if case == 'switch_after_commit' and t >= switch_at:
-                local = t - switch_at
-                pre_b = smooth(local / .75); reach_b = smooth(local / 1.35)
-                palm = home + (clear - home) * pre_b + (arm_b - clear) * reach_b
-                palm = palm + motion_deviation(motion_path_b, reach_b)
-                back_b = smooth((local - 2.8) / 1.2)
-                palm = palm * (1. - back_b) + home * back_b
-                direction = B; active = reach_b * (1 - back_b)
             pose = human.apply(d, palm=palm, point_at=direction if active > .001 else None,
-                               hand_shape='point' if active > .001 else 'relaxed', aim_blend=active)
+                               hand_shape='point', shape_from='relaxed', shape_progress=active, aim_blend=active)
             mujoco.mj_forward(m, d); audit.observe(m, d); hits = check.measure(d)
             if hits and first_self is None: first_self = {'tick': tick, 'pairs': {str(k): float(v) for k, v in hits.items()}}
             if audit.first_violation and first_pair is None: first_pair = {'tick': tick, **audit.first_violation}
@@ -276,7 +268,17 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         stage_start = 0; trajectory_start = None; forecast_prep = None; forecast_prep_target = None
         human_history = []; prep_started = None; prep_from = None
         observed_history = []; observed_prep_started = None; observed_prep_from = None
-        early_candidate = None
+        early_candidate = None; candidate_history = []
+        pace = HumanPace(DT); follower = CartesianFollower(DT)
+        continuous_prep_goal = None; prep_follow_started = False
+        visible_still = 0; last_confirmation = None
+        midpoint = np.array([.28 + SHIFT, -.10, .82])
+        human_clock = 0; human_started = False; human_released = False
+        executed_human = []; human_events = []
+        hold_tick = int(np.ceil((clip['gesture_onset_s'] + 2.10) / DT))
+        return_tick = int(np.ceil((clip['gesture_onset_s'] + 3.15) / DT))
+        human_target = np.asarray(positions[clip['target_A_evaluator_only']])
+        initial_target_distance = np.linalg.norm(midpoint[:2] - human_target[:2])
         speed_history = []; peak_hand_speed = 0.; stage_count_key = None; stage_count = 0
         prediction_times = np.arange(1, 11) / 10
         attach_log = []; last_attached = None
@@ -284,10 +286,24 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         high_writer = VideoWriter(out_dir / 'high.mp4', width=640, height=480) if video else None
         try:
             for tick in range(900):
-                clip_frame = clip['trace'][min(tick, len(clip['trace']) - 1)]
+                # Human responds to visible robot geometry, not a timed withdrawal.
+                if not human_started and np.linalg.norm(d.site_xpos[env.tcp] - midpoint) < .025:
+                    human_started = True
+                    human_events.append({'event': 'robot_neutral_ready', 't_s': tick * DT})
+                if human_started:
+                    if clip['case'] == 'nominal' and human_clock >= hold_tick and not human_released:
+                        distance = np.linalg.norm(d.site_xpos[env.tcp, :2] - human_target[:2])
+                        if distance < max(.025, initial_target_distance - .025):
+                            human_released = True; human_clock = return_tick
+                            human_events.append({'event': 'human_withdraw_after_correct_robot_direction', 't_s': tick * DT})
+                    if clip['case'] != 'nominal' or human_clock < hold_tick or human_released:
+                        human_clock += 1
+                clip_frame = dict(clip['trace'][min(human_clock, len(clip['trace']) - 1)])
+                clip_frame['t_s'] = tick * DT
+                executed_human.append(clip_frame)
                 strength = clip_frame['point_strength']
                 pose = human.apply(d, palm=clip_frame['palm_command'], point_at=clip_frame['point_at_command'],
-                                   hand_shape='point' if strength > .001 else 'relaxed', aim_blend=strength)
+                                   hand_shape='point', shape_from='relaxed', shape_progress=strength, aim_blend=strength)
                 mujoco.mj_forward(m, d)
                 keypoints = human.keypoints(pose, ['r_index_base', 'r_index_tip'])
                 keypoint6 = human.keypoints(pose, JOINTS)
@@ -307,27 +323,50 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     forecast_runtime.append(time.perf_counter() - tic); forecast_frames.append(forecast.tolist())
                     predicted_hand_speed = forecast_hand_speed(forecast, 5, prediction_times)
                     signal = float(np.mean(np.linalg.norm(forecast, axis=2)))
-                    if prep_started is None and signal > prep_threshold and phase == 'observe':
+                    if prep_started is None and human_started and measured_hand_speed > .015 and phase == 'observe':
                         prep_started = tick; prep_from = d.site_xpos[env.tcp].copy()
                         phases.append({'phase': 'forecast_neutral_prep', 't': tick * DT})
                 current = {k: d.xpos[m.body(k).id].copy() for k in positions}
+                pace.update(measured_hand_speed, predicted_hand_speed)
                 peak_hand_speed = max(peak_hand_speed, measured_hand_speed, predicted_hand_speed)
                 if mode == 'intent' and phase == 'observe' and prep_started is not None:
-                    # Forecast supplies a reversible high approach, never a grasp.
-                    # Recompute from all late forecast horizons so a change of mind
-                    # redirects the arm without revealing the scripted target.
+                    # Start continuous reversible motion from the full predicted wrist path.
+                    # Candidate confidence only gates the descent, not the first useful motion.
                     wrist_future = keypoint6[5][None, :] + forecast[:, 5, :]
-                    scores = {k: float(np.mean(np.linalg.norm(wrist_future[-4:, :2] - v[:2], axis=1)))
+                    weights = prediction_times / prediction_times.sum()
+                    projected = wrist_future[:, :2] + np.array([0., .27])
+                    scores = {k: float(np.sum(weights * np.linalg.norm(projected - v[:2], axis=1)))
                               for k, v in current.items()}
+                    projected_goal = np.sum(weights[:, None] * projected, axis=0)
+                    bounds = np.asarray([v[:2] for v in current.values()])
+                    projected_goal = np.clip(projected_goal, bounds.min(axis=0), bounds.max(axis=0))
+                    proposed = np.r_[projected_goal, .82]
+                    if continuous_prep_goal is None: continuous_prep_goal = d.site_xpos[env.tcp].copy()
+                    continuous_prep_goal += (1 - np.exp(-DT / .18)) * (proposed - continuous_prep_goal)
+                    if not prep_follow_started:
+                        prep_follow_started = True
+                        phases.append({'phase': 'forecast_continuous_follow', 't': tick * DT})
                     ranked = sorted(scores, key=scores.get)
                     candidate = ranked[0] if len(ranked) > 1 and scores[ranked[1]] - scores[ranked[0]] > .012 else None
+                    candidate_history = (candidate_history + [candidate])[-3:]
                     if candidate != early_candidate:
                         early_candidate = candidate
                         phases.append({'phase': 'forecast_route_update', 't': tick * DT, 'item': candidate})
                 selection = select_pointed(keypoints[0], keypoints[1], current, max_distance_m=.065, margin_m=.01)
                 stable = (stable + [selection])[-5:]
                 decided = stable[0] if len(stable) == 5 and stable[0] is not None and all(x == stable[0] for x in stable) else None
-                if phase == 'observe' and decided is not None:
+                visible_still = visible_still + 1 if measured_hand_speed < .045 and decided is not None else 0
+                if decided is not None and decided != last_confirmation:
+                    phases.append({'phase': 'pointing_confirmed', 't': tick * DT, 'item': decided})
+                    last_confirmation = decided
+                if (phase == 'observe' and mode == 'intent' and human_started and
+                        len(candidate_history) == 3 and early_candidate is not None and
+                        all(c == early_candidate for c in candidate_history) and
+                        measured_hand_speed > .025):
+                    selected = early_candidate; source_pos = current[selected].copy()
+                    phase = 'approach'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
+                    phases.append({'phase': 'forecast_pick_approach', 't': tick * DT, 'item': selected})
+                if phase == 'observe' and decided is not None and (mode == 'intent' or visible_still >= 3):
                     selected = decided; source_pos = current[selected].copy(); phase = 'wait_hand_clear'
                     phases.append({'phase': phase, 't': tick * DT, 'item': selected})
                 elif decided is not None and selected is not None and decided != selected and phase in ('wait_hand_clear', 'approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open'):
@@ -338,7 +377,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                         selected = decided; source_pos = current[selected].copy(); phase = 'wait_hand_clear'; clear_samples = 0
                         phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'switched_from': stable[0]})
                 if phase == 'wait_hand_clear':
-                    clear_samples = clear_samples + 1 if (np.linalg.norm(keypoint6[5] - current[selected]) > .22 and selection != selected) else 0
+                    clear_samples = clear_samples + 1 if (np.linalg.norm(keypoint6[5] - current[selected]) > .22) else 0
                     if clear_samples >= 3:
                         phase = 'approach'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
                         phases.append({'phase': phase, 't': tick * DT, 'item': selected})
@@ -356,24 +395,26 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                 if phase in ('approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open', 'retreat', 'return_above', 'return_lower', 'return_open', 'return_retreat'):
                     xyz = current[selected].copy(); xy = xyz[:2]
                     targets = {'approach': ([*xy, .78], 32, .085), 'descend': ([*xy, .667], 27, .085),
-                               'close': ([*xy, .667], 28, 0.), 'lift': ([*xy, .78], 29, 0.),
+                               'close': ([*xy, .667], 32, 0.), 'lift': ([*xy, .78], 29, 0.),
                                'move_plate': ([*PLATE_XY, .78], 38, 0.), 'lower_plate': ([*PLATE_XY, .668], 27, 0.),
-                               'open': ([*PLATE_XY, .668], 28, .085), 'retreat': ([*PLATE_XY, .78], 25, .085),
+                               'open': ([*PLATE_XY, .668], 10, .085), 'retreat': ([*PLATE_XY, .78], 25, .085),
                                'return_above': ([*source_pos[:2], .78], 33, 0.), 'return_lower': ([*source_pos[:2], .667], 27, 0.),
-                               'return_open': ([*source_pos[:2], .667], 28, .085), 'return_retreat': ([*source_pos[:2], .78], 25, .085)}
+                               'return_open': ([*source_pos[:2], .667], 10, .085), 'return_retreat': ([*source_pos[:2], .78], 25, .085)}
                     goal, count, grip = targets[phase]
                     if stage_count_key != (phase, stage_start):
                         stage_count_key = (phase, stage_start)
-                        if phase in ('approach','lift','move_plate','retreat','return_above','return_retreat'):
+                        if phase not in ('close', 'open', 'return_open'):
                             stage_count = travel_ticks(np.linalg.norm(np.asarray(goal) - trajectory_start),
-                                                       peak_hand_speed, env.dt, max_speed_m_s=.20)
+                                                       peak_hand_speed, env.dt, max_speed_m_s=.14 if phase in ('descend','lower_plate','return_lower') else .24)
                         else:
                             stage_count = count
                     count = stage_count
                     u = min(1., (tick - stage_start + 1) / count)
-                    xyz_cmd = trajectory_start + (np.asarray(goal) - trajectory_start) * u
+                    cap = .12 if phase in ('descend', 'lower_plate', 'return_lower') else .24
+                    xyz_cmd = follower.step(d.site_xpos[env.tcp], goal, pace.speed(cap, following=phase == 'approach'))
                     q = env.solve_ik(xyz_cmd); command = np.r_[q, grip]
-                    advance_phase = u >= 1
+                    advance_phase = (u >= 1 if phase in ('close', 'open', 'return_open') else
+                                     np.linalg.norm(d.site_xpos[env.tcp] - goal) < .004)
                 elif mode == 'intent' and phase == 'wait_hand_clear' and forecast_prep is not None and forecast_prep_target == selected:
                     u = min(1., (tick - forecast_prep['start'] + 1) / 35.)
                     prep_goal = np.r_[current[selected][:2], .91]
@@ -382,13 +423,9 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     # Both experts first stage between the two cake trays.
                     # Intent follows the current ManiCast candidate at high Z;
                     # Observed stays at the shared midpoint until the ray is clear.
-                    midpoint = np.array([.28, -.10, .82])
-                    prep_goal = (np.r_[current[early_candidate][:2], .90]
-                                 if mode == 'intent' and early_candidate is not None else midpoint)
-                    here = d.site_xpos[env.tcp].copy()
-                    delta = prep_goal - here
-                    step = delta * min(1., .22 * DT / max(np.linalg.norm(delta), 1e-8))
-                    command = np.r_[env.solve_ik(here + step), .085]
+                    prep_goal = (continuous_prep_goal if mode == 'intent' and human_started and continuous_prep_goal is not None else midpoint)
+                    speed = pace.speed(.24, following=True) if human_started else .22
+                    command = np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp], prep_goal, speed)), .085]
                 else:
                     command = env.hold()
                 snapshot = {'timestamp': float(d.time), 'robot_qpos': d.qpos[env.qids].copy(), 'robot_qvel': d.qvel[env.dids].copy(),
@@ -401,6 +438,11 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                                     forecast_generated_at=float(d.time), forecast_observation_end=float(d.time))
                 command_phase, command_selection = phase, selected
                 env.step(command)
+                if phase == 'close':
+                    advance_phase = env.attached is not None
+                    if tick - stage_start > 60:
+                        phases.append({'phase': 'grasp_failed', 't': tick * DT, 'item': selected})
+                        break
                 if advance_phase:
                     normal = ['approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open', 'retreat', 'settle']
                     undo = ['return_above', 'return_lower', 'return_open', 'return_retreat']
@@ -438,7 +480,9 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                         phase = 'done'; phases.append({'phase': 'done', 't': (tick + 1) * DT})
                 trace.append({'t_s': tick * DT, 'qpos_for_audit': d.qpos.tolist(), 'observed_selection': selection, 'phase': phase,
                               'observed_hand_speed_m_s': measured_hand_speed, 'forecast_hand_speed_m_s': predicted_hand_speed if mode == 'intent' else None,
-                              'robot_travel_speed_m_s': robot_travel_speed(peak_hand_speed, .20),
+                              'robot_command_speed_limit_m_s': pace.speed(.24, following=phase in ('observe','approach')),
+                              'command_speed_m_s': float(np.linalg.norm(follower.velocity)),
+                              'human_filtered_speed_m_s': pace.filtered,
                               'selection': selected, 'tcp': d.site_xpos[env.tcp].tolist(),
                               'objects': {k: d.xpos[m.body(k).id].tolist() for k in positions}, 'attached': attached})
                 if writer is not None:
@@ -447,10 +491,11 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         finally:
             if writer is not None: writer.close(); high_writer.close()
         # --- interpolated swept audit on the finished rollout (same env, same geometry rules)
-        swept = swept_audit(env, human, clip, trace, geometry, self_check)
+        executed_clip = {**clip, 'trace': executed_human}
+        swept = swept_audit(env, human, executed_clip, trace, geometry, self_check)
         # --- camera visibility of the cue and the final target at the strongest gesture sample
-        visibility = camera_visibility(env, human, clip, trace, positions)
-        result = {'mode': mode, 'phases': phases, 'last_phase': phase, 'expert_selected': selected, 'attach_log': attach_log,
+        visibility = camera_visibility(env, human, executed_clip, trace, positions)
+        result = {'_executed_clip': executed_clip, 'human_events': human_events, 'mode': mode, 'phases': phases, 'last_phase': phase, 'expert_selected': selected, 'attach_log': attach_log,
                   'attached_at_end': env.attached is not None, 'gripper_m': float(d.qpos[env.gid]),
                   'geometry_violations': violations, 'substep_contacts': substep_contacts, 'human_self_violations': self_violations,
                   'swept_audit': swept, 'camera_visibility': visibility, 'geometry_coverage': geometry_coverage(m, positions),
@@ -479,7 +524,7 @@ def swept_audit(env, human, clip, trace, geometry, self_check, subdivisions=5):
             if db is None: db = da
             direction = None if da is None else (1 - u) * np.asarray(da) + u * np.asarray(db)
             human.apply(d, palm=palm, point_at=direction if strength > .001 else None,
-                        hand_shape='point' if strength > .001 else 'relaxed', aim_blend=strength)
+                        hand_shape='point', shape_from='relaxed', shape_progress=strength, aim_blend=strength)
             mujoco.mj_forward(m, d); geometry.observe(m, d); hits = self_check.measure(d)
             t = (i + u) * DT
             for rule_i, distance, _, _ in geometry.step_violations:
@@ -565,8 +610,9 @@ def events_from(result, clip):
             if p['phase'] == name and all(p.get(k) == v for k, v in match.items()): return p['t']
         return None
     final_target = clip['target_B_evaluator_only'] or clip['target_A_evaluator_only']
-    ev['target_observed'] = first('wait_hand_clear')
-    ev['human_ready'] = first('approach', item=final_target)          # hand clear of the final target: the robot may serve
+    ev['target_observed'] = first('pointing_confirmed', item=final_target)
+    final_cue = next((f['point_at_command'] for f in reversed(clip['trace']) if f['point_strength'] >= .95), None)
+    ev['human_ready'] = next((i * DT for i, f in enumerate(clip['trace']) if f['point_strength'] >= .95 and final_cue is not None and np.linalg.norm(np.asarray(f['point_at_command']) - final_cue) < .02), None)
     ev['robot_ready'] = first('descend', item=final_target)           # TCP above the final target, ready to grasp
     attaches = [a for a in result['attach_log'] if a['attached'] is not None]
     if attaches: ev['robot_commit'] = attaches[0]['t_s']
@@ -574,6 +620,15 @@ def events_from(result, clip):
         if a['attached'] == final_target: ev['robot_commit_final'] = a['t_s']; break
     sw = next((p for p in phases if p['phase'] == 'return_above' or 'switched_from' in p), None)
     if sw is not None: ev['switch_observed'] = sw['t']
+    # A visible A-to-B cue is observable even if Observed has not picked anything.
+    confirmations = [p for p in phases if p['phase'] == 'pointing_confirmed']
+    if clip['target_B_evaluator_only'] is not None:
+        seen_a = False
+        for cue in confirmations:
+            seen_a = seen_a or cue.get('item') == clip['target_A_evaluator_only']
+            if seen_a and cue.get('item') == clip['target_B_evaluator_only']:
+                ev['switch_observed'] = cue['t']
+                break
     ret = first('return_above')
     if ret is not None:
         ev['correction'] = ret
@@ -583,7 +638,7 @@ def events_from(result, clip):
     if result['last_phase'] == 'done': ev['completed'] = phases[-1]['t']
     for k in ('prep_onset',):
         pass
-    prep = next((p for p in phases if p['phase'] in ('observed_neutral_prep', 'forecast_neutral_prep', 'forecast_high_prep')), None)
+    prep = next((p for p in phases if p['phase'] in ('forecast_continuous_follow', 'observed_neutral_prep', 'forecast_neutral_prep', 'forecast_high_prep')), None)
     if prep is not None: ev['prep_onset'] = prep['t']
     return {k: v for k, v in ev.items() if v is not None}
 
@@ -738,14 +793,19 @@ def collect(seed, case, out_root, predictor, versions, checkpoint_sha, modes, vi
         t0 = time.time()
         result, frames, trace = rollout(mode, clip, scene, positions, scene_xml, mode_dir, predictor, video=video)
         result['_trace'] = trace
-        events = events_from(result, clip)
-        quality = quality_report(episode_id, scene_hash, seed, case, result, clip, frames, positions, events)
+        executed_clip = result.pop('_executed_clip')
+        realized_human_hash = hashlib.sha256(json.dumps(executed_clip['trace'], separators=(',', ':')).encode()).hexdigest()
+        (mode_dir / 'human_trace.json').write_text(json.dumps(executed_clip['trace']))
+        events = events_from(result, executed_clip)
+        quality = quality_report(episode_id, scene_hash, seed, case, result, executed_clip, frames, positions, events)
         errors = quality_errors(quality)
         result.pop('_trace')
         metadata = {'episode_id': episode_id, 'pair_id': pair_id, 'task_id': 'I3', 'case_id': case, 'scene_hash': scene_hash, 'seed': seed,
-                    'human_clip_hash': clip['clip_sha256'], 'motion_family_id': family, 'split': split_for(seed),
+                    'human_clip_hash': clip['clip_sha256'], 'realized_human_clip_hash': realized_human_hash,
+                    'pairing': 'same source clip, seed and interaction rule; realized withdrawal responds to visible robot motion',
+                    'human_interaction_events': result['human_events'], 'motion_family_id': family, 'split': split_for(seed),
                     'human_source': clip['source_motion'], 'source_commit': versions, 'expert_mode': mode,
-                    'expert_rule': 'i3_cases_pilot --hymotion --predictive-prep-experiment behaviour (tools/i3_collect.py rollout)',
+                    'expert_rule': 'interactive I3: shared neutral prep, observed confirmation or real forecast approach, contingent human withdrawal',
                     'forecast_source': 'manicast' if mode == 'intent' else 'none', 'events': events, 'created_at': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
                     'outcome': 'success' if quality['checks']['task_success']['passed'] else 'failure',
                     'evaluator_only': {'target_A': clip['target_A_evaluator_only'], 'target_B': clip['target_B_evaluator_only'],

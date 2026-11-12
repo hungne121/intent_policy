@@ -1,3 +1,16 @@
+# V2 current status — 13/11/2026
+
+Canonical repo: `/home/hungdao/ur_ws/src/intent_policy`. Latest review videos: `previews/review_20261113/`. Full details and repeatable commands: `docs/PREVIEW_REVIEW_2026-11-13.md`.
+
+- I3 now has continuous human-paced forecast following and contingent hand withdrawal. Seed 0 passes the existing gates in all three cases for both modes. Nominal 13.60/12.20 s, switch-before 13.60/13.85 s, switch-after 19.25/17.95 s (Observed/Intent). Intent is slower in the early-switch pilot; no general improvement claim.
+- I2 centre-plate preview (seed 300106): 13.50/11.15 s, both task successes; contact gate remains rejected. Pointing reach is 2.2 s and hand withdrawal follows actual transport.
+- I1 Intent uses the shared pacing helper and still completes all three rounds (30.30 s). Dataset gate not established.
+- C1: new interactive draft completes two cloth/cup rounds (20.80/20.85 s), but has unresolved human/world and gripper/mug overlaps and a rigid cloth proxy. It is blocked for dataset use.
+- C2, C3, C4, W1, W2, W3: V2 scene/layout stage; interaction rollout remains to be implemented. No full dataset or ACT training has been completed.
+- Four shared-pacing tests pass. See the review report for pilot logs, pair semantics and limitations.
+
+## Historical implementation notes (superseded timings)
+
 # V2 implementation status (2026-11-12)
 
 The source of truth is `specs/v2/00_COMMON/04_TASK_CASE_MANIFEST.json` and the paired task documents under `specs/v2`. These V2 preview files are integrated in this existing `src/intent_policy` repository; legacy modules with unrelated in-progress edits are left intact.

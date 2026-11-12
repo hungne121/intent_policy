@@ -1,5 +1,6 @@
 """Local I1 preview rules requested by the user; no changes to the stable expert."""
 import numpy as np
+from intent_policy.experts.human_paced import HumanPace, CartesianFollower
 from intent_policy.experts.i1_expert import I1Expert
 from intent_policy.experts.scripted_expert import ScriptedExpert, Step, GUARD_OCCUPIED_XY
 from intent_policy.experts.separation import separation_hold
@@ -9,6 +10,8 @@ from intent_policy.sim.restricted_action import RestrictedAction as A
 class SmoothI1Expert(I1Expert):
     def reset(self):
         self.filtered_goal = None
+        self.human_pace = HumanPace(self.sc.dt)
+        self.forecast_follower = CartesianFollower(self.sc.dt)
         self.clear_since = None
         self.preview_safety_holds = 0
         super().reset()
@@ -43,11 +46,14 @@ class SmoothI1Expert(I1Expert):
         desired=(np.r_[np.asarray(destination)[:2]+self.tcp_obj_offset[:2],self.travel]
                  if destination is not None else np.r_[self.mapper.setpoint[:2],self.travel])
         if self.filtered_goal is None:self.filtered_goal=self.mapper.setpoint.copy()
-        delta=np.asarray(desired)-self.filtered_goal
-        step=delta*(1-np.exp(-self.sc.dt/.14))
-        norm=np.linalg.norm(step); limit=.30*self.sc.dt
-        if norm>limit:step*=limit/norm
-        self.filtered_goal+=step
+        predicted_speed = 0.
+        if self._gb is not None and self._gb.forecast is not None:
+            future = np.asarray(self._gb.forecast, float)
+            if len(future) > 1:
+                predicted_speed = float(np.median(np.linalg.norm(np.diff(future, axis=0), axis=-1) / .1))
+        self.human_pace.update(np.linalg.norm(self.sc.human.vel), predicted_speed)
+        self.filtered_goal = self.forecast_follower.step(
+            self.mapper.setpoint, desired, self.human_pace.speed(.24, following=True))
         # Vertical travel height is maintained after grasp/lift, never following
         # a downward wrist forecast into a hand that is placing the coaster.
         self.filtered_goal[2]=self.travel

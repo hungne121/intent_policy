@@ -29,3 +29,71 @@ def travel_ticks(distance_m: float, human_speed_m_s: float, dt: float,
                  minimum: int = 8, max_speed_m_s: float = 0.34) -> int:
     return max(minimum, int(np.ceil(max(0.0, distance_m) /
                                      (robot_travel_speed(human_speed_m_s, max_speed_m_s) * dt))))
+
+
+class HumanPace:
+    """Causal pace shared by preview experts. Retain recent pace after the cue ends.
+
+    During observed motion the goal speed is 80% of filtered hand speed. Forecast
+    speed may anticipate the trend but cannot raise it above observed hand speed.
+    Once the human holds/withdraws, keep a bounded recent work pace so placement
+    does not freeze merely because the human has stopped giving the instruction.
+    """
+    def __init__(self, dt=.05, ratio=.8):
+        self.dt = float(dt)
+        self.ratio = float(ratio)
+        self.filtered = 0.
+        self.recent = .16
+        self.active = False
+
+    def update(self, observed, forecast=0.):
+        observed = max(0., float(observed))
+        forecast = max(0., float(forecast))
+        estimate = min(observed, .8 * observed + .2 * forecast) if forecast > 0 else observed
+        self.filtered += (1. - np.exp(-self.dt / .12)) * (estimate - self.filtered)
+        self.active = observed > .015
+        if observed > .06:
+            self.recent = float(np.clip(.85 * self.recent + .15 * self.ratio * self.filtered, .14, .24))
+        return self.speed()
+
+    def speed(self, cap=.24, following=False):
+        desired = self.ratio * self.filtered if following and self.active else self.recent
+        return float(np.clip(desired, .008 if following else .04, cap))
+
+
+class CartesianFollower:
+    """Continuous Cartesian setpoint with bounded speed and acceleration."""
+    def __init__(self, dt=.05, acceleration=.65):
+        self.dt = float(dt)
+        self.acceleration = float(acceleration)
+        self.velocity = np.zeros(3)
+        self.position = None
+
+    def step(self, current, goal, speed):
+        actual, goal = np.asarray(current, float), np.asarray(goal, float)
+        if self.position is None:
+            self.position = actual.copy()
+        lag = self.position - actual
+        if np.linalg.norm(lag) > .04:
+            self.position = actual + lag * (.04 / np.linalg.norm(lag))
+        current = self.position
+        delta = goal - current
+        distance = float(np.linalg.norm(delta))
+        if distance < .0005:
+            self.velocity *= .5
+            self.position = goal.copy()
+            return self.position.copy()
+        target_speed = min(max(0., float(speed)), np.sqrt(2 * self.acceleration * distance))
+        desired = delta / distance * target_speed
+        change = desired - self.velocity
+        norm = np.linalg.norm(change)
+        if norm > self.acceleration * self.dt:
+            change *= self.acceleration * self.dt / norm
+        self.velocity += change
+        step = self.velocity * self.dt
+        if np.linalg.norm(step) >= distance and np.dot(step, delta) > 0:
+            self.velocity = delta / self.dt
+            self.position = goal.copy()
+            return self.position.copy()
+        self.position = current + step
+        return self.position.copy()

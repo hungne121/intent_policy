@@ -12,8 +12,9 @@ from intent_policy.sim.restricted_action import RestrictedActionConfig
 ROOT=Path(__file__).resolve().parents[1]; OLD=ROOT
 parser=argparse.ArgumentParser()
 parser.add_argument('--mode', choices=['observed','intent'], required=True)
+parser.add_argument('--out', type=Path, default=ROOT/'previews')
 args=parser.parse_args()
-OUT=ROOT/'previews'; OUT.mkdir(parents=True,exist_ok=True)
+OUT=args.out; OUT.mkdir(parents=True,exist_ok=True)
 NAME='I1_Intent' if args.mode=='intent' else 'I1_Observed'
 base=yaml.safe_load((OLD/'configs/scenarios/i1_coaster_sequence.yaml').read_text())
 mechanics=yaml.safe_load((OLD/'configs/experiments/ten_task_v11/I1.yaml').read_text())['overrides']

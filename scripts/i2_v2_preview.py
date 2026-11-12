@@ -16,7 +16,7 @@ from intent_policy.benchmark.video import VideoWriter
 from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, warp, sample, clip_id
 from intent_policy.experts.human_paced import (observed_hand_speed, forecast_hand_speed,
-                                                robot_travel_speed, travel_ticks)
+                                                robot_travel_speed, travel_ticks, HumanPace, CartesianFollower)
 
 ROOT = Path(__file__).resolve().parents[1]
 DT = .05
@@ -48,7 +48,7 @@ def human_clip(seed, scene, positions, xml):
     rows = []
     for tick in range(400):
         t = tick*DT
-        out = smooth((t-onset)/1.8)
+        out = smooth((t-onset)/2.2)
         palm = home + (forward-home)*out
         palm += motion_deviation(motion,out)*.15
         rows.append((palm, PLATES[chosen] if out>.001 else None, out))
@@ -71,8 +71,10 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
     source_xyz=np.asarray(positions['cake'],float)
     phase='above_cake'; stage_start=0; start=d.site_xpos[env.tcp].copy()
     selected=None; observed=[]; history=[]; events=[]; frames=[]; last_forecast=None
+    ready_samples=0
     predicted=None; withdraw_tick=None; home_palm=human.hanging_palm(human.active)
     wrist_history=[]; peak_hand_speed=0.; stage_key=None; stage_count=0
+    pace=HumanPace(DT); follower=CartesianFollower(DT)
     writer=VideoWriter(out/f'I2_{"Intent" if mode=="intent" else "Observed"}.mp4',width=640,height=480)
     stages=['above_cake','wait_cue','descend','close','lift','wait_target','move_plate','lower_plate','release','retreat','settle']
     goals={'above_cake':(np.r_[source_xyz[:2],.80],30,.085),
@@ -89,7 +91,7 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 strength*=1-fade
                 if strength<.001:point=None
             pose=human.apply(d,palm=palm,point_at=point,
-                             hand_shape='point' if point is not None else 'relaxed',aim_blend=strength)
+                             hand_shape='point',shape_from='relaxed',shape_progress=strength,aim_blend=strength)
             mujoco.mj_forward(m,d)
             ray=human.keypoints(pose,[source['arm']+'_index_base',source['arm']+'_index_tip'])
             visible=select_pointed(ray[0],ray[1],PLATES,max_distance_m=.065,margin_m=.01)
@@ -120,7 +122,8 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 motion=float(np.linalg.norm(kp[wrist]-history[0][wrist]))
                 if motion>.018 and scores[candidate]<.12:
                     predicted=candidate
-            if phase=='wait_cue' and (selected is not None or (mode=='intent' and predicted is not None)):
+            ready_samples=ready_samples+1 if selected is not None and measured_speed<.045 else 0
+            if phase=='wait_cue' and ((selected is not None and ready_samples>=3) or (mode=='intent' and predicted is not None)):
                 phase='descend';stage_start=tick;start=d.site_xpos[env.tcp].copy()
                 events.append({'t':t,'event':'pick_start','basis':'observed' if selected else 'forecast',
                                'forecast_candidate':predicted})
@@ -132,6 +135,7 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 step=(dest-current)*min(1.,.18*DT/max(np.linalg.norm(dest-current),1e-8))
                 early_command=np.r_[env.solve_ik(current+step),0.]
             else:early_command=None
+            pace.update(measured_speed,predicted_speed)
             peak_hand_speed=max(peak_hand_speed,measured_speed,predicted_speed)
             if phase=='wait_target' and selected is not None and np.linalg.norm(kp[wrist]-PLATES[selected])>.22:
                 phase='move_plate';stage_start=tick;start=d.site_xpos[env.tcp].copy()
@@ -143,6 +147,9 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
             elif phase=='release':goal,count,grip=np.r_[PLATES[selected][:2],.674],20,.085
             elif phase=='retreat':goal,count,grip=np.r_[PLATES[selected][:2],.80],25,.085
             else:goal=count=grip=None
+            if phase=='lift' and mode=='intent' and (selected or predicted) is not None:
+                destination=PLATES[selected or predicted]
+                goal=np.r_[source_xyz[:2]+.35*(destination[:2]-source_xyz[:2]),.80]
             if goal is not None:
                 if stage_key!=(phase,stage_start):
                     stage_key=(phase,stage_start)
@@ -153,8 +160,12 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                                  if speed_cap is not None else count)
                 count=stage_count
                 u=min(1.,(tick-stage_start+1)/count)
-                target=start+(goal-start)*u
+                cap={'descend':.14,'lower_plate':.14}.get(phase,.24)
+                speed=.22 if phase=='above_cake' else pace.speed(cap,following=phase=='descend')
+                target=follower.step(d.site_xpos[env.tcp],goal,speed)
                 command=np.r_[env.solve_ik(target),grip]
+                if phase not in ('close','release'):
+                    u=1. if np.linalg.norm(d.site_xpos[env.tcp]-goal)<.004 else 0.
             elif early_command is not None:
                 command=early_command
             else:
@@ -165,13 +176,13 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                            'forecast_candidate':predicted,'human_withdraw_tick':withdraw_tick,
                            'observed_hand_speed_m_s':measured_speed,
                            'forecast_hand_speed_m_s':predicted_speed if mode=='intent' else None,
-                           'robot_travel_speed_m_s':robot_travel_speed(peak_hand_speed,
-                               {'descend':.14,'lift':.22,'lower_plate':.14}.get(phase,.34))})
+                           'robot_command_speed_m_s':float(np.linalg.norm(follower.velocity)),
+                           'human_filtered_speed_m_s':pace.filtered})
             env.step(command)
-            if phase=='move_plate' and selected is not None and withdraw_tick is None:
-                before=np.linalg.norm(np.asarray(frames[-1]['tcp'])[:2]-PLATES[selected][:2])
-                after=np.linalg.norm(d.site_xpos[env.tcp,:2]-PLATES[selected][:2])
-                if before-after>.001:withdraw_tick=tick+1;events.append({'t':(tick+1)*DT,'event':'human_withdraw_after_robot_direction'})
+            if phase in ('lift','move_plate') and env.attached is not None and withdraw_tick is None and strength>.95:
+                before=np.linalg.norm(np.asarray(frames[-1]['tcp'])[:2]-PLATES[chosen][:2])
+                after=np.linalg.norm(d.site_xpos[env.tcp,:2]-PLATES[chosen][:2])
+                if before-after>.001 and d.site_xpos[env.tcp,2]>.72:withdraw_tick=tick+1;events.append({'t':(tick+1)*DT,'event':'human_withdraw_after_robot_direction'})
             mujoco.mj_forward(m,d);audit.observe(m,d)
             for index,distance,_,_ in audit.step_violations:
                 pair=audit.rules[index];ga,gb=pair.geom_a,pair.geom_b
@@ -219,7 +230,7 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,default=300100)
+    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,default=300106)
     p.add_argument('--out',type=Path,default=ROOT/'previews');args=p.parse_args()
     args.out.mkdir(parents=True,exist_ok=True)
     scene,positions,xml=make('I2')
