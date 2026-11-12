@@ -43,7 +43,7 @@ def make(task):
             obj('cup'+str(i),x,.22,'cylinder',(.034,.037),'white')
             obj('coaster'+str(i),x,-.12,'cylinder',(.045,.003),'cork')
     elif task == 'I2':
-        for i,x in enumerate([.14,.30,.46]): tray('plate'+str(i),x,-.11,.06,.055)
+        for i,x in enumerate([.105,.30,.495]): tray('plate'+str(i),x,-.11,.06,.055)
         tray('source',.30,.20,.065,.06)
         obj('cake',.30,.20,'ellipsoid',(.025,.025,.018),'tan',.643)
     elif task == 'I3':

@@ -8,7 +8,7 @@ import mujoco
 import numpy as np
 
 from layout_gallery import make
-from i3_collect import make_env, smooth, geom_sets, TOL
+from i3_collect import make_env, smooth, smooth_motion_path, motion_deviation, geom_sets, TOL
 from i3_self_check import I3SelfCheck
 from contact_context import overlap_tolerance
 from i3_observed import select_pointed
@@ -20,7 +20,7 @@ from intent_policy.experts.human_paced import (observed_hand_speed, forecast_han
 
 ROOT = Path(__file__).resolve().parents[1]
 DT = .05
-PLATES = {f'plate{i}': np.array([x, -.11, .64]) for i, x in enumerate((.14, .30, .46))}
+PLATES = {f'plate{i}': np.array([x, -.11, .64]) for i, x in enumerate((.105, .30, .495))}
 JOINTS = ['l_shoulder','r_shoulder','l_elbow','r_elbow','l_wrist','r_wrist']
 
 
@@ -37,7 +37,7 @@ def human_clip(seed, scene, positions, xml):
     path = palm_path(world)
     parts = segment_ranges(path, tails=True)
     a, b = parts[0] if parts else (0, len(path))
-    motion = path[a:b]
+    motion = smooth_motion_path(path[a:b])
     env, human = make_env(scene, positions, xml)
     try:
         human.set_active(side)
@@ -48,9 +48,9 @@ def human_clip(seed, scene, positions, xml):
     rows = []
     for tick in range(400):
         t = tick*DT
-        out = smooth((t-onset)/1.2)
+        out = smooth((t-onset)/1.8)
         palm = home + (forward-home)*out
-        palm += sample(warp(motion,np.zeros(3),np.zeros(3)),out)*.15
+        palm += motion_deviation(motion,out)*.15
         rows.append((palm, PLATES[chosen] if out>.001 else None, out))
     return chosen, onset, rows, {'clip_id':clip_id(keypoints),'source':str(src.relative_to(ROOT)),'arm':side}
 

@@ -70,6 +70,25 @@ def smooth(x):
     return x * x * (3 - 2 * x)
 
 
+def smooth_motion_path(path, radius=3):
+    """Suppress frame-scale HY-Motion wrist noise before retargeting to MuJoCo."""
+    path = np.asarray(path, float)
+    if len(path) < 3:
+        return path.copy()
+    offsets = np.arange(-radius, radius + 1)
+    weights = np.exp(-.5 * (offsets / max(radius / 1.5, 1)) ** 2)
+    weights /= weights.sum()
+    padded = np.pad(path, ((radius, radius), (0, 0)), mode='edge')
+    return sum(weights[i] * padded[i:i + len(path)] for i in range(len(weights)))
+
+
+def motion_deviation(path, progress):
+    """Keep generated curvature while entering and leaving the gesture at rest."""
+    u = min(1., max(0., float(progress)))
+    envelope = smooth(u / .18) * smooth((1. - u) / .18)
+    return sample(warp(path, np.zeros(3), np.zeros(3)), u) * envelope
+
+
 def sha256_file(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -169,11 +188,11 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
     generated = palm_path(w); parts = segment_ranges(generated, tails=True)
     if not parts: raise ValueError('HY-Motion clip lacks usable hand motion')
     first = 1 if case != 'nominal' and len(parts) > 2 else 0
-    a, z = parts[first]; motion_path = generated[a:z]
-    a2, z2 = parts[first + 1] if len(parts) > first + 1 else parts[first]; motion_path_b = generated[a2:z2]
+    a, z = parts[first]; motion_path = smooth_motion_path(generated[a:z])
+    a2, z2 = parts[first + 1] if len(parts) > first + 1 else parts[first]; motion_path_b = smooth_motion_path(generated[a2:z2])
     source_info = {'model': 'HY-Motion-1.0-Lite', 'seed': hy_seed, 'prompt': prompt, 'clip_id': clip_id(k3d),
                    'frames': [a, z], 'second_frames': [a2, z2], 'file_sha256': sha256_file(source),
-                   'retarget': 'palm path endpoint-warped to scene; body reconstructed by IK'}
+                   'retarget': 'HY-Motion palm path smoothed, endpoint-warped and eased to scene; body reconstructed by IK'}
     env, human = make_env(scene, positions, scene_xml)
     try:
         m, d = env.model, env.data
@@ -192,21 +211,19 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
             end = (onset + 3.15) if case in ('nominal', 'switch_after_commit') else (switch_at + 1.8)
             back = smooth((t - end) / 1.)
             current = home + (clear - home) * pre + (arm_a - clear) * reach + switch * (arm_b - arm_a)
-            deviation_a = sample(warp(motion_path, np.zeros(3), np.zeros(3)), reach)
-            deviation_b = sample(warp(motion_path_b, np.zeros(3), np.zeros(3)), reach)
+            deviation_a = motion_deviation(motion_path, reach)
+            deviation_b = motion_deviation(motion_path_b, reach)
             current = current + (1 - switch) * deviation_a + switch * deviation_b
-            back_to_clear = min(1., back * 2); back_to_home = max(0., back * 2 - 1)
-            palm = current + (clear - current) * back_to_clear + (home - clear) * back_to_home
+            palm = current * (1. - back) + home * back
             direction = A + (B - A) * switch
             active = reach * (1 - back)
             if case == 'switch_after_commit' and t >= switch_at:
                 local = t - switch_at
                 pre_b = smooth(local / .75); reach_b = smooth(local / 1.35)
                 palm = home + (clear - home) * pre_b + (arm_b - clear) * reach_b
-                palm = palm + sample(warp(motion_path_b, np.zeros(3), np.zeros(3)), reach_b)
+                palm = palm + motion_deviation(motion_path_b, reach_b)
                 back_b = smooth((local - 2.8) / 1.2)
-                back_clear = min(1., 2 * back_b); back_home = max(0., 2 * back_b - 1)
-                palm = palm + (clear - palm) * back_clear + (home - clear) * back_home
+                palm = palm * (1. - back_b) + home * back_b
                 direction = B; active = reach_b * (1 - back_b)
             pose = human.apply(d, palm=palm, point_at=direction if active > .001 else None,
                                hand_shape='point' if active > .001 else 'relaxed', aim_blend=active)
