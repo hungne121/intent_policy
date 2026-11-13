@@ -46,9 +46,10 @@ class StackedCoasterHuman(SequentialCoasterHuman):
         self.queue = [Gesture('wait', 'wait_robot_place_cup',
                               until=lambda tt, cc, cup=previous_cup:
                                   'cup_on_coaster_' + cup in cc['protocol_done']),
-                      Gesture('wait', 'wait_robot_prepared_next_cup',
+                      # 13/11 (user): the robot already holds the lifted cup before the human starts
+                      Gesture('wait', 'wait_robot_holds_next_cup',
                               until=lambda tt, cc, cup=self.rounds[self.human_round]['cup']:
-                                  'robot_prepared_' + cup in cc['protocol_done']),
+                                  'cup_grasped_' + cup in cc['protocol_done']),
                       Gesture('sleep', 'free_pause', duration=self.free_pause(), scale=False),
                       self.G_call(lambda tt, cc: self.emit('human_cue_onset',
                       modality='human_place', round=self.human_round))] + self.placing()
@@ -58,9 +59,9 @@ class StackedCoasterHuman(SequentialCoasterHuman):
             self.started = True
             self.queue = [Gesture('sleep', 'initial_still', duration=self.initial_still_s,
                                   scale=False),
-                          Gesture('wait', 'wait_robot_prepared_first_cup',
+                          Gesture('wait', 'wait_robot_holds_first_cup',
                                   until=lambda tt, cc:
-                                      'robot_prepared_' + self.rounds[0]['cup'] in cc['protocol_done']),
+                                      'cup_grasped_' + self.rounds[0]['cup'] in cc['protocol_done']),
                           Gesture('sleep', 'free_pause', duration=self.free_pause(), scale=False),
                           self.G_call(lambda tt, cc: self.emit('human_cue_onset',
                                       modality='human_place', round=self.human_round))] + self.placing()

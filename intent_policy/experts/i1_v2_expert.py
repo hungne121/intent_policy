@@ -1,6 +1,6 @@
 """Local I1 preview rules requested by the user; no changes to the stable expert."""
 import numpy as np
-from intent_policy.experts.human_paced import HumanPace, CartesianFollower
+from intent_policy.experts.human_paced import HumanPace, CartesianFollower, work_speed, WORK_ACCEL
 from intent_policy.experts.i1_expert import I1Expert
 from intent_policy.experts.scripted_expert import ScriptedExpert, Step, GUARD_OCCUPIED_XY
 from intent_policy.experts.separation import separation_hold
@@ -11,10 +11,18 @@ class SmoothI1Expert(I1Expert):
     def reset(self):
         self.filtered_goal = None
         self.human_pace = HumanPace(self.sc.dt)
-        self.forecast_follower = CartesianFollower(self.sc.dt)
+        self.forecast_follower = CartesianFollower(self.sc.dt, acceleration=WORK_ACCEL)
         self.clear_since = None
         self.preview_safety_holds = 0
         super().reset()
+
+    def _grasp_steps(self, key):
+        # 13/11: the cup is taken before the human starts; the 3 s settle pauses of the stable expert are not needed
+        steps = super()._grasp_steps(key)
+        for st in steps:
+            if st.name in ('settle_above_grasp', 'settle_before_grasp'):
+                st.ticks = 8
+        return steps
 
     def _placing_plan(self, back_off=False):
         last = self.sc.sequence_index == len(self.sc.rounds)-1
@@ -43,8 +51,9 @@ class SmoothI1Expert(I1Expert):
 
     def _smooth_forecast_goal(self):
         destination=self._destination()
-        desired=(np.r_[np.asarray(destination)[:2]+self.tcp_obj_offset[:2],self.travel]
-                 if destination is not None else np.r_[self.mapper.setpoint[:2],self.travel])
+        # Follow towards the stand-off point of the (observed or predicted) spot, never onto the spot
+        # itself: parking next to the placing hand made the human yield 3 s per motion (13/11).
+        desired=(self._standoff_point() if destination is not None else np.r_[self.mapper.setpoint[:2],self.travel])
         if self.filtered_goal is None:self.filtered_goal=self.mapper.setpoint.copy()
         predicted_speed = 0.
         if self._gb is not None and self._gb.forecast is not None:
@@ -52,8 +61,11 @@ class SmoothI1Expert(I1Expert):
             if len(future) > 1:
                 predicted_speed = float(np.median(np.linalg.norm(np.diff(future, axis=0), axis=-1) / .1))
         self.human_pace.update(np.linalg.norm(self.sc.human.vel), predicted_speed)
-        self.filtered_goal = self.forecast_follower.step(
-            self.mapper.setpoint, desired, self.human_pace.speed(.24, following=True))
+        # Human-paced only while the coaster is still being carried; once it is down the robot
+        # closes in on the stand-off point at independent work speed (user, 13/11).
+        placed = ('coaster_placed_' + self.coaster) in self.sc.protocol_done
+        speed = work_speed('move') if placed else self.human_pace.speed(.24, following=True)
+        self.filtered_goal = self.forecast_follower.step(self.mapper.setpoint, desired, speed)
         # Vertical travel height is maintained after grasp/lift, never following
         # a downward wrist forecast into a hand that is placing the coaster.
         self.filtered_goal[2]=self.travel

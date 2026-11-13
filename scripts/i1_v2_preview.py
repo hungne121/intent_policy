@@ -21,19 +21,20 @@ mechanics=yaml.safe_load((OLD/'configs/experiments/ten_task_v11/I1.yaml').read_t
 raw=_deep_merge(base,mechanics)
 raw=_deep_merge(raw,{'collection_ready':False,'task_code':'T3','intention_change':{'probability':0.},
  'goal':'Three identical cups on three coasters placed by the human, left middle right.',
- 'expert':{'rule':'early' if args.mode=='intent' else 'observed'},'timing':{'timeout_s':100.},
+ 'expert':{'rule':'early' if args.mode=='intent' else 'observed','standoff_m':.18},'timing':{'timeout_s':100.},
  'scene':{'grasp_hold_squeeze_m':0.,'objects':{f'C{i}':{'color':'white','label':'identical white cup'} for i in (1,2,3)},
           # 13/11 (user): the three cups stand in one row on one plate (visual slab, collision off in on_reset)
-          'decor':[{'name':'plate','type':'slab','xy':[.26,.26],'size':[.20,.07,.001],'color':'tray'}],
+          'decor':[{'name':'plate','type':'slab','xy':[.30,.09],'size':[.11,.10,.001],'color':'tray'}],
           'cameras':{'high':{'pos':[.4,1.15,1.85],'target':[.4,-.04,.85],'fovy':65},
                      'top':{'pos':[.4,.05,1.85],'target':[.4,.05,.62],'fovy':65}}},
  'human_behavior':{'yield_to_robot':{'before_start':False},'motion_bank':None,
                    'set_down_aim_m':-.0002},
  'scene_variation':{'sequence':{'pause_before_s':[0.,0.],
-     # fixed cup row on the plate, ordered nearest-first from the robot's rest TCP (0.15, 0.00)
-     'items':[{'cup':'C1','coaster':'CO1','cup_xy':[.12,.26],'coaster_xy':[.60,-.26]},
-              {'cup':'C2','coaster':'CO2','cup_xy':[.26,.26],'coaster_xy':[.70,-.26]},
-              {'cup':'C3','coaster':'CO3','cup_xy':[.40,.26],'coaster_xy':[.80,-.26]}]}}})
+     # 13/11 (user): three cups clustered in a triangle on one plate, close in front; nearest-first from the
+     # robot's rest TCP (0.15, 0.00): 0.10 / 0.21 / 0.21 m
+     'items':[{'cup':'C1','coaster':'CO1','cup_xy':[.24,.04],'coaster_xy':[.60,-.26]},
+              {'cup':'C2','coaster':'CO2','cup_xy':[.30,.15],'coaster_xy':[.70,-.26]},
+              {'cup':'C3','coaster':'CO3','cup_xy':[.36,.04],'coaster_xy':[.80,-.26]}]}}})
 raw['scene_variation']['sequence'].pop('switch',None)
 raw['scene_variation']['sequence'].pop('forecast_fault',None)
 
