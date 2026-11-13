@@ -27,7 +27,7 @@ def make(task):
     scene['zone_markers'] = False
     scene['human'].update({'hand_mesh_mode':'compiled_variants', 'idle_palm_offset':[.12,.07,.50],
                            'hang_blend_m':.10, 'hang_rest_upright':True, 'idle_clearance_m':.01,
-                           'self_clearance_m':.01})
+                           'self_clearance_m':.01, 'lean_rate_deg_s':40., 'reach_margin':.88, 'max_extension':.94})
     scene['human']['stand_xy'] = [.30, -.60]
     scene['cameras']['high'] = {'pos':[.3,.95,1.65], 'target':[.3,-.20,.86], 'fovy':65}
     scene['cameras']['top'] = {'pos':[.30,.04,1.72], 'target':[.30,-.04,.62], 'fovy':54}

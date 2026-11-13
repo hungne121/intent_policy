@@ -88,6 +88,10 @@ class HumanBody:
         self.max_lean = np.radians(float(cfg.get('max_lean_deg', 60.0)))
         self.head_pitch = np.radians(float(cfg.get('head_pitch_deg', 15.0)))
         self.reach_margin = float(cfg.get('reach_margin', 0.97))
+        # `max_extension` (13/11, user: the wrist whipped as the arm straightened: arccos in the two-link IK has an
+        # infinite slope at full extension): the elbow never straightens beyond this fraction of L1 + L2, the
+        # waist lean (reach_margin below it) does the rest. Absent: 1.0 (as before).
+        self.max_extension = float(cfg.get('max_extension', 1.0))
         self.idle_palm_offset = np.asarray(cfg.get('idle_palm_offset', [0.10, 0.05, 0.50]), float)  # forward, outward, down
         # `self_clearance_m` (decision 46/QĐ-DL, docs/reports/do_tay_xuyen_than_2026-11-06.md): a pose whose forearm or
         # hand sinks into the torso or the hips / legs gets that palm pushed out along the outward normal of the nearest
@@ -109,6 +113,12 @@ class HumanBody:
         # The supination normal is blended towards the hanging one by the same weight. Absent: as before.
         self.hang_blend_palm_up = bool(cfg.get('hang_blend_palm_up', False))
         self.idle_hang_blend = float(cfg.get('idle_hang_blend_m', 0.0))
+        # `lean_rate_deg_s` (13/11, user: the torso snapped upright when the withdrawing hand came back within
+        # reach, lean_angle has a kink at the reach boundary; measured 0.56 m/s -> 0 in one tick, I1 preview):
+        # the waist lean may change at most this fast between applied poses. Absent: instantaneous (as before).
+        self.lean_rate = float(cfg['lean_rate_deg_s']) if cfg.get('lean_rate_deg_s') is not None else None
+        self.lean_dt = float(cfg.get('lean_dt_s', 0.05))
+        self._lean_prev = None
         # `idle_clearance_m` (47/QĐ-DL step 1, the idle arm's rest): the hanging idle arm keeps this clearance from the
         # torso and the hips / legs. Its rest target turns with the leaning torso, so a lean towards the working hand put
         # the idle hand 48-71 mm into the hip (I1 lower_coaster, I2 / C1 / C3 pilot 06/11); the rest target is moved out
@@ -375,6 +385,7 @@ class HumanBody:
                 self.idle_hand_geom = self._select_compiled_hand(self.idle, idle_shape)
             else:
                 self.model.geom_dataid[self.idle_hand_geom] = self.idle_hand_meshes[idle_shape]
+        self._lean_prev = float(pose['lean'])
         quat = np.zeros(4)
         for seg, (pos, rot) in pose['segments'].items():
             mujoco.mju_mat2Quat(quat, np.ascontiguousarray(rot).ravel())
@@ -468,7 +479,7 @@ class HumanBody:
         L1, L2 = self.L1[s], self.L2[s] + (self.Lp[s] if hand is None else 0.0)
         end = np.asarray(target, float) - (0.0 if hand is None else self.Lp[s] * np.asarray(hand, float))
         v = end - shoulder
-        D = float(np.clip(np.linalg.norm(v), abs(L1 - L2) + 1e-3, L1 + L2 - 1e-4))
+        D = float(np.clip(np.linalg.norm(v), abs(L1 - L2) + 1e-3, min(L1 + L2 - 1e-4, self.max_extension * (L1 + L2))))
         u = unit(v)
         a = np.arccos(np.clip((L1 ** 2 + D ** 2 - L2 ** 2) / (2 * L1 * D), -1.0, 1.0))
         hint = unit(self.R_yaw @ [0.35, 0.6 * side, -1.0])   # elbow backwards, outwards and down
@@ -590,6 +601,9 @@ class HumanBody:
         theta, lean_to = self.lean_angle(palm), palm
         if idle_palm is not None and self.lean_angle(idle_palm, self.idle) > theta:   # lean for the farther hand
             theta, lean_to = self.lean_angle(idle_palm, self.idle), np.asarray(idle_palm, float)
+        if self.lean_rate is not None and self._lean_prev is not None:
+            step = np.radians(self.lean_rate) * self.lean_dt
+            theta = float(np.clip(theta, self._lean_prev - step, self._lean_prev + step))
         Rt = rotation(self._lean_axis(lean_to), theta)
         on_torso = lambda p: spine + Rt @ (np.asarray(p, float) - spine)
         Ry = self.R_yaw               # mesh vertices are in T-pose axes: rest orientation = facing yaw

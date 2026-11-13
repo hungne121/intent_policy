@@ -19,7 +19,8 @@ import mujoco
 import numpy as np
 
 from layout_gallery import make
-from i3_collect import make_env, smooth, geom_sets, JOINTS, DT, TOL
+from i3_collect import make_env, smooth, geom_sets, JOINTS, DT, TOL, smooth_motion_path, motion_deviation
+from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges
 from i3_self_check import I3SelfCheck
 from intent_policy.sim.scene_builder_v2 import weld_name
 from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
@@ -174,6 +175,9 @@ class Preview:
         return np.r_[self.env.solve_ik(target), grip]
 
     def hold(self, grip=None):
+        # a held robot restarts its Cartesian follower from rest: a stale follower velocity made the
+        # next command jump (13/11, I1 Intent trace: command 0.24 m/s while the TCP stood still)
+        self.follower.velocity[:] = 0.; self.follower.position = None
         cmd = self.env.hold()
         if grip is not None:
             cmd[6] = grip
@@ -311,14 +315,34 @@ class Preview:
 
 
 # ---------------------------------------------------------------------- human motion primitives
-def move(start, end, duration, lift=0., **kw):
-    """Smooth palm move from start to end over `duration` s with an optional vertical arc."""
+def move(start, end, duration, lift=0., motion=None, motion_scale=1., **kw):
+    """Smooth palm move from start to end over `duration` s with an optional vertical arc.
+    `motion`: a HY-Motion palm path (see `hy_motion`); its curvature (endpoint-warped to a zero
+    displacement, eased in and out) is added on top of the straight minimum-jerk move."""
     start, end = np.asarray(start, float), np.asarray(end, float)
     n = max(1, int(round(duration / DT)))
     for i in range(1, n + 1):
         u = smooth(i / n)
         p = start + (end - start) * u + np.array([0., 0., lift * np.sin(np.pi * i / n)])
+        if motion is not None:
+            p = p + motion_scale * motion_deviation(motion, u)
         yield {'palm': p, 'progress': u, **kw}
+
+
+HY_BANK = ROOT / 'outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out'
+
+
+def hy_motion(pv, clip, sample=0, hand='right'):
+    """Smoothed HY-Motion palm-path segments of one generated clip, placed in this scene.
+    Returns the list of moving segments (each an [L, 3] path) and the clip metadata."""
+    src = HY_BANK / f'{clip}.npz'
+    with np.load(src, allow_pickle=False) as raw:
+        k3d = raw['keypoints3d'][sample].copy(); text = str(raw['text'])
+    world = to_scene(k3d, np.array([*pv.scene['human']['stand_xy'], 0.]), pv.scene['human']['facing_deg'], pv.scene['floor_z'])
+    path = palm_path(world, hand)
+    parts = segment_ranges(path, tails=True)
+    segments = [smooth_motion_path(path[a:b]) for a, b in parts]
+    return segments, {'clip': clip, 'sample': sample, 'prompt': text, 'segments': parts, 'source': str(src.relative_to(ROOT))}
 
 
 def hold(palm, duration=None, until=None, **kw):

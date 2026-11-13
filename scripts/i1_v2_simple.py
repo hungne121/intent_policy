@@ -10,7 +10,7 @@ HAND_CLEAR_M from the current hand; once the coaster is down and the hand leaves
 The human never waits for the robot. Scripted expert, not ACT."""
 import xml.etree.ElementTree as ET
 import numpy as np
-from v2_preview_common import Preview, move, hold, main_pair, TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT
+from v2_preview_common import Preview, move, hold, main_pair, hy_motion, TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT
 
 CUPS = {'cup0': (.24, .04), 'cup1': (.30, .15), 'cup2': (.36, .04)}
 SPOTS = [np.array([.155, -.13]), np.array([.305, -.13]), np.array([.455, -.13])]
@@ -35,6 +35,11 @@ def hook(scene, positions, xml):
 
 def human(pv, order, rng):
     home = pv.human.hanging_palm(pv.human.active)
+    # HY-Motion 'coaster place' clip: its moving segments shape the carry and the withdraw
+    segs, meta = hy_motion(pv, 'i1_coaster_place', sample=int(rng.integers(8)))
+    pv.human_motion_source = meta
+    carry_shape = segs[0] if segs else None
+    back_shape = segs[-1] if len(segs) > 1 else None
     # the stack hangs under the resting hand from the start
     for i in range(3):
         pv.place_kinematic(f'coaster{i}', home + [0, .02, -HOLD_DZ + i * COASTER_T]); pv.kinematic.pop(f'coaster{i}')
@@ -49,11 +54,11 @@ def human(pv, order, rng):
         yield from hold(cur, float(rng.uniform(.3, 1.5)), shape='grasp', phase=f'free_pause_{r}')
         pv.event('human_cue_onset', round=r)
         up = np.array([spot[0], spot[1], .623 + HOLD_DZ + .10])
-        yield from move(cur, up, 1.0, lift=.03, shape='grasp', phase=f'carry_{r}')
+        yield from move(cur, up, 1.4, lift=.03, motion=carry_shape, motion_scale=.25, shape='grasp', phase=f'carry_{r}')
         down = np.array([spot[0], spot[1], .623 + HOLD_DZ + .002])
-        yield from move(up, down, .5, shape='grasp', phase=f'lower_{r}')
+        yield from move(up, down, .6, shape='grasp', phase=f'lower_{r}')
         pv.human_release(co); pv.coaster_down[r] = True; pv.event('coaster_placed', round=r, spot=spot.round(3).tolist())
-        yield from move(down, home, 1.0, lift=.08, shape='grasp', phase=f'withdraw_{r}')
+        yield from move(down, home, 1.2, lift=.08, motion=back_shape, motion_scale=.25, shape='grasp', phase=f'withdraw_{r}')
         cur = home
     yield from hold(home, 1.0, shape='grasp', phase='done')
 
@@ -108,7 +113,8 @@ def run(mode, seed, predictor, out):
         if any(np.linalg.norm(pv.pos(c)[:2] - co[:2]) < .02 and abs(pv.pos(c)[2] - (co[2] + COASTER_T / 2 + .037 + .008)) < .01 for c in CUPS):
             cups_on += 1
     return pv.finish(cups_on == 3 and pv.attached_name() is None,
-                     {'cups_on_coasters': cups_on, 'limitations': ['scripted human, not HY-Motion', 'coaster stack welded to the hand',
+                     {'cups_on_coasters': cups_on, 'human_motion_source': getattr(pv, 'human_motion_source', None),
+                      'limitations': ['straight scripted moves shaped by HY-Motion palm-path curvature, not full-body replay', 'coaster stack welded to the hand',
                                                                    'expert preview, not trained ACT']})
 
 
