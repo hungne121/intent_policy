@@ -27,7 +27,8 @@ raw=_deep_merge(raw,{'collection_ready':False,'task_code':'T3','intention_change
           'decor':[{'name':'plate','type':'slab','xy':[.30,.09],'size':[.11,.10,.001],'color':'tray'}],
           'cameras':{'high':{'pos':[.4,1.15,1.85],'target':[.4,-.04,.85],'fovy':65},
                      'top':{'pos':[.4,.05,1.85],'target':[.4,.05,.62],'fovy':65}}},
- 'human_behavior':{'yield_to_robot':{'before_start':False},'motion_bank':None,
+ # 13/11 (user): the human never waits for the robot; the robot keeps clear of the (predicted) hand
+ 'human_behavior':{'yield_to_robot':{'before_start':False,'max_wait_s':0.0},'motion_bank':None,
                    'set_down_aim_m':-.0002},
  'scene_variation':{'sequence':{'pause_before_s':[0.,0.],
      # 13/11 (user): three cups clustered in a triangle on one plate, close in front; nearest-first from the

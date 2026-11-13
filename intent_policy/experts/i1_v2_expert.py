@@ -7,6 +7,9 @@ from intent_policy.experts.separation import separation_hold
 from intent_policy.sim.restricted_action import RestrictedAction as A
 
 
+HAND_CLEAR_M = 0.16   # robot keeps this xy distance from the observed and the predicted hand while following
+
+
 class SmoothI1Expert(I1Expert):
     def reset(self):
         self.filtered_goal = None
@@ -51,9 +54,21 @@ class SmoothI1Expert(I1Expert):
 
     def _smooth_forecast_goal(self):
         destination=self._destination()
-        # Follow towards the stand-off point of the (observed or predicted) spot, never onto the spot
-        # itself: parking next to the placing hand made the human yield 3 s per motion (13/11).
-        desired=(self._standoff_point() if destination is not None else np.r_[self.mapper.setpoint[:2],self.travel])
+        # 13/11 (user): chase the predicted spot itself as soon as ManiCast predicts it; the only
+        # correction is a safety margin around the predicted hand (forecast at +1 s, palm offset).
+        if destination is not None:
+            goal_xy=np.asarray(destination)[:2]+self.tcp_obj_offset[:2]
+            if self._gb is not None and self._gb.forecast is not None and self._gb.kp:
+                wrist=np.asarray(self._gb.kp[-1][5],float)[:2]
+                hand_pred=np.asarray(self._gb.forecast[-1][:2],float)+(self.sc.human.pos[:2]-wrist)
+                for hand in (hand_pred, self.sc.human.pos[:2]):
+                    away=goal_xy-hand; dist=float(np.linalg.norm(away))
+                    if dist<HAND_CLEAR_M:
+                        u=away/dist if dist>1e-6 else (self.mapper.setpoint[:2]-hand)/max(float(np.linalg.norm(self.mapper.setpoint[:2]-hand)),1e-6)
+                        goal_xy=hand+HAND_CLEAR_M*u
+            desired=np.r_[goal_xy,self.travel]
+        else:
+            desired=np.r_[self.mapper.setpoint[:2],self.travel]
         if self.filtered_goal is None:self.filtered_goal=self.mapper.setpoint.copy()
         predicted_speed = 0.
         if self._gb is not None and self._gb.forecast is not None:
