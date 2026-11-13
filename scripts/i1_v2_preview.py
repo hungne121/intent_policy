@@ -1,171 +1,126 @@
-"""New V2 I1 nominal preview; reuse compatible mechanics, never old demonstrations."""
-from pathlib import Path
-import json, hashlib, argparse
+"""I1 nominal paired preview on the plain V2 scaffold (user, 13/11).
+
+Scene: three identical cups clustered on one plate in front of the robot. The human holds a stack of
+three coasters in the right hand. Round i: the robot parks above the nearest remaining cup (observable
+preparation); the human then carries the bottom coaster to a random spot (left / middle / right); as
+soon as the hand starts moving the robot grasps and lifts the cup (both experts). The human sets the
+coaster down and withdraws.
+Observed: the robot waits until the coaster is down and the hand has left, then places the cup.
+Intent: once ManiCast forecasts the coaster-holding hand reaching out over the table, the robot drifts
+along the predicted hand path (forecast +0.5 s plus the hand-coaster offset) at a pace bounded by the
+observed hand speed, keeping HAND_CLEAR_M from the current hand; after the coaster is down and the hand
+leaves it places at work speed. The human never waits for the robot. Scripted expert, not ACT."""
+import xml.etree.ElementTree as ET
 import numpy as np
-import yaml
-from intent_policy.scenarios.config import ScenarioConfig, _deep_merge
-from intent_policy.scenarios.i1_coaster_sequence import CoasterSequenceTask
-from intent_policy.benchmark.runner import ExpertAgent, ObservationConfig, run_episode, save_record
-from intent_policy.benchmark.video import VideoWriter
-from intent_policy.sim.restricted_action import RestrictedActionConfig
+from v2_preview_common import Preview, move, hold, main_pair, hy_motion, TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT
 
-ROOT=Path(__file__).resolve().parents[1]; OLD=ROOT
-parser=argparse.ArgumentParser()
-parser.add_argument('--mode', choices=['observed','intent'], required=True)
-parser.add_argument('--out', type=Path, default=ROOT/'previews')
-args=parser.parse_args()
-OUT=args.out; OUT.mkdir(parents=True,exist_ok=True)
-NAME='I1_Intent' if args.mode=='intent' else 'I1_Observed'
-base=yaml.safe_load((OLD/'configs/scenarios/i1_coaster_sequence.yaml').read_text())
-mechanics=yaml.safe_load((OLD/'configs/experiments/ten_task_v11/I1.yaml').read_text())['overrides']
-raw=_deep_merge(base,mechanics)
-raw=_deep_merge(raw,{'collection_ready':False,'task_code':'T3','intention_change':{'probability':0.},
- 'goal':'Three identical cups on three coasters placed by the human, left middle right.',
- 'expert':{'rule':'early' if args.mode=='intent' else 'observed','standoff_m':.18},'timing':{'timeout_s':100.},
- 'scene':{'grasp_hold_squeeze_m':0.,'objects':{f'C{i}':{'color':'white','label':'identical white cup'} for i in (1,2,3)},
-          # 13/11 (user): the three cups stand in one row on one plate (visual slab, collision off in on_reset)
-          'decor':[{'name':'plate','type':'slab','xy':[.30,.09],'size':[.11,.10,.001],'color':'tray'}],
-          'cameras':{'high':{'pos':[.4,1.15,1.85],'target':[.4,-.04,.85],'fovy':65},
-                     'top':{'pos':[.4,.05,1.85],'target':[.4,.05,.62],'fovy':65}}},
- # 13/11 (user): the human never waits for the robot; the robot keeps clear of the (predicted) hand
- 'human_behavior':{'yield_to_robot':{'before_start':False,'max_wait_s':0.0},'motion_bank':None,
-                   'set_down_aim_m':-.0002},
- 'scene_variation':{'sequence':{'pause_before_s':[0.,0.],
-     # 13/11 (user): three cups clustered in a triangle on one plate, close in front; nearest-first from the
-     # robot's rest TCP (0.15, 0.00): 0.10 / 0.21 / 0.21 m
-     'items':[{'cup':'C1','coaster':'CO1','cup_xy':[.24,.04],'coaster_xy':[.60,-.26]},
-              {'cup':'C2','coaster':'CO2','cup_xy':[.30,.15],'coaster_xy':[.70,-.26]},
-              {'cup':'C3','coaster':'CO3','cup_xy':[.36,.04],'coaster_xy':[.80,-.26]}]}}})
-raw['scene_variation']['sequence'].pop('switch',None)
-raw['scene_variation']['sequence'].pop('forecast_fault',None)
+CUPS = {'cup0': (.24, .04), 'cup1': (.30, .15), 'cup2': (.36, .04)}
+SPOTS = [np.array([.155, -.13]), np.array([.305, -.13]), np.array([.455, -.13])]
+CUP_Z = .665
+COASTER_T = .006
+HOLD_DZ = .035                # right palm above the coaster it holds
+STACK_DZ = .03                # stack top below the left palm
+FOLLOW_Z = .86
+HAND_CLEAR_M = .16
 
-class V2I1(CoasterSequenceTask):
-    def coaster_bottom_gap(self, key):
-        from intent_policy.sim.scene_builder import object_half_height
-        return float(self.pos(key)[2] - object_half_height(self.scene['objects'][key]) - self.table_z)
 
-    @property
-    def expert_class(self):
-        from intent_policy.experts.i1_v2_expert import SmoothI1Expert
-        return SmoothI1Expert
+def hook(scene, positions, xml):
+    scene['human']['stand_xy'] = [.30, -.58]
+    for k, xy in CUPS.items():
+        positions[k] = (xy[0], xy[1], CUP_Z)
+    for i in range(3):
+        positions[f'coaster{i}'] = (.75, -.45, .623 + i * COASTER_T)
+    root = ET.fromstring(xml)
+    ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size='.11 .10 .001',
+                  pos='.30 .09 .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
+    return scene, positions, ET.tostring(root, encoding='unicode')
 
-    def round_released(self, cup):
-        # Do not interrupt the upward retreat to start the next cup early.
-        height=self.table_z + float(self.cfg.expert.get('travel_dz', .2))
-        return super().round_released(cup) and self.tcp()[2] >= height-.005
 
-    def hand_clearance_lift(self, path, shapes, palm_up=0.0, point_at=None,
-                            ignore=(), holding=None, **kwargs):
-        # Coasters still welded to this hand move with it; they are not static
-        # obstacles to route the palm over. The current coaster remains the
-        # held body checked against the table by the original geometry code.
-        moving={item['coaster'] for item in getattr(self,'rounds',())
-                if self.env.data.eq_active[self.weld_id[item['coaster']]]}
-        return super().hand_clearance_lift(path,shapes,palm_up,point_at,
-                                            set(ignore)|moving,holding,**kwargs)
+def human(pv, order, rng):
+    hang = pv.human.hanging_palm('r')
+    rest = hang + np.array([0., .10, .10])                 # right hand holds the stack in front of the hip
+    segs, meta = hy_motion(pv, 'i1_coaster_place', sample=int(rng.integers(8)))
+    pv.human_motion_source = meta
+    carry_shape = segs[0] if segs else None
+    back_shape = segs[-1] if len(segs) > 1 else None
+    for i in range(3):      # the stack hangs under the palm; coaster0 is the lowest and is set down first
+        pv.place_kinematic(f'coaster{i}', rest + [0, .02, -HOLD_DZ + i * COASTER_T]); pv.kinematic.pop(f'coaster{i}')
+    pv.apply_human({'palm': rest, 'shape': 'grasp'})
+    for i in range(3):
+        pv.human_grasp(f'coaster{i}')
+    cur = rest
+    yield from hold(rest, 1.0, shape='grasp', phase='idle')
+    for r, spot in enumerate(order):
+        co = f'coaster{r}'
+        yield from hold(cur, until=lambda: pv.robot_prepared, shape='grasp', phase=f'wait_robot_{r}')
+        yield from hold(cur, float(rng.uniform(.3, 1.2)), shape='grasp', phase=f'free_pause_{r}')
+        pv.event('human_carry_onset', round=r)
+        up = np.array([spot[0], spot[1], .623 + HOLD_DZ + .10])
+        yield from move(cur, up, 1.4, lift=.04, motion=carry_shape, motion_scale=.25, shape='grasp', phase=f'carry_{r}')
+        down = np.array([spot[0], spot[1], .623 + HOLD_DZ + .002])
+        yield from move(up, down, .6, shape='grasp', phase=f'lower_{r}')
+        pv.human_release(co); pv.coaster_down[r] = True; pv.event('coaster_placed', round=r, spot=spot.round(3).tolist())
+        yield from move(down, rest, 1.2, lift=.08, motion=back_shape, motion_scale=.25, shape='grasp', phase=f'withdraw_{r}')
+        cur = rest
+    yield from hold(rest, 1.0, shape='grasp', phase='done')
 
-    def on_reset(self):
-        import mujoco
-        from intent_policy.sim.i1_v2_human import StackedCoasterHuman
-        super().on_reset()
-        old = self.human
-        human = StackedCoasterHuman(self.scene, self.cfg.human_behavior, self.variation)
-        for key in ('bank', 'bank_rng', 'bank_table_top', 'reach', 'point_pose', 'shoulder'):
-            setattr(human, key, getattr(old, key))
-        self.human = human
-        human.rest = np.array([.51, -.36, .76])
-        human.pos = human.rest.copy()
-        human.shape = 'grasp'
-        human.holding = self.rounds[0]['coaster']
-        human.initial_still_s = float(np.random.default_rng([int(self.seed), 916]).uniform(2.6, 3.6))
-        self.initial_still_s = human.initial_still_s
-        self._apply_human_pose()
-        human.pause_rng = np.random.default_rng([int(self.seed), 917])
-        for g in range(self.env.model.ngeom):
-            if self.env.model.geom(g).name.startswith('decor_plate_'):
-                self.env.model.geom_contype[g] = 0; self.env.model.geom_conaffinity[g] = 0
-        for i, item in enumerate(self.rounds):
-            key = item['coaster']
-            adr = self.qadr[key]
-            self.env.data.qpos[adr:adr+3] = [human.pos[0], human.pos[1]+.015,
-                                             human.pos[2]-float(self.cfg.human_behavior['grip_dz_m'])+i*.008]
-            self.env.data.qpos[adr+3:adr+7] = [1.,0.,0.,0.]
-        mujoco.mj_forward(self.env.model, self.env.data)
-        for item in self.rounds:
-            key = item['coaster']
-            self.attach_to_hand(key)
-            self.start_pos[key] = self.pos(key).copy()
-        mujoco.mj_forward(self.env.model, self.env.data)
 
-    def update_task(self):
-        # The robot's preparation pose above the cup it will take is the observable cue the human waits for.
-        cup = self.robot_target()
-        if ('robot_prepared_' + cup) not in self.protocol_done and 'cup_grasped_' + cup not in self.protocol_done:
-            tcp = self.tcp(); above = self.grasp_point(cup)
-            if np.linalg.norm(tcp[:2] - above[:2]) < .02 and tcp[2] > above[2] + .03 and np.linalg.norm(self.env.data.qvel[self.env.dids]) < .3:
-                self.protocol('robot_prepared_' + cup, 'robot', object=cup)
-        super().update_task()
+def robot(pv):
+    pv.robot_prepared = False; pv.coaster_down = [False] * 3
+    remaining = list(CUPS)
+    for r in range(3):
+        cup = min(remaining, key=lambda c: np.linalg.norm(pv.pos(c)[:2] - pv.tcp()[:2])); remaining.remove(cup)
+        co = f'coaster{r}'
+        above = np.r_[pv.pos(cup)[:2], TRAVEL_Z]
+        yield from pv.goto(above, 'approach')
+        pv.robot_prepared = True; pv.event('robot_prepared', cup=cup)
+        # observable cue: the free hand starts moving (towards the stack) -> take the cup now
+        yield from pv.wait(lambda: pv.hand_speed > .05, 'wait_hand_motion')
+        pv.robot_prepared = False; pv.event('hand_motion_observed', round=r)
+        ok = yield from pv.pick(cup)
+        yield from pv.goto(np.r_[pv.tcp()[:2], FOLLOW_Z], 'lift', GRIP_CLOSED)
+        pv.event('robot_holds_cup', cup=cup)
+        while not pv.coaster_down[r]:
+            if pv.mode == 'intent' and pv.forecast is not None and pv.hand_speed > .03:
+                palm = np.asarray(pv.pose['palm'])[:2]
+                goal_xy = pv.wrist_future()[4][:2] + (palm - pv.wrist()[:2])
+                away = goal_xy - palm; dist = float(np.linalg.norm(away))
+                if dist < HAND_CLEAR_M:
+                    goal_xy = palm + HAND_CLEAR_M * (away / dist if dist > 1e-6 else (pv.tcp()[:2] - palm) / max(np.linalg.norm(pv.tcp()[:2] - palm), 1e-6))
+                if np.linalg.norm(pv.tcp()[:2] - palm) < HAND_CLEAR_M and np.dot(goal_xy - pv.tcp()[:2], palm - pv.tcp()[:2]) > 0:
+                    yield pv.hold(GRIP_CLOSED)
+                else:
+                    yield pv.command_to(np.r_[goal_xy, FOLLOW_Z], 'follow', GRIP_CLOSED, following=True)
+            else:
+                yield pv.hold(GRIP_CLOSED)
+        target = lambda: pv.pos(co)
+        yield from pv.wait(lambda: np.linalg.norm(np.asarray(pv.pose['palm'])[:2] - target()[:2]) > .15, 'wait_hand_clear', GRIP_CLOSED)
+        pv.event('hand_clear', round=r)
+        place_z = target()[2] + COASTER_T / 2 + .037 + .008 + GRASP_DZ
+        yield from pv.goto(lambda: np.r_[target()[:2], TRAVEL_Z], 'move', GRIP_CLOSED)
+        yield from pv.goto(lambda: np.r_[target()[:2], place_z], 'lower', GRIP_CLOSED)
+        yield from pv.open_gripper(); pv.event('cup_on_coaster', round=r, cup=cup)
+        yield from pv.goto(lambda: np.r_[target()[:2], TRAVEL_Z], 'retreat')
+    yield from pv.goto(np.array([.15, 0., .85]), 'home')
+    pv.phase = 'done'
 
-    def step(self, command):
-        import mujoco
-        previous = getattr(self.human, 'human_round', 0)
-        done = super().step(command)
-        current = self.human.human_round
-        if current > previous and current < len(self.rounds):
-            # The remaining discs settle down by one disc thickness after the
-            # bottom coaster is released. Re-anchor their hand welds at rest.
-            for item in self.rounds[current:]:
-                key = item['coaster']
-                adr = self.qadr[key]
-                self.env.data.qpos[adr+2] -= .008
-            mujoco.mj_forward(self.env.model, self.env.data)
-            for item in self.rounds[current:]:
-                key = item['coaster']
-                self.attach_to_hand(key)
-            mujoco.mj_forward(self.env.model, self.env.data)
-            self.__dict__.setdefault('stack_settles', []).append({'t':self.time,'round':current,'dz_m':-.008})
-        return done
 
-    def sample_episode_variation(self, seed, episode_spec=None, _layout_retry=0):
-        var=super().sample_episode_variation(seed,episode_spec)
-        # Human generator only: destinations never supplied as future policy input.
-        destinations=[[.155,-.13],[.305,-.13],[.455,-.13]]
-        order=np.random.default_rng([int(seed),811]).permutation(3)
-        for row, idx in zip(var['coaster_sequence'],order): row['destination_xy']=destinations[int(idx)]
-        return var
+def run(mode, seed, predictor, out):
+    pv = Preview('I1', mode, seed, out, predictor, scene_hook=hook, max_ticks=1400)
+    rng = np.random.default_rng(seed)
+    order = [SPOTS[int(i)] for i in rng.permutation(3)]
+    pv.event('task_active', spots_evaluator_only=[o.round(3).tolist() for o in order])
+    pv.run(human(pv, order, rng), robot(pv), done=lambda: pv.human_phase == 'done')
+    cups_on = 0
+    for r in range(3):
+        co = pv.pos(f'coaster{r}')
+        if any(np.linalg.norm(pv.pos(c)[:2] - co[:2]) < .02 and abs(pv.pos(c)[2] - (co[2] + COASTER_T / 2 + .037 + .008)) < .01 for c in CUPS):
+            cups_on += 1
+    return pv.finish(cups_on == 3 and pv.attached_name() is None,
+                     {'cups_on_coasters': cups_on, 'human_motion_source': getattr(pv, 'human_motion_source', None),
+                      'limitations': ['straight moves shaped by HY-Motion palm-path curvature, not full-body replay',
+                                      'coaster stack welded to the right hand', 'expert preview, not trained ACT']})
 
-cfg=ScenarioConfig.from_dict(raw,source=str(ROOT/'specs/I1_OBSERVED.md'))
-sc=V2I1(cfg); writers={}
-try:
-    def frame(obs, decision, target, scenario):
-        for cam in ('high',):
-            if cam not in writers: writers[cam]=VideoWriter(OUT/f'{NAME}.mp4',width=640,height=480)
-            writers[cam].add(obs[f'observation.images.{cam}'])
-    controller=RestrictedActionConfig.load(OLD/'configs/controller/continuous_motion.yaml')
-    controller.continuous.update(tcp_speed=.39,tcp_accel=1.0)
-    record=run_episode(sc,ExpertAgent(),300100,
-        controller_cfg=controller,
-        obs_cfg=ObservationConfig(cameras=('high',),width=640,height=480),on_frame=frame,
-        episode_id=f'I1_V2_preview_{args.mode}_300100')
-    save_record(record,OUT/f'{NAME}_episode.json.gz')
-    summary={k:record[k] for k in ('success','failure','duration_s','wall_time_s','protocol_steps_completed')}
-    summary.update(mode=args.mode, forecast_source='manicast' if args.mode=='intent' else 'none', source_spec='specs/01_INSTRUCTOR/I1_OBSERVED.md',
-        human_source='seeded I1 stacked-coaster scripted human; waits for the robot preparation pose above the next cup',initial_still_s=sc.initial_still_s,
-        stack_settles=getattr(sc,'stack_settles',[]),
-        status='visual review preview; not an accepted dataset episode',
-        limitations=['assisted robot grasp','seeded scripted human rather than HY-Motion replay',
-                     'remaining coasters re-anchored by 8 mm after each release; not accepted dataset motion',
-                     'scripted expert, not a trained ACT policy','geometry acceptance not evaluated'])
-    from intent_policy.benchmark.collection_integrity import motion_source_hash
-    summary['motion_source_hash']=motion_source_hash(record)
-    if args.mode=='intent':
-        from pif.config import load_config
-        from pif.utils import resolve
-        checkpoint=resolve(load_config(str(OLD/'configs/pif/pif.yaml'),[])['v6_expert']['checkpoint_path'])
-        summary['checkpoint_sha256']=hashlib.sha256(checkpoint.read_bytes()).hexdigest()
-    (OUT/f'{NAME}_summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
-    (OUT/f'{NAME}_config.yaml').write_text(yaml.safe_dump(raw,allow_unicode=True))
-    print(json.dumps(summary,ensure_ascii=False),flush=True)
-finally:
-    for w in writers.values():w.close()
-    sc.close()
+
+if __name__ == '__main__':
+    main_pair('I1', run, 300100)
