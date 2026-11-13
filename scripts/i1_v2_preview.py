@@ -1,10 +1,10 @@
 """I1 nominal paired preview on the plain V2 scaffold (user, 13/11).
 
 Scene: three identical cups clustered on one plate in front of the robot. The human holds a stack of
-three coasters in the right hand. Round i: the robot parks above the nearest remaining cup (observable
-preparation); the human then carries the bottom coaster to a random spot (left / middle / right); as
-soon as the hand starts moving the robot grasps and lifts the cup (both experts). The human sets the
-coaster down and withdraws.
+Three coasters are stacked on the table at the human's right. Round i: the robot parks above the nearest
+remaining cup (observable preparation); the human reaches for the top coaster, picks it up and carries it
+to a random spot (left / middle / right); as soon as the hand starts moving the robot grasps and lifts
+the cup (both experts). The human sets the coaster down and withdraws.
 Observed: the robot waits until the coaster is down and the hand has left, then places the cup.
 Intent: once ManiCast forecasts the coaster-holding hand reaching out over the table, the robot drifts
 along the predicted hand path (forecast +0.5 s plus the hand-coaster offset) at a pace bounded by the
@@ -18,6 +18,7 @@ CUPS = {'cup0': (.24, .04), 'cup1': (.30, .15), 'cup2': (.36, .04)}
 SPOTS = [np.array([.155, -.13]), np.array([.305, -.13]), np.array([.455, -.13])]
 CUP_Z = .665
 COASTER_T = .006
+SOURCE = np.array([.50, -.30])     # coaster stack on the table
 HOLD_DZ = .035                # right palm above the coaster it holds
 STACK_DZ = .03                # stack top below the left palm
 FOLLOW_Z = .86
@@ -28,8 +29,8 @@ def hook(scene, positions, xml):
     scene['human']['stand_xy'] = [.30, -.58]
     for k, xy in CUPS.items():
         positions[k] = (xy[0], xy[1], CUP_Z)
-    for i in range(3):
-        positions[f'coaster{i}'] = (.75, -.45, .623 + i * COASTER_T)
+    for i in range(3):      # a stack on the table at the human's right; coaster2 on top is taken first
+        positions[f'coaster{i}'] = (SOURCE[0], SOURCE[1], .623 + i * COASTER_T)
     root = ET.fromstring(xml)
     ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size='.11 .10 .001',
                   pos='.30 .09 .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
@@ -38,31 +39,32 @@ def hook(scene, positions, xml):
 
 def human(pv, order, rng):
     hang = pv.human.hanging_palm('r')
-    rest = hang + np.array([0., .10, .10])                 # right hand holds the stack in front of the hip
+    rest = hang + np.array([0., .08, .08])
     segs, meta = hy_motion(pv, 'i1_coaster_place', sample=int(rng.integers(8)))
     pv.human_motion_source = meta
-    carry_shape = segs[0] if segs else None
-    back_shape = segs[-1] if len(segs) > 1 else None
-    for i in range(3):      # the stack hangs under the palm; coaster0 is the lowest and is set down first
-        pv.place_kinematic(f'coaster{i}', rest + [0, .02, -HOLD_DZ + i * COASTER_T]); pv.kinematic.pop(f'coaster{i}')
-    pv.apply_human({'palm': rest, 'shape': 'grasp'})
-    for i in range(3):
-        pv.human_grasp(f'coaster{i}')
+    reach_shape = segs[0] if segs else None
+    carry_shape = segs[1] if len(segs) > 1 else reach_shape
+    back_shape = segs[-1] if len(segs) > 2 else None
     cur = rest
-    yield from hold(rest, 1.0, shape='grasp', phase='idle')
+    yield from hold(rest, 1.0, phase='idle')
     for r, spot in enumerate(order):
-        co = f'coaster{r}'
-        yield from hold(cur, until=lambda: pv.robot_prepared, shape='grasp', phase=f'wait_robot_{r}')
-        yield from hold(cur, float(rng.uniform(.3, 1.2)), shape='grasp', phase=f'free_pause_{r}')
-        pv.event('human_carry_onset', round=r)
+        co = f'coaster{2 - r}'                                  # top of the stack first
+        yield from hold(cur, until=lambda: pv.robot_prepared, phase=f'wait_robot_{r}')
+        yield from hold(cur, float(rng.uniform(.3, 1.2)), phase=f'free_pause_{r}')
+        pv.event('human_motion_onset', round=r)
+        top = pv.pos(co) + [0, 0, HOLD_DZ]
+        yield from move(cur, top + [0, 0, .04], .9, lift=.03, motion=reach_shape, motion_scale=.2,
+                        shape='grasp', shape_from='relaxed', phase=f'reach_{r}')
+        yield from move(top + [0, 0, .04], top, .3, shape='grasp', phase=f'grip_{r}')
+        pv.human_grasp(co); pv.event('human_carry_onset', round=r)
         up = np.array([spot[0], spot[1], .623 + HOLD_DZ + .10])
-        yield from move(cur, up, 1.4, lift=.04, motion=carry_shape, motion_scale=.25, shape='grasp', phase=f'carry_{r}')
+        yield from move(top, up, 1.4, lift=.06, motion=carry_shape, motion_scale=.25, shape='grasp', phase=f'carry_{r}')
         down = np.array([spot[0], spot[1], .623 + HOLD_DZ + .002])
         yield from move(up, down, .6, shape='grasp', phase=f'lower_{r}')
         pv.human_release(co); pv.coaster_down[r] = True; pv.event('coaster_placed', round=r, spot=spot.round(3).tolist())
-        yield from move(down, rest, 1.2, lift=.08, motion=back_shape, motion_scale=.25, shape='grasp', phase=f'withdraw_{r}')
+        yield from move(down, rest, 1.2, lift=.08, motion=back_shape, motion_scale=.25, shape='relaxed', shape_from='grasp', phase=f'withdraw_{r}')
         cur = rest
-    yield from hold(rest, 1.0, shape='grasp', phase='done')
+    yield from hold(rest, 1.0, phase='done')
 
 
 def robot(pv):
@@ -70,7 +72,7 @@ def robot(pv):
     remaining = list(CUPS)
     for r in range(3):
         cup = min(remaining, key=lambda c: np.linalg.norm(pv.pos(c)[:2] - pv.tcp()[:2])); remaining.remove(cup)
-        co = f'coaster{r}'
+        co = f'coaster{2 - r}'
         above = np.r_[pv.pos(cup)[:2], TRAVEL_Z]
         yield from pv.goto(above, 'approach')
         pv.robot_prepared = True; pv.event('robot_prepared', cup=cup)
@@ -113,13 +115,13 @@ def run(mode, seed, predictor, out):
     pv.run(human(pv, order, rng), robot(pv), done=lambda: pv.human_phase == 'done')
     cups_on = 0
     for r in range(3):
-        co = pv.pos(f'coaster{r}')
+        co = pv.pos(f'coaster{2 - r}')
         if any(np.linalg.norm(pv.pos(c)[:2] - co[:2]) < .02 and abs(pv.pos(c)[2] - (co[2] + COASTER_T / 2 + .037 + .008)) < .01 for c in CUPS):
             cups_on += 1
     return pv.finish(cups_on == 3 and pv.attached_name() is None,
                      {'cups_on_coasters': cups_on, 'human_motion_source': getattr(pv, 'human_motion_source', None),
                       'limitations': ['straight moves shaped by HY-Motion palm-path curvature, not full-body replay',
-                                      'coaster stack welded to the right hand', 'expert preview, not trained ACT']})
+                                      'coaster held by a hand weld', 'expert preview, not trained ACT']})
 
 
 if __name__ == '__main__':

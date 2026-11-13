@@ -119,6 +119,7 @@ class HumanBody:
         self.lean_rate = float(cfg['lean_rate_deg_s']) if cfg.get('lean_rate_deg_s') is not None else None
         self.lean_dt = float(cfg.get('lean_dt_s', 0.05))
         self._lean_prev = None
+        self._idle_shift_prev = None    # rate-limited with the lean (13/11): the hanging arm twitched as the torso leaned
         # `idle_clearance_m` (47/QĐ-DL step 1, the idle arm's rest): the hanging idle arm keeps this clearance from the
         # torso and the hips / legs. Its rest target turns with the leaning torso, so a lean towards the working hand put
         # the idle hand 48-71 mm into the hip (I1 lower_coaster, I2 / C1 / C3 pilot 06/11); the rest target is moved out
@@ -267,6 +268,12 @@ class HumanBody:
                 break
             shift += need
             pose = self.pose(palm, point_at, palm_up, aim_blend, None, idle_palm_up, {s: shift * out})
+        if self.lean_rate is not None and self._idle_shift_prev is not None:
+            step = .004                                     # m per applied pose (0.08 m/s at 20 Hz)
+            limited = float(np.clip(shift, self._idle_shift_prev - step, self._idle_shift_prev + step))
+            if abs(limited - shift) > 1e-6:
+                shift = limited
+                pose = self.pose(palm, point_at, palm_up, aim_blend, None, idle_palm_up, {s: shift * out})
         pose['idle_shift_m'] = shift
         return pose
 
@@ -386,6 +393,7 @@ class HumanBody:
             else:
                 self.model.geom_dataid[self.idle_hand_geom] = self.idle_hand_meshes[idle_shape]
         self._lean_prev = float(pose['lean'])
+        self._idle_shift_prev = float(pose.get('idle_shift_m', 0.0))
         quat = np.zeros(4)
         for seg, (pos, rot) in pose['segments'].items():
             mujoco.mju_mat2Quat(quat, np.ascontiguousarray(rot).ravel())
