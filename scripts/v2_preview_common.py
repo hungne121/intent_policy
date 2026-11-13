@@ -31,6 +31,7 @@ from contact_context import overlap_tolerance
 
 ROOT = Path(__file__).resolve().parents[1]
 HORIZONS = np.arange(1, 11) / 10
+PALM_TAU = .08            # s, palm command smoothing (shared by every V2 task)
 GRIP_OPEN, GRIP_CLOSED = .085, 0.
 TRAVEL_Z = .80            # free travel height of the TCP
 GRASP_DZ = .024           # TCP above an object centre for a top-down grasp (I3 cake .643 -> .667, C1 cup .665 -> .688)
@@ -72,6 +73,7 @@ class Preview:
         self.human_phase = 'start'
         self.held_by_human = set()
         self.kinematic = {}          # objects moved kinematically (second hand): name -> xyz
+        self._palm_filter = {}       # critically damped 2nd-order filters of the palm commands (shared rule)
         self._is_robot, self.robot_geoms, self.human_geoms, self.world_geoms = geom_sets(self.m, positions)
         pairs = [PairRule(a, b, 0., 0.) for a in self.human_geoms for b in self.robot_geoms + self.world_geoms]
         pairs += [PairRule(a, b, 0., 0.) for a in self.robot_geoms for b in self.world_geoms]
@@ -128,9 +130,27 @@ class Preview:
         self.d.qpos[q:q + 3] = xyz; self.d.qpos[q + 3:q + 7] = [1, 0, 0, 0]; self.d.qvel[v:v + 6] = 0
         self.kinematic[name] = np.asarray(xyz, float)
 
+    def _smooth_palm(self, key, target, tau=PALM_TAU):
+        """Critically damped second-order tracking of a palm command: removes per-tick kinks at
+        phase changes (move -> hold -> move) and in the HY-Motion curvature, keeps the path shape."""
+        target = np.asarray(target, float)
+        st = self._palm_filter.get(key)
+        if st is None:
+            self._palm_filter[key] = [target.copy(), np.zeros(3)]
+            return target
+        x, v = st
+        w = 1. / tau
+        acc = w * w * (target - x) - 2. * w * v
+        v = v + acc * DT; x = x + v * DT
+        st[0], st[1] = x, v
+        return x.copy()
+
     def apply_human(self, frame):
         """Pose the mannequin from a human frame dict and update speed / forecast estimates."""
         f = dict(frame)
+        f['palm'] = self._smooth_palm('active', f['palm'])
+        if f.get('idle_palm') is not None:
+            f['idle_palm'] = self._smooth_palm('idle', f['idle_palm'])
         self.human_phase = f.get('phase', self.human_phase)
         shape = f.get('shape', 'relaxed')
         pose = self.human.apply(self.d, palm=np.asarray(f['palm'], float), point_at=f.get('point_at'),
