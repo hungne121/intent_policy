@@ -75,6 +75,8 @@ class HumanBody:
     def __init__(self, cfg: dict):
         skel = json.loads((ROOT / cfg.get('model', 'assets/human/skeleton.json')).read_text())
         self.skeleton = skel
+        self.asset_dir = (ROOT / cfg.get('model', 'assets/human/skeleton.json')).parent
+        self.continuous_skin = bool(cfg.get('continuous_skin', False))
         offset = np.array([cfg['stand_xy'][0], cfg['stand_xy'][1], cfg['floor_z']], float)
         self.R_yaw = rotation([0.0, 0.0, 1.0], np.radians(float(cfg.get('facing_deg', 180.0)) - 180.0))
         place = lambda p: offset + self.R_yaw @ np.asarray(p, float)
@@ -145,6 +147,12 @@ class HumanBody:
         """Look up the mocap bodies / hand meshes built by `scene_builder` for this body."""
         mocap = lambda name: int(model.body(name).mocapid[0])
         self.model = model
+        if self.continuous_skin:
+            with np.load(self.asset_dir / 'surface_fingers.npz', allow_pickle=False) as fingers:
+                self._surface_fingers = dict(fingers)
+            sid = model.skin('human_surface').id
+            self._surface_start = int(model.skin_vertadr[sid])
+
         self.seg_mocap = {seg: mocap(f'human_seg_{seg}') for seg in self.segments}
         self.proxy_mocap = {name: mocap(f'human_{name}') for name in PROXIES}
         self.anchor_mocap = mocap('human_grasp_anchor')
@@ -392,6 +400,12 @@ class HumanBody:
                 self.idle_hand_geom = self._select_compiled_hand(self.idle, idle_shape)
             else:
                 self.model.geom_dataid[self.idle_hand_geom] = self.idle_hand_meshes[idle_shape]
+        if self.continuous_skin:
+            for side, shape in ((self.active, variant), (self.idle, idle_shape or 'relaxed')):
+                key = side + '_' + shape
+                if key in self._surface_fingers:
+                    ids = self._surface_start + self._surface_fingers[side + '_ids']
+                    self.model.skin_vert[ids] = self._surface_fingers[key]
         self._lean_prev = float(pose['lean'])
         self._idle_shift_prev = float(pose.get('idle_shift_m', 0.0))
         quat = np.zeros(4)

@@ -1,4 +1,8 @@
-# Preview V2 — tình trạng hiện tại (cập nhật 13/11/2026 16:05, giờ Việt Nam)
+# Preview V2 — tình trạng hiện tại
+
+**Cập nhật I1 2026-11-13T17:00:26+07:00:** đã sửa skin liền thân khi cúi; video mới `previews/i1_skin_fixed_20261113/`. Observed 28,80 s / Intent 27,95 s, cả hai 3/3; 7 tests PASS. Audit tiếp xúc giữ nguyên và dataset vẫn BLOCKED. Chi tiết `docs/reports/I1_SKIN_FIX_2026-11-13.md`. Ưu tiên I1; các task khác tạm dừng.
+
+## Mốc trước sửa skin (13/11/2026 16:05; bảng I1 dưới đây đã cũ)
 
 Repo: `/home/hungdao/ur_ws/src/intent_policy`. Video để duyệt: `previews/review_20261113b/`. Log/trace/summary: `outputs/review_20261113b/<task>/`.
 Tất cả là expert kịch bản trong MuJoCo (Intent dùng ManiCast thật). Chưa train ACT. Chưa phải dữ liệu nghiệm thu. Thư mục `outputs/_old_20261113/` chứa các lần chạy cũ đã bỏ (có thể xoá).

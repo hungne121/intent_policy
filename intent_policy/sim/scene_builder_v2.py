@@ -260,6 +260,8 @@ def build_scene_xml(scene: dict) -> str:
                                                  ('nose', 'sphere', [0.016], [-0.108, 0.0, 0.118], '0.62 0.42 0.28 1')):
                 _sub(body, 'geom', name=f'human_face_{name}', type=gtype, size=size, pos=pos, rgba=rgba,
                      contype='0', conaffinity='0')
+    if human.get('continuous_skin', False):
+        add_continuous_human_skin(root, model.parent)
     J, S = skel['joints'], human.get('active_arm', 'r').upper()
     length = lambda a, b: float(np.linalg.norm(np.subtract(J[b], J[a])))
     radius, hidden = human['proxy_radius'], '0 0 0 0'
@@ -354,3 +356,13 @@ def build_scene_xml(scene: dict) -> str:
              rgba=leg_rgba, contype='0', conaffinity='0')
     ET.indent(tree, space='  ')
     return ET.tostring(root, encoding='unicode')
+
+
+def add_continuous_human_skin(root, asset_dir):
+    """Attach original connected skin; keep rigid audit meshes invisible."""
+    asset = root.find('asset')
+    if asset.find("skin[@name='human_surface']") is None:
+        asset.append(ET.parse(Path(asset_dir) / 'surface_skin.xml').getroot())
+    for g in root.findall('./worldbody/body/geom'):
+        if g.get('name', '').startswith('human_seg_'):
+            g.set('group', '5')

@@ -271,6 +271,8 @@ class ManipulationEnv:
             if self.render_option is None:
                 self.render_option = mujoco.MjvOption()
                 self.render_option.sitegroup[:] = 0      # camera images: no debug sites (e.g. the red TCP marker)
+        if mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SKIN, 'human_surface') >= 0:
+            self.render_option.geomgroup[5] = 0  # hide rigid visuals only; audit alpha/contact masks stay intact
         renderer.update_scene(self.data, camera=camera, scene_option=self.render_option)
         return renderer.render().copy()
 

@@ -1,6 +1,6 @@
 """I1 nominal paired preview on the plain V2 scaffold (user, 13/11).
 
-Scene: three identical cups clustered on one plate in front of the robot. The human holds a stack of
+Scene: three identical cups clustered on one plate in front of the robot.
 Three coasters are stacked on the table at the human's right. Round i: the robot parks above the nearest
 remaining cup (observable preparation); the human reaches for the top coaster, picks it up and carries it
 to a random spot (left / middle / right); as soon as the hand starts moving the robot grasps and lifts
@@ -12,6 +12,8 @@ observed hand speed, keeping HAND_CLEAR_M from the current hand; after the coast
 leaves it places at work speed. The human never waits for the robot. Scripted expert, not ACT."""
 import xml.etree.ElementTree as ET
 import numpy as np
+import yaml
+from pathlib import Path
 from v2_preview_common import Preview, move, hold, main_pair, hy_motion, TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT
 
 # 13/11 (user): the robot base stands across the table in front of the human (translated along the cup
@@ -30,12 +32,17 @@ HAND_CLEAR_M = .16
 
 def hook(scene, positions, xml):
     scene['human']['stand_xy'] = [.30, -.54]
+    visual = yaml.safe_load((Path(__file__).resolve().parents[1] / 'configs/previews/i1_visual.yaml').read_text())
+    scene['human']['continuous_skin'] = bool(visual['continuous_skin'])
     cam = {'pos': [-.60, .05, 1.45], 'target': [.34, .02, .74], 'fovy': 62}   # side view: robot left, human right
     for k, xy in CUPS.items():
         positions[k] = (xy[0], xy[1], CUP_Z)
     for i in range(3):      # a stack on the table at the human's right; coaster2 on top is taken first
         positions[f'coaster{i}'] = (SOURCE[0], SOURCE[1], .623 + i * COASTER_T)
     root = ET.fromstring(xml)
+    from intent_policy.sim.scene_builder_v2 import add_continuous_human_skin, ROOT
+    if scene['human']['continuous_skin']:
+        add_continuous_human_skin(root, ROOT / 'assets/human')
     from intent_policy.sim.scene_builder_v2 import look_at_xyaxes
     high = root.find("./worldbody/camera[@name='high']")
     high.set('pos', ' '.join(str(v) for v in cam['pos'])); high.set('xyaxes', look_at_xyaxes(cam['pos'], cam['target'])); high.set('fovy', str(cam['fovy']))
