@@ -14,26 +14,36 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from v2_preview_common import Preview, move, hold, main_pair, hy_motion, TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT
 
-CUPS = {'cup0': (.24, .04), 'cup1': (.30, .15), 'cup2': (.36, .04)}
-SPOTS = [np.array([.155, -.13]), np.array([.305, -.13]), np.array([.455, -.13])]
+# 13/11 (user): the robot base stands across the table in front of the human (translated along the cup
+# row and set back); cups between the two, coaster spots on the human's side
+BASE_XY = (.30, .38)
+CUPS = {'cup0': (.24, .08), 'cup1': (.30, .16), 'cup2': (.36, .08)}
+SPOTS = [np.array([.155, -.08]), np.array([.305, -.08]), np.array([.455, -.08])]
 CUP_Z = .665
 COASTER_T = .006
-SOURCE = np.array([.50, -.30])     # coaster stack on the table
+SOURCE = np.array([.52, -.28])     # coaster stack on the table
 HOLD_DZ = .035                # right palm above the coaster it holds
 STACK_DZ = .03                # stack top below the left palm
-FOLLOW_Z = .86
+FOLLOW_Z = .80
 HAND_CLEAR_M = .16
 
 
 def hook(scene, positions, xml):
-    scene['human']['stand_xy'] = [.30, -.58]
+    scene['human']['stand_xy'] = [.30, -.54]
+    cam = {'pos': [-.60, .05, 1.45], 'target': [.34, .02, .74], 'fovy': 62}   # side view: robot left, human right
     for k, xy in CUPS.items():
         positions[k] = (xy[0], xy[1], CUP_Z)
     for i in range(3):      # a stack on the table at the human's right; coaster2 on top is taken first
         positions[f'coaster{i}'] = (SOURCE[0], SOURCE[1], .623 + i * COASTER_T)
     root = ET.fromstring(xml)
-    ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size='.11 .10 .001',
-                  pos='.30 .09 .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
+    from intent_policy.sim.scene_builder_v2 import look_at_xyaxes
+    high = root.find("./worldbody/camera[@name='high']")
+    high.set('pos', ' '.join(str(v) for v in cam['pos'])); high.set('xyaxes', look_at_xyaxes(cam['pos'], cam['target'])); high.set('fovy', str(cam['fovy']))
+    mount = root.find("./worldbody/body[@name='robot_mount']")
+    mount.set('pos', f'{BASE_XY[0]} {BASE_XY[1]} 0.62')
+    mount.set('quat', '0.7071068 0 0 -0.7071068')      # the arm's forward (+X) now faces the human (-Y)
+    ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size='.11 .09 .001',
+                  pos='.30 .12 .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
     return scene, positions, ET.tostring(root, encoding='unicode')
 
 
@@ -103,7 +113,7 @@ def robot(pv):
         yield from pv.goto(lambda: np.r_[target()[:2], place_z], 'lower', GRIP_CLOSED)
         yield from pv.open_gripper(); pv.event('cup_on_coaster', round=r, cup=cup)
         yield from pv.goto(lambda: np.r_[target()[:2], TRAVEL_Z], 'retreat')
-    yield from pv.goto(np.array([.15, 0., .85]), 'home')
+    yield from pv.goto(np.array([BASE_XY[0], BASE_XY[1] - .15, .85]), 'home')
     pv.phase = 'done'
 
 
