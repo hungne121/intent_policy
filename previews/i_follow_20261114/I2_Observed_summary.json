@@ -1,0 +1,108 @@
+{
+  "task": "I2",
+  "mode": "observed",
+  "seed": 300106,
+  "target_evaluator_only": "plate1",
+  "selected_from_observed_pointing": "plate1",
+  "human_clip": {
+    "clip_id": "ecf486d25a1b4c168363bc5556abd075bc4b7211bd9aa397d3d38a90824af33d",
+    "source": "outputs/hymotion_v2_candidates/hymotion_out/i2_point_plate.npz",
+    "arm": "r"
+  },
+  "success": true,
+  "duration_s": 11.7,
+  "cake_final_xyz": [
+    0.2957031247929338,
+    -0.1092639389393766,
+    0.6406869900783094
+  ],
+  "events": [
+    {
+      "t": 0.7000000000000001,
+      "event": "stage",
+      "stage": "wait_cue"
+    },
+    {
+      "t": 3.8000000000000003,
+      "event": "target_observed",
+      "plate": "plate1"
+    },
+    {
+      "t": 4.95,
+      "event": "pick_start",
+      "basis": "observed"
+    },
+    {
+      "t": 5.8500000000000005,
+      "event": "stage",
+      "stage": "close"
+    },
+    {
+      "t": 6.8500000000000005,
+      "event": "stage",
+      "stage": "lift"
+    },
+    {
+      "t": 7.550000000000001,
+      "event": "stage",
+      "stage": "wait_target"
+    },
+    {
+      "t": 7.550000000000001,
+      "event": "transport_start",
+      "plate": "plate1"
+    },
+    {
+      "t": 7.65,
+      "event": "human_withdraw_after_robot_direction"
+    },
+    {
+      "t": 8.450000000000001,
+      "event": "stage",
+      "stage": "lower_plate"
+    },
+    {
+      "t": 9.35,
+      "event": "stage",
+      "stage": "release"
+    },
+    {
+      "t": 10.350000000000001,
+      "event": "stage",
+      "stage": "retreat"
+    },
+    {
+      "t": 11.05,
+      "event": "stage",
+      "stage": "settle"
+    }
+  ],
+  "contact_violations": {
+    "sus2f_finger_l_link/|cake/cake_geom": 0.0037571681789759954,
+    "sus2f_finger_r_link/|cake/cake_geom": 0.0029248626854452035
+  },
+  "contact_violation_details": {
+    "sus2f_finger_l_link/|cake/cake_geom": {
+      "t_s": 6.3500000000000005,
+      "phase": "close",
+      "attached": true,
+      "gripper_gap_m": 0.04258780338842211
+    },
+    "sus2f_finger_r_link/|cake/cake_geom": {
+      "t_s": 6.3500000000000005,
+      "phase": "close",
+      "attached": true,
+      "gripper_gap_m": 0.04258780338842211
+    }
+  },
+  "human_self_violations": {
+    "('r_hand', 'pelvis')": 0.007571383501541948
+  },
+  "geometry_gate_pass": false,
+  "limitations": [
+    "one-seed scripted expert preview",
+    "human path uses retargeted HY-Motion palm deviation",
+    "contact geometry acceptance pending",
+    "ACT not trained"
+  ]
+}

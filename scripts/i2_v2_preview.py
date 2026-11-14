@@ -73,7 +73,7 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
     phase='above_cake'; stage_start=0; start=d.site_xpos[env.tcp].copy()
     selected=None; observed=[]; history=[]; events=[]; frames=[]; last_forecast=None
     ready_samples=0
-    predicted=None; withdraw_tick=None; home_palm=human.hanging_palm(human.active)
+    predicted=None; follow_anchor=None; follow_goal=None; withdraw_tick=None; home_palm=human.hanging_palm(human.active)
     wrist_history=[]; peak_hand_speed=0.
     pace=HumanPace(DT); follower=CartesianFollower(DT,acceleration=WORK_ACCEL)
     writer=VideoWriter(out/f'I2_{"Intent" if mode=="intent" else "Observed"}.mp4',width=640,height=480)
@@ -111,31 +111,22 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 forecast=forecast_xi(np.stack(history),predictor,20.,np.arange(1,11)/10)[-1]
                 predicted_speed=forecast_hand_speed(forecast,wrist,np.arange(1,11)/10)
                 last_forecast=(kp[wrist]+forecast[-1,wrist]).tolist()
-                # Re-evaluate the whole predicted wrist path at every tick; the
-                # candidate is preparation only until the observed ray confirms it.
-                future=kp[wrist][None,:]+forecast[:,wrist,:]
-                # The person stands well behind the plates, so wrist-to-plate
-                # Euclidean distance is dominated by depth. Lateral forecast
-                # trajectory carries the early left/centre/right cue.
-                scores={name:float(np.mean(np.abs(future[-4:,0]-xyz[0])))
-                        for name,xyz in PLATES.items()}
-                candidate=min(scores,key=scores.get)
-                motion=float(np.linalg.norm(kp[wrist]-history[0][wrist]))
-                if motion>.018 and scores[candidate]<.12:
-                    predicted=candidate
-            ready_samples=ready_samples+1 if selected is not None and measured_speed<.045 else 0
-            if phase=='wait_cue' and ((selected is not None and ready_samples>=3) or (mode=='intent' and predicted is not None)):
+            if phase=='wait_cue' and ((selected is not None and ready_samples>=3) or (mode=='intent' and measured_speed>.015)):
                 phase='descend';stage_start=tick;start=d.site_xpos[env.tcp].copy()
-                events.append({'t':t,'event':'pick_start','basis':'observed' if selected else 'forecast',
-                               'forecast_candidate':predicted})
-            if phase=='wait_target' and selected is None and mode=='intent' and predicted is not None:
-                # Forecast can position the held cake above the predicted route,
-                # but final placement still waits for an observed target.
-                guess=PLATES[predicted]
-                # Intent-only forecast following: drift toward the predicted plate at human pace.
-                dest=np.array([guess[0],-.02,.80])
-                early_command=np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp],dest,pace.speed(.24,following=True))),0.]
-            else:early_command=None
+                events.append({'t':t,'event':'pick_start','basis':'observed' if mode=='observed' else 'hand_motion_forecast'})
+            if mode=='intent' and forecast is not None and phase in ('lift','wait_target') and measured_speed>.015:
+                relative=kp[wrist]-kp[:2].mean(axis=0)
+                if follow_anchor is None:
+                    follow_anchor=(relative.copy(), d.site_xpos[env.tcp].copy())
+                    events.append({'t':t,'event':'forecast_follow_started'})
+                future=relative+forecast[4,wrist]-forecast[4,:2].mean(axis=0)
+                delta=future-follow_anchor[0]
+                follow_goal=follow_anchor[1]+np.array([delta[0],delta[1],0.])
+                follow_goal[0]=np.clip(follow_goal[0],min(v[0] for v in PLATES.values()),max(v[0] for v in PLATES.values()))
+                follow_goal[1]=np.clip(follow_goal[1],-.11,.08)
+                follow_goal[2]=.80
+            early_command=None
+            ready_samples=ready_samples+1 if selected is not None and measured_speed<.045 else 0
             pace.update(measured_speed,predicted_speed)
             peak_hand_speed=max(peak_hand_speed,measured_speed,predicted_speed)
             if phase=='wait_target' and selected is not None and np.linalg.norm(kp[wrist]-PLATES[selected])>.22:
@@ -148,27 +139,26 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
             elif phase=='release':goal,count,grip=np.r_[PLATES[selected][:2],.674],20,.085
             elif phase=='retreat':goal,count,grip=np.r_[PLATES[selected][:2],.80],25,.085
             else:goal=count=grip=None
-            if phase=='lift' and mode=='intent' and (selected or predicted) is not None:
-                destination=PLATES[selected or predicted]
-                goal=np.r_[source_xyz[:2]+.35*(destination[:2]-source_xyz[:2]),.80]
+            if phase=='lift' and follow_goal is not None and measured_speed>.015:
+                goal=follow_goal
             if goal is not None:
                 u=min(1.,(tick-stage_start+1)/count)
                 # Human-paced following only for the Intent lift that drifts toward the
                 # forecast plate before the pointing is confirmed; all else is independent work.
-                following=(mode=='intent' and phase=='lift' and selected is None)
+                following=(mode=='intent' and phase=='lift' and follow_goal is not None and measured_speed>.015)
                 speed=pace.speed(.24,following=True) if following else work_speed(phase)
                 target=follower.step(d.site_xpos[env.tcp],goal,speed)
                 command=np.r_[env.solve_ik(target),grip]
                 if phase not in ('close','release'):
                     u=1. if np.linalg.norm(d.site_xpos[env.tcp]-goal)<.004 else 0.
-            elif early_command is not None:
-                command=early_command
+            elif phase=='wait_target' and follow_goal is not None and selected is None:
+                command=np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp],follow_goal,pace.speed(.24,following=True))),0.]
             else:
                 u=0.;command=env.hold()
             frames.append({'t':t,'phase':phase,'selected':selected,'human_hand':kp[wrist].tolist(),
                            'tcp':d.site_xpos[env.tcp].tolist(),'target':command.tolist(),
                            'forecast_wrist_1s':last_forecast if mode=='intent' else None,
-                           'forecast_candidate':predicted,'human_withdraw_tick':withdraw_tick,
+                           'forecast_follow_goal':None if follow_goal is None else follow_goal.tolist(),'forecast_candidate':predicted,'human_withdraw_tick':withdraw_tick,
                            'observed_hand_speed_m_s':measured_speed,
                            'forecast_hand_speed_m_s':predicted_speed if mode=='intent' else None,
                            'robot_command_speed_m_s':float(np.linalg.norm(follower.velocity)),

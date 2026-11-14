@@ -85,7 +85,7 @@ def robot(pv):
         yield from pv.goto(np.r_[pv.tcp()[:2], FOLLOW_Z], 'lift', GRIP_CLOSED)
         pv.event('robot_holds_cup', cup=cup)
         while not pv.coaster_down[r]:
-            if pv.mode == 'intent' and pv.forecast is not None and pv.hand_speed > .03:
+            if pv.mode == 'intent' and pv.forecast is not None and pv.human_phase.startswith(('carry_', 'lower_')):
                 palm = np.asarray(pv.pose['palm'])[:2]
                 goal_xy = pv.wrist_future()[4][:2] + (palm - pv.wrist()[:2])
                 away = goal_xy - palm; dist = float(np.linalg.norm(away))

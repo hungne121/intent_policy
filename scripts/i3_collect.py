@@ -393,7 +393,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                         prep_follow_started = True
                         phases.append({'phase': 'forecast_continuous_follow', 't': tick * DT})
                     ranked = sorted(scores, key=scores.get)
-                    candidate = ranked[0] if len(ranked) > 1 and scores[ranked[1]] - scores[ranked[0]] > .012 else None
+                    candidate = ranked[0]
                     candidate_history = (candidate_history + [candidate])[-3:]
                     if candidate != early_candidate:
                         early_candidate = candidate
@@ -406,9 +406,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     phases.append({'phase': 'pointing_confirmed', 't': tick * DT, 'item': decided})
                     last_confirmation = decided; confirm_t[decided] = tick * DT
                 if (phase == 'observe' and mode == 'intent' and human_started and
-                        len(candidate_history) == 3 and early_candidate is not None and
-                        all(c == early_candidate for c in candidate_history) and
-                        measured_hand_speed > .025):
+                        early_candidate is not None and measured_hand_speed > .025):
                     selected = early_candidate; source_pos = current[selected].copy()
                     phase = 'approach'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
                     phases.append({'phase': 'forecast_pick_approach', 't': tick * DT, 'item': selected})
