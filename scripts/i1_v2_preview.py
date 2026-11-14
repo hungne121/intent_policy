@@ -12,14 +12,11 @@ observed hand speed, keeping HAND_CLEAR_M from the current hand; after the coast
 leaves it places at work speed. The human never waits for the robot. Scripted expert, not ACT."""
 import xml.etree.ElementTree as ET
 import numpy as np
-import yaml
-from pathlib import Path
-from v2_preview_common import Preview, move, hold, main_pair, hy_motion, TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT
+from v2_preview_common import (Preview, move, hold, main_pair, hy_motion, apply_station, BASE_XY,
+                               TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, DT)
 
-# 13/11 (user): the robot base stands across the table in front of the human (translated along the cup
-# row and set back); cups between the two, coaster spots on the human's side
-PREVIEW_CONFIG = yaml.safe_load((Path(__file__).resolve().parents[1] / 'configs/previews/i1_visual.yaml').read_text())
-BASE_XY = tuple(PREVIEW_CONFIG['robot_base_xy'])
+# 13/11 (user): the robot base stands across the table in front of the human (shared station,
+# configs/previews/v2_common.yaml); cups between the two, coaster spots on the human's side
 CUPS = {'cup0': (.24, .08), 'cup1': (.30, .16), 'cup2': (.36, .08)}
 SPOTS = [np.array([.155, -.08]), np.array([.305, -.08]), np.array([.455, -.08])]
 CUP_Z = .665
@@ -32,23 +29,11 @@ HAND_CLEAR_M = .16
 
 
 def hook(scene, positions, xml):
-    scene['human']['stand_xy'] = [.30, -.54]
-    scene['human']['continuous_skin'] = bool(PREVIEW_CONFIG['continuous_skin'])
-    cam = {'pos': [-.60, .05, 1.45], 'target': [.34, .02, .74], 'fovy': 62}   # side view: robot left, human right
     for k, xy in CUPS.items():
         positions[k] = (xy[0], xy[1], CUP_Z)
     for i in range(3):      # a stack on the table at the human's right; coaster2 on top is taken first
         positions[f'coaster{i}'] = (SOURCE[0], SOURCE[1], .623 + i * COASTER_T)
-    root = ET.fromstring(xml)
-    from intent_policy.sim.scene_builder_v2 import add_continuous_human_skin, ROOT
-    if scene['human']['continuous_skin']:
-        add_continuous_human_skin(root, ROOT / 'assets/human')
-    from intent_policy.sim.scene_builder_v2 import look_at_xyaxes
-    high = root.find("./worldbody/camera[@name='high']")
-    high.set('pos', ' '.join(str(v) for v in cam['pos'])); high.set('xyaxes', look_at_xyaxes(cam['pos'], cam['target'])); high.set('fovy', str(cam['fovy']))
-    mount = root.find("./worldbody/body[@name='robot_mount']")
-    mount.set('pos', f'{BASE_XY[0]} {BASE_XY[1]} 0.62')
-    mount.set('quat', '0.7071068 0 0 -0.7071068')      # the arm's forward (+X) now faces the human (-Y)
+    root = ET.fromstring(apply_station(scene, xml))
     ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size='.11 .09 .001',
                   pos='.30 .12 .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
     return scene, positions, ET.tostring(root, encoding='unicode')

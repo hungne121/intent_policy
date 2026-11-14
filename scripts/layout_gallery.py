@@ -44,15 +44,16 @@ def make(task):
             obj('coaster'+str(i),x,-.12,'cylinder',(.045,.003),'cork')
     elif task == 'I2':
         for i,x in enumerate([.105,.30,.495]): tray('plate'+str(i),x,-.11,.06,.055)
-        tray('source',.30,.20,.065,.06)
-        obj('cake',.30,.20,'ellipsoid',(.025,.025,.018),'tan',.643)
+        # 14/11: source tray between the robot base (0.30, 0.33) and the plates, like the I1 cup plate
+        tray('source',.30,.06,.065,.06)
+        obj('cake',.30,.06,'ellipsoid',(.025,.025,.018),'tan',.643)
     elif task == 'I3':
         # 13/11 (user): the two cakes of each tray sit in one row across (x), in front of the human
         for x,n in [(.16,'L'),(.40,'R')]:
             tray('source'+n,x,-.10,.09,.06)
             obj(n+'x',x-.05,-.10,'cylinder',(.025,.018),'tan',.643)
             obj(n+'y',x+.05,-.10,'cylinder',(.025,.018),'brown',.643)
-        tray('receive',.28,.25,.07,.06)
+        tray('receive',.28,.08,.07,.06)      # 14/11: receive tray between the base and the cake trays
     elif task == 'C1':
         for x,n in [(.16,'L'),(.40,'R')]:
             tray('tray'+n,x,-.10,.09,.09)

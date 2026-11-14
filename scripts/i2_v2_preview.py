@@ -17,6 +17,7 @@ from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, warp, sample, clip_id
 from intent_policy.experts.human_paced import (observed_hand_speed, forecast_hand_speed,
                                                 HumanPace, CartesianFollower, work_speed, WORK_ACCEL)
+from v2_preview_common import apply_station
 
 ROOT = Path(__file__).resolve().parents[1]
 DT = .05
@@ -132,7 +133,7 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 # but final placement still waits for an observed target.
                 guess=PLATES[predicted]
                 # Intent-only forecast following: drift toward the predicted plate at human pace.
-                dest=np.array([guess[0],.10,.80])
+                dest=np.array([guess[0],-.02,.80])
                 early_command=np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp],dest,pace.speed(.24,following=True))),0.]
             else:early_command=None
             pace.update(measured_speed,predicted_speed)
@@ -228,6 +229,7 @@ def main():
     p.add_argument('--out',type=Path,default=ROOT/'previews');args=p.parse_args()
     args.out.mkdir(parents=True,exist_ok=True)
     scene,positions,xml=make('I2')
+    xml=apply_station(scene,xml)        # shared V2 station (base across the table, skin, side camera)
     clip=human_clip(args.seed,scene,positions,xml)
     from intent_policy.intent.manicast_intent import load_forecaster
     predictor=load_forecaster()

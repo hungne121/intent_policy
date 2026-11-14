@@ -46,7 +46,7 @@ CAKES = ('Lx', 'Ly', 'Rx', 'Ry')
 JOINTS = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist']
 HORIZONS = (np.arange(1, 11) / 10).tolist()
 DT = .05
-SHIFT = .06                       # scene shift used by every I3 probe since 10/11
+SHIFT = 0.0                       # 14/11: no shift; the shared station puts the base at (0.30, 0.33)
 FORCE_LIMIT_N = 10.0              # pilot grasp force (PLAN_AUDIT, 10/11)
 TOL = {                           # metres; see docs/PLAN_AUDIT_I3_PIPELINE.md
     'human': 0.0,                 # hand/forearm vs table, objects, robot: no sampled overlap
@@ -54,7 +54,7 @@ TOL = {                           # metres; see docs/PLAN_AUDIT_I3_PIPELINE.md
     'robot_other': 1e-4,          # robot vs any object it is not grasping
     'finger_grasp': 2.0e-3,       # provisional diagnostic tolerance; not an approved acceptance threshold
 }
-PLATE_XY = np.array([.28 + SHIFT, .25]); PLATE_HALF = np.array([.07, .06]); CAKE_R = .025
+PLATE_XY = np.array([.28 + SHIFT, .08]); PLATE_HALF = np.array([.07, .06]); CAKE_R = .025
 RECEIVE_TOL = PLATE_HALF - CAKE_R
 STAY_TOL = .01                    # non-target objects must stay within 1 cm of their start
 RETURN_TOL = .02                  # a returned object must be within 2 cm of its start before B is grasped
@@ -124,6 +124,9 @@ def build_scene(rng):
         if g.get('name', '').startswith('decor_'):
             p = np.fromstring(g.get('pos', '0 0 0'), sep=' '); p[0] += SHIFT; g.set('pos', ' '.join(map(str, p)))
     scene_xml = ET.tostring(root, encoding='unicode')
+    from v2_preview_common import apply_station
+    stand = [scene['human']['stand_xy'][0], -.54]
+    scene_xml = apply_station(scene, scene_xml, stand_xy=stand)
     return scene, positions, scene_xml
 
 

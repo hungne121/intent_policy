@@ -1,0 +1,13 @@
+# Shared V2 preview station (user decisions 13–14/11/2026), applied by scripts/v2_preview_common.py::apply_station
+# to every V2 task so I1, I2, I3, ... share one setup.
+# Robot base across the table in front of the human, translated along the object rows and set back; the arm's
+# forward axis turned to face the human. (0.30, 0.33): probe 13/11 (Codex) kept the cup cluster and the coaster
+# row away from the inner / outer IK limits, no elbow-straight oscillation.
+robot_base_xy: [0.30, 0.33]
+robot_base_yaw_deg: -90
+# Human stands at the right-hand table edge facing +Y.
+human_stand_xy: [0.30, -0.54]
+# HY-Motion connected skin under waist / shoulder rotation (docs/reports/I1_SKIN_FIX_2026-11-13.md).
+continuous_skin: true
+# Overview camera: side view, robot left, human right.
+camera_high: {pos: [-0.60, 0.05, 1.45], target: [0.34, 0.02, 0.74], fovy: 62}

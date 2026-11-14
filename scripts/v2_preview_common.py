@@ -30,6 +30,29 @@ from intent_policy.experts.human_paced import (observed_hand_speed, forecast_han
 from contact_context import overlap_tolerance
 
 ROOT = Path(__file__).resolve().parents[1]
+import yaml
+V2_CONFIG = yaml.safe_load((ROOT / 'configs/previews/v2_common.yaml').read_text())
+BASE_XY = tuple(float(v) for v in V2_CONFIG['robot_base_xy'])
+
+
+def apply_station(scene, xml, stand_xy=None, cam=None):
+    """Shared V2 station (configs/previews/v2_common.yaml): robot base across the table facing the human,
+    human stand, continuous HY-Motion skin, side overview camera. Returns the edited scene XML."""
+    import xml.etree.ElementTree as ET
+    from intent_policy.sim.scene_builder_v2 import add_continuous_human_skin, look_at_xyaxes, ROOT as SIM_ROOT
+    scene['human']['stand_xy'] = list(stand_xy if stand_xy is not None else V2_CONFIG['human_stand_xy'])
+    scene['human']['continuous_skin'] = bool(V2_CONFIG['continuous_skin'])
+    root = ET.fromstring(xml)
+    if scene['human']['continuous_skin']:
+        add_continuous_human_skin(root, SIM_ROOT / 'assets/human')
+    cam = cam or V2_CONFIG['camera_high']
+    high = root.find("./worldbody/camera[@name='high']")
+    high.set('pos', ' '.join(str(v) for v in cam['pos'])); high.set('xyaxes', look_at_xyaxes(cam['pos'], cam['target'])); high.set('fovy', str(cam['fovy']))
+    mount = root.find("./worldbody/body[@name='robot_mount']")
+    mount.set('pos', f'{BASE_XY[0]} {BASE_XY[1]} 0.62')
+    half = np.radians(float(V2_CONFIG['robot_base_yaw_deg'])) / 2
+    mount.set('quat', f'{np.cos(half):.7f} 0 0 {np.sin(half):.7f}')
+    return ET.tostring(root, encoding='unicode')
 HORIZONS = np.arange(1, 11) / 10
 PALM_TAU = .08            # s, palm command smoothing (shared by every V2 task)
 GRIP_OPEN, GRIP_CLOSED = .085, 0.

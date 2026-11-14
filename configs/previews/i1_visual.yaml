@@ -1,4 +1,0 @@
-# I1: retain the HY-Motion connected surface under waist/shoulder rotation.
-continuous_skin: true
-# Keep both the cup cluster and coaster row away from inner/outer IK limits.
-robot_base_xy: [0.30, 0.33]
