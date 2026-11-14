@@ -37,7 +37,8 @@ def make_c3():
     for i, (x, y) in enumerate(SPOTS):
         ET.SubElement(world, 'geom', name=f'dirt_preview_{i}', type='cylinder', size='.017 .0001', pos=f'{x} {y} .6202',
                       rgba='.27 .16 .08 1', contype='0', conaffinity='0')
-    return scene, positions, ET.tostring(root, encoding='unicode')
+    from c_preview_visual import connected_human
+    return scene, positions, connected_human(scene, ET.tostring(root, encoding='unicode'))
 
 
 def human(pv):

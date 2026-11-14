@@ -21,6 +21,8 @@ def run(mode, seed, predictor, out):
     scene['human']['stand_xy']=[.28,-1.0]
     for key in ('clothL','clothR'):
         positions[key]=(positions[key][0],-.29,positions[key][2])
+    from c_preview_visual import connected_human
+    xml=connected_human(scene,xml)
     env,human=make_env(scene,positions,xml);m,d=env.model,env.data
     baseJ={k:v.copy() for k,v in human.J.items()};baseP={k:v.copy() for k,v in human.palm_T.items()}
     root0=np.array([.28,-1.,0.]); root=root0.copy()

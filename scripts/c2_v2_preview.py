@@ -1,6 +1,7 @@
 """C2 nominal paired preview: the human hands a cloth to the robot, lifts the cup / clock in a
 random order, the robot wipes the exposed marks and returns the cloth. Scripted expert, not ACT.
 Wiping is a visual proxy (marks disappear under the cloth); no fabric physics."""
+import os
 import numpy as np
 from v2_preview_common import (Preview, move, hold, main_pair, wipe_marks, marks_left, TRAVEL_Z, GRIP_OPEN,
                                GRIP_CLOSED, GRASP_DZ)
@@ -20,7 +21,8 @@ def hook(scene, positions, xml):
     root = ET.fromstring(xml)
     g = root.find("./worldbody/body[@name='cloth']/geom")
     g.set('size', '0.03 0.035 0.004')
-    return scene, positions, ET.tostring(root, encoding='unicode')
+    from c_preview_visual import connected_human
+    return scene, positions, connected_human(scene, ET.tostring(root, encoding='unicode'))
 
 
 def human(pv, order):
@@ -104,14 +106,15 @@ def robot(pv, order_hint=None):
         obj = lifted(); pv.event('wipe_start', object=obj)
         wipe_z = SHELF_FLOOR + .028 + .003
         spots = [np.array(s) for s in SPOTS[obj]]
-        yield from pv.goto(np.r_[spots[0], .72], 'move', GRIP_CLOSED)
+        # Cross the shelf wall while the whole gripper is above it, then lower vertically.
+        yield from pv.goto(np.r_[spots[0], .84], 'move', GRIP_CLOSED)
         yield from pv.goto(np.r_[spots[0], wipe_z], 'wipe_lower', GRIP_CLOSED)
         for s in spots + spots[::-1][1:]:
             for cmd in pv.goto(np.r_[s, wipe_z], 'wipe', GRIP_CLOSED, tol=.006):
                 wipe_marks(pv, pv.tcp()[:2]); yield cmd
             wipe_marks(pv, pv.tcp()[:2])
         pv.wiped[obj] = True; pv.event('wipe_end', object=obj, marks_left=marks_left(pv))
-        yield from pv.goto(np.r_[spots[-1], .74], 'lift', GRIP_CLOSED)
+        yield from pv.goto(np.r_[spots[-1], .84], 'lift', GRIP_CLOSED)
         yield from pv.goto(STANDBY, 'retreat', GRIP_CLOSED)
     # 3. return the cloth: present it at the handover point and release when the human holds it
     yield from pv.wait(lambda: pv.human_phase in ('rest', 'wait_cloth') and pv.pos('clock')[2] < pv.initial['clock'][2] + .02
@@ -125,14 +128,50 @@ def robot(pv, order_hint=None):
     pv.phase = 'done'
 
 
+class C2MotionStalled(RuntimeError):
+    pass
+
+
+class C2Preview(Preview):
+    """End a blocked motion honestly instead of recording a long frozen preview."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._motion_signature = None
+        self._motion_best = float('inf')
+        self._motion_improved_at = 0
+
+    def command_to(self, goal, phase, grip, following=False):
+        goal = np.asarray(goal, float)
+        signature = (phase, tuple(np.round(goal, 2)))
+        error = float(np.linalg.norm(self.tcp() - goal))
+        if signature != self._motion_signature:
+            self._motion_signature = signature
+            self._motion_best = error
+            self._motion_improved_at = self.tick
+        elif error < self._motion_best - .003:
+            self._motion_best = error
+            self._motion_improved_at = self.tick
+        elif self.tick - self._motion_improved_at >= 40:
+            raise C2MotionStalled(f'{phase} target {goal.round(3).tolist()}, TCP {self.tcp().round(3).tolist()}')
+        return super().command_to(goal, phase, grip, following=following)
+
+
 def run(mode, seed, predictor, out):
-    pv = Preview('C2', mode, seed, out, predictor, scene_hook=hook, max_ticks=1400)
+    pv = C2Preview('C2', mode, seed, out, predictor, scene_hook=hook, max_ticks=int(os.environ.get('C2_PREVIEW_MAX_TICKS', '1400')))
     order = list(np.random.default_rng(seed).permutation(['cup', 'clock']))
     pv.event('task_active', order_evaluator_only=order)
-    pv.run(human(pv, order), robot(pv), done=lambda: pv.human_phase == 'done')
+    stalled = None
+    try:
+        pv.run(human(pv, order), robot(pv), done=lambda: pv.human_phase == 'done')
+    except C2MotionStalled as exc:
+        stalled = str(exc)
+        pv.event('motion_stalled', detail=stalled)
+    if pv.human_phase != 'done' and pv.tick >= pv.max_ticks and stalled is None:
+        stalled = 'preview time limit reached; task remains unfinished'
+        pv.event('preview_limit', detail=stalled)
     back = all(np.linalg.norm(pv.pos(o)[:2] - pv.initial[o][:2]) < .02 and abs(pv.pos(o)[2] - pv.initial[o][2]) < .01 for o in ('cup', 'clock'))
-    success = back and marks_left(pv) == 0 and 'cloth' in pv.held_by_human and pv.attached_name() is None
-    return pv.finish(success, {'marks_left': marks_left(pv), 'human_order_evaluator_only': order,
+    success = stalled is None and back and marks_left(pv) == 0 and 'cloth' in pv.held_by_human and pv.attached_name() is None
+    return pv.finish(success, {'marks_left': marks_left(pv), 'human_order_evaluator_only': order, 'stalled': stalled,
                                'limitations': ['wiping is a visual mark-removal proxy, no fabric physics',
                                                'rigid cloth box grasped by its edge', 'scripted human, not HY-Motion',
                                                'control-frame contact checks only', 'expert preview, not trained ACT']})

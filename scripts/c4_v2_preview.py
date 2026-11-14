@@ -11,7 +11,8 @@ IN_HAND = np.array([0., .03, 0.])   # part held in the closed fingers
 
 def hook(scene, positions, xml):
     scene['human']['stand_xy'] = [.30, -.56]
-    return scene, positions, xml
+    from c_preview_visual import connected_human
+    return scene, positions, connected_human(scene, xml)
 
 
 def human(pv, order):
@@ -31,10 +32,13 @@ def human(pv, order):
         pv.place_kinematic(part, recv + IN_HAND); pv.kinematic.pop(part, None)
         pv.human_grasp(part); pv.event('human_holds_part', part=part)
         yield from hold(recv, until=lambda: pv.attached_name() is None and pv.tcp()[2] > recv[2] + .12, shape='grasp', palm_up=1., phase=f'wait_robot_clear_{i}')
-        above = np.array([s[0], s[1] - .03, .653 + .08])
+        # Keep the observed hand-to-part offset when positioning the held part over its socket.
+        # Using a fixed palm offset left the part outside the original success radius.
+        offset = pv.pos(part) - np.asarray(pv.pose['palm'])
+        down = np.array([s[0], s[1], .653]) - offset
+        above = down + [0, 0, .08]
         for f in move(recv, above, .9, shape='grasp', phase=f'to_socket_{i}'):
             yield {**f, 'palm_up': 1. - f['progress']}
-        down = np.array([s[0], s[1] - .03, .653])
         yield from move(above, down, .6, shape='grasp', phase=f'insert_{i}')
         pv.human_release(part); pv.event('install_complete', socket=i)
         yield from move(down, above + [0, 0, .04], .5, shape='relaxed', shape_from='grasp', phase=f'release_{i}')
@@ -77,7 +81,22 @@ def robot(pv):
             target = observed_socket(); pv.event('target_observed', socket=target)
             part = f'part{target}'
         ok = yield from pv.pick(part)
-        yield from pv.wait(lambda: observed_socket() == target or pv.human_phase == f'wait_part_{target}', 'wait_palm', GRIP_CLOSED)
+        if not ok:
+            pv.event('pick_failed', socket=target)
+            return
+        # A forecast can point to the wrong socket. Observe the palm and physically return
+        # a wrongly picked part before taking the matching one; no access to the human's order.
+        yield from pv.wait(lambda: observed_socket() is not None, 'wait_palm', GRIP_CLOSED)
+        confirmed = observed_socket()
+        if confirmed != target:
+            pv.event('forecast_correction', predicted=target, observed=confirmed)
+            yield from pv.place(np.r_[pv.initial[part][:2], pv.initial[part][2] + GRASP_DZ])
+            target = confirmed
+            part = f'part{target}'
+            ok = yield from pv.pick(part)
+            if not ok:
+                pv.event('pick_failed', socket=target)
+                return
         pv.event('robot_ready', socket=target)
         palm = lambda: pv.pose['palm']
         yield from pv.goto(lambda: np.r_[palm()[:2], palm()[2] + PART_ON_PALM + GRASP_DZ + .06], 'move', GRIP_CLOSED)
