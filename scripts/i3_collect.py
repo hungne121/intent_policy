@@ -23,6 +23,7 @@ import xml.etree.ElementTree as ET
 
 import mujoco
 import numpy as np
+import yaml
 
 from layout_gallery import make
 from intent_policy.sim.base_env import ManipulationEnv
@@ -41,6 +42,7 @@ from preview_metrics import compare_pair
 from contact_context import overlap_tolerance, record_overlap
 
 ROOT = Path(__file__).resolve().parents[1]
+I3_INTERACTION = yaml.safe_load((ROOT / 'configs/previews/i3_interaction.yaml').read_text())
 WORKSPACE = ROOT.parent
 CAKES = ('Lx', 'Ly', 'Rx', 'Ry')
 JOINTS = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist']
@@ -178,12 +180,19 @@ def geometry_coverage(m, positions):
 
 # ----------------------------------------------------------------------------- human clip
 def generate_clip(seed, case, scene, positions, scene_xml, rng):
-    """Deterministic I3 cue for this seed: the generator knows the targets; the policy never does."""
+    """Deterministic I3 cue for this seed: the generator knows the targets; the policy never does.
+
+    14/11 (user): the change of mind is an observable gesture. The person points at A and holds until the
+    robot visibly heads for A (hold, released in the rollout), withdraws the hand, then REACHES OUT AGAIN
+    towards B. `switch_before_commit`: a short partial withdraw, so the second reach starts while the robot is
+    still above A before the grasp. `switch_after_commit`: a full withdraw and a pause, so the second reach
+    starts after the robot has grasped A and left. The schedule is fixed per case and identical for both
+    experts; the case label is checked afterwards from the robot state, never adapted to a model."""
     a_name = str(rng.choice(CAKES))
     b_name = str(rng.choice([c for c in CAKES if c != a_name])) if case != 'nominal' else None
     onset = .25 + float(rng.uniform(0., .4))
-    switch_at = {'nominal': None, 'switch_before_commit': 2.5 + float(rng.uniform(-.3, .3)) + onset - .25,
-                 'switch_after_commit': float(rng.uniform(6.4, 6.6))}[case]
+    withdraw_s = {'nominal': 1.0, 'switch_before_commit': .5, 'switch_after_commit': 1.0}[case]
+    pause_s = {'nominal': 0., 'switch_before_commit': .1, 'switch_after_commit': 1.2}[case]
     source = ROOT / 'outputs/hymotion_v2_candidates/hymotion_out' / ('i3_point_cake.npz' if case == 'nominal' else 'i3_switch.npz')
     with np.load(source, allow_pickle=False) as raw:
         k3d = raw['keypoints3d'][0].copy(); hy_seed = int(raw['seeds'][0]); prompt = str(raw['text'])
@@ -200,38 +209,64 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
     try:
         m, d = env.model, env.data
         home = human.hanging_palm(human.active)
+        clear = home + np.array([.12, 0., .03])
         is_robot, robot_g, arms, world_g = geom_sets(m, positions)
         audit = DemoContactAudit(m, [PairRule(x, y, 0., 0.) for x in arms for y in world_g + robot_g])
         check = HumanSelfCheck(m)
         A = np.array(positions[a_name]); B = np.array(positions[b_name]) if b_name else A
         arm_a = np.array([A[0], A[1] - .27, .84]); arm_b = np.array([B[0], B[1] - .27, .84])
+        cmds = []            # (palm, direction or None, strength)
+        holds = []           # clip ticks where the person waits for visible robot motion towards a target
+        def still(palm, dur):
+            for _ in range(int(round(dur / DT))): cmds.append((palm.copy(), None, 0.))
+        still(home, onset)
+        n = int(round(2.10 / DT))
+        for i in range(1, n + 1):                               # reach A: via the clear point, HY-Motion shape
+            t = i * DT; reach = smooth(t / 2.10); pre = smooth(t / .75)
+            palm = home + (clear - home) * pre + (arm_a - clear) * reach + motion_deviation(motion_path, reach)
+            cmds.append((palm, A, reach))
+        holds.append({'tick': len(cmds) - 1, 'target': a_name})
+        def go(p0, p1, dur, point, s0, s1, dev=None, arc=0.):
+            k = int(round(dur / DT))
+            for i in range(1, k + 1):
+                u = smooth(i / k)
+                palm = p0 + (p1 - p0) * u + np.array([0., 0., arc * np.sin(np.pi * i / k)])
+                if dev is not None: palm = palm + motion_deviation(dev, u)
+                st = s0 + (s1 - s0) * u
+                cmds.append((palm, point if st > .001 else None, st))
+        if case == 'nominal':
+            go(arm_a, clear, withdraw_s * .7, A, 1., 0.); go(clear, home, withdraw_s * .5, None, 0., 0.)
+        else:
+            if case == 'switch_before_commit':
+                back_to = arm_a + (home - arm_a) * .6                   # straight back towards the body, a clear retreat
+                go(arm_a, back_to, withdraw_s, A, 1., 0., arc=.03)
+                still(back_to, pause_s)
+                go(back_to, arm_b, 1.2, B, 0., 1., dev=motion_path_b, arc=.03)   # the second reach: the change of mind
+            else:
+                go(arm_a, clear, withdraw_s * .7, A, 1., 0.); go(clear, home, withdraw_s * .5, None, 0., 0.)
+                still(home, pause_s)
+                go(home, clear, .4, None, 0., 0.)
+                go(clear, arm_b, 1.5, B, 0., 1., dev=motion_path_b)     # the second reach: the change of mind
+            holds.append({'tick': len(cmds) - 1, 'target': b_name})
+            go(arm_b, clear, .7, B, 1., 0.); go(clear, home, .5, None, 0., 0.)
+        still(home, .5)
         rows = []; first_self = None; first_pair = None
-        for tick in range(360):
+        for tick, (palm, direction, active) in enumerate(cmds):
             t = tick * DT
-            reach = smooth((t - onset) / 2.10)
-            clear = home + np.array([.12, 0., .03]); pre = smooth((t - onset) / .75)
-            switch = 0. if switch_at is None else smooth((t - switch_at) / .8)
-            end = (onset + 3.15) if case == 'nominal' else (switch_at + 1.8)
-            back = smooth((t - end) / 1.)
-            current = home + (clear - home) * pre + (arm_a - clear) * reach + switch * (arm_b - arm_a)
-            deviation_a = motion_deviation(motion_path, reach)
-            deviation_b = motion_deviation(motion_path_b, reach)
-            current = current + (1 - switch) * deviation_a + switch * deviation_b
-            palm = (1. - back)**2 * current + 2 * (1. - back) * back * clear + back**2 * home
-            direction = A + (B - A) * switch
-            active = reach * (1 - back)
             pose = human.apply(d, palm=palm, point_at=direction if active > .001 else None,
                                hand_shape='point', shape_from='relaxed', shape_progress=active, aim_blend=active)
             mujoco.mj_forward(m, d); audit.observe(m, d); hits = check.measure(d)
             if hits and first_self is None: first_self = {'tick': tick, 'pairs': {str(k): float(v) for k, v in hits.items()}}
             if audit.first_violation and first_pair is None: first_pair = {'tick': tick, **audit.first_violation}
-            rows.append({'t_s': t, 'palm_command': palm.tolist(), 'point_at_command': direction.tolist() if active > .001 else None,
+            rows.append({'t_s': t, 'palm_command': np.asarray(palm).tolist(), 'point_at_command': np.asarray(direction).tolist() if active > .001 else None,
                          'point_strength': float(active), 'keypoints': human.keypoints(pose, JOINTS).tolist(),
                          'index_ray': human.keypoints(pose, ['r_index_base', 'r_index_tip']).tolist(), 'reach_error_m': pose['reach_error']})
     finally:
         env.close()
     clip = {'case': case, 'seed': seed, 'target_A_evaluator_only': a_name, 'target_B_evaluator_only': b_name,
-            'human_switch_schedule_s': switch_at, 'gesture_onset_s': onset, 'source_motion': source_info,
+            'human_switch_schedule_s': None, 'switch_cue': 'second reach after withdraw' if b_name else None,
+            'withdraw_s': withdraw_s, 'pause_s': pause_s, 'holds': holds,
+            'gesture_onset_s': onset, 'source_motion': source_info,
             'first_self': first_self, 'first_pair': first_pair, 'trace': rows}
     clip['clip_sha256'] = hashlib.sha256(json.dumps(rows, separators=(',', ':')).encode()).hexdigest()
     return clip
@@ -277,12 +312,12 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         switched = False   # after an observed change of mind both experts react identically
         visible_still = 0; last_confirmation = None
         midpoint = np.array([.28 + SHIFT, -.10, .82])
-        human_clock = 0; human_started = False; human_released = False
+        human_clock = 0; human_started = False
         executed_human = []; human_events = []
-        hold_tick = int(np.ceil((clip['gesture_onset_s'] + 2.10) / DT))
-        return_tick = int(np.ceil((clip['gesture_onset_s'] + 3.15) / DT))
-        human_target = np.asarray(positions[clip['target_A_evaluator_only']])
-        initial_target_distance = np.linalg.norm(midpoint[:2] - human_target[:2])
+        holds = {int(h['tick']): h['target'] for h in clip['holds']}
+        released = set(); hold_start = {}
+        switch_pending = False; withdrawn = False; reextend_ticks = 0; prev_wrist = None; hold_goal = None
+        closest_point = None; last_selected_for_cue = None; confirm_t = {}; t_switch = -1.
         speed_history = []; peak_hand_speed = 0.; speed = None
         prediction_times = np.arange(1, 11) / 10
         attach_log = []; last_attached = None
@@ -295,12 +330,19 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     human_started = True
                     human_events.append({'event': 'robot_neutral_ready', 't_s': tick * DT})
                 if human_started:
-                    if clip['case'] == 'nominal' and human_clock >= hold_tick and not human_released:
-                        distance = np.linalg.norm(d.site_xpos[env.tcp, :2] - human_target[:2])
-                        if distance < max(.025, initial_target_distance - .025):
-                            human_released = True; human_clock = return_tick
-                            human_events.append({'event': 'human_withdraw_after_correct_robot_direction', 't_s': tick * DT})
-                    if clip['case'] != 'nominal' or human_clock < hold_tick or human_released:
+                    # At a hold the person keeps pointing until the robot visibly heads for that cake
+                    # (TCP 2.5 cm closer than when the hold began), then withdraws. Capped at 8 s.
+                    tgt = holds.get(human_clock)
+                    if tgt is not None and human_clock not in released:
+                        dist = float(np.linalg.norm(d.site_xpos[env.tcp, :2] - np.asarray(positions[tgt][:2])))
+                        if human_clock not in hold_start: hold_start[human_clock] = (dist, tick)
+                        d0, t0 = hold_start[human_clock]
+                        # the person sees the robot coming for THIS cake with an empty gripper
+                        if (dist < max(.03, d0 - .025) and env.attached is None) or tick - t0 > 160:
+                            released.add(human_clock)
+                            human_events.append({'event': 'human_withdraw_after_robot_toward_' + tgt, 't_s': tick * DT,
+                                                 'timed_out': tick - t0 > 160})
+                    if tgt is None or human_clock in released:
                         human_clock += 1
                 clip_frame = dict(clip['trace'][min(human_clock, len(clip['trace']) - 1)])
                 clip_frame['t_s'] = tick * DT
@@ -362,7 +404,7 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                 visible_still = visible_still + 1 if measured_hand_speed < .045 and decided is not None else 0
                 if decided is not None and decided != last_confirmation:
                     phases.append({'phase': 'pointing_confirmed', 't': tick * DT, 'item': decided})
-                    last_confirmation = decided
+                    last_confirmation = decided; confirm_t[decided] = tick * DT
                 if (phase == 'observe' and mode == 'intent' and human_started and
                         len(candidate_history) == 3 and early_candidate is not None and
                         all(c == early_candidate for c in candidate_history) and
@@ -370,6 +412,38 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     selected = early_candidate; source_pos = current[selected].copy()
                     phase = 'approach'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
                     phases.append({'phase': 'forecast_pick_approach', 't': tick * DT, 'item': selected})
+                # --- change-of-mind cue (identical in both experts): after the person withdrew the pointing
+                # hand, the hand reaches out again over the table before any new target is confirmed.
+                if selected is not None and not switch_pending and phase not in ('settle', 'done'):
+                    dist_sel = float(np.linalg.norm(keypoint6[5][:2] - current[selected][:2]))
+                    if last_selected_for_cue != selected:
+                        last_selected_for_cue = selected; closest_point = dist_sel; withdrawn = False; reextend_ticks = 0
+                    closest_point = min(closest_point, dist_sel)
+                    if dist_sel > closest_point + float(I3_INTERACTION['switch_withdraw_m']): withdrawn = True
+                    outward = prev_wrist is not None and (keypoint6[5][1] - prev_wrist[1]) > .002
+                    reextend_ticks = reextend_ticks + 1 if (withdrawn and measured_hand_speed > .05 and outward) else 0
+                    if reextend_ticks >= 3:
+                        switch_pending = True; switched = True; withdrawn = False; reextend_ticks = 0
+                        t_switch = tick * DT
+                        phases.append({'phase': 'switch_pending', 't': tick * DT, 'item': selected, 'attached': env.attached is not None})
+                        if env.attached is not None and phase in ('lift', 'move_plate', 'lower_plate'):
+                            pending = None; phase = 'return_above'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
+                            phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'new': None})
+                        elif env.attached is None and phase in ('wait_hand_clear', 'approach', 'descend', 'close'):
+                            phase = 'hold_switch'; hold_goal = np.r_[d.site_xpos[env.tcp, :2], .78]
+                            phases.append({'phase': phase, 't': tick * DT, 'item': selected})
+                        else:
+                            switch_pending = False       # too late (already released / done): nothing to undo
+                prev_wrist = keypoint6[5].copy()
+                # A cue confirmed before the renewed reach belongs to the old instruction.
+                # Remain safely paused until a different target is actually confirmed.
+                new_cue = None
+                if switch_pending and last_confirmation not in (None, selected) and confirm_t.get(last_confirmation, -1.) >= t_switch:
+                    new_cue = last_confirmation           # may have arrived while the cake was being returned
+                if switch_pending and new_cue is not None and phase in ('hold_switch', 'wait_new_cue'):
+                    old = selected; selected = new_cue; source_pos = current[selected].copy(); phase = 'wait_hand_clear'; clear_samples = 0
+                    switch_pending = False
+                    phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'switched_from': old})
                 if phase == 'observe' and decided is not None and (mode == 'intent' or visible_still >= 3):
                     selected = decided; source_pos = current[selected].copy(); phase = 'wait_hand_clear'
                     phases.append({'phase': phase, 't': tick * DT, 'item': selected})
@@ -379,8 +453,9 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                         pending = decided; phase = 'return_above'; stage_start = tick; trajectory_start = d.site_xpos[env.tcp].copy()
                         phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'new': pending})
                     else:
+                        previous_selected = selected
                         selected = decided; source_pos = current[selected].copy(); phase = 'wait_hand_clear'; clear_samples = 0
-                        phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'switched_from': stable[0]})
+                        phases.append({'phase': phase, 't': tick * DT, 'item': selected, 'switched_from': previous_selected})
                 if phase == 'wait_hand_clear':
                     clear_samples = clear_samples + 1 if (np.linalg.norm(keypoint6[5] - current[selected]) > .22) else 0
                     if clear_samples >= 3:
@@ -415,6 +490,11 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     q = env.solve_ik(xyz_cmd); command = np.r_[q, grip]
                     advance_phase = (u >= 1 if phase in ('close', 'open', 'return_open') else
                                      np.linalg.norm(d.site_xpos[env.tcp] - goal) < .004)
+                elif phase == 'hold_switch':
+                    # stay above the cake, open gripper, until the new pointing is confirmed
+                    command = np.r_[env.solve_ik(follower.step(d.site_xpos[env.tcp], hold_goal, work_speed('hold_switch'))), .085]
+                elif phase == 'wait_new_cue':
+                    command = env.hold()
                 elif mode == 'intent' and phase == 'wait_hand_clear' and forecast_prep is not None and forecast_prep_target == selected:
                     u = min(1., (tick - forecast_prep['start'] + 1) / 35.)
                     prep_goal = np.r_[current[selected][:2], .91]
@@ -448,7 +528,10 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     normal = ['approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open', 'retreat', 'settle']
                     undo = ['return_above', 'return_lower', 'return_open', 'return_retreat']
                     if phase == 'return_retreat':
-                        selected = pending; pending = None; source_pos = current[selected].copy(); phase = 'wait_hand_clear'; clear_samples = 0
+                        if pending is not None:
+                            selected = pending; pending = None; source_pos = current[selected].copy(); phase = 'wait_hand_clear'; clear_samples = 0
+                        else:
+                            phase = 'wait_new_cue'      # cake is back home; wait for the new pointing
                     elif phase in undo: phase = undo[undo.index(phase) + 1]
                     else: phase = normal[normal.index(phase) + 1]
                     stage_start = tick + 1; trajectory_start = d.site_xpos[env.tcp].copy()
@@ -619,15 +702,20 @@ def events_from(result, clip):
     if attaches: ev['robot_commit'] = attaches[0]['t_s']
     for a in attaches:
         if a['attached'] == final_target: ev['robot_commit_final'] = a['t_s']; break
-    sw = next((p for p in phases if p['phase'] == 'return_above' or 'switched_from' in p), None)
-    if sw is not None: ev['switch_observed'] = sw['t']
-    # A visible A-to-B cue is observable even if Observed has not picked anything.
-    confirmations = [p for p in phases if p['phase'] == 'pointing_confirmed']
-    if clip['target_B_evaluator_only'] is not None:
+    # Forecast corrections before the first observed A are not changes of human intent.
+    # Only record a later observable withdraw/reach while handling A, or A->B confirmation.
+    a, b = clip['target_A_evaluator_only'], clip['target_B_evaluator_only']
+    if b is not None:
         seen_a = False
-        for cue in confirmations:
-            seen_a = seen_a or cue.get('item') == clip['target_A_evaluator_only']
-            if seen_a and cue.get('item') == clip['target_B_evaluator_only']:
+        for cue in phases:
+            if cue['phase'] == 'pointing_confirmed' and cue.get('item') == a:
+                seen_a = True
+            if not seen_a:
+                continue
+            explicit_switch = cue['phase'] == 'switch_pending' and cue.get('item') == a
+            retarget = cue.get('switched_from') == a and cue.get('item') == b
+            confirmed_b = cue['phase'] == 'pointing_confirmed' and cue.get('item') == b
+            if explicit_switch or retarget or confirmed_b:
                 ev['switch_observed'] = cue['t']
                 break
     ret = first('return_above')
