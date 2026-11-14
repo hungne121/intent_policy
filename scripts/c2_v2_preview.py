@@ -6,8 +6,8 @@ import numpy as np
 from v2_preview_common import (Preview, move, hold, main_pair, wipe_marks, marks_left, TRAVEL_Z, GRIP_OPEN,
                                GRIP_CLOSED, GRASP_DZ)
 
-HANDOVER = np.array([.28, -.24, .78])        # cloth centre where the human offers / receives it
-HAND_OFF = np.array([0., -.055, .035])       # palm behind and above the held cloth (hand grips its near edge)
+HANDOVER = np.array([.28, -.17, .78])        # cloth centre where the human offers / receives it
+HAND_OFF = np.array([0., -.075, -.025])       # palm behind and above the held cloth (hand grips its near edge)
 SHELF_FLOOR = .623
 SPOTS = {'cup': [(.13, -.11), (.18, -.12), (.22, -.11)], 'clock': [(.33, -.11), (.38, -.12), (.43, -.11)]}
 STANDBY = np.array([.28, .06, .80])
@@ -15,25 +15,27 @@ STANDBY = np.array([.28, .06, .80])
 
 def hook(scene, positions, xml):
     scene['human']['stand_xy'] = [.30, -.56]
-    scene['objects']['cloth']['size'] = [.03, .035, .004]
+    scene['objects']['cloth']['size'] = [.04, .10, .004]
     positions['cloth'] = (.28, -.32, positions['cloth'][2])
     import xml.etree.ElementTree as ET
     root = ET.fromstring(xml)
     g = root.find("./worldbody/body[@name='cloth']/geom")
-    g.set('size', '0.03 0.035 0.004')
+    g.set('size', '0.04 0.10 0.004')
     from c_preview_visual import connected_human
     return scene, positions, connected_human(scene, ET.tostring(root, encoding='unicode'))
 
 
 def human(pv, order):
     home = pv.human.hanging_palm(pv.human.active)
-    cloth_top = pv.pos('cloth') + [0, -.03, .035]
+    cloth_top = pv.pos('cloth') + [0, -.10, -.015]
     yield from hold(home, 1.0, phase='idle')
     yield from move(home, cloth_top, 1.0, lift=.05, shape='grasp', shape_from='relaxed', phase='reach_cloth')
     pv.human_grasp('cloth')
-    offer = HANDOVER + HAND_OFF + [0, .03, 0]
-    yield from move(cloth_top, offer, 1.2, lift=.04, shape='grasp', phase='offer_cloth')
-    yield from hold(offer, until=lambda: pv.attached_name() == 'cloth', shape='grasp', phase='wait_robot_grip')
+    raised = cloth_top + [0, 0, .12]
+    yield from move(cloth_top, raised, .7, shape='grasp', phase='lift_cloth')
+    offer = HANDOVER + HAND_OFF
+    yield from move(raised, offer, 1.2, lift=.02, shape='offer', shape_from='grasp', palm_up=1., phase='offer_cloth')
+    yield from hold(offer, until=lambda: pv.attached_name() == 'cloth', shape='offer', palm_up=1., phase='wait_robot_grip')
     pv.human_release('cloth'); pv.event('handover_complete')
     yield from move(offer, home, .9, lift=.05, shape='relaxed', shape_from='grasp', phase='withdraw')
     cur = home
@@ -41,6 +43,8 @@ def human(pv, order):
         top = pv.pos(obj) + [0, 0, .045 if obj == 'cup' else .045]
         yield from move(cur, top + [0, 0, .06], 1.0, lift=.04, shape='grasp', shape_from='relaxed', phase=f'reach_{obj}')
         yield from move(top + [0, 0, .06], top, .35, shape='grasp', phase=f'grip_{obj}')
+        # Let the smoothed reaching hand settle over the object before lifting vertically.
+        yield from hold(top, .35, shape='grasp', phase=f'settle_{obj}')
         pv.human_grasp(obj)
         up = top + [0, 0, .12]
         yield from move(top, up, .7, shape='grasp', phase=f'lift_{obj}'); pv.event('object_lifted', object=obj)
@@ -73,8 +77,8 @@ def robot(pv, order_hint=None):
                            following=True, until=lambda: pv.human_phase == 'wait_robot_grip')
     yield from pv.wait(lambda: pv.human_phase == 'wait_robot_grip', 'wait_offer_still')
     cloth = lambda: pv.pos('cloth')
-    yield from pv.goto(lambda: np.r_[cloth()[:2] + [0, .012], cloth()[2] + .08], 'approach')
-    yield from pv.goto(lambda: np.r_[cloth()[:2] + [0, .012], cloth()[2] + GRASP_DZ], 'descend')
+    yield from pv.goto(lambda: np.r_[cloth()[:2] + [0, .075], cloth()[2] + .08], 'approach')
+    yield from pv.goto(lambda: np.r_[cloth()[:2] + [0, .075], cloth()[2] + GRASP_DZ], 'descend')
     ok = yield from pv.close_on('cloth')
     yield from pv.wait(lambda: 'cloth' not in pv.held_by_human, 'wait_human_release', GRIP_CLOSED, timeout=40)
     yield from pv.goto(STANDBY, 'retreat', GRIP_CLOSED)
@@ -173,7 +177,7 @@ def run(mode, seed, predictor, out):
     success = stalled is None and back and marks_left(pv) == 0 and 'cloth' in pv.held_by_human and pv.attached_name() is None
     return pv.finish(success, {'marks_left': marks_left(pv), 'human_order_evaluator_only': order, 'stalled': stalled,
                                'limitations': ['wiping is a visual mark-removal proxy, no fabric physics',
-                                               'rigid cloth box grasped by its edge', 'scripted human, not HY-Motion',
+                                               'rigid cloth box on open palm, grasped at far edge', 'scripted human, not HY-Motion',
                                                'control-frame contact checks only', 'expert preview, not trained ACT']})
 
 
