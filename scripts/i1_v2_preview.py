@@ -18,7 +18,8 @@ from v2_preview_common import Preview, move, hold, main_pair, hy_motion, TRAVEL_
 
 # 13/11 (user): the robot base stands across the table in front of the human (translated along the cup
 # row and set back); cups between the two, coaster spots on the human's side
-BASE_XY = (.30, .38)
+PREVIEW_CONFIG = yaml.safe_load((Path(__file__).resolve().parents[1] / 'configs/previews/i1_visual.yaml').read_text())
+BASE_XY = tuple(PREVIEW_CONFIG['robot_base_xy'])
 CUPS = {'cup0': (.24, .08), 'cup1': (.30, .16), 'cup2': (.36, .08)}
 SPOTS = [np.array([.155, -.08]), np.array([.305, -.08]), np.array([.455, -.08])]
 CUP_Z = .665
@@ -32,8 +33,7 @@ HAND_CLEAR_M = .16
 
 def hook(scene, positions, xml):
     scene['human']['stand_xy'] = [.30, -.54]
-    visual = yaml.safe_load((Path(__file__).resolve().parents[1] / 'configs/previews/i1_visual.yaml').read_text())
-    scene['human']['continuous_skin'] = bool(visual['continuous_skin'])
+    scene['human']['continuous_skin'] = bool(PREVIEW_CONFIG['continuous_skin'])
     cam = {'pos': [-.60, .05, 1.45], 'target': [.34, .02, .74], 'fovy': 62}   # side view: robot left, human right
     for k, xy in CUPS.items():
         positions[k] = (xy[0], xy[1], CUP_Z)
@@ -120,7 +120,7 @@ def robot(pv):
         yield from pv.goto(lambda: np.r_[target()[:2], place_z], 'lower', GRIP_CLOSED)
         yield from pv.open_gripper(); pv.event('cup_on_coaster', round=r, cup=cup)
         yield from pv.goto(lambda: np.r_[target()[:2], TRAVEL_Z], 'retreat')
-    yield from pv.goto(np.array([BASE_XY[0], BASE_XY[1] - .15, .85]), 'home')
+    yield from pv.goto(np.array([.28, .05, .82]), 'home')
     pv.phase = 'done'
 
 
@@ -135,7 +135,7 @@ def run(mode, seed, predictor, out):
         co = pv.pos(f'coaster{2 - r}')
         if any(np.linalg.norm(pv.pos(c)[:2] - co[:2]) < .02 and abs(pv.pos(c)[2] - (co[2] + COASTER_T / 2 + .037 + .008)) < .01 for c in CUPS):
             cups_on += 1
-    return pv.finish(cups_on == 3 and pv.attached_name() is None,
+    return pv.finish(cups_on == 3 and pv.attached_name() is None and pv.phase == 'done',
                      {'cups_on_coasters': cups_on, 'human_motion_source': getattr(pv, 'human_motion_source', None),
                       'limitations': ['straight moves shaped by HY-Motion palm-path curvature, not full-body replay',
                                       'coaster held by a hand weld', 'expert preview, not trained ACT']})

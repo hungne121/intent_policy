@@ -28,6 +28,8 @@ SIDE = {'r': 1.0, 'l': -1.0}          # the human faces -X, so +Y is the human's
 PALM_DOWN = np.array([0.0, 0.0, -1.0])  # palm normal in the T-pose
 MAX_WRIST_DEG = 70.0                    # wrist bend limit when aiming the pointing hand
 SELF_ITER = 10                          # self-clearance re-poses per tick (cfg self_clearance_m)
+IDLE_SHIFT_STEP = 0.004                 # m per applied pose: the hanging arm's clearance shift moves at most this fast
+IDLE_SHIFT_RELAX = 0.10                 # per pose: fraction of the shift released when no clearance push is needed
 SELF_PAD_M = 0.05                       # self_depth: arm points farther than this outside a body mesh's box are skipped
                                         #   (their depth is below -SELF_PAD_M; clearances are reported down to -SELF_PAD_M)
 
@@ -122,6 +124,7 @@ class HumanBody:
         self.lean_dt = float(cfg.get('lean_dt_s', 0.05))
         self._lean_prev = None
         self._idle_shift_prev = None    # rate-limited with the lean (13/11): the hanging arm twitched as the torso leaned
+        self._idle_rest_prev = None     # persistent self-clearance rest shift of the hanging arm (14/11)
         # `idle_clearance_m` (47/QĐ-DL step 1, the idle arm's rest): the hanging idle arm keeps this clearance from the
         # torso and the hips / legs. Its rest target turns with the leaning torso, so a lean towards the working hand put
         # the idle hand 48-71 mm into the hip (I1 lower_coaster, I2 / C1 / C3 pilot 06/11); the rest target is moved out
@@ -370,13 +373,18 @@ class HumanBody:
         """Pose the bound model for a palm position: segments, distance proxies, grasp anchor, hand mesh.
         `aim_blend` / `shape_progress`: how far a pointing hand has formed (the arm motion's progress, 2026-10-12).
         `idle_palm` / `idle_shape` / `idle_palm_up`: the other hand's target and shape (two-handed actions)."""
-        pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up)
+        # 14/11 (user: the hanging arm curled and twitched while the torso leaned): the self-clearance push of
+        # the hanging arm was recomputed from zero every tick, so it switched on and off. Its rest shift now
+        # persists between applied poses, changes at most IDLE_SHIFT_STEP per pose and relaxes back slowly.
+        persist = self.self_clearance is not None and self.lean_rate is not None and idle_palm is None
+        rest_shift = {self.idle: self._idle_rest_prev.copy()} if persist and self._idle_rest_prev is not None else {}
+        pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, rest_shift or None)
         if self.idle_clearance is not None and idle_palm is None and self.self_clearance is None:
             pose = self.idle_clear_pose(pose, palm, point_at, palm_up, aim_blend, idle_palm_up)
         if self.self_clearance is not None:
             palm = np.asarray(palm, float)
             idle_t = None if idle_palm is None else np.asarray(idle_palm, float)
-            rest_shift = {}
+            pushed_idle = False
             for _ in range(SELF_ITER):
                 push = self._self_push(pose)
                 if not push:
@@ -386,10 +394,25 @@ class HumanBody:
                 if self.idle in push:
                     if idle_t is None:          # a hanging hand keeps its rest orientation: shift the rest target
                         rest_shift[self.idle] = rest_shift.get(self.idle, 0.0) + push[self.idle]
+                        pushed_idle = True
                     else:
                         idle_t = idle_t + push[self.idle]
                 pose = self.pose(palm, point_at, palm_up, aim_blend, idle_t, idle_palm_up, rest_shift)
             pose['self_push'] = push
+            if persist:
+                prev = self._idle_rest_prev if self._idle_rest_prev is not None else np.zeros(3)
+                want = np.asarray(rest_shift.get(self.idle, np.zeros(3)), float)
+                if not pushed_idle:
+                    want = prev * (1.0 - IDLE_SHIFT_RELAX)      # no push needed: ease back towards the plain rest
+                delta = want - prev
+                if np.linalg.norm(delta) > IDLE_SHIFT_STEP:
+                    want = prev + delta * (IDLE_SHIFT_STEP / np.linalg.norm(delta))
+                if np.linalg.norm(want - np.asarray(rest_shift.get(self.idle, np.zeros(3)), float)) > 1e-9:
+                    rest_shift[self.idle] = want
+                    pose = self.pose(palm, point_at, palm_up, aim_blend, idle_t, idle_palm_up, rest_shift)
+                    pose['self_push'] = push
+                self._idle_rest_prev = want.copy()
+                pose['idle_rest_shift_m'] = float(np.linalg.norm(want))
         variant = self._shape_variant(hand_shape, smooth, shape_from, shape_progress)
         if self.active in self.compiled_hand_geoms:
             self.hand_geom = self._select_compiled_hand(self.active, variant)

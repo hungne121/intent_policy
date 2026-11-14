@@ -1,6 +1,6 @@
 # Preview V2 — tình trạng hiện tại
 
-**Cập nhật I1 2026-11-13T17:00:26+07:00:** đã sửa skin liền thân khi cúi; video mới `previews/i1_skin_fixed_20261113/`. Observed 28,80 s / Intent 27,95 s, cả hai 3/3; 7 tests PASS. Audit tiếp xúc giữ nguyên và dataset vẫn BLOCKED. Chi tiết `docs/reports/I1_SKIN_FIX_2026-11-13.md`. Ưu tiên I1; các task khác tạm dừng.
+**Cập nhật I1 14/11/2026 (Claude, tiếp việc của Codex và Antigravity):** video I1 mới nhất ở `previews/review_20261113b/I1_*.mp4` (thư mục `previews/i1_skin_fixed_20261113/` đã gộp vào đây). Gồm: skin liền thân khi cúi (Codex 13/11 17:00, `docs/reports/I1_SKIN_FIX_2026-11-13.md`); đế robot (0.30, 0.33) theo probe của Codex để hết dao động cánh tay; tay buông thõng hết quặp/giật (độ đẩy tránh hông của tay nghỉ giữ qua các tick, đổi ≤ 4 mm/tick, `human_body_v2.py`). Đo lượt chạy 14/11: Observed 25,90 s / Intent 25,15 s, 3/3 cốc; gia tốc cổ tay trái 17 → 2,4 m/s², cổ tay phải ≤ 2,0, TCP ≤ 3,1 m/s²; 8 tests PASS. Dataset vẫn BLOCKED (ngón kẹp/cốc ~15 mm). Ưu tiên I1; các task khác tạm dừng.
 
 ## Mốc trước sửa skin (13/11/2026 16:05; bảng I1 dưới đây đã cũ)
 
