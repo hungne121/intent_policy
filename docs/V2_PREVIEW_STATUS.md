@@ -1,5 +1,7 @@
 # Preview V2 — tình trạng hiện tại
 
+**C1 2026-11-14T17:14:52+07:00:** người đứng giữa hai khay, video mới `previews/c1_center_20261114/`; Observed 23,90 s và Intent 19,75 s trên một seed, cả hai 2/2. Còn va chạm nghiêm trọng, chưa đạt dataset; chi tiết `docs/reports/C1_CENTER_PREVIEW_2026-11-14.md`.
+
 **Preview C 2026-11-14T16:38:05+07:00:** video nominal C1–C4 tại `previews/c_tasks_20261114/`; C2 hai video chỉ là một phần, chưa hoàn thành. Case đổi ý C1/C4 chưa có. Chi tiết `docs/reports/C_PREVIEWS_2026-11-14.md`; chưa đạt thu dataset.
 
 **I3 2026-11-14T16:08:32+07:00:** tiếp tục cử chỉ đổi ý (rút tay rồi chỉ lại); 4 rollout before/after seed 0 hoàn thành theo predicate, chưa qua cổng dataset do camera visibility và tiếp xúc. Video mới `previews/i3_change_20261114/`; chi tiết `docs/reports/I3_CHANGE_CONTINUE_2026-11-14.md`.
