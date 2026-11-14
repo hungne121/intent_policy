@@ -1,0 +1,320 @@
+{
+  "task": "C1",
+  "case": "nominal",
+  "mode": "intent",
+  "seed": 300100,
+  "success": true,
+  "duration_s": 20.700000000000003,
+  "events": [
+    {
+      "event": "prepare",
+      "t": 1.1,
+      "cup": null
+    },
+    {
+      "event": "wait_person",
+      "t": 1.8,
+      "cup": null
+    },
+    {
+      "event": "forecast_follow_started",
+      "t": 2.5,
+      "wrist_relative": [
+        0.24326722234469034,
+        0.09539792179167939,
+        -0.45712854300677785
+      ]
+    },
+    {
+      "event": "forecast_approach",
+      "t": 2.5,
+      "cup": null
+    },
+    {
+      "event": "observed_cloth_target",
+      "t": 4.1000000000000005,
+      "cup": "cupL",
+      "previous": null
+    },
+    {
+      "event": "approach",
+      "t": 4.1000000000000005,
+      "cup": "cupL"
+    },
+    {
+      "event": "descend",
+      "t": 4.8500000000000005,
+      "cup": "cupL"
+    },
+    {
+      "event": "close",
+      "t": 5.9,
+      "cup": "cupL"
+    },
+    {
+      "event": "lift",
+      "t": 6.25,
+      "cup": "cupL"
+    },
+    {
+      "event": "hold",
+      "t": 6.95,
+      "cup": "cupL"
+    },
+    {
+      "event": "return_started",
+      "t": 8.05,
+      "cup": "cupL",
+      "source": "forecast_withdraw",
+      "hand_distance_m": 0.10061244885081447
+    },
+    {
+      "event": "return_above",
+      "t": 8.05,
+      "cup": "cupL"
+    },
+    {
+      "event": "wait_hand_clear",
+      "t": 8.4,
+      "cup": "cupL"
+    },
+    {
+      "event": "replace",
+      "t": 8.4,
+      "cup": "cupL"
+    },
+    {
+      "event": "release",
+      "t": 9.450000000000001,
+      "cup": "cupL"
+    },
+    {
+      "event": "retreat",
+      "t": 10.05,
+      "cup": "cupL"
+    },
+    {
+      "event": "prepare",
+      "t": 10.850000000000001,
+      "cup": null
+    },
+    {
+      "event": "wait_person",
+      "t": 11.65,
+      "cup": null
+    },
+    {
+      "event": "forecast_follow_started",
+      "t": 11.65,
+      "wrist_relative": [
+        0.2378043789329365,
+        0.1053407713685508,
+        -0.457694295297553
+      ]
+    },
+    {
+      "event": "forecast_approach",
+      "t": 11.65,
+      "cup": null
+    },
+    {
+      "event": "observed_cloth_target",
+      "t": 13.15,
+      "cup": "cupR",
+      "previous": null
+    },
+    {
+      "event": "approach",
+      "t": 13.15,
+      "cup": "cupR"
+    },
+    {
+      "event": "descend",
+      "t": 14.0,
+      "cup": "cupR"
+    },
+    {
+      "event": "close",
+      "t": 15.100000000000001,
+      "cup": "cupR"
+    },
+    {
+      "event": "lift",
+      "t": 15.450000000000001,
+      "cup": "cupR"
+    },
+    {
+      "event": "hold",
+      "t": 16.150000000000002,
+      "cup": "cupR"
+    },
+    {
+      "event": "return_started",
+      "t": 17.3,
+      "cup": "cupR",
+      "source": "forecast_withdraw",
+      "hand_distance_m": 0.09870515156644165
+    },
+    {
+      "event": "return_above",
+      "t": 17.3,
+      "cup": "cupR"
+    },
+    {
+      "event": "wait_hand_clear",
+      "t": 17.8,
+      "cup": "cupR"
+    },
+    {
+      "event": "replace",
+      "t": 17.8,
+      "cup": "cupR"
+    },
+    {
+      "event": "release",
+      "t": 18.900000000000002,
+      "cup": "cupR"
+    },
+    {
+      "event": "retreat",
+      "t": 19.5,
+      "cup": "cupR"
+    },
+    {
+      "event": "prepare",
+      "t": 20.700000000000003,
+      "cup": null
+    }
+  ],
+  "human_events": [
+    {
+      "event": "wait_neutral",
+      "t": 2.4000000000000004,
+      "round": 0
+    },
+    {
+      "event": "reach_cloth",
+      "t": 2.45,
+      "round": 0
+    },
+    {
+      "event": "grasp_cloth",
+      "t": 3.45,
+      "round": 0
+    },
+    {
+      "event": "lift_cloth",
+      "t": 3.8000000000000003,
+      "round": 0
+    },
+    {
+      "event": "wait_cup_clear",
+      "t": 4.5,
+      "round": 0
+    },
+    {
+      "event": "spread_cloth",
+      "t": 6.800000000000001,
+      "round": 0
+    },
+    {
+      "event": "withdraw",
+      "t": 8.0,
+      "round": 0
+    },
+    {
+      "event": "wait_cup_return",
+      "t": 9.0,
+      "round": 0
+    },
+    {
+      "event": "wait_neutral",
+      "t": 10.600000000000001,
+      "round": 1
+    },
+    {
+      "event": "reach_cloth",
+      "t": 11.5,
+      "round": 1
+    },
+    {
+      "event": "grasp_cloth",
+      "t": 12.5,
+      "round": 1
+    },
+    {
+      "event": "lift_cloth",
+      "t": 12.850000000000001,
+      "round": 1
+    },
+    {
+      "event": "wait_cup_clear",
+      "t": 13.55,
+      "round": 1
+    },
+    {
+      "event": "spread_cloth",
+      "t": 16.05,
+      "round": 1
+    },
+    {
+      "event": "withdraw",
+      "t": 17.25,
+      "round": 1
+    },
+    {
+      "event": "wait_cup_return",
+      "t": 18.25,
+      "round": 1
+    },
+    {
+      "event": "done",
+      "t": 20.150000000000002,
+      "round": 2
+    }
+  ],
+  "final_positions": {
+    "cupL": [
+      0.16001476860312527,
+      -0.09915342609809824,
+      0.6672434615299188
+    ],
+    "cupR": [
+      0.43951560755102,
+      -0.09969571925610443,
+      0.6674127128838964
+    ],
+    "clothL": [
+      0.15843754106777855,
+      -0.13036221896628344,
+      0.6265957603444262
+    ],
+    "clothR": [
+      0.440012877197167,
+      -0.10146123381361184,
+      0.6265855660762794
+    ]
+  },
+  "contact_violations": {
+    "human_seg_r_hand|world": 0.029999805254119688,
+    "human_seg_r_hand|clothL": 0.004719619795607463,
+    "sus2f_finger_l_link|cupL": 0.014907259258818936,
+    "sus2f_finger_r_link|cupL": 0.013843569201028758,
+    "human_seg_head|wrist_2_link": 0.03858103344995667,
+    "human_seg_r_hand|clothR": 0.00470897699393031,
+    "sus2f_finger_l_link|cupR": 0.014964643105518727,
+    "sus2f_finger_r_link|cupR": 0.013837493552215356,
+    "human_seg_r_hand|cupR": 0.0017995689589346553
+  },
+  "human_self_violations": {
+    "('l_hand', 'pelvis')": 0.027487777320395562
+  },
+  "dataset_accepted": false,
+  "limitations": [
+    "scripted human root/hand trajectory, not HY-Motion",
+    "rigid cloth proxy; no fabric unfolding physics",
+    "control-frame contact checks only, swept audit pending",
+    "expert preview, not trained ACT"
+  ],
+  "forecast_source": "ManiCast actual checkpoint"
+}

@@ -1,6 +1,7 @@
 """Check the requested C1 timing from paired preview logs, not dataset safety."""
 import argparse
 import json
+import math
 from pathlib import Path
 
 
@@ -9,6 +10,7 @@ def check(folder):
     for mode in ('Observed', 'Intent'):
         s = json.loads((folder / f'C1_{mode}_summary.json').read_text())
         human, robot = s['human_events'], s['events']
+        trace = json.loads((folder / f'C1_{mode}_trace.json').read_text())
         errors = []
         if not s['success']:
             errors.append('task did not complete both trays')
@@ -29,12 +31,16 @@ def check(folder):
                 if ret['t'] < h['wait_cup_return'] or ret['source'] != 'hand_at_rest':
                     errors.append(f'round {i}: observed returned before the hand rested')
             else:
-                forecast = [e for e in events if e['event'] == 'forecast_target']
-                closes = [e for e in events if e['event'] == 'close']
-                if len(forecast) != 1 or not closes or forecast[0]['cup'] != closes[0]['cup']:
-                    errors.append(f'round {i}: forecast target missing or changed')
-                if not forecast or forecast[0]['t'] >= h['lift_cloth']:
-                    errors.append(f'round {i}: no forecast approach before cloth lift')
+                forecast = [e for e in events if e['event'] == 'forecast_follow_started']
+                if len(forecast) != 1 or forecast[0]['t'] >= h['lift_cloth']:
+                    errors.append(f'round {i}: no continuous forecast follow before cloth lift')
+                else:
+                    start = forecast[0]['t']
+                    follow = [f for f in trace if start <= f['t'] < h['lift_cloth'] and f['robot_phase'] == 'forecast_approach']
+                    if not follow or not any(math.dist(f['tcp'], follow[0]['tcp']) >= .002 for f in follow):
+                        errors.append(f'round {i}: no measured robot motion while following')
+                    if any(f['selected'] is not None for f in follow):
+                        errors.append(f'round {i}: selected a cloth before observing the lift')
                 if not (h['withdraw'] <= ret['t'] < h['wait_cup_return']) or ret['source'] != 'forecast_withdraw':
                     errors.append(f'round {i}: forecast return did not start during withdrawal')
         result[mode] = errors
