@@ -140,7 +140,12 @@ def make_env(scene, positions, scene_xml):
         env.register_graspable(m.body(name).id, m.equality(robot_weld_name(name)).id)
     env.attach_substep = True
     env.hold_squeeze = 0.0
-    human = HumanBody({**scene['human'], 'floor_z': scene['floor_z']}); human.bind(m)
+    if scene['human'].get('model_version') == 'v3':
+        from intent_policy.sim.human_v3 import HumanV3
+        human = HumanV3({**scene['human'], 'floor_z': scene['floor_z']})
+    else:
+        human = HumanBody({**scene['human'], 'floor_z': scene['floor_z']})
+    human.bind(m)
     mujoco.mj_forward(m, d)
     return env, human
 

@@ -43,7 +43,8 @@ def apply_station(scene, xml, stand_xy=None, cam=None):
     scene['human']['stand_xy'] = list(stand_xy if stand_xy is not None else V2_CONFIG['human_stand_xy'])
     scene['human']['continuous_skin'] = bool(V2_CONFIG['continuous_skin'])
     root = ET.fromstring(xml)
-    if scene['human']['continuous_skin']:
+    if scene['human']['continuous_skin'] and scene['human'].get('model_version') != 'v3' \
+            and root.find("./asset/skin[@name='human_surface']") is None:
         add_continuous_human_skin(root, SIM_ROOT / 'assets/human')
     cam = cam or V2_CONFIG['camera_high']
     high = root.find("./worldbody/camera[@name='high']")
@@ -98,10 +99,22 @@ class Preview:
         self.kinematic = {}          # objects moved kinematically (second hand): name -> xyz
         self._palm_filter = {}       # critically damped 2nd-order filters of the palm commands (shared rule)
         self._is_robot, self.robot_geoms, self.human_geoms, self.world_geoms = geom_sets(self.m, positions)
+        if scene['human'].get('model_version') == 'v3':
+            # audit the collision geometry of the v3 person (capsules, palm sphere, finger capsule), not the visual
+            # hand meshes: a mesh is measured by its convex hull, ~7 cm thick for a curled hand
+            self.human_geoms = [g for g in self.human_geoms if self.m.geom_contype[g] or self.m.geom_conaffinity[g]]
+        self.human_set = set(self.human_geoms)
         pairs = [PairRule(a, b, 0., 0.) for a in self.human_geoms for b in self.robot_geoms + self.world_geoms]
         pairs += [PairRule(a, b, 0., 0.) for a in self.robot_geoms for b in self.world_geoms]
         self.audit = DemoContactAudit(self.m, pairs)
-        self.self_check = I3SelfCheck(self.m)
+        self.v3 = scene['human'].get('model_version') == 'v3'
+        self.self_check = None if self.v3 else I3SelfCheck(self.m)
+        self.safety_distance = float(V2_CONFIG.get('safety_distance_m', 0.))
+        self.safety_overrides = 0; self.safety_contacts = {}
+        if self.v3 and self.safety_distance > 0:
+            # proximity contacts: detected within `margin`, no force until penetration (`gap`)
+            for g in self.human_geoms:
+                self.m.geom_margin[g] = self.safety_distance; self.m.geom_gap[g] = self.safety_distance
         self.violations, self.self_hits = {}, {}
         name = f'{task}_{"Intent" if mode == "intent" else "Observed"}'
         self.name = name
@@ -151,6 +164,7 @@ class Preview:
         """Move an object with the second hand (no second anchor): set its pose, zero its velocity."""
         q = int(self.m.joint(name + '_free').qposadr[0]); v = int(self.m.joint(name + '_free').dofadr[0])
         self.d.qpos[q:q + 3] = xyz; self.d.qpos[q + 3:q + 7] = [1, 0, 0, 0]; self.d.qvel[v:v + 6] = 0
+        mujoco.mj_forward(self.m, self.d)          # body poses must be current before a weld reads them
         self.kinematic[name] = np.asarray(xyz, float)
 
     def _smooth_palm(self, key, target, tau=PALM_TAU):
@@ -283,7 +297,28 @@ class Preview:
             yield from self.goto(np.r_[xyz[:2], above_z], 'retreat')
 
     # ------------------------------------------------------------------ stepping
+    def robot_near_human(self):
+        """(min distance, closest pair) over the current robot-human contacts (proximity contacts included)."""
+        best = (np.inf, None)
+        for c in self.d.contact[:self.d.ncon]:
+            a, b = int(c.geom1), int(c.geom2)
+            ra, rb = self._is_robot(a), self._is_robot(b)
+            if ra == rb: continue
+            other = b if ra else a
+            if other not in self.human_set: continue
+            if c.dist < best[0]: best = (float(c.dist), (self.m.geom(a).name, self.m.geom(b).name))
+        return best
+
     def step(self, command):
+        if self.v3 and self.safety_distance > 0 and self.phase not in ('done',):
+            dist, pair = self.robot_near_human()
+            if pair is not None and dist < self.safety_distance:
+                # safety wrapper: never continue a commanded motion into the person
+                self.safety_overrides += 1
+                key = f'{pair[0]}|{pair[1]}'
+                self.safety_contacts[key] = min(self.safety_contacts.get(key, np.inf), dist)
+                command = self.env.hold()
+                self.follower.velocity[:] = 0.; self.follower.position = None
         self.env.step(command)
         mujoco.mj_forward(self.m, self.d)
         self.audit.observe(self.m, self.d)
@@ -301,7 +336,7 @@ class Preview:
             if tol is not None and -dist > tol:
                 key = f'{ba}|{bb}'
                 self.violations[key] = max(self.violations.get(key, 0.), -float(dist))
-        for pair, depth in self.self_check.measure(self.d).items():
+        for pair, depth in (self.self_check.measure(self.d).items() if self.self_check is not None else ()):
             self.self_hits[str(pair)] = max(self.self_hits.get(str(pair), 0.), float(depth))
         self.trace.append({'t': round(self.t, 3), 'human_phase': self.human_phase, 'robot_phase': self.phase,
                            'wrist': self.wrist().round(4).tolist(), 'tcp': self.tcp().round(4).tolist(),
@@ -352,6 +387,8 @@ class Preview:
                    'duration_s': round(self.t, 3), 'wall_s': round(time.time() - self.wall0, 1),
                    'events': self.events, 'final_positions': {k: self.pos(k).round(4).tolist() for k in self.positions},
                    'contact_violations': self.violations, 'human_self_violations': self.self_hits,
+                   'human_model': 'v3' if self.v3 else 'v2', 'safety_override_count': self.safety_overrides,
+                   'safety_closest_m': {k: round(v, 4) for k, v in self.safety_contacts.items()},
                    'forecast_source': 'ManiCast actual checkpoint' if self.mode == 'intent' else 'none',
                    'dataset_accepted': False,
                    'status': 'visual review preview; scripted expert; not an accepted dataset episode',
