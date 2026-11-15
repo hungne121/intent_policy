@@ -50,6 +50,7 @@ HORIZONS = (np.arange(1, 11) / 10).tolist()
 DT = .05
 SHIFT = 0.0                       # 14/11: no shift; the shared station puts the base at (0.30, 0.33)
 FORCE_LIMIT_N = 10.0              # pilot grasp force (PLAN_AUDIT, 10/11)
+SELF_TOUCH_TOL = 0.003            # self-contact up to the shared contact tolerance is a touch, not a violation (14/11)
 TOL = {                           # metres; see docs/PLAN_AUDIT_I3_PIPELINE.md
     'human': 0.0,                 # hand/forearm vs table, objects, robot: no sampled overlap
     'robot_table': 1e-4,          # numeric tolerance; the welded base is excluded
@@ -140,12 +141,17 @@ def make_env(scene, positions, scene_xml):
         env.register_graspable(m.body(name).id, m.equality(robot_weld_name(name)).id)
     env.attach_substep = True
     env.hold_squeeze = 0.0
-    if scene['human'].get('model_version') == 'v3':
+    if scene['human'].get('model_version') == 'v4':
+        from intent_policy.sim.human_physics import PhysicalHuman
+        human = PhysicalHuman({**scene['human'], 'floor_z': scene['floor_z']})
+    elif scene['human'].get('model_version') == 'v3':
         from intent_policy.sim.human_v3 import HumanV3
         human = HumanV3({**scene['human'], 'floor_z': scene['floor_z']})
     else:
         human = HumanBody({**scene['human'], 'floor_z': scene['floor_z']})
     human.bind(m)
+    if scene['human'].get('model_version') == 'v4':
+        env.physics_controllers.append(human.control)
     mujoco.mj_forward(m, d)
     return env, human
 
@@ -214,8 +220,11 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
     try:
         m, d = env.model, env.data
         home = human.hanging_palm(human.active)
-        clear = home + np.array([.12, 0., .03])
+        clear = home + np.array([.08, .14, .12])         # out, forward and up from the hanging hand: the forearm clears the chest
         is_robot, robot_g, arms, world_g = geom_sets(m, positions)
+        physical_human = scene['human'].get('model_version') == 'v4'
+        if physical_human:
+            arms = [g for g in arms if m.geom_contype[g] or m.geom_conaffinity[g]]
         audit = DemoContactAudit(m, [PairRule(x, y, 0., 0.) for x in arms for y in world_g + robot_g])
         check = HumanSelfCheck(m)
         A = np.array(positions[a_name]); B = np.array(positions[b_name]) if b_name else A
@@ -260,7 +269,13 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
             t = tick * DT
             pose = human.apply(d, palm=palm, point_at=direction if active > .001 else None,
                                hand_shape='point', shape_from='relaxed', shape_progress=active, aim_blend=active)
+            if physical_human:
+                # v4 commands are targets, not poses.  Advance the physical
+                # model before recording the hand and screening its geometry.
+                env.step(env.hold())
+                pose = human.current_pose(d)
             mujoco.mj_forward(m, d); audit.observe(m, d); hits = check.measure(d)
+            hits = {k: v for k, v in hits.items() if v > SELF_TOUCH_TOL}
             if hits and first_self is None: first_self = {'tick': tick, 'pairs': {str(k): float(v) for k, v in hits.items()}}
             if audit.first_violation and first_pair is None: first_pair = {'tick': tick, **audit.first_violation}
             rows.append({'t_s': t, 'palm_command': np.asarray(palm).tolist(), 'point_at_command': np.asarray(direction).tolist() if active > .001 else None,
@@ -281,11 +296,34 @@ def generate_clip(seed, case, scene, positions, scene_xml, rng):
 def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_threshold=.02, video=True):
     """Faithful copy of i3_cases_pilot.py (--hymotion --predictive-prep-experiment) with frame capture."""
     env, human = make_env(scene, positions, scene_xml)
-    frames = []; trace = []; phases = []; violations = {}; self_violations = {}; substep_contacts = {}
+    frames = []; trace = []; phases = []; violations = {}; self_violations = {}; substep_contacts = {}; human_substep_contacts = {}
     forecast_frames = []; forecast_runtime = []
     try:
         m, d = env.model, env.data
         is_robot, robot_geoms, human_geoms, world_geoms = geom_sets(m, positions)
+        physical_human = scene['human'].get('model_version') == 'v4'
+        if physical_human:
+            human_geoms = [g for g in human_geoms if m.geom_contype[g] or m.geom_conaffinity[g]]
+            from intent_policy.sim.human_physics import physics_config
+            human_contact_tolerance = float(physics_config()['max_contact_depth_m'])
+            human_set = set(human_geoms)
+
+            def audit_human_substep(model, data):
+                for c in data.contact:
+                    a, b = int(c.geom1), int(c.geom2)
+                    if (a not in human_set and b not in human_set) or c.dist >= 0:
+                        continue
+                    if b in human_set:
+                        a, b = b, a
+                    key = f'{model.body(model.geom_bodyid[a]).name}/{model.geom(a).name}|{model.body(model.geom_bodyid[b]).name}/{model.geom(b).name}'
+                    entry = human_substep_contacts.setdefault(key, {'first_sim_s': float(data.time), 'max_depth_m': 0., 'samples': 0})
+                    record_overlap(entry, -float(c.dist), human_contact_tolerance, float(data.time))
+                    if b in human_set and -c.dist > human_contact_tolerance:
+                        hit = self_violations.setdefault(key, {'first_t_s': float(data.time), 'max_depth_m': 0., 'samples': 0})
+                        hit['max_depth_m'] = max(hit['max_depth_m'], -float(c.dist))
+                        hit['samples'] += 1
+
+            env.solver_observers.append(audit_human_substep)
         pairs = [PairRule(a, b, 0., 0.) for a in human_geoms for b in robot_geoms + world_geoms]
         pairs += [PairRule(a, b, 0., 0.) for a in robot_geoms for b in world_geoms]
         geometry = DemoContactAudit(m, pairs); self_check = HumanSelfCheck(m)
@@ -328,6 +366,8 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         attach_log = []; last_attached = None
         writer = VideoWriter(out_dir / 'top.mp4', width=640, height=480) if video else None
         high_writer = VideoWriter(out_dir / 'high.mp4', width=640, height=480) if video else None
+        has_back = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_CAMERA, 'back') >= 0
+        back_writer = VideoWriter(out_dir / 'back.mp4', width=640, height=480) if (video and has_back) else None
         try:
             for tick in range(900):
                 # Human responds to visible robot geometry, not a timed withdrawal.
@@ -417,7 +457,10 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                     phases.append({'phase': 'forecast_pick_approach', 't': tick * DT, 'item': selected})
                 # --- change-of-mind cue (identical in both experts): after the person withdrew the pointing
                 # hand, the hand reaches out again over the table before any new target is confirmed.
-                if selected is not None and not switch_pending and phase not in ('settle', 'done'):
+                # Each I3 clip contains at most one change of mind.  Once an
+                # observed correction has occurred, settling/withdrawing the
+                # physical arm must not be mistaken for a second instruction.
+                if selected is not None and not switched and not switch_pending and phase not in ('settle', 'done'):
                     dist_sel = float(np.linalg.norm(keypoint6[5][:2] - current[selected][:2]))
                     if last_selected_for_cue != selected:
                         last_selected_for_cue = selected; closest_point = dist_sel; withdrawn = False; reextend_ticks = 0
@@ -484,6 +527,12 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                                'return_above': ([*source_pos[:2], .78], 33, 0.), 'return_lower': ([*source_pos[:2], .667], 27, 0.),
                                'return_open': ([*source_pos[:2], .667], 10, .085), 'return_retreat': ([*source_pos[:2], .78], 25, .085)}
                     goal, count, grip = targets[phase]
+                    if physical_human and mode == 'intent' and not switched and phase == 'close' and (tick - stage_start) * DT < .4:
+                        # A forecast can start approaching before a gesture is
+                        # confirmed.  Give the realised pointing hand time to
+                        # settle before committing to that initial selection.
+                        # Observed already waits for a confirmed, still cue.
+                        grip = .085
                     u = min(1., (tick - stage_start + 1) / count)
                     # Human-paced following only while Intent approaches on a forecast that the
                     # observed cue has not confirmed yet; every other phase is independent work.
@@ -553,8 +602,12 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                         selection=command_selection, phase=command_phase,
                         static_robot=bool(m.body_weldid[m.geom_bodyid[ga]] == 0),
                         human_pair=m.body(m.geom_bodyid[ga]).name.startswith('human_seg_'), tolerances=TOL)
+                    if physical_human and m.body(m.geom_bodyid[ga]).name.startswith('human_seg_'):
+                        tolerance = human_contact_tolerance
                     record_overlap(entry, -float(distance), tolerance, float(d.time))
                 for pair, depth in self_check.measure(d).items():
+                    if physical_human and depth <= human_contact_tolerance:
+                        continue
                     key = str(pair); entry = self_violations.setdefault(key, {'first_t_s': tick * DT, 'max_depth_m': 0., 'samples': 0})
                     entry['max_depth_m'] = max(entry['max_depth_m'], float(depth)); entry['samples'] += 1
                 attached = None if env.attached is None else m.body(env.attached).name
@@ -574,9 +627,12 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
                               'objects': {k: d.xpos[m.body(k).id].tolist() for k in positions}, 'attached': attached})
                 if writer is not None:
                     writer.add(env.render('top', 640, 480)); high_writer.add(env.render('high', 640, 480))
+                    if back_writer is not None: back_writer.add(env.render('back', 640, 480))
                 if phase == 'done': break
         finally:
-            if writer is not None: writer.close(); high_writer.close()
+            if writer is not None:
+                writer.close(); high_writer.close()
+                if back_writer is not None: back_writer.close()
         # --- interpolated swept audit on the finished rollout (same env, same geometry rules)
         executed_clip = {**clip, 'trace': executed_human}
         swept = swept_audit(env, human, executed_clip, trace, geometry, self_check)
@@ -584,7 +640,10 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
         visibility = camera_visibility(env, human, executed_clip, trace, positions)
         result = {'_executed_clip': executed_clip, 'human_events': human_events, 'mode': mode, 'phases': phases, 'last_phase': phase, 'expert_selected': selected, 'attach_log': attach_log,
                   'attached_at_end': env.attached is not None, 'gripper_m': float(d.qpos[env.gid]),
-                  'geometry_violations': violations, 'substep_contacts': substep_contacts, 'human_self_violations': self_violations,
+                  'geometry_violations': violations, 'substep_contacts': substep_contacts,
+                  'human_substep_contacts': human_substep_contacts,
+                  'human_contact_tolerance_m': human_contact_tolerance if physical_human else TOL['human'],
+                  'human_self_violations': self_violations,
                   'swept_audit': swept, 'camera_visibility': visibility, 'geometry_coverage': geometry_coverage(m, positions),
                   'prep_started_s': prep_started * DT if prep_started is not None else None,
                   'forecast_runtime_s': {'mean': float(np.mean(forecast_runtime)), 'max': float(np.max(forecast_runtime))} if forecast_runtime else None,
@@ -596,6 +655,8 @@ def rollout(mode, clip, scene, positions, scene_xml, out_dir, predictor, prep_th
 
 def swept_audit(env, human, clip, trace, geometry, self_check, subdivisions=5):
     m, d = env.model, env.data
+    physical_human = hasattr(human, 'physics')
+    human_tolerance = float(human.physics['max_contact_depth_m']) if physical_human else SELF_TOUCH_TOL
     qvel = np.zeros(m.nv); samples = 0; worst_pair = None; worst_self = None; first_pair = None; first_self = None
     for i in range(len(trace) - 1):
         ca, cb = clip['trace'][min(i, len(clip['trace']) - 1)], clip['trace'][min(i + 1, len(clip['trace']) - 1)]
@@ -613,6 +674,8 @@ def swept_audit(env, human, clip, trace, geometry, self_check, subdivisions=5):
             human.apply(d, palm=palm, point_at=direction if strength > .001 else None,
                         hand_shape='point', shape_from='relaxed', shape_progress=strength, aim_blend=strength)
             mujoco.mj_forward(m, d); geometry.observe(m, d); hits = self_check.measure(d)
+            if physical_human:
+                hits = {key: value for key, value in hits.items() if value > human_tolerance}
             t = (i + u) * DT
             for rule_i, distance, _, _ in geometry.step_violations:
                 rule = geometry.rules[rule_i]
@@ -625,6 +688,8 @@ def swept_audit(env, human, clip, trace, geometry, self_check, subdivisions=5):
                     selection=context['selection'], phase=context['phase'],
                     static_robot=bool(m.body_weldid[m.geom_bodyid[rule.geom_a]] == 0),
                     human_pair=entry['body_a'].startswith('human_seg_'), tolerances=TOL)
+                if physical_human and entry['body_a'].startswith('human_seg_'):
+                    tolerance = human_tolerance
                 # Evaluate EACH pair in its own time context; never clear unrelated hits.
                 if tolerance is None or -float(distance) <= tolerance:
                     continue
@@ -777,6 +842,7 @@ def geometry_checks(result, clip):
     def robot_side(k): return k.split('|')[0]
     def other_side(k): return k.split('|')[1]
     out = {n: {'max_depth_m': 0., 'samples': 0, 'unresolved': []} for n in ('human_table', 'human_object', 'human_robot', 'robot_table', 'robot_object')}
+    human_tolerance = result.get('human_contact_tolerance_m', TOL['human'])
     def put(name, key, depth, samples, tol, context=None):
         o = out[name]; o['max_depth_m'] = max(o['max_depth_m'], depth); o['samples'] += samples
         if context is not None:
@@ -789,9 +855,9 @@ def geometry_checks(result, clip):
         a, b = key.split('|')
         if is_human(a) or is_human(b):
             other = b if is_human(a) else a
-            if 'table' in other or 'decor_' in other: put('human_table', key, depth, n, TOL['human'])
-            elif other.split('/')[0] in CAKES: put('human_object', key, depth, n, TOL['human'])
-            else: put('human_robot', key, depth, n, TOL['human'])
+            if 'table' in other or 'decor_' in other: put('human_table', key, depth, n, human_tolerance)
+            elif other.split('/')[0] in CAKES: put('human_object', key, depth, n, human_tolerance)
+            else: put('human_robot', key, depth, n, human_tolerance)
         else:
             if other_side(key).endswith('/table') or 'decor_' in other_side(key):
                 if 'base_link' in robot_side(key) or 'robot_mount' in robot_side(key): continue   # welded base resting on the table
@@ -805,6 +871,13 @@ def geometry_checks(result, clip):
         else:
             obj = other_side(key).split('/')[0]
             put('robot_object', key + '@substep', depth, n, TOL['robot_other'], v)
+    for key, v in result.get('human_substep_contacts', {}).items():
+        other = other_side(key)
+        if is_human(other):
+            continue  # self contacts are reported separately
+        name = ('human_table' if 'table' in other or 'decor_' in other else
+                'human_object' if other.split('/')[0] in CAKES else 'human_robot')
+        put(name, key + '@substep', v['max_depth_m'], v['samples'], human_tolerance, v)
     return out
 
 
@@ -814,7 +887,7 @@ def quality_report(episode_id, scene_hash, seed, case, result, clip, frames, ini
     for name in ('human_table', 'human_object', 'human_robot', 'robot_table', 'robot_object'):
         g = geo[name]
         checks[name] = {'passed': not g['unresolved'], 'method': 'DemoContactAudit signed distance at 20 Hz on every control tick' + (' plus solver contacts at every physics substep' if name.startswith('robot') else ''),
-                        'evidence': f"max sampled overlap {g['max_depth_m']*1000:.3f} mm over {ticks} ticks; tolerance {'per pair' if name=='robot_object' else TOL['human' if name.startswith('human') else name]} m",
+                        'evidence': f"max sampled overlap {g['max_depth_m']*1000:.3f} mm over {ticks} ticks; tolerance {'per pair' if name=='robot_object' else result.get('human_contact_tolerance_m', TOL['human']) if name.startswith('human') else TOL[name]} m",
                         'samples': ticks, 'max_depth_m': g['max_depth_m'], 'unresolved': g['unresolved']}
         unresolved += [{'check': name, **u} for u in g['unresolved']]
     hs = result['human_self_violations']
@@ -890,6 +963,12 @@ def collect(seed, case, out_root, predictor, versions, checkpoint_sha, modes, vi
         (mode_dir / 'human_trace.json').write_text(json.dumps(executed_clip['trace']))
         events = events_from(result, executed_clip)
         quality = quality_report(episode_id, scene_hash, seed, case, result, executed_clip, frames, positions, events)
+        if scene['human'].get('model_version') == 'v4':
+            # The existing I3 geometry review documents the older model; do not
+            # promote v4 trial runs to accepted data using that stale review.
+            quality['geometry_coverage_reviewed'] = False
+            quality['geometry_coverage']['reviewed'] = False
+            quality['geometry_coverage']['review'] = 'v4 physical geometry review pending'
         errors = quality_errors(quality)
         result.pop('_trace')
         metadata = {'episode_id': episode_id, 'pair_id': pair_id, 'task_id': 'I3', 'case_id': case, 'scene_hash': scene_hash, 'seed': seed,

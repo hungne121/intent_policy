@@ -1,5 +1,6 @@
 """V2 I2 one-cake/three-plate paired MuJoCo pilot (scripted expert, not ACT)."""
 import argparse
+import os
 import json
 import time
 from pathlib import Path
@@ -65,10 +66,37 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
     human.set_active(source['arm'])
     m,d=env.model,env.data
     _,robot_geoms,human_geoms,world_geoms=geom_sets(m,positions)
+    physical_human = scene['human'].get('model_version') == 'v4'
+    if physical_human:
+        # Hand mesh variants are visual-only and all but one are hidden.  The
+        # v4 hand's physical palm and finger proxies must be measured instead
+        # of treating every invisible variant as a simultaneous collider.
+        human_geoms = [g for g in human_geoms if m.geom_contype[g] or m.geom_conaffinity[g]]
+        from intent_policy.sim.human_physics import physics_config
+        human_contact_tolerance = float(physics_config()['max_contact_depth_m'])
     audit=DemoContactAudit(m,[PairRule(a,b,0.,0.) for a in human_geoms for b in robot_geoms+world_geoms]
                            +[PairRule(a,b,0.,0.) for a in robot_geoms for b in world_geoms])
     human_self=I3SelfCheck(m)
     contact_violations={};contact_details={};self_violations={}
+    physical_contacts = {}
+    if physical_human:
+        physical_set = set(human_geoms)
+        def observe_contacts(model, data):
+            for i, c in enumerate(data.contact):
+                a, b = int(c.geom1), int(c.geom2)
+                if a not in physical_set and b not in physical_set or c.dist >= 0:
+                    continue
+                if b in physical_set:
+                    a, b = b, a
+                key = f'{model.geom(a).name}|{model.geom(b).name or model.body(model.geom_bodyid[b]).name}'
+                force = np.zeros(6)
+                mujoco.mj_contactForce(model, data, i, force)
+                rec = physical_contacts.setdefault(key, {'max_depth_m': 0., 'max_normal_force_n': 0.})
+                rec['max_depth_m'] = max(rec['max_depth_m'], -float(c.dist))
+                rec['max_normal_force_n'] = max(rec['max_normal_force_n'], float(force[0]))
+                if -c.dist > human_contact_tolerance:
+                    contact_violations[key] = max(contact_violations.get(key, 0.), -float(c.dist))
+        env.solver_observers.append(observe_contacts)
     source_xyz=np.asarray(positions['cake'],float)
     phase='above_cake'; stage_start=0; start=d.site_xpos[env.tcp].copy()
     selected=None; observed=[]; history=[]; events=[]; frames=[]; last_forecast=None
@@ -177,6 +205,8 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                     selection='cake',phase=phase,
                     static_robot=bool(m.body_weldid[m.geom_bodyid[ga]]==0),
                     human_pair=ba.startswith('human_seg_'),tolerances=TOL)
+                if physical_human and ba.startswith('human_seg_'):
+                    tol=human_contact_tolerance
                 if tol is not None and -distance>tol:
                     key=f'{ba}/{m.geom(ga).name}|{bb}/{m.geom(gb).name}'
                     depth=-float(distance)
@@ -185,8 +215,9 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                         contact_details[key]={'t_s':t,'phase':phase,'attached':env.attached is not None,
                                               'gripper_gap_m':float(d.qpos[env.gid])}
             for pair,depth in human_self.measure(d).items():
-                self_violations[str(pair)]=max(self_violations.get(str(pair),0.),float(depth))
-            writer.add(env.render('high',640,480))
+                if not physical_human or depth > human_contact_tolerance:
+                    self_violations[str(pair)]=max(self_violations.get(str(pair),0.),float(depth))
+            writer.add(env.render(os.environ.get('PREVIEW_CAMERA','high'),640,480))
             if goal is not None and u>=1.:
                 if phase=='lift':phase='wait_target'
                 elif phase=='retreat':phase='settle'
@@ -203,6 +234,7 @@ def run(mode, seed, scene, positions, xml, clip, predictor, out):
                 'success':correct,'duration_s':round((tick+1)*DT,3),
                 'cake_final_xyz':cake.tolist(),'events':events,
                 'contact_violations':contact_violations,'contact_violation_details':contact_details,
+                'physical_human_contacts':physical_contacts,
                 'human_self_violations':self_violations,
                 'geometry_gate_pass':not contact_violations and not self_violations,
                 'limitations':['one-seed scripted expert preview','human path uses retargeted HY-Motion palm deviation',

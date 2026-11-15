@@ -14,6 +14,11 @@ camera_high: {pos: [-0.60, 0.05, 1.45], target: [0.34, 0.02, 0.74], fovy: 62}
 # Human model: 'v3' = 22-joint articulated mannequin with collision capsules and a connected skin (06/TTr-DL);
 # 'v2' = the former 9-segment mannequin.
 human_model: v3
-# Robot safety stop (scaffold): hold while any robot geom is within this distance of the person; every hold is
-# counted as a safety override (01_RULES: safety wrapper applies to every model and logs interventions).
-safety_distance_m: 0.03
+# No safety wrapper (user, 14/11 21:10): stopping for the person is a deliberate expert action that the policy must
+# learn, never an external override. Experts call `goto(..., keep_clear=...)` where they decide to wait for the hand;
+# the scaffold only MEASURES robot-human proximity contacts (within this margin) and real penetrations.
+proximity_margin_m: 0.03
+expert_keep_clear_m: 0.04
+# Second overview camera behind the robot base, looking forward at the person (user, 15/11 18:57); recorded when
+# PREVIEW_CAMERA=back (previews) or as back.mp4 by the I3 collector.
+camera_back: {pos: [0.30, 1.05, 1.30], target: [0.30, -0.30, 0.72], fovy: 60}

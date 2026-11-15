@@ -12,6 +12,7 @@ The human and the robot are written as generators that yield one frame/command p
 waits on observable conditions.
 """
 from pathlib import Path
+import os
 import json
 import time
 
@@ -43,12 +44,17 @@ def apply_station(scene, xml, stand_xy=None, cam=None):
     scene['human']['stand_xy'] = list(stand_xy if stand_xy is not None else V2_CONFIG['human_stand_xy'])
     scene['human']['continuous_skin'] = bool(V2_CONFIG['continuous_skin'])
     root = ET.fromstring(xml)
-    if scene['human']['continuous_skin'] and scene['human'].get('model_version') != 'v3' \
+    if scene['human']['continuous_skin'] and scene['human'].get('model_version') not in ('v3', 'v4') \
             and root.find("./asset/skin[@name='human_surface']") is None:
         add_continuous_human_skin(root, SIM_ROOT / 'assets/human')
     cam = cam or V2_CONFIG['camera_high']
     high = root.find("./worldbody/camera[@name='high']")
     high.set('pos', ' '.join(str(v) for v in cam['pos'])); high.set('xyaxes', look_at_xyaxes(cam['pos'], cam['target'])); high.set('fovy', str(cam['fovy']))
+    # 15/11 (user): a second overview from behind the robot looking forward at the person
+    back = V2_CONFIG.get('camera_back')
+    if back and root.find("./worldbody/camera[@name='back']") is None:
+        ET.SubElement(root.find('worldbody'), 'camera', name='back', pos=' '.join(str(v) for v in back['pos']),
+                      xyaxes=look_at_xyaxes(back['pos'], back['target']), fovy=str(back['fovy']))
     mount = root.find("./worldbody/body[@name='robot_mount']")
     mount.set('pos', f'{BASE_XY[0]} {BASE_XY[1]} 0.62')
     half = np.radians(float(V2_CONFIG['robot_base_yaw_deg'])) / 2
@@ -61,6 +67,15 @@ TRAVEL_Z = .80            # free travel height of the TCP
 GRASP_DZ = .024           # TCP above an object centre for a top-down grasp (I3 cake .643 -> .667, C1 cup .665 -> .688)
 
 
+class HumanReachError(RuntimeError):
+    """A physical human failed to reach a manipulation target in time."""
+
+
+# Collision capsules approximate the visible hand; a small gap is allowed for
+# the assisted grasp and avoids a prolonged probing motion at the tabletop.
+HUMAN_GRASP_GAP_M = .01
+
+
 def load_predictor(mode):
     if mode != 'intent':
         return None
@@ -71,7 +86,8 @@ def load_predictor(mode):
 class Preview:
     """One rollout: scene, human mannequin, audits, video, forecast, event log."""
 
-    def __init__(self, task, mode, seed, out, predictor, scene_hook=None, max_ticks=1600, camera='high'):
+    def __init__(self, task, mode, seed, out, predictor, scene_hook=None, max_ticks=1600, camera=None):
+        camera = camera or os.environ.get('PREVIEW_CAMERA', 'high')      # e.g. PREVIEW_CAMERA=back
         self.task, self.mode, self.seed, self.out = task, mode, int(seed), Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         scene, positions, xml = make(task)
@@ -96,10 +112,12 @@ class Preview:
         self.phase = 'start'
         self.human_phase = 'start'
         self.held_by_human = set()
+        self.robot_selection = None
         self.kinematic = {}          # objects moved kinematically (second hand): name -> xyz
         self._palm_filter = {}       # critically damped 2nd-order filters of the palm commands (shared rule)
         self._is_robot, self.robot_geoms, self.human_geoms, self.world_geoms = geom_sets(self.m, positions)
-        if scene['human'].get('model_version') == 'v3':
+        self.human_model = scene['human'].get('model_version', 'v2')
+        if self.human_model in ('v3', 'v4'):
             # audit the collision geometry of the v3 person (capsules, palm sphere, finger capsule), not the visual
             # hand meshes: a mesh is measured by its convex hull, ~7 cm thick for a curled hand
             self.human_geoms = [g for g in self.human_geoms if self.m.geom_contype[g] or self.m.geom_conaffinity[g]]
@@ -107,21 +125,29 @@ class Preview:
         pairs = [PairRule(a, b, 0., 0.) for a in self.human_geoms for b in self.robot_geoms + self.world_geoms]
         pairs += [PairRule(a, b, 0., 0.) for a in self.robot_geoms for b in self.world_geoms]
         self.audit = DemoContactAudit(self.m, pairs)
-        self.v3 = scene['human'].get('model_version') == 'v3'
-        self.self_check = None if self.v3 else I3SelfCheck(self.m)
-        self.safety_distance = float(V2_CONFIG.get('safety_distance_m', 0.))
-        self.safety_overrides = 0; self.safety_contacts = {}
-        if self.v3 and self.safety_distance > 0:
-            # proximity contacts: detected within `margin`, no force until penetration (`gap`)
+        self.v3 = self.human_model in ('v3', 'v4')
+        from intent_policy.sim.human_physics import physics_config
+        self.contact_depth_tolerance = float(physics_config()['max_contact_depth_m'])
+        self.contact_measurements = {}
+        self.self_check = I3SelfCheck(self.m)
+        self.proximity_margin = float(V2_CONFIG.get('proximity_margin_m', 0.))
+        self.keep_clear = float(V2_CONFIG.get('expert_keep_clear_m', 0.))
+        self.hand_holds = 0; self.human_contacts = {}; self.closest_human_m = np.inf
+        if self.v3 and self.proximity_margin > 0:
+            # proximity contacts: detected within `margin`, no force until penetration (`gap`); measurement only
             for g in self.human_geoms:
-                self.m.geom_margin[g] = self.safety_distance; self.m.geom_gap[g] = self.safety_distance
+                self.m.geom_margin[g] = self.proximity_margin; self.m.geom_gap[g] = self.proximity_margin
         self.violations, self.self_hits = {}, {}
+        self.visual_overlap_warnings = {}
+        self.physics_contact_samples = 0
+        self.env.solver_observers.append(self._audit_physics_contacts)
         name = f'{task}_{"Intent" if mode == "intent" else "Observed"}'
         self.name = name
         self.writer = VideoWriter(self.out / f'{name}.mp4', width=640, height=480)
         self.camera = camera
         self.wall0 = time.time()
         self.pose = None
+        self.human_failed = False
 
     # ------------------------------------------------------------------ helpers
     @property
@@ -140,9 +166,25 @@ class Preview:
     def event(self, name, **kw):
         self.events.append({'t': round(self.t, 3), 'event': name, **kw})
 
+    def hand_object_distance(self, name):
+        """Distance from the active physical palm/finger proxies to an object."""
+        body = self.m.body(name).id
+        objects = [g for g in range(self.m.ngeom) if self.m.geom_bodyid[g] == body
+                   and (self.m.geom_contype[g] or self.m.geom_conaffinity[g])]
+        side = self.human.active.upper()
+        hands = [self.m.geom(f'human_v3_{side}_Wrist_{part}').id for part in ('palm', 'fingers')]
+        if not objects:
+            return float('inf')
+        return min(mujoco.mj_geomDistance(self.m, self.d, hand, obj, .2, None)
+                   for hand in hands for obj in objects)
+
     # human grasp through the invisible anchor weld (keeps the current relative pose)
     def human_grasp(self, name):
         m, d = self.m, self.d
+        if self.human_model == 'v4':
+            distance = self.hand_object_distance(name)
+            if distance > HUMAN_GRASP_GAP_M:
+                raise HumanReachError(f'cannot grasp {name}: hand-object gap {distance:.4f} m')
         eid = m.equality(weld_name(name)).id
         anchor = m.eq_obj1id[eid]
         m.eq_data[eid, :3] = 0
@@ -185,9 +227,10 @@ class Preview:
     def apply_human(self, frame):
         """Pose the mannequin from a human frame dict and update speed / forecast estimates."""
         f = dict(frame)
-        f['palm'] = self._smooth_palm('active', f['palm'])
+        palm_tau = PALM_TAU
+        f['palm'] = self._smooth_palm('active', f['palm'], tau=palm_tau)
         if f.get('idle_palm') is not None:
-            f['idle_palm'] = self._smooth_palm('idle', f['idle_palm'])
+            f['idle_palm'] = self._smooth_palm('idle', f['idle_palm'], tau=palm_tau)
         self.human_phase = f.get('phase', self.human_phase)
         shape = f.get('shape', 'relaxed')
         pose = self.human.apply(self.d, palm=np.asarray(f['palm'], float), point_at=f.get('point_at'),
@@ -244,17 +287,30 @@ class Preview:
         return bool(np.linalg.norm(self.tcp() - np.asarray(goal, float)) < tol)
 
     # ------------------------------------------------------------------ robot coroutine helpers
-    def goto(self, goal, phase, grip=GRIP_OPEN, following=False, tol=.004, until=None):
-        """Yield commands until the TCP reaches `goal` (callable or xyz). `until`: stop early."""
+    def goto(self, goal, phase, grip=GRIP_OPEN, following=False, tol=.004, until=None, keep_clear=None):
+        """Yield commands until the TCP reaches `goal` (callable or xyz). `until`: stop early.
+        `keep_clear` (m, default the config's expert_keep_clear_m): the EXPERT's own rule to wait when any part
+        of the robot is closer than this to the person; a deliberate hold, logged as `robot_holds_for_human`."""
+        clear = self.keep_clear if keep_clear is None else keep_clear
+        holding = False
         while True:
             g = goal() if callable(goal) else goal
             if self.reached(g, tol) or (until is not None and until()):
                 self.follower.velocity *= 0.
                 return
+            if clear > 0 and self.v3:
+                dist, pair = self.robot_near_human()
+                if pair is not None and dist < clear:
+                    if not holding:
+                        holding = True; self.hand_holds += 1
+                        self.event('robot_holds_for_human', phase=phase, distance_m=round(dist, 4), pair=list(pair))
+                    yield self.hold(grip); continue
+            holding = False
             yield self.command_to(g, phase, grip, following=callable(following) and following() or following is True)
 
     def close_on(self, name, phase='close', timeout=60):
         self.phase = phase
+        self.robot_selection = name
         for _ in range(timeout):
             if self.env.attached == self.m.body(name).id:
                 self.event('robot_grasp', object=name)
@@ -267,6 +323,7 @@ class Preview:
         self.phase = phase
         for _ in range(ticks):
             yield self.hold(GRIP_OPEN)
+        self.robot_selection = None
 
     def wait(self, cond, phase, grip=None, timeout=10**6):
         self.phase = phase
@@ -309,37 +366,93 @@ class Preview:
             if c.dist < best[0]: best = (float(c.dist), (self.m.geom(a).name, self.m.geom(b).name))
         return best
 
-    def step(self, command):
-        if self.v3 and self.safety_distance > 0 and self.phase not in ('done',):
-            dist, pair = self.robot_near_human()
-            if pair is not None and dist < self.safety_distance:
-                # safety wrapper: never continue a commanded motion into the person
-                self.safety_overrides += 1
-                key = f'{pair[0]}|{pair[1]}'
-                self.safety_contacts[key] = min(self.safety_contacts.get(key, np.inf), dist)
-                command = self.env.hold()
-                self.follower.velocity[:] = 0.; self.follower.position = None
-        self.env.step(command)
-        mujoco.mj_forward(self.m, self.d)
+    def _audit_physics_contacts(self, model, data):
+        """Record human contacts at every physics step; never modify commands."""
+        self.physics_contact_samples += 1
+        for contact_index, contact in enumerate(data.contact):
+            a, b = int(contact.geom1), int(contact.geom2)
+            if a not in self.human_set and b not in self.human_set:
+                continue
+            if b in self.human_set:
+                a, b = b, a
+            if contact.dist >= 0:
+                continue
+            ba = model.body(model.geom_bodyid[a]).name
+            # Static world geoms belong to `world`, which hides whether the
+            # contact was with the table, floor, or a task prop.  Use the geom
+            # name as the audit counterpart in that case.
+            other_geom = model.geom(b).name or str(b)
+            bb = model.body(model.geom_bodyid[b]).name
+            if bb == 'world':
+                bb = other_geom
+            key = f'{ba}|{bb}'
+            force = np.zeros(6)
+            mujoco.mj_contactForce(model, data, contact_index, force)
+            record = self.contact_measurements.setdefault(key, {'samples': 0, 'max_depth_m': 0., 'max_normal_force_n': 0.,
+                                                                'first_t_s': round(float(data.time), 4)})
+            record['samples'] += 1
+            record['max_depth_m'] = max(record['max_depth_m'], -float(contact.dist))
+            record['max_normal_force_n'] = max(record['max_normal_force_n'], float(force[0]))
+            if -contact.dist > self.contact_depth_tolerance:
+                self.violations[key] = max(self.violations.get(key, 0.), -float(contact.dist))
+            if b in self.robot_geoms:
+                names = f'{model.geom(a).name}|{model.geom(b).name or b}'
+                self.human_contacts[names] = min(self.human_contacts.get(names, 0.), float(contact.dist))
+                self.closest_human_m = min(self.closest_human_m, float(contact.dist))
+
+    def _audit_geometry(self):
+        """Also measure kinematic pairs that MuJoCo does not resolve physically."""
+        if self.v3:
+            dist, pair = self.robot_near_human()          # measured only; nothing is prevented here
+            if pair is not None:
+                self.closest_human_m = min(self.closest_human_m, dist)
+                if dist < 0:
+                    key = f'{pair[0]}|{pair[1]}'
+                    self.human_contacts[key] = min(self.human_contacts.get(key, 0.), dist)
         self.audit.observe(self.m, self.d)
-        held = self.held_by_human | set(self.kinematic)
         attached = self.attached_name()
         for idx, dist, _, _ in self.audit.step_violations:
             pair = self.audit.rules[idx]
             ba = self.m.body(self.m.geom_bodyid[pair.geom_a]).name; bb = self.m.body(self.m.geom_bodyid[pair.geom_b]).name
-            if ba.startswith('human_seg_') and bb in held:
-                continue                     # holding an object with the hand is intended
             tol = overlap_tolerance(robot_body=ba, other_body=bb, other_geom=self.m.geom(pair.geom_b).name,
-                                    attached=attached, selection=attached, phase=self.phase,
+                                    attached=attached, selection=self.robot_selection, phase=self.phase,
                                     static_robot=bool(self.m.body_weldid[self.m.geom_bodyid[pair.geom_a]] == 0),
                                     human_pair=ba.startswith('human_seg_'), tolerances=TOL)
+            if ba.startswith('human_seg_'):
+                tol = self.contact_depth_tolerance
             if tol is not None and -dist > tol:
                 key = f'{ba}|{bb}'
                 self.violations[key] = max(self.violations.get(key, 0.), -float(dist))
+                # A visible mesh may be visual-only, in which case this is a
+                # hull-based image-geometry warning rather than solver contact.
+                # Preserve the warning instead of claiming physical penetration
+                # or silently dropping a potentially visible mismatch.
+                if not (self.m.geom_contype[pair.geom_b] or self.m.geom_conaffinity[pair.geom_b]):
+                    geom_name = self.m.geom(pair.geom_b).name or str(pair.geom_b)
+                    visual_key = f'{ba}|{geom_name}'
+                    self.visual_overlap_warnings[visual_key] = max(self.visual_overlap_warnings.get(visual_key, 0.), -float(dist))
         for pair, depth in (self.self_check.measure(self.d).items() if self.self_check is not None else ()):
-            self.self_hits[str(pair)] = max(self.self_hits.get(str(pair), 0.), float(depth))
+            if depth > self.contact_depth_tolerance:
+                self.self_hits[str(pair)] = max(self.self_hits.get(str(pair), 0.), float(depth))
+
+    def step(self, command):
+        # Check immediately after the human pose update, before physics can push an
+        # intersected object away and hide the original overlap.
+        self._audit_geometry()
+        self.env.step(command)
+        mujoco.mj_forward(self.m, self.d)
+        self._audit_geometry()
+        attached = self.attached_name()
         self.trace.append({'t': round(self.t, 3), 'human_phase': self.human_phase, 'robot_phase': self.phase,
-                           'wrist': self.wrist().round(4).tolist(), 'tcp': self.tcp().round(4).tolist(),
+                           'wrist': self.wrist().round(4).tolist(),
+                           # `palm` is the realised physical point for v4 (not
+                           # the requested IK target).  Keeping both its task
+                           # phase and trajectory in the trace makes it possible
+                           # to reject a scripted transition that outruns a
+                           # force-driven arm.
+                           'palm': np.asarray(self.pose['palm']).round(4).tolist(),
+                           'palm_target': None if getattr(self.human, 'target_pose', None) is None else np.asarray(self.human.target_pose['palm']).round(4).tolist(),
+                           'tcp': self.tcp().round(4).tolist(),
                            'attached': attached, 'hand_speed': round(self.hand_speed, 4),
                            'joint_position': self.d.qpos[self.env.qids].tolist(),
                            'joint_velocity': self.d.qvel[self.env.dids].tolist(),
@@ -362,6 +475,10 @@ class Preview:
             while self.tick < self.max_ticks:
                 try:
                     last_frame = next(human_gen)
+                except HumanReachError as exc:
+                    self.human_failed = True
+                    self.event('human_reach_timeout', detail=str(exc))
+                    break
                 except StopIteration:
                     pass
                 if last_frame is None:
@@ -370,11 +487,17 @@ class Preview:
                 if robot_done_at is None:
                     try:
                         command = next(robot_gen)
+                    except HumanReachError as exc:
+                        self.human_failed = True
+                        self.event('human_reach_timeout', detail=str(exc))
+                        break
                     except StopIteration:
                         robot_done_at = self.tick; command = self.hold()
                 else:
                     command = self.hold()
                 self.step(command)
+                if self.human_failed:
+                    break
                 if done() and (robot_done_at is not None or self.phase == 'done') and self.tick - (robot_done_at or self.tick) >= 12:
                     break
                 if robot_done_at is not None and self.tick - robot_done_at >= 60:
@@ -387,8 +510,14 @@ class Preview:
                    'duration_s': round(self.t, 3), 'wall_s': round(time.time() - self.wall0, 1),
                    'events': self.events, 'final_positions': {k: self.pos(k).round(4).tolist() for k in self.positions},
                    'contact_violations': self.violations, 'human_self_violations': self.self_hits,
-                   'human_model': 'v3' if self.v3 else 'v2', 'safety_override_count': self.safety_overrides,
-                   'safety_closest_m': {k: round(v, 4) for k, v in self.safety_contacts.items()},
+                   'physics_contact_samples': self.physics_contact_samples,
+                   'contact_measurements': self.contact_measurements,
+                   'visual_overlap_warnings': self.visual_overlap_warnings,
+                   'human_contact_depth_tolerance_m': self.contact_depth_tolerance,
+                   'geometry_valid': not bool(self.violations or self.self_hits),
+                   'human_model': self.human_model, 'expert_holds_for_human': self.hand_holds,
+                   'robot_human_penetrations_m': {k: round(-v, 4) for k, v in self.human_contacts.items()},
+                   'robot_human_closest_m': None if not np.isfinite(self.closest_human_m) else round(float(self.closest_human_m), 4),
                    'forecast_source': 'ManiCast actual checkpoint' if self.mode == 'intent' else 'none',
                    'dataset_accepted': False,
                    'status': 'visual review preview; scripted expert; not an accepted dataset episode',
@@ -412,6 +541,26 @@ def move(start, end, duration, lift=0., motion=None, motion_scale=1., **kw):
         if motion is not None:
             p = p + motion_scale * motion_deviation(motion, u)
         yield {'palm': p, 'progress': u, **kw}
+
+
+def move_path(pts, duration, shape='grasp', shape_from=None, phase='', **kw):
+    """Smooth, continuous waypoint motion through a sequence of 3D points.
+    Unlike chaining multiple move() calls (which comes to a full stop at each waypoint),
+    move_path parameterizes the entire polyline with a single minimum-jerk easing,
+    ensuring non-zero velocity across intermediate points and eliminating stutter."""
+    pts = [np.asarray(p, float) for p in pts]
+    dists = [float(np.linalg.norm(pts[k+1] - pts[k])) for k in range(len(pts)-1)]
+    total = sum(dists)
+    cum = np.cumsum([0] + dists)
+    n = max(1, int(round(duration / DT)))
+    for i in range(1, n + 1):
+        u = smooth(i / n)
+        d = u * total
+        idx = np.searchsorted(cum, d) - 1
+        idx = max(0, min(idx, len(pts) - 2))
+        frac = (d - cum[idx]) / max(dists[idx], 1e-9)
+        p = pts[idx] + frac * (pts[idx+1] - pts[idx])
+        yield {'palm': p, 'progress': u, 'shape': shape, 'shape_from': shape_from, 'phase': phase, **kw}
 
 
 HY_BANK = ROOT / 'outputs/human_motion/hymotion_ten_tasks_2026-10-30/hymotion_out'
@@ -457,14 +606,55 @@ def carry(pv, obj, dest, start, dz=.035, lift=.08, reach_s=.9, carry_s=1.0, lowe
     """Human pick-and-place of `obj` to `dest` (object centre), welded to the hand while carried.
     Yields frames; returns the final palm position (above the released object)."""
     start = np.asarray(start, float)
-    top = pv.pos(obj) + np.array([0., 0., dz])
-    yield from move(start, top + [0, 0, .05], reach_s, lift=.04, shape=shape, shape_from='relaxed', phase=phase + '_reach')
-    yield from move(top + [0, 0, .05], top, .35, shape=shape, phase=phase + '_lower')
+    # The old kinematic hand could target a point inside the tabletop or
+    # object.  Leave room for the physical palm and finger volumes.
+    top = pv.pos(obj) + np.array([0., 0., max(dz, .065) if pv.human_model == 'v4' else dz])
+    def wait_physical(target, label, tolerance=.035):
+        if pv.human_model != 'v4':
+            return
+        for _ in range(int(round(3. / DT))):
+            if np.linalg.norm(np.asarray(pv.pose['palm']) - target) < tolerance:
+                return
+            yield {'palm': np.asarray(target), 'shape': shape, 'phase': label}
+        raise HumanReachError(f'{label}: palm did not reach {np.asarray(target).round(3).tolist()}')
+    if pv.human_model == 'v4':
+        # Traverse above the tabletop before lowering to the object.  Direct
+        # diagonals can trap the physical hand against the table edge.
+        high = np.r_[start[:2], max(start[2], .83)]
+        yield from move(start, high, .8, shape='relaxed', phase=phase + '_reach')
+        yield from wait_physical(high, phase + '_settle_high', tolerance=.05)
+        above = np.r_[top[:2], max(top[2] + .14, .88)]
+        yield from move(high, above, reach_s, shape=shape, shape_from='relaxed', phase=phase + '_reach')
+        yield from wait_physical(above, phase + '_settle_above', tolerance=.05)
+        yield from move(above, top, .8, shape=shape, phase=phase + '_lower')
+    else:
+        yield from move(start, top + [0, 0, .05], reach_s, lift=.04, shape=shape, shape_from='relaxed', phase=phase + '_reach')
+        yield from move(top + [0, 0, .05], top, .35, shape=shape, phase=phase + '_lower')
+    yield from wait_physical(top, phase + '_settle_grasp')
+    if pv.human_model == 'v4':
+        contact_target = top.copy()
+        for _ in range(int(round(4. / DT))):
+            if pv.hand_object_distance(obj) <= HUMAN_GRASP_GAP_M:
+                break
+            contact_target[2] -= .0015
+            yield {'palm': contact_target.copy(), 'shape': shape, 'phase': phase + '_contact'}
+        else:
+            raise HumanReachError(f'{phase}: cannot approach {obj} within {HUMAN_GRASP_GAP_M * 1000:g} mm')
+    offset = np.asarray(pv.pose['palm']) - pv.pos(obj) if pv.human_model == 'v4' else np.array([0., 0., dz])
     pv.human_grasp(obj)
     dest = np.asarray(dest, float)
-    end = dest + np.array([0., 0., dz])
-    yield from move(top, end + [0, 0, lift], carry_s, lift=.03, shape=shape, phase=phase + '_move')
+    end = dest + offset
+    if pv.human_model == 'v4':
+        actual = np.asarray(pv.pose['palm']).copy()
+        raised = actual + [0, 0, max(lift, .16)]
+        yield from move(actual, raised, .9, shape=shape, phase=phase + '_lift')
+        yield from wait_physical(raised, phase + '_settle_lift', tolerance=.04)
+        yield from move(raised, end + [0, 0, lift], carry_s, lift=.03, shape=shape, phase=phase + '_move')
+    else:
+        yield from move(top, end + [0, 0, lift], carry_s, lift=.03, shape=shape, phase=phase + '_move')
+    yield from wait_physical(end + [0, 0, lift], phase + '_settle_move')
     yield from move(end + [0, 0, lift], end, lower_s, shape=shape, phase=phase + '_place')
+    yield from wait_physical(end, phase + '_settle_place', tolerance=.04)
     pv.human_release(obj)
     yield from move(end, end + [0, 0, .06], .3, shape='relaxed', shape_from=shape, phase=phase + '_release')
     return end + np.array([0., 0., .06])
