@@ -187,3 +187,30 @@ Kiểm tên bài / tác giả / năm qua tìm kiếm web (04/11 15:4x), chưa đ
 | [Marra, Berti, Caddeo, Natale. Temporal Tactile Encoding and Compliance for Intent-Aware Robot-to-Human Bimanual Handover, 2026](https://arxiv.org/abs/2609.05282) | Tóm tắt arXiv (preprint) | C1: chạm / kéo thoáng qua chưa đủ kết luận ý định nhận; chỉ nhả khi tín hiệu nhận kéo dài. Bài dùng cảm biến xúc giác thật, sim dùng trạng thái nắm. |
 | [Duan, Wang et al. Reactive Human-to-Robot Dexterous Handovers for Anthropomorphic Hand, IEEE T-RO, 2025](https://doi.org/10.1109/TRO.2024.3508194) | Metadata IEEE / AMiner | Người dùng dẫn; hướng ngược (người → robot), phản ứng theo chuyển động người. Chỉ tham khảo nguyên lý. |
 | [Tonola, Faroni, Abdolshah, Hamad, Haddadin, Pedrocchi, Beschi. Reactive and Safety-Aware Path Replanning for Collaborative Applications, IEEE T-ASE, 2025](https://arxiv.org/abs/2503.07192) | Tóm tắt arXiv / metadata (DOI 10.1109/TASE.2025.3607037) | W3: đổi đường đi theo trạng thái người (chi phí dựa ISO/TS 15066) thay vì chỉ dừng / giảm tốc trên quỹ đạo cố định. Dự án không dùng planner MARSHA; chỉ rút về vùng chờ. |
+
+## H. Nguồn cho đường tay tránh thân người (06/11/2026 09:41)
+
+Kiểm tên bài / tác giả / năm / tạp chí qua tìm kiếm web (06/11 09:41), đọc tóm tắt; chưa đọc toàn văn phần lời giải qua điểm trung gian.
+
+| Nguồn | Mức đã kiểm | Dùng và giới hạn |
+|---|---|---|
+| [Flash, Hogan. The coordination of arm movements: an experimentally confirmed mathematical model, J. Neuroscience 5(7) 1688–1703, 1985](https://pmc.ncbi.nlm.nih.gov/articles/PMC6565116) | Tóm tắt (PMC), metadata | Bước 3 của 47/QĐ-DL: đường minimum-jerk dự phòng đi qua một điểm trước thân (`scripted_human.min_jerk_via`). Bài đề xuất hàm chi phí jerk bình phương của bàn tay; chuyển động qua điểm trung gian hoặc vòng vật cản theo mô hình này khớp thí nghiệm người (mặt phẳng ngang). Giới hạn: thí nghiệm của bài ở mặt phẳng ngang; ở đây dùng cho tay 3D của hình nhân, thời điểm qua điểm chọn trên lưới 0,2–0,8 theo jerk nhỏ nhất. |
+| [Bobrow, Dubowsky, Gibson. Time-Optimal Control of Robotic Manipulators Along Specified Paths, IJRR 4(3) 3–17, 1985 (DOI 10.1177/027836498500400301)](https://www.citedrive.com/en/discovery/time-optimal-control-of-robotic-manipulators-along-specified-paths) | Metadata, tóm tắt (06/11 12:5x) | 01/KH-DL 1a: chỉnh nhịp đường tay HY-Motion theo giới hạn gia tốc dọc đường cố định (`motion_bank.rest_ends`): tốc độ = min(tốc độ gốc, tốc độ còn dừng được ở cuối / bắt đầu được từ nghỉ). Bài gốc là tối ưu thời gian với giới hạn mô-men khớp; ở đây chỉ dùng ý tưởng hồ sơ tốc độ dọc đường, giới hạn gia tốc lấy từ số đo kho HY-Motion (trung vị gia tốc đỉnh 4,73 m/s²). |
+
+## E. Bộ né dự báo tối thiểu gián đoạn cho W1–W3 (57/QĐ-DL, 17/11/2026)
+
+| Nguồn | Mức đã kiểm | Dùng cho |
+|---|---|---|
+| Kedia, Dan, Bhardwaj, Choudhury. ManiCast: Collaborative Manipulation with Cost-Aware Human Forecasting (2023) | đã đọc (mục D) | robot lập kế hoạch theo chi phí của quỹ đạo người dự báo; đầu vào 10 bước 0,1–1,0 s |
+| Mainprice, Berenson. Human-robot collaborative manipulation planning using early prediction of human motion (IROS 2013) | chưa đọc lại bản gốc trong phiên 17/11 | ý tưởng tránh vùng không gian cánh tay người sắp chiếm (swept volume dự báo) |
+| Unhelkar, Lasota, Tyroller, Buhai, Marceau, Deml, Shah. Human-Aware Robotic Assistant for Collaborative Assembly: Integrating Human Motion Prediction With Planning in Time (IEEE RA-L 2018) | chưa đọc lại bản gốc trong phiên 17/11 | đổi thời điểm / tốc độ theo dự báo thay vì dừng |
+| Tonola, Faroni, Abdolshah, Hamad, Haddadin, Pedrocchi, Beschi. Reactive and Safety-Aware Path Replanning for Collaborative Applications (IEEE T-ASE 2025) | tóm tắt arXiv (mục D) | đổi đường theo trạng thái người thay vì chỉ giảm tốc trên đường cố định |
+
+Tham số (khoảng cách 0,08 m, hysteresis, chi phí đổi kế hoạch) là giá trị tạm, kiểm bằng preview cặp; khoảng cách lấy bằng `follow_keep_clear_m` của 56/QĐ-DL để mọi task dùng một ngưỡng.
+
+## I. Nguồn cho 58/QĐ-DL (17/11/2026 05:45)
+
+| Nguồn | Mức đã kiểm | Dùng và giới hạn |
+|---|---|---|
+| ISO/TS 15066:2016. Robots and robotic devices — Collaborative robots (speed and separation monitoring) | Không đọc lại trong phiên (nhớ công thức chuẩn) | 58/QĐ-DL W1–W3: thêm S_h = v_h (T_r + T_s) vào khoảng cách yêu cầu; T_r = 1 tick 0,05 s, T_s = tốc độ robot / gia tốc làm việc. |
+| Marvel, Norcross. Implementing speed and separation monitoring in collaborative robot workcells, Robotics and Computer-Integrated Manufacturing, 2017 | Không đọc lại trong phiên | 58/QĐ-DL: cách tính khoảng tách bảo vệ theo tốc độ người và thời gian dừng robot. |

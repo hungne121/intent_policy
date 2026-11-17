@@ -1,6 +1,6 @@
 # Dự báo (ManiCast) — mục lục (DB)
 
-Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 06/11/2026 02:35. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
+Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 17/11/2026 09:17. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
 Tra nhanh: `./run.sh scripts/ho_so.py tra --hm DB` (thêm `--pham-vi <task>` để lọc theo task).
 
 ## Đang hiệu lực
@@ -19,7 +19,7 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm DB` (thêm `--pham-vi <task>` đ�
 | 05/QĐ-DB | 02/11/2026 19:0x | Luật CV (ngoại suy vận tốc cổ tay 0,2 s, 8 mốc) có trong cổng G3 của mọi task, đọc quỹ đạo cùng cách với ManiCast. | hiệu lực | [PIF.md:782](../../PIF.md#L782) |
 | 29/QĐ-DL | 02/11/2026 18:05 | Khai thác hết ManiCast: niềm tin cập nhật một lần mỗi bước quan sát thật; gộp các mốc dự báo thành đặc trưng; bỏ trọng số α_k = 1/sai số; đo offline trước khi thêm trọng số. *(sửa `28/QĐ-DL`)* | hiệu lực | [PIF.md:776](../../PIF.md#L776) |
 | 03/QĐ-DB | 25/10/2026 | Dự báo tác động lên môi trường: để sau. | hiệu lực | [PIF.md:114](../../PIF.md#L114) |
-| 02/QĐ-DB | 24/10/2026 18:2x | Dùng ManiCast bản fine-tune trên chuyển động sim theo đúng công thức của tác giả; đóng băng khi dùng cho ACT. | hiệu lực, đã sửa một phần | [PIF.md:106](../../PIF.md#L106) |
+| 02/QĐ-DB | 24/10/2026 18:2x | Dùng ManiCast bản fine-tune trên chuyển động sim theo đúng công thức của tác giả; đóng băng khi dùng cho ACT. | hiệu lực | [PIF.md:106](../../PIF.md#L106) |
 | 01/QĐ-DB | 24/10/2026 | Ý định của D chỉ lấy từ ManiCast (motion token); không thêm hướng chỉ, không DeePoint (chỉ tay là lệnh, không phải dự đoán). | hiệu lực | [PIF.md:105](../../PIF.md#L105) |
 
 ### Cấp 3
@@ -27,13 +27,13 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm DB` (thêm `--pham-vi <task>` đ�
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
 | 28/QĐ-DL | 01/11/2026 17:08 | Thay luật tay của expert bằng công thức có nguồn (Fang và cộng sự 2026, Eq. 4–5), áp giống nhau cho observed và early, chỉ khác đầu vào. | hiệu lực, đã sửa một phần | [PIF.md:772](../../PIF.md#L772) |
-| 04/QĐ-DB | 31/10/2026 09:0x | ManiCast fine-tune lại trên chuyển động v8: outputs/forecast_ft/2026-10-31_08-42/best.pt, sai số cổ tay tại 1 s 79,5 mm (bản cũ 87,7). *(sửa `02/QĐ-DB`)* | hiệu lực | [PIF.md:758](../../PIF.md#L758) |
 
 ## Chờ quyết (tờ trình, biên bản chờ ký)
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
 | 01/TTr-DB | 02/11/2026 19:0x | Xin xác nhận cách đọc quỹ đạo chung 'closest' cho ManiCast và CV (với endpoint, CV bị phạt vì vượt đích). | chờ quyết | [PIF.md:782](../../PIF.md#L782) |
+| 04/QĐ-DB | 31/10/2026 09:0x | ManiCast fine-tune lại trên chuyển động v8: outputs/forecast_ft/2026-10-31_08-42/best.pt, sai số cổ tay tại 1 s 79,5 mm (bản cũ 87,7). | chờ quyết | [PIF.md:758](../../PIF.md#L758) |
 
 ## Báo cáo hiện hành
 

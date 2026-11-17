@@ -1,6 +1,6 @@
 # Tổng thể đề án — mục lục (TT)
 
-Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 06/11/2026 02:35. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
+Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 17/11/2026 09:17. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
 Tra nhanh: `./run.sh scripts/ho_so.py tra --hm TT` (thêm `--pham-vi <task>` để lọc theo task).
 
 ## Đang hiệu lực
@@ -9,6 +9,7 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm TT` (thêm `--pham-vi <task>` đ�
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
+| 05/QĐ-TT | 06/11/2026 07:37 | Nguyên tắc chung cho policy có ManiCast: robot hành động sớm cả khi người đang hành động, dùng dự đoán cử chỉ để chủ động tránh vùng nguy hiểm, không va chạm với người, rút ngắn thời gian hoàn thành. *(sửa `01/ĐA-TT`)* | hiệu lực | [QD-DL-46_ket_qua_nghiem_thu_du_lieu.md:96](../01_thu_du_lieu/QD-DL-46_ket_qua_nghiem_thu_du_lieu.md#L96) |
 | 02/QC-VH | 06/11/2026 02:20 | Quy chế quản lý hồ sơ đề tài: sổ đăng ký văn bản, hạng mục, loại, số hiệu, cấp, trạng thái; áp văn bản cấp cao hơn, cùng cấp thì văn bản sau; nghiệm thu bằng biên bản kèm quyết định phê duyệt; đối chiếu thường xuyên. *(sửa `02/QĐ-VH`)* | hiệu lực | [QUY_CHE_HO_SO.md](../QUY_CHE_HO_SO.md) |
 | 03/QĐ-TT | 27/10/2026 16:20 | Mở rộng khoảng 10 task: Instructor ~3, Collaborator ~4, Cowork ~3; mỗi task tối đa 3 ý định; dựng kịch bản theo HABIT và HRIBench; viết kịch bản trước, chờ duyệt. *(thay `01/QĐ-DL`; sửa `01/ĐA-TT`)* | hiệu lực | [PIF.md:119](../../PIF.md#L119) |
 | 01/ĐA-TT | 25/10/2026 13:48 | Đề án đề tài (PIF bản 25/10): mục tiêu, hai claim, câu hỏi Q1–Q3, nguyên tắc (§2), hệ thống ManiCast → motion token → ACT, dữ liệu và expert, train, đánh giá (§1–§7). | hiệu lực, đã sửa một phần | [PIF.md:11](../../PIF.md#L11) |
@@ -33,7 +34,7 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm TT` (thêm `--pham-vi <task>` đ�
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
-| 02/TTr-VH | 06/11/2026 02:30 | Ký hiệu trùng nghĩa: G1–G5 là bước của kế hoạch 03/11 nhưng G1–G4 cũng là cổng của task (G1 người ưu tiên, G3 lợi thời gian); C1–C4 vừa là trường hợp của T2 (§4) vừa là task Collaborator. Đề xuất đổi tên bước kế hoạch thành B0–B5 và gọi trường hợp T2 theo tên. | chờ quyết | [so_dang_ky.yaml:1460](../so_dang_ky.yaml#L1460) |
+| 02/TTr-VH | 06/11/2026 02:30 | Ký hiệu trùng nghĩa: G1–G5 là bước của kế hoạch 03/11 nhưng G1–G4 cũng là cổng của task (G1 người ưu tiên, G3 lợi thời gian); C1–C4 vừa là trường hợp của T2 (§4) vừa là task Collaborator. Đề xuất đổi tên bước kế hoạch thành B0–B5 và gọi trường hợp T2 theo tên. | chờ quyết | [so_dang_ky.yaml:1696](../so_dang_ky.yaml#L1696) |
 | 01/TTr-TT | 25/10/2026 | Sáu mục chưa chốt từ 25/10: (1) T2 chỉ phần đưa lon; (2) sửa lỗi gripper (dải nhả 0,03–0,05 làm rơi lon); (3) độ dài và siêu tham số train (~40 lần nhìn mỗi frame, lr 4e-5 với batch 32); (4) pretrain chung rồi finetune A / D, hay train riêng; (5) mức tham chiếu 'người tự làm' để đo lợi ích cộng tác; (6) task token khi nhiều task. | chờ quyết | [PIF.md:136](../../PIF.md#L136) |
 
 ## Báo cáo hiện hành
@@ -43,11 +44,12 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm TT` (thêm `--pham-vi <task>` đ�
 | 04/BC-TT | 02/11/2026 17:10 | Hỏi ý agent khác (phản biện lần 2) trước quyết định khai thác hết ManiCast. | hiệu lực | [hoi_y_agent_2026-11-02.md](../../reports/hoi_y_agent_2026-11-02.md) |
 | 03/BC-TT | 02/11/2026 12:54 | Phản biện của agent khác (alphaXiv) về thiết kế expert và cách dùng ManiCast; đầu vào của QD-DL-29. | hiệu lực | [phan_bien_alphaxiv_2026-11-02.md](../../reports/phan_bien_alphaxiv_2026-11-02.md) |
 
-<details><summary>Hết hiệu lực, bị thay, lưu trữ (3)</summary>
+<details><summary>Hết hiệu lực, bị thay, lưu trữ (4)</summary>
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
-| 05/BC-TT | 25/10/2026 11:12 | Trạng thái 25/10 (PIF §9): kết quả train v6 đầu tiên, việc tiếp theo của giai đoạn T2. | lưu trữ | [PIF.md:1053](../../PIF.md#L1053) |
+| 05/TTr-DL | 06/11/2026 07:34 | Kế hoạch làm lại 10 task theo 01/BB-DL: nguyên tắc (đi trước bao lâu là kết quả đo; cam kết là sự kiện đo được; expert chỉ dùng tín hiệu quan sát được), sửa chung, đặc tả từng case, đổi ý theo lịch người và seed, làm lại từng task, cổng ACT trước train. | hết hiệu lực | [TTr-DL-05_ke_hoach_lam_lai_10_task.md:1](../01_thu_du_lieu/TTr-DL-05_ke_hoach_lam_lai_10_task.md#L1) |
+| 05/BC-TT | 25/10/2026 11:12 | Trạng thái 25/10 (PIF §9): kết quả train v6 đầu tiên, việc tiếp theo của giai đoạn T2. | lưu trữ | [PIF.md:1079](../../PIF.md#L1079) |
 | 02/BC-TT | 23/10/2026 | Báo cáo giai đoạn PIF v3 (P0, P1, pilot HABIT, khảo sát, related work, đánh giá ManiCast) 23–25/10. | lưu trữ | [PIF_P0.md](../../reports/PIF_P0.md) |
 | 01/BC-TT | 16/10/2026 | Tài liệu hướng IntentACT v3.2 (thiết kế, code, văn liệu, kiểm predictor) 16–19/10. | lưu trữ | [INTENT_ACT_v3.2.md](../../intent_act/INTENT_ACT_v3.2.md) |
 

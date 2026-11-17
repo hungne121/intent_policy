@@ -146,6 +146,21 @@ van_ban:
     moc: ["| Bốn quyết định cho bộ 10 task (02/11 18:08, người dùng) |"]
     ghi_chu: "Ý (2) bị QD-DL-32 (03/11) thay: giữ v9, không thu lại. Ý (4) sửa ngân sách $4,50 của QD-DL-15 thành $15 và thay phạm vi 'người khác train' của QD-DL-19."
 
+  - so: QD-TT-05
+    loai: QĐ
+    hm: [TT, DL, KT]
+    cap: 1
+    ngay: "2026-11-06 07:37"
+    ban_hanh: 'người dùng (ý kiến C4 trong 01/BB-DL: "nên áp dụng làm chân lý chung cho policy có manicast")'
+    trich_yeu: "Nguyên tắc chung cho policy có ManiCast: robot hành động sớm cả khi người đang hành động, dùng dự đoán cử chỉ để chủ động tránh vùng nguy hiểm, không va chạm với người, rút ngắn thời gian hoàn thành."
+    pham_vi: [tat_ca, D]
+    chu_de: [de_tai.nguyen_tac]
+    trang_thai: hieu_luc
+    sua: [DA-TT-01]
+    can_cu: [BB-DL-01, QD-DL-46]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-46_ket_qua_nghiem_thu_du_lieu.md
+    moc: ["## Điều 5. Nguyên tắc chung cho policy có ManiCast"]
+
   - so: KH-TT-01
     loai: KH
     hm: [TT, HL, KT, DL]
@@ -381,7 +396,7 @@ van_ban:
     trich_yeu: "Dataset hoàn thiện gồm: vị trí tay liên tục; kiểm từng tập kể cả tay xuyên vật; test ngoài phân phối (chuyển động người không có trong train, đổi ánh sáng / màu); nhiễu tư thế người như bộ ước lượng thật."
     pham_vi: [tat_ca]
     chu_de: [du_lieu.yeu_cau, test.ood]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     noi_luu: docs/PIF.md
     moc: ["| Dataset hoàn thiện (27/10) |"]
     ghi_chu: "Phần test ngoài phân phối và nhiễu tư thế chưa làm."
@@ -485,7 +500,7 @@ van_ban:
     trich_yeu: "Đổi ý phải có hai mức: lúc sớm chi phí thấp và lúc muộn chi phí cao (trục mức cam kết); thiết kế theo chi phí phục hồi."
     pham_vi: [I1, I3, C3, C4]
     chu_de: [case.switch]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     noi_luu: docs/PIF.md
     moc: ["## 8.10 Sửa thiết kế theo mức cam kết và chi phí phục hồi", "**Nguồn quyết định:** người dùng phản biện gallery"]
 
@@ -997,7 +1012,7 @@ van_ban:
     trich_yeu: "C2 (S6218) áp hướng sửa của W3; G3 vẫn âm thì C2 vào dataset làm đối chứng; thu khi chỉ còn lỗi số ít (loại ≲ 15–20 %, không tập trung ở tương tác cần học); cắt clip duyệt cho dữ liệu v10b."
     pham_vi: [C2, v10b]
     chu_de: [task.C2, ty_le_loai]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     can_cu: [QD-DL-25, QD-DL-40]
     noi_luu: docs/PIF.md
     moc: ["**Quyết định 05/11/2026 ~09:00"]
@@ -1074,7 +1089,8 @@ van_ban:
     trich_yeu: "Xin ý kiến: C4 giữ thiết kế khay (giá trị ở case phục hồi, G3 −0,10 s) hay chỉnh để lợi sớm quay lại."
     pham_vi: [C4]
     chu_de: [task.C4]
-    trang_thai: cho_quyet
+    trang_thai: het_hieu_luc
+    ghi_chu: "Đã quyết trong 01/BB-DL: thiết kế lại để kiểm lợi sớm (46/QĐ-DL)."
     noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
 
   - so: TTR-DL-04
@@ -1085,7 +1101,8 @@ van_ban:
     trich_yeu: "Xin ý kiến: đo thêm G3 cho I1 / C3 (10 seed), C1 và W3 trên bản hiện tại."
     pham_vi: [I1, C3, C1, W3]
     chu_de: [cong_g3]
-    trang_thai: cho_quyet
+    trang_thai: het_hieu_luc
+    ghi_chu: "01/BB-DL không chọn đo thêm; thiết kế đổi nên G3 đo lại khi làm lại từng task (01/KH-DL)."
     noi_luu: docs/reports/bao_cao_10_task_2026-11-06.md
 
   - so: BB-DL-01
@@ -1096,10 +1113,11 @@ van_ban:
     trich_yeu: "Biên bản nghiệm thu dữ liệu demo 10 task (bộ v9, v10, v10b): 34 hạng mục, clip từng case, kết luận từng task, chọn C4 và G3 cần đo thêm; phản hồi lưu trong cơ sở dữ liệu của trang."
     pham_vi: [tat_ca, v9, v10, v10b]
     chu_de: [nghiem_thu.du_lieu]
-    trang_thai: cho_quyet
+    trang_thai: hieu_luc
     can_cu: [BC-DL-09]
-    noi_luu: https://claude.ai/artifact/L7aEMTmqmVnc4UniCwzrev
-    ghi_chu: "Bản giấy cùng hạng mục: docs/reports/phieu_duyet_10_task_2026-11-06.md. Ký xong thì lập QĐ phê duyệt kết quả nghiệm thu dữ liệu, mở bước train."
+    noi_luu: docs/ho_so/01_thu_du_lieu/PL_BB-DL-01_nguyen_van.md
+    moc: ["## Kết quả"]
+    ghi_chu: "Bản giấy cùng hạng mục: docs/reports/phieu_duyet_10_task_2026-11-06.md. Ký 06/11/2026 03:14 (Đào Duy Hưng): 10 / 10 task cần sửa. Phiếu có clip: https://claude.ai/artifact/L7aEMTmqmVnc4UniCwzrev. Quyết định đi kèm: 46/QĐ-DL."
 
   - so: BC-DL-10
     loai: BC
@@ -1112,8 +1130,210 @@ van_ban:
     trang_thai: hieu_luc
     noi_luu: https://claude.ai/artifact/L7aEMTmqmVnc4UniCwzrev
 
+  - so: QD-DL-46
+    loai: QĐ
+    hm: [DL, HL, KT]
+    cap: 2
+    ngay: "2026-11-06 07:37"
+    ban_hanh: người dùng (ý kiến trong biên bản 01/BB-DL; duyệt bản tổng hợp qua chat)
+    trich_yeu: "Kết quả nghiệm thu dữ liệu 01/BB-DL: 10 / 10 task cần sửa; v9, v10, v10b chưa được duyệt để train (giữ file); ý kiến chung (đổi ý chưa kiểm đúng, tay xuyên thân, cử chỉ giật, expert và cảnh sơ sài, robot không nhường người, đủ lịch sử ManiCast đầu tập, đa dạng ánh sáng); ý kiến từng task; định nghĩa đổi ý trước / sau cam kết; I1 bỏ switch_after; C4 thiết kế lại."
+    pham_vi: [tat_ca, v9, v10, v10b]
+    chu_de: [nghiem_thu.du_lieu, du_lieu.thu_lai, case, case.switch, task.C4, task.I1, du_lieu.yeu_cau, hymotion]
+    trang_thai: hieu_luc
+    sua: [QD-DL-27, QD-DL-32, QD-DL-37, QD-DL-39, QD-DL-13, QD-DL-06]
+    can_cu: [BB-DL-01]
+    lien_quan: [QD-DL-10, QD-DL-17]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-46_ket_qua_nghiem_thu_du_lieu.md
+    moc: ["## Điều 1. Kết quả nghiệm thu"]
+    moc_pif: ["**Quyết định 06/11/2026 07:37 (người dùng): duyệt cách làm lại**"]
+
+  - so: TTR-DL-05
+    loai: TTr
+    hm: [DL, TT]
+    ngay: "2026-11-06 07:34"
+    ban_hanh: agent (bản 2, có đề xuất của agent khác)
+    trich_yeu: "Kế hoạch làm lại 10 task theo 01/BB-DL: nguyên tắc (đi trước bao lâu là kết quả đo; cam kết là sự kiện đo được; expert chỉ dùng tín hiệu quan sát được), sửa chung, đặc tả từng case, đổi ý theo lịch người và seed, làm lại từng task, cổng ACT trước train."
+    chu_de: [ke_hoach.lam_lai]
+    trang_thai: het_hieu_luc
+    can_cu: [BB-DL-01]
+    noi_luu: docs/ho_so/01_thu_du_lieu/TTr-DL-05_ke_hoach_lam_lai_10_task.md
+    moc: ["# Tờ trình 05/TTr-DL"]
+    ghi_chu: "Đã duyệt 06/11 07:37, thành 01/KH-DL."
+
+  - so: BC-DL-11
+    loai: BC
+    hm: [DL, HL, KT]
+    ngay: "2026-11-06 07:32"
+    ban_hanh: agent khác (người dùng dán vào phiên)
+    trich_yeu: "Đề xuất của agent khác cho việc làm lại demo: từng task, cổng chuyển động người, cổng ACT (action leakage), chỉ số chính, DAgger sau train; nguồn đọc qua alphaXiv."
+    chu_de: [phan_bien]
+    trang_thai: hieu_luc
+    noi_luu: docs/ho_so/01_thu_du_lieu/PL_TTr-DL-05_de_xuat_agent_khac.md
+
+  - so: KH-DL-01
+    loai: KH
+    hm: [DL, HL, KT]
+    cap: 2
+    ngay: "2026-11-06 07:37"
+    ban_hanh: người dùng ("bạn cứ nương theo ý của mình bám sát comment của mình trong biên bản mà làm")
+    trich_yeu: "Kế hoạch làm lại dữ liệu 10 task (từ 05/TTr-DL bản 2): sửa chung (cổng chuyển động người, lịch sử ManiCast đầu tập, đa dạng hình ảnh, clip duyệt), đặc tả case, đổi ý theo lịch người và seed độc lập robot, thứ tự I1 → I3 → C1 → C3 → C4 → I2 → C2 → W1 → W3 → W2, mỗi task qua kiểm hình học, pilot, G3, clip, biên bản 02/BB-DL rồi mới thu; cổng ACT trước train. Ý kiến trong 01/BB-DL là chuẩn khi đề xuất bổ sung khác ý kiến."
+    pham_vi: [tat_ca]
+    chu_de: [ke_hoach.lam_lai]
+    trang_thai: da_sua
+    can_cu: [QD-DL-46, TTR-DL-05]
+    lien_quan: [BC-DL-11]
+    noi_luu: docs/ho_so/01_thu_du_lieu/TTr-DL-05_ke_hoach_lam_lai_10_task.md
+    moc: ["## 3. Các bước"]
+
+  - so: BC-DL-12
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-06 07:42"
+    ban_hanh: agent
+    trich_yeu: "Đo tay người xuyên thân (xấp xỉ từ keypoint, ngưỡng 0,10 m): I3 43/50 tập (pha direct_out, direct_back, adjust), I2 9/50 (cử chỉ gây nhiễu chỉnh áo), C4 8/50 (reach_item), 7 task còn lại 0 ở ngưỡng này; đường tay không tránh thân người; cử chỉ đầu tập của I2 là cử chỉ gây nhiễu có chủ đích. Bản 2–3 (08:15–08:23): phép kiểm lát cắt trên mesh, sửa ở mức tư thế dừng sau 3 lần."
+    pham_vi: [I2, I3, C4]
+    chu_de: [hymotion, du_lieu.yeu_cau]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-46, KH-DL-01]
+    noi_luu: docs/reports/do_tay_xuyen_than_2026-11-06.md
+
+  - so: BC-DL-13
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-06 09:43"
+    ban_hanh: agent
+    trich_yeu: "Tay xuyên thân, bản 4 của báo cáo (thực hiện 47/QĐ-DL, 48/QĐ-DL): bước 1 tư thế nghỉ 0 mm ở 10 task; bước 3 lọc ứng viên HY-Motion theo độ lún tay × thân (khớp cổng 0,00 mm) và đường minimum-jerk qua điểm trước thân (Flash & Hogan 1985); lỗi frame 0 ở I2 / I3 / C4 (điểm khớp nhảy 197 mm ở mọi tập v9 / v10 / v10b), đã sửa; I3 đặt lại điểm vung theo quy tắc ±0,20 m quanh chỗ cổ tay nghỉ; pilot bước 4 cả 10 task."
+    pham_vi: [tat_ca]
+    chu_de: [hymotion, du_lieu.yeu_cau]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-47, QD-DL-48, BC-DL-12]
+    noi_luu: docs/reports/do_tay_xuyen_than_2026-11-06.md
+    moc_pif: ["- **Tay xuyên thân, bước 1 và 3 của 47/QĐ-DL (06/11/2026 09:41, Claude;"]
+
+  - so: QD-DL-47
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-06 08:24"
+    ban_hanh: người dùng (chuyển qua phiên intent-policy-1a)
+    trich_yeu: "Hướng sửa tay xuyên thân: làm (1) đổi tư thế nghỉ để tay chạm mà không chìm, (3) loại đường HY-Motion làm cánh tay xuyên thân và cho đường dự phòng vòng trước thân, (4) pilot lại mọi task so với bản gốc; không làm (2) đặt điểm chỉnh áo lên ngực."
+    pham_vi: [tat_ca]
+    chu_de: [hymotion, du_lieu.yeu_cau]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-46, KH-DL-01, BC-DL-12]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 06/11/2026 08:24 (người dùng, chuyển qua phiên intent-policy-1a): hướng sửa tay xuyên thân**"]
+
+  - so: TTR-DL-06
+    loai: TTr
+    hm: [DL]
+    ngay: "2026-11-06 09:10"
+    ban_hanh: agent (hỏi qua phiên intent-policy-1a)
+    trich_yeu: "Xin ý kiến: 'chỉnh áo k cần' là (a) bỏ hẳn cử chỉ gây nhiễu chỉnh áo ở I2 và I3, hay (b) giữ cử chỉ nhưng không sửa điểm chạm ngực (điểm này nằm sâu trong thân, cổng tay xuyên thân sẽ loại mọi tập có nó); đề xuất (a)."
+    pham_vi: [I2, I3]
+    chu_de: [task.I2, task.I3]
+    trang_thai: het_hieu_luc
+    ghi_chu: "Đã quyết theo cách hiểu (a) trong 48/QĐ-DL."
+    can_cu: [QD-DL-47]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    moc: ["so: TTR-DL-06"]
+
+  - so: QD-DL-48
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-06 09:1x"
+    ban_hanh: người dùng (chuyển qua phiên intent-policy-1a; cách hiểu (a) do hai phiên agent đề xuất, người dùng được báo, có thể đổi)
+    trich_yeu: "Thoả mãn hết ý kiến biên bản, đặc biệt chỗ phải sửa kịch bản: bỏ hẳn cử chỉ gây nhiễu chỉnh áo ở I2 và I3 (mất phép kiểm robot không làm theo cử động không phải yêu cầu; G3 I3 ngày 03/11 không còn so được); bổ sung kế hoạch: C2 cảnh và động tác lau chân thực, W3 dựng lại cảnh đầy đủ, I2 đoạn cử động đầu tập không giống cử chỉ yêu cầu."
+    pham_vi: [I2, I3, C2, W3]
+    chu_de: [task.I2, task.I3, task.C2, task.W3, ke_hoach.lam_lai]
+    trang_thai: hieu_luc
+    sua: [KH-DL-01, QD-DL-43, QD-DL-10, QD-DL-30, QD-DL-41]
+    can_cu: [QD-DL-46, QD-DL-47, TTR-DL-06]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 06/11/2026 09:1x (người dùng, chuyển qua phiên intent-policy-1a): thoả mãn hết ý kiến biên bản"]
+
+  - so: TTR-DL-07
+    loai: TTr
+    hm: [DL]
+    ngay: "2026-11-06 12:44"
+    ban_hanh: agent (5 agent con viết, phiên chính tổng hợp)
+    trich_yeu: "Xin duyệt đặc tả từng case của 10 task bản v11 (01/KH-DL bước 2): ý kiến biên bản → thay đổi, tín hiệu người → dự báo → hành động robot → thành công / thất bại, mốc cam kết đo được, luật thời điểm đổi ý, số đo đạt / không; câu hỏi mở từng task. Phiếu duyệt: artifact B2ivpYujJHnvAa4x7bT3Qy (db `dac_ta`)."
+    pham_vi: [tat_ca]
+    chu_de: [ke_hoach.lam_lai]
+    trang_thai: het_hieu_luc
+    can_cu: [KH-DL-01, QD-DL-46, QD-DL-48, QD-VH-05]
+    noi_luu: docs/ho_so/01_thu_du_lieu/dac_ta_v11
+    ghi_chu: "Mỗi task một file: dac_ta_v11/I1.md, dac_ta_v11/I2.md, dac_ta_v11/I3.md, dac_ta_v11/C1.md, dac_ta_v11/C2.md, dac_ta_v11/C3.md, dac_ta_v11/C4.md, dac_ta_v11/W1.md, dac_ta_v11/W2.md, dac_ta_v11/W3.md. Đã quyết trong 49/QĐ-DL (phiếu ký 06/11 19:07)."
+
+  - so: QD-DL-49
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-06 19:07"
+    ban_hanh: người dùng (ký phiếu duyệt đặc tả v11, artifact B2ivpYujJHnvAa4x7bT3Qy)
+    trich_yeu: "Duyệt đặc tả v11 (01/KH-DL bước 2): duyệt I1, I2, I3, C2, W1, W2, W3 theo đề xuất kèm ghi chú (I3 vung ≥ 70 %, đỉnh 70–90 %; C2 đặt đồ tạm lên bàn, robot cầm sẵn mút; W1 cổng vật sát tay + sai số tầm với; W2 pilot phải có nhường thật; W3 bỏ luật chờ). Cần sửa: C1 (bỏ đi theo lực kéo; trước hết chứng minh tay khép quanh lon thấy được trên ảnh, không xuyên, kiểm ≥ 95 %; tín hiệu nhả chốt sau), C4 (3 khối mỗi màu, co_motion case riêng, dò 3 màu không vừa thì 2, switch_before đặt mốc theo số đo nominal và báo tỉ lệ trên mọi seed), C3 (user bổ sung 22:38: giữ A 0,1–0,6 s, dò khay chéo, lịch người độc lập; 100 % tập nhận switch_after phải nhấc bát A trước đổi ý, báo tập sai phân loại); I1 giữ A 0,1–0,6 s, báo tỷ lệ early đi ≥ 5 cm trên mọi seed, không chọn lọc; thời điểm không cứng nhắc."
+    pham_vi: [tat_ca]
+    chu_de: [ke_hoach.lam_lai, task.I1, task.I2, task.I3, task.C1, task.C2, task.C3, task.C4, task.W1, task.W2, task.W3]
+    trang_thai: hieu_luc
+    can_cu: [TTR-DL-07, KH-DL-01]
+    noi_luu: docs/ho_so/01_thu_du_lieu/dac_ta_v11
+    ghi_chu: "Toàn văn và cách áp dụng từng task: dac_ta_v11/phieu_duyet_2026-11-06.md."
+
+  - so: QD-DL-50
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-07 11:36"
+    ban_hanh: người dùng (chat)
+    trich_yeu: "Demo làm đơn giản, đủ để robot học: C1 tay người nắm vật rồi robot nhả, rút; không làm thêm phép chứng minh tay khép thấy được. Áp dụng cho các task khác; hành vi không tự ra thì kịch bản ép cho ra."
+    pham_vi: [tat_ca]
+    chu_de: [ke_hoach.lam_lai, task.C1]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-49]
+    noi_luu: docs/ho_so/01_thu_du_lieu/dac_ta_v11/C1.md
+    ghi_chu: "Sửa một phần dòng C1 của 49/QĐ-DL (trình tự chứng minh rồi mới chốt tín hiệu nhả). Nguyên văn ở cuối C1.md. Không nới cổng va chạm; cần nới thì báo người dùng."
+
+  - so: QD-DL-51
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-08 23:34"
+    ban_hanh: người dùng (chat, "ok" cho phương án 1)
+    trich_yeu: "Nới cổng khe hở tay–khay (human_motion_check.max_hold_gap_m) từ 5 mm lên 12 mm, chỉ cho W2 và W3 (bê khay hai tay). Tay trái đi theo tay phải theo độ lệch cứng; mô hình người không đặt tay trái sát hơn 4–10 mm (đo W2 seed 300100, 08/11: tay trái 3,7–10 mm, tay phải 0,3–6 mm), không bù được bằng độ lệch cố định."
+    pham_vi: [W2, W3]
+    chu_de: [task.W2, task.W3, du_lieu.cong]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-49, QD-DL-50]
+    noi_luu: docs/reports/tiep_tuc_v11_2026-11-06.md
+    ghi_chu: "Cấu hình: configs/experiments/ten_task_v11/W2.yaml, W3.yaml (worktree intent_policy_dev). Nới cổng có báo người dùng. W3 seed 300100 đo 15,1 mm vẫn vượt 12 mm."
+
 # ───────────────────────── DB — Dự báo ─────────────────────────
 
+  - so: BC-DL-14
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-06 20:04"
+    ban_hanh: agent
+    trich_yeu: "Tiếp tục v11 sau giới hạn Claude: sửa điều kiện góc v9 lọt vào sampler I1 (20/20 seed khả thi), kiểm bất nhất qpos/weld lúc đặt phẳng đế, phép dò C1 trước nhả có ứng viên khép 50 phần trăm ở một seed; pilot và phép phân biệt ảnh còn phải hoàn tất, chưa nghiệm thu dữ liệu."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2]
+    chu_de: [task.I1, task.I2, task.I3, task.C1, task.C2, task.C3, task.C4, task.W1, task.W2, du_lieu.yeu_cau]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-49, KH-DL-01, QD-DL-46]
+    noi_luu: docs/reports/tiep_tuc_v11_2026-11-06.md
+
+  - so: BC-DL-15
+    loai: BC
+    hm: [DL]
+    ngay: "2026-11-09 20:46"
+    ban_hanh: agent
+    trich_yeu: "Kiểm tra 10 task: thời điểm bằng chứng đầu tiên của người, thời điểm robot bắt đầu chuẩn bị và nguồn thông tin; bỏ task ID và biến kịch bản ẩn thì bước chuẩn bị đầu tiên vẫn đủ thông tin nếu task nhận ra được từ ảnh; C1 còn dùng human.stage ở bước nhả / về nghỉ."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [task.I1, task.I2, task.I3, task.C1, task.C2, task.C3, task.C4, task.W1, task.W2, task.W3, du_lieu.yeu_cau]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-49, QD-DL-50]
+    noi_luu: docs/reports/kiem_tra_thoi_diem_thong_tin_10_task_2026-11-09.md
+    ghi_chu: "Số đo từ preview v11 09/11 (46 episode). Các đề xuất ở mục 7 chưa làm, chờ người dùng."
   - so: QD-DB-01
     loai: QĐ
     hm: [DB]
@@ -1136,7 +1356,7 @@ van_ban:
     trich_yeu: "Dùng ManiCast bản fine-tune trên chuyển động sim theo đúng công thức của tác giả; đóng băng khi dùng cho ACT."
     pham_vi: [D]
     chu_de: [manicast]
-    trang_thai: da_sua
+    trang_thai: hieu_luc
     lien_quan: [QD-DB-01]
     noi_luu: docs/PIF.md
     moc: ["| ManiCast | Bản fine-tune trên chuyển động sim"]
@@ -1162,10 +1382,11 @@ van_ban:
     trich_yeu: "ManiCast fine-tune lại trên chuyển động v8: outputs/forecast_ft/2026-10-31_08-42/best.pt, sai số cổ tay tại 1 s 79,5 mm (bản cũ 87,7)."
     pham_vi: [D, v9, v10, v10b]
     chu_de: [manicast]
-    trang_thai: hieu_luc
-    sua: [QD-DB-02]
+    trang_thai: cho_quyet
+    lien_quan: [QD-DB-02]
     noi_luu: docs/PIF.md
     moc: ["| ManiCast v8, kết quả (31/10 09:0x) |"]
+    ghi_chu: "62/QĐ-DL (17/11/2026): chờ người dùng xác nhận; văn bản agent ban hành không tự sửa QD-DB-02 (cấp 2). Checkpoint này vẫn đang ghi trong configs/pif/pif.yaml."
 
   - so: QD-DB-05
     loai: QĐ
@@ -1433,6 +1654,21 @@ van_ban:
     noi_luu: docs/PIF.md
     moc: ["| Thu v9 (31/10 09:21) |"]
 
+  - so: QD-VH-05
+    loai: QĐ
+    hm: [VH, DL]
+    cap: 2
+    ngay: "2026-11-06 12:2x"
+    ban_hanh: người dùng
+    trich_yeu: "Xong trong hôm nay: thuê một pod RunPod nhiều nhân cho pilot và thu song song (báo giá trước, xoá pod ngay khi xong), agent con làm song song theo nhóm task; làm thật chuẩn xác, đọc kĩ nguyên văn biên bản 01/BB-DL và đề xuất người dùng dán vào chat; giữ trình tự 01/KH-DL (đặc tả → duyệt → xem thử → pilot → G3 → clip → 02/BB-DL → thu); config ten_task_v11."
+    pham_vi: [tat_ca]
+    chu_de: [ke_hoach.lam_lai, quy_tac.thu]
+    trang_thai: hieu_luc
+    can_cu: [KH-DL-01, QD-DL-46, QD-DL-48]
+    lien_quan: [QD-VH-04]
+    noi_luu: docs/PIF.md
+    moc: ["**Quyết định 06/11/2026 12:2x (người dùng): xong trong hôm nay, thuê pod + agent song song"]
+
   - so: QC-VH-02
     loai: QC
     hm: [VH, TT]
@@ -1525,3 +1761,230 @@ van_ban:
     trang_thai: hieu_luc
     noi_luu: docs/PIF.md
     moc: ["Câu hỏi khoá luận: Q1"]
+
+  - so: TTR-DL-08
+    loai: TTr
+    hm: [DL, VH]
+    ngay: "2026-11-14 20:55"
+    ban_hanh: agent thu dữ liệu (Claude); hướng của người dùng bằng lời 14/11 ~20:30
+    trich_yeu: "Môi trường mô phỏng có ràng buộc vật lý và an toàn: người v3 22 khớp dựng từ keypoints HY-Motion (rot6d không khớp FK), capsule va chạm thật, da liền 22 xương, phát lại toàn thân clip + IK tay làm việc; dừng an toàn robot; kiểm nghiệm I1 trước khi thay hẳn."
+    pham_vi: [tat_ca]
+    chu_de: [mo_hinh_nguoi, an_toan, mo_phong]
+    trang_thai: cho_quyet
+    can_cu: [KH-DL-01, QD-DL-46]
+    noi_luu: docs/ho_so/01_thu_du_lieu/TTR-DL-08_moi_truong_rang_buoc_vat_ly.md
+    moc: ["# Tờ trình 08/TTr-DL"]
+    ghi_chu: "Triển khai song song theo lời người dùng; chờ duyệt văn bản."
+
+  - so: HD-DL-08
+    loai: HD
+    hm: [DL, VH]
+    cap: 3
+    ngay: "2026-11-14 21:32"
+    ban_hanh: người dùng qua phiên Codex; agent ghi triển khai
+    trich_yeu: "Ưu tiên nền vật lý: cho phép tiếp xúc cầm/đỡ/chạm; ngăn xuyên thân, bàn và vật; mô hình người động lực học có lực hữu hạn; hành vi robot cộng tác linh hoạt làm sau."
+    pham_vi: [tat_ca]
+    chu_de: [mo_hinh_nguoi, an_toan, mo_phong]
+    trang_thai: hieu_luc
+    noi_luu: docs/reports/NEN_VAT_LY_2026-11-14.md
+    moc: ["# Nền vật lý người–vật"]
+
+  - so: QD-DL-52
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-16 11:47"
+    ban_hanh: người dùng (chat, phiên Claude 16/11)
+    trich_yeu: "C2 preview V2: thay khăn bằng bàn chải (robot kẹp cán, người đưa trên lòng bàn tay); vết bẩn chia thành lưới bụi nhỏ (4×4 ô 8 mm mỗi điểm) biến mất dưới chân lông bàn chải; preview chỉ góc top, xóa các góc khác."
+    pham_vi: [task.C2]
+    chu_de: [task.C2, mo_phong]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-49, QD-DL-50]
+    noi_luu: docs/reports/C2_KHAN_TAY_NGUOI_DUNG_SOM_2026-11-16.md
+    ghi_chu: "Lý do: khăn hộp cứng lơ lửng và đâm giá (báo cáo 16/11); bàn chải là vật cứng nên hợp với mô hình weld; lưới bụi gần với vết 4×4 của đặc tả v11 (mút). Thân vật trong scene giữ tên `cloth`."
+
+  - so: TTR-DL-09
+    loai: TTr
+    hm: [DL]
+    ngay: "2026-11-16 15:41"
+    ban_hanh: agent (Claude) theo yêu cầu người dùng 16/11
+    trich_yeu: "Luật dùng intent chung cho 10 task: một quỹ đạo cổ tay ManiCast 1 s, hai cách đọc (bám điểm cuối 1 s / nhường ống chiếm chỗ), một bộ hằng số; Observed dùng cùng luật với tầm 0 s."
+    pham_vi: [tat_ca]
+    chu_de: [intent, ke_hoach.lam_lai]
+    trang_thai: het_hieu_luc
+    can_cu: [QD-DL-49, QD-DL-52]
+    noi_luu: docs/intent_act/LUAT_DUNG_INTENT_CHUNG.md
+
+    ghi_chu: "Người dùng duyệt 16/11/2026 16:03: hai kiểu, bám (I, C; an toàn theo quan sát thật) và né (W). Nguyên văn ở §0."
+
+  - so: QD-DL-53
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-16 17:28"
+    ban_hanh: người dùng (chat, phiên Claude 16/11)
+    trich_yeu: "Tổ chức lại expert và thu dữ liệu: expert từng task + ManiCast Adapter / Forecast Planner / Cartesian controller / Physics Validator / LeRobot Recorder dùng chung; hai chế độ observed / forecast; schema LeRobot cố định; xóa pipeline cũ; tuân hướng dẫn chi tiết I1–C1; preview top cả 10 task. Không tự thu hàng loạt."
+    pham_vi: [tat_ca]
+    chu_de: [thu_du_lieu, expert, intent, lerobot]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-54, QD-DL-52, QD-DL-49, QD-DL-50]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-53_to_chuc_expert_thu_du_lieu.md
+
+  - so: QD-DL-54
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-16 16:03"
+    ban_hanh: người dùng (chat, phiên Claude 16/11 16:03)
+    trich_yeu: "Luật dùng intent chung: I và C bám điểm cuối quỹ đạo ManiCast 1 s, an toàn song song theo quan sát thật; W dùng quỹ đạo dự báo để né trong lúc làm việc."
+    pham_vi: [tat_ca]
+    chu_de: [intent, expert]
+    trang_thai: hieu_luc
+    can_cu: [TTR-DL-09]
+    noi_luu: docs/intent_act/LUAT_DUNG_INTENT_CHUNG.md
+    moc: ["## 0. Quyết định của người dùng"]
+
+  - so: QD-DL-55
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-16 18:12"
+    ban_hanh: người dùng (chat, phiên Claude 16/11)
+    trich_yeu: "Góp ý preview 10 task: C2 tay chạm bàn chải; C1 trải khăn; I1 giật, chuẩn bị xa; C3 bàn chải + tay nắm dễ cầm, khay không xô; C4 linh kiện xa thân robot, đưa đúng lúc người vươn tay; W1 dừng; W2 đứng giật; W3 robot không có vật để lấy."
+    pham_vi: [tat_ca]
+    chu_de: [thu_du_lieu, expert]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-53, QD-DL-54]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-55_gop_y_preview_16-11.md
+
+  - so: QD-DL-56
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-16 19:29"
+    ban_hanh: người dùng (chat, phiên Codex)
+    trich_yeu: "Tinh chỉnh C1–C4 theo góp ý, giảm khoảng né quá xa trong I1 và các task dùng chung; giữ pipeline expert hiện hành."
+    pham_vi: [tat_ca]
+    chu_de: [thu_du_lieu, expert, intent]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-53, QD-DL-54, QD-DL-55]
+    noi_luu: docs/reports/TINH_CHINH_PREVIEW_2026-11-16.md
+
+  - so: QD-DL-57
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 01:40"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "C1 sửa lỗi người cầm khăn; C2 khoảng an toàn tính cả bàn chải; C4 ổ liền khối với khay; W1–W3 dùng chung bộ né dự báo tối thiểu gián đoạn (10 bước ManiCast, mọi link robot, phương án tốc độ / đường / mục tiêu / chờ, chọn nhanh nhất, hysteresis); preview đủ trường hợp."
+    pham_vi: [C1, C2, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, expert, intent]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-53, QD-DL-54, QD-DL-56]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-57_gop_y_c1_c2_c4_w_tranh_du_bao.md
+
+  - so: QD-DL-58
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 05:07"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "C2: robot ở tư thế nghỉ thì không né (người tự tránh bàn chải); W2: robot phải né tay người trong vùng làm việc, không nhấc lại khối đã đúng khay; W3: người lấy đồ ngẫu nhiên, có lượt cắt vào vùng robot làm việc; C4 thêm đổi ý trước / sau cam kết (task C có đổi ý đã duyệt theo 01/KH-DL: C3, C4; C3 đã đổi thiết kế ở 55/QĐ-DL, không còn đích để đổi); preview lại."
+    pham_vi: [C2, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, expert]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-57, KH-DL-01, QD-DL-55]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-58_gop_y_c2_w2_w3.md
+
+  - so: QD-DL-59
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 06:29"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "Agent 1 thu demonstration: hai bộ D_observed / D_forecast, nhóm N1 nominal đa dạng (gộp spatial + timing), N5 forecast fault (spatial / temporal / direction, injector ngay sau ManiCast, ACT nhận effective_forecast), N6 đổi ý chỉ ở case đã preview (I3, C4); schema LeRobot + metadata + sidecar fault; pilot + báo cáo, không tự thu hàng loạt."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, expert, intent, schema]
+    trang_thai: da_sua
+    can_cu: [QD-DL-53, QD-DL-54, QD-DL-58, QD-DL-24]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-59_agent1_thu_du_lieu_N1_N5_N6.md
+
+  - so: TTR-DL-10
+    loai: TTr
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 07:25"
+    ban_hanh: agent
+    trich_yeu: "Xin chọn luật nhận tập khi thu theo 59/QĐ-DL: mọi preview đã duyệt 17/11 (kim chỉ nam, người dùng 07:2x) có physics_valid = false, còn 53/QĐ-DL cấm hạ chuẩn vật lý. (a) nhận tập không tệ hơn preview đã duyệt cùng task / case (từng cặp tiếp xúc không sâu hơn mức của preview, không thêm cặp mới, các kiểm khác giữ nguyên); (b) giữ cổng chặt, sửa tiếp xúc từng task trước khi thu."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: het_hieu_luc
+    can_cu: [QD-DL-59, QD-DL-53]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-59_agent1_thu_du_lieu_N1_N5_N6.md
+
+  - so: QD-DL-60
+    loai: QĐ
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 07:35"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "Trả lời TTr-DL-10: thử người vật lý v4 (HUMAN_MODEL=v4) trên vài task với case đã duyệt; đạt thì chạy toàn bộ preview bằng v4; không đạt thì nhận tập theo phương án (a) — không tệ hơn preview đã duyệt cùng task / case."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu, mo_phong]
+    trang_thai: bi_thay
+    can_cu: [TTR-DL-10, QD-DL-59, TTR-DL-08]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-59_agent1_thu_du_lieu_N1_N5_N6.md
+
+  - so: BC-DL-16
+    loai: BC
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 07:37"
+    ban_hanh: agent
+    trich_yeu: "Pilot 59/QĐ-DL + 60/QĐ-DL: LeRobot đọc / replay / đồng bộ đạt; ManiCast rút ngắn I, C 0,55–3,65 s; N5 chỉ đổi hành vi ở I1, I3, C4 (trigger cần duyệt); N6 hỏng khi có biến thiên N1; cổng chặt 5/62, người v4 1/12 thành công, luật (a) đúng mức 9/62 (C2–C4 có tiếp xúc mới); thời gian 33–36 phút / seed; chờ chọn biên / thêm seed duyệt / sửa C2–C4."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-59, QD-DL-60]
+    noi_luu: docs/reports/QD59_PILOT_2026-11-17.md
+
+  - so: QD-DL-61
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 07:45"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "Bổ sung 07:5x: sửa xong, kiểm ổn thì agent chủ động thu, tập sai loại và thu bù, tỉ lệ loại cao không thu nổi thì báo. Sửa physics gate trước khi thu: bỏ luật so với preview; phân loại allowed / unintended / human_self / invalid contact, giới hạn kiểm chứng độc lập với preview; rà I1, I3, W1, W3; sửa C2–C4 theo nguyên nhân gốc (có và không biến thiên N1); ≥ 3 seed mỗi task gồm 300100; video tiếp xúc lớn nhất; chỉ nhận tập đạt physics + task + data. Không thêm margin, không tắt collision, không đổi ngưỡng riêng từng task. Preview đã duyệt = duyệt hành vi, không phải bằng chứng physics."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu, mo_phong]
+    trang_thai: da_sua
+    thay: [QD-DL-60]
+    can_cu: [QD-DL-59, QD-DL-53, QD-DL-18]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-61_sua_physics_gate.md
+
+  - so: BC-DL-17
+    loai: BC
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 08:40"
+    ban_hanh: agent
+    trich_yeu: "61/QĐ-DL tiến độ: cổng phân loại tiếp xúc xong (giới hạn đo độc lập 0,5 mm / 140 N / 40 N); sửa người tự xuyên, tay xuyên vật cứng, mesh hiển thị cốc / khăn / đồng hồ, khép kẹp chậm; điểm dừng: khép chậm làm trễ 0,7–2,5 s mỗi lần kẹp và hồi quy W2 / W3 / I3, tay lún món đang cầm (2 lần thử hỏng), C1 / C2 / C3 chưa sửa; đạt cổng mới: I2, I3 nominal."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, mo_phong, nghiem_thu]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-61]
+    noi_luu: docs/reports/QD61_PHYSICS_GATE_2026-11-17.md
+
+  - so: QD-DL-62
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 09:1x"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "Chưa thu hàng loạt. Physics: sửa C2–C4 trước rồi duyệt thêm seed (chỉ duyệt hành vi), không cộng biên mm, giới hạn theo loại tiếp xúc; giữ giới hạn tốc độ khép ngón, sửa hồi quy I3 / W2 / W3; C2 người chạm đế robot không chấp nhận; video trước / sau + overlay quỹ đạo tay C1 / W1 / W2. N5: kích hoạt khi chuyển động người bắt đầu có ý nghĩa với quyết định robot (không chọn k để ép expert đổi), kiểm Δa trên cặp forecast thật / lỗi cùng trạng thái, W1–W3 lỗi lúc xung đột không–thời gian, temporal_fault = forecast cũ Δ s ghi timestamp + tuổi. N6: tạm tắt biến thiên N1, bật lại từng yếu tố. Git: tách commit theo chức năng, rà xoá config v5 / v6. Hồ sơ: sửa mã HD-DL-PHYS-20261114, QD-DB-04 chờ xác nhận."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu, mo_phong, expert]
+    trang_thai: hieu_luc
+    sua: [QD-DL-61, QD-DL-59]
+    can_cu: [BC-DL-16, BC-DL-17, HD-DL-08, QD-DL-52]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-62_physics_N5_N6_git.md

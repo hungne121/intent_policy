@@ -6,6 +6,7 @@ Khoá luận: policy ACT (LeRobot) dùng dự báo chuyển động người (Ma
 0. **Hồ sơ đề tài** `docs/ho_so/` (quy chế 02/QC-VH, 06/11/2026): `README.md` (mục lục theo hạng mục: tổng thể, thu dữ liệu, dự báo, train, chạy policy / test, vận hành, luận văn) và `DOI_CHIEU.md`. Đầu phiên chạy `./run.sh scripts/ho_so.py kiem`; trước mỗi việc chạy `./run.sh scripts/ho_so.py tra --hm <mã> --pham-vi <task>` để biết văn bản nào đang hiệu lực.
 1. `docs/PIF.md`: toàn văn các quyết định — §1–§2 (mục tiêu, hai claim, nguyên tắc), §3–§4 (hệ thống, task sâu T2 với 4 trường hợp), **§8 (các quyết định; trạng thái hiệu lực của từng dòng xem ở sổ đăng ký)**, §9 (trạng thái), §10 (quy tắc).
 2. `docs/sim/PIPELINE_v6.md`: pipeline v6 (A / B / D trên kịch bản v6), lệnh từng bước, bẫy đã gặp. Đã lưu trữ từ khi sang bộ 10 task; hướng dẫn chạy mới đang chờ quyết (tờ trình 03/TTr-VH).
+2b. **Expert và thu dữ liệu hiện hành** (53/QĐ-DL, 16/11/2026): `docs/hrc/HUONG_DAN_EXPERT_THU_DU_LIEU.md`; luật intent chung: 54/QĐ-DL `docs/intent_act/LUAT_DUNG_INTENT_CHUNG.md`.
 3. `docs/references.md`: nguồn đã dùng và mức đã kiểm. `docs/sim/scenarios_v6_proposal.md`: chi tiết kịch bản v6 và số đo expert.
 
 ## Quy tắc bắt buộc

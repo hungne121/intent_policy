@@ -44,7 +44,8 @@ CON_HIEU_LUC = {"hieu_luc", "da_sua"}
 QUAN_HE = ("thay", "sua", "bo", "can_cu", "lien_quan")
 TEN_QUAN_HE = {"thay": "thay", "sua": "sửa", "bo": "bãi bỏ", "can_cu": "căn cứ", "lien_quan": "liên quan"}
 # Tài liệu không cần vào sổ: thư mục luận văn và các tệp sinh tự động của hồ sơ.
-BO_QUA_TEP = re.compile(r"^docs/(thesis/|ho_so/(README\.md|DOI_CHIEU\.md|[^/]+/MUC_LUC\.md)$)")
+BO_QUA_TEP = re.compile(r"^docs/(thesis/|ho_so/du_thao/|ho_so/(README\.md|DOI_CHIEU\.md|[^/]+/MUC_LUC\.md)$)")
+DU_THAO = os.path.join(HS, "du_thao")
 
 
 def ngay_key(s):
@@ -266,8 +267,9 @@ def kiem(so):
                 tai_lieu_chua.append(rel)
 
     bo_nho = [v for v in so.vb if v.get("noi_luu", "").startswith("bo_nho:") and so.ap_dung(v)]
+    du_thao = sorted(f for f in os.listdir(DU_THAO) if f.endswith(".md")) if os.path.isdir(DU_THAO) else []
     return dict(loi=loi, canh_bao=canh_bao, chu_de_ho=chu_de_ho, cho=cho, tuoi=tuoi,
-                chua_so=chua_so, tai_lieu_chua=sorted(tai_lieu_chua), bo_nho=bo_nho)
+                chua_so=chua_so, tai_lieu_chua=sorted(tai_lieu_chua), bo_nho=bo_nho, du_thao=du_thao)
 
 
 # ─────────────────────────── sinh tài liệu ───────────────────────────
@@ -327,6 +329,8 @@ def muc_luc(so, kq, gio):
         vs = [v for v in so.vb if ma in v["hm"]]
         out.append(f"| {ma} — {ten} | [{thu_muc}/MUC_LUC.md]({thu_muc}/MUC_LUC.md) | "
                    f"{sum(so.ap_dung(v) for v in vs)} | {sum(v.get('trang_thai') == 'cho_quyet' for v in vs)} |")
+    if kq["du_thao"]:
+        out += ["", "## Dự thảo chờ duyệt (chưa vào sổ)", ""] + [f"- [{f}](du_thao/{urllib.parse.quote(f)})" for f in kq["du_thao"]]
     out += ["", "## Chờ người dùng quyết", "", DAU_BANG] + [dong_bang(so, v, HS) for v in sap(kq["cho"])]
     out += ["", "## Mới nhất (10 văn bản)", "", DAU_BANG] + [dong_bang(so, v, HS) for v in sap(so.vb)[:10]] + [""]
     open(os.path.join(HS, "README.md"), "w", encoding="utf-8").write("\n".join(out))
@@ -354,6 +358,8 @@ def ghi_doi_chieu(so, kq, gio):
     out += ["", "## F. Tài liệu trong docs/ chưa vào sổ", ""] + ([f"- `{x}`" for x in kq["tai_lieu_chua"]] or ["- Không có."])
     out += ["", "## G. Quyết định còn hiệu lực chỉ có trong bộ nhớ agent (chưa có toàn văn trong repo)", ""]
     out += [f"- {so_hieu(v)}: {v['trich_yeu']} (`{v['noi_luu'][7:]}`)" for v in kq["bo_nho"]] or ["- Không có."]
+    out += ["", "## H. Dự thảo chờ người dùng duyệt (chưa vào sổ)", ""]
+    out += [f"- [{f}](du_thao/{urllib.parse.quote(f)})" for f in kq["du_thao"]] or ["- Không có."]
     open(os.path.join(HS, "DOI_CHIEU.md"), "w", encoding="utf-8").write("\n".join(out) + "\n")
 
 
@@ -416,7 +422,7 @@ def main():
     print(f"Đối chiếu {gio}: {len(so.vb)} văn bản, {sum(so.ap_dung(v) for v in so.vb)} hiệu lực, {len(kq['cho'])} chờ quyết")
     print(f"  lỗi sổ {len(kq['loi'])}, cảnh báo {len(kq['canh_bao'])}, chủ đề chưa liên kết {len(kq['chu_de_ho'])}, "
           f"dòng PIF chưa vào sổ {len(kq['chua_so'])}, tài liệu chưa vào sổ {len(kq['tai_lieu_chua'])}, "
-          f"chỉ trong bộ nhớ {len(kq['bo_nho'])}")
+          f"chỉ trong bộ nhớ {len(kq['bo_nho'])}, dự thảo chờ duyệt {len(kq['du_thao'])}")
     print("  → docs/ho_so/DOI_CHIEU.md, docs/ho_so/README.md, docs/ho_so/*/MUC_LUC.md")
     sys.exit(1 if kq["loi"] else 0)
 

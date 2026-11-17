@@ -1,0 +1,29 @@
+# Kết quả phiếu duyệt đặc tả v11 (49/QĐ-DL)
+
+**Ngày:** 06/11/2026. Người duyệt ký phiếu lúc 19:07 (Hưng). Bản 1.
+**Căn cứ:** tờ trình 07/TTr-DL (10 file đặc tả trong thư mục này), kế hoạch 01/KH-DL bước 2.
+**Nguồn:** artifact B2ivpYujJHnvAa4x7bT3Qy, db `dac_ta`. Ghi chú dưới đây chép nguyên văn từ db.
+
+**Bản 2 (22:3x):** chốt C1 Q1, C4 Q2; ghi chú I1, C3 bị mất do lỗi trang, người dùng gõ lại.
+
+**Lưu ý lỗi trang:** trước bản 3 của trang (18:59), task đã lưu một lần thì các lần sửa sau bị bỏ qua. Các lần sửa của I1 (13 lần lưu) và C3 có thể đã mất. Người dùng đã gõ lại hai ghi chú lúc 22:38; nội dung và cách áp dụng nằm trong bảng dưới.
+
+## Kết quả
+
+| Task | Ý kiến | Ghi chú / trả lời (nguyên văn) | Cách áp dụng |
+|---|---|---|---|
+| I1 | Duyệt | (gõ lại 22:38) "Đồng ý mang đế tới hẳn A rồi giữ 0,1–0,6 giây theo seed; đồng ý dò hình học để dời hàng đế sang phải. Giữ tỷ lệ early đã đi ≥ 5 cm về A là điều kiện pilot, không chọn lọc seed để đạt. Bản thử 2 giây giữa đường mình làm trước đây phải bỏ." Thêm: "mình nói thế nhưng cái thời điểm thì k được cứng nhắc quá". | Q1: mang đế tới hẳn A, giữ h ~ U(0,1; 0,6) s theo seed. Q2: dò hình học, dời hàng đế sang phải. Pilot: tỉ lệ early đã đi ≥ 5 cm về A là điều kiện, báo trên mọi seed, không chọn seed. Bỏ bản giữ 2 s giữa đường. Mốc thời gian lấy theo phân phối, không cố định. |
+| I2 | Duyệt | (trống) | Theo đề xuất: Q1 hai loại món + thứ tự người biết; Q2 cử động đầu tập là thu tay 0,6–1,0 s. |
+| I3 | Duyệt | "Về câu hỏi của bạn thì k nên để 100% như vậy mà tăng cái phần thôi trước là 40 70 thì giờ là 70 trở lên chẳng hạn. hoặc bạn là một cái phân phối. 70, 80, 90 nó là đỉnh phân phối." | Q1 switch_before: không vung hết 100 %. Tỉ lệ vung ≥ 70 %, lấy theo phân phối có đỉnh ở 70–90 %. Q2, Q3 theo đề xuất. |
+| C1 | Cần sửa | "Chưa duyệt “đi theo lực kéo 1,5 cm”: hệ mô phỏng không có cảm biến lực, nên không thể dùng dịch chuyển TCP do chính robot tạo ra làm bằng chứng người đã nắm. Trước tiên phải chứng minh tay khép quanh lon nhìn thấy được trên ảnh, không xuyên tay/kẹp/lon; ngưỡng phân biệt ảnh ≥ 95% có thể dùng làm phép kiểm đề xuất. Sau đó mới chốt tín hiệu quan sát cho thời điểm nhả." | Bỏ `follow_pull`. Làm trước phép dò tay khép (mục 3 bước 1–2), không xuyên tay / kẹp / lon, kiểm bằng hình ≥ 95 %. Tín hiệu nhả đề xuất sau, chờ duyệt. Q1 (22:3x, người dùng: "thu đủ số epi để train là được"): gộp một case, hai hướng chia đều đúng 50/50 theo seed (25 + 5 mỗi hướng). |
+| C2 | Duyệt | "Chọn đặt đồ tạm lên bàn cạnh kệ nếu hình học cho phép; robot cầm sẵn mút. Đồng ý vết bẩn biến mất theo độ phủ ≥ 90%, với trạng thái sạch phải nhìn thấy được trong ảnh huấn luyện." | Q1 đặt tạm lên bàn (nếu dò hình học cho phép); Q2 robot cầm sẵn mút; Q3 ≥ 90 % và phải thấy sạch trên ảnh. |
+| C3 | Cần sửa | (gõ lại 22:38) "Đồng ý giữ trên khay A 0,1–0,6 giây và dò bố cục hai khay theo đường chéo. Với case switch_after, 90% đã nhấc bát là chưa đủ để gọi toàn bộ case là “sau cam kết”. Giữ lịch người độc lập với robot để ghép cặp, nhưng phải chọn khoảng từ pilot rồi kiểm 100% tập được nhận vào case có bowl_lifted_A trước human_intention_change; tập không đạt phải báo là sai phân loại, không âm thầm giữ hay lọc." Thêm: "mình nói thế nhưng cái thời điểm thì k được cứng nhắc quá". | Q2: giữ trên khay A U(0,1; 0,6) s. Q3: dò bố cục hai khay theo đường chéo. Q1 switch_after: lịch người độc lập với robot (giữ ghép cặp); khoảng thời điểm đổi ý chọn từ số đo pilot, bốc theo phân phối (không cố định); kiểm 100 % tập nhận vào case có bowl_lifted_A trước human_intention_change; tập không đạt báo là sai phân loại, không âm thầm giữ hay lọc. |
+| C4 | Cần sửa | Trả lời Q3: "cái này là một tối ưu về hành động chứ. nó là luật hành động rồi." Ghi chú: "Đồng ý 3 khối mỗi màu, co_motion là case riêng. Thử 3 màu bằng phép dò hình học; nếu không vừa, dùng 2 màu và ghi rõ lợi dự báo ở lượt hai chủ yếu là thời điểm, không còn là chọn màu. . Cần sửa đặc tả switch_before: người đổi giữa chừng chưa bảo đảm early đã trôi; đặt mốc theo số đo nominal và yêu cầu báo tỷ lệ thật trên mọi seed." | Q1 dò 3 màu, không vừa thì 2 màu (ghi rõ lợi ở lượt hai là thời điểm); Q3 co_motion là case riêng, chuyển động đồng thời là luật hành động của robot; Q4 3 khối mỗi màu. Sửa switch_before: mốc đổi ý theo số đo nominal, báo tỉ lệ early đã trôi trên mọi seed. Q2 (22:3x, như C1): một case, dạng a / b chia đều đúng 50/50 theo seed. |
+| W1 | Duyệt | "Đồng ý W1–W3 chỉ có nominal. Bắt buộc thêm cổng vật đang cầm sát bàn tay hiển thị và sai số tầm với; lỗi vật treo cách tay chưa được sửa chỉ bằng thay bố cục." | Chỉ nominal. Cổng bắt buộc: vật đang cầm sát bàn tay hiển thị, sai số tầm với. |
+| W2 | Duyệt | "Đồng ý chỉ nominal. Pilot phải cho thấy đường khay thật sự cắt vùng robot hoạt động và phát sinh nhường thật; chỉ thay tọa độ trên giấy chưa chứng minh được." | Chỉ nominal. Pilot phải đo được đường khay cắt vùng robot và có sự kiện nhường thật. |
+| W3 | Duyệt | "Đồng ý chỉ nominal và bỏ luật chờ vì khay còn lại ở gần; robot lau ngay vùng vừa trống khi đường lau an toàn, nhường khi tay người quay lại. cai này rất quan trọng mà mình đãn ói ở một task trước đó đó. vì có manicast nên policy nên học được cách trôi dần về đích mà không vướng người trong trường hợp mà kiểu hành động riêng không liên quan tới người nhá. còn khi mà trao nhân cần tiến về tay người thì tất nhiên trôi theo dự báo về phía tay người để nhanh hơn." | Chỉ nominal, bỏ `conflict_trays_m`. Robot lau ngay khi an toàn, nhường khi tay quay lại. Nguyên tắc chung: việc riêng thì trôi dần về đích mà không vướng người; trao nhận thì trôi theo dự báo về phía tay người. |
+
+## Bước tiếp
+- Task duyệt (I1, I2, I3, C2, W1, W2, W3) và C4 (sửa theo ghi chú đủ rõ): agent sửa đặc tả theo cột cuối, code → dò hình học → pilot → clip, gửi vào 02/BB-DL.
+- C1: chỉ làm phép dò tay khép và kiểm bằng hình; tín hiệu nhả chờ duyệt.
+- C3 (từ 22:4x): sửa đặc tả theo cột cuối rồi làm như các task khác.

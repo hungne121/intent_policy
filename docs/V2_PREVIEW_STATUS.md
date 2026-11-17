@@ -1,3 +1,5 @@
+> **HẾT HIỆU LỰC 16/11/2026 (53/QĐ-DL):** pipeline trong tài liệu này đã xóa; xem `docs/hrc/HUONG_DAN_EXPERT_THU_DU_LIEU.md`.
+
 # Preview V2 — tình trạng hiện tại
 
 **C1 2026-11-14T17:14:52+07:00:** người đứng giữa hai khay, video mới `previews/c1_center_20261114/`; Observed 23,90 s và Intent 19,75 s trên một seed, cả hai 2/2. Còn va chạm nghiêm trọng, chưa đạt dataset; chi tiết `docs/reports/C1_CENTER_PREVIEW_2026-11-14.md`.
@@ -22,7 +24,7 @@ Tất cả là expert kịch bản trong MuJoCo (Intent dùng ManiCast thật). 
 | I1 | `scripts/i1_v2_preview.py` |
 | I2 | `scripts/i2_v2_preview.py` |
 | I3 (3 case, cổng pilot đầy đủ) | `scripts/i3_collect.py` (+ `i3_observed.py`, `i3_self_check.py`, `quality_gate.py`, `dataset_records.py`, `preview_metrics.py`, `contact_context.py`) |
-| C1 | `scripts/c1_v2_preview.py` (bản nháp, còn theo kiểu cũ) |
+| C1 | `scripts/c1_v2_preview.py` (bám dự báo liên tục, sửa 16/11) |
 | C2, C3, C4, W1, W2, W3 | `scripts/{c2,c3,c4,w1,w2,w3}_v2_preview.py` |
 | Đặc tả | `specs/v2/`, quyết định bổ sung `specs/I2_I3_USER_UPDATE_2026-11-12.md`, đo ManiCast `docs/MANICAST_SPEED_CHECK.md` |
 

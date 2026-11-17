@@ -1,3 +1,5 @@
+> **HẾT HIỆU LỰC 16/11/2026 (53/QĐ-DL):** pipeline trong tài liệu này đã xóa; xem `docs/hrc/HUONG_DAN_EXPERT_THU_DU_LIEU.md`.
+
 # Quy trình v6: demo → ý định ManiCast → train ACT A / B / D → đánh giá
 
 > 25/10/2026 11:12: hướng hiện tại là task sâu T2 với 4 trường hợp (`docs/PIF.md` §4); các lệnh dưới đây vẫn dùng được, phần 4 task là của lần train đầu.
