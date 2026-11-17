@@ -1,0 +1,34 @@
+# Standing tabletop model. Diagnostic settings, not validated biomechanics.
+# All torques are norm-limited per joint; contact is allowed.
+kp: 100.0
+kd: 12.0
+max_torque_nm: 25.0
+# Shoulder and elbow links carry the reaching hand against gravity.  They use a
+# separate finite profile so strengthening a reach does not make the spine,
+# legs, or contact palm artificially rigid.
+arm_kp: 260.0
+arm_kd: 26.0
+arm_max_torque_nm: 65.0
+torso_kp: 300.0
+torso_kd: 35.0
+torso_max_torque_nm: 100.0
+wrist_kp: 30.0
+wrist_kd: 3.0
+wrist_max_torque_nm: 5.0
+joint_damping: 1.0
+joint_armature: 0.015
+density_kg_m3: 700.0
+contact_solref: [0.008, 1.0]
+palm_contact_solref: [0.004, 1.0]
+contact_solimp: [0.98, 0.999, 0.001]
+ankle_radius_m: 0.03
+palm_half_size_m: [0.032, 0.042, 0.012]
+contact_friction: [0.8, 0.01, 0.001]
+# Ball-joint cone limits, degrees; provisional, not an anatomical validation.
+joint_limit_deg: 170.0
+# Match the IK's configured maximum standing lean (60 degrees).  A lower
+# joint cone silently made reachable table positions impossible to attain.
+spine_limit_deg: 60.0
+wrist_limit_deg: 80.0
+# Diagnostic bounds: small solver compliance is contact, deep overlap is failure.
+max_contact_depth_m: 0.003

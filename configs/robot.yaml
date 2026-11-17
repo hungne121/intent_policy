@@ -9,6 +9,12 @@ max_joint_speed: [3.1416, 3.1416, 3.1416, 6.2832, 6.2832, 6.2832]   # [rad/s] pe
                                     #   Universal Robots UR3e datasheet 2025). Was 1.5 for every joint until 2026-10-18
                                     #   (results before then were produced with 1.5)
 max_gripper_speed: 0.12             # [m/s] finger-gap target rate limit
+contact_close_speed: 0.02           # [m/s] 61/QĐ-DL guarded close: once a finger touches a graspable object (not yet
+                                    #   attached) the closing rate drops to the slowest closing speed of the Robotiq 2F-85
+                                    #   (20 mm/s; Robotiq 2F-85/2F-140 instruction manual: speed 20-150 mm/s), so the first
+                                    #   finger does not squeeze the object (measured 17/11: 15 N, 2.6 mm) before the second
+contact_close_gap: 0.005            # [m] guarded close starts when a finger is this close to a graspable object (the
+                                    #   impact of a 0.12 m/s finger on a 60 g object gave 13-15 N within one control tick)
 assisted_grasp:
   # SusGrip fingertips move on an arc and rise ~1.2 cm while closing, which rotates objects about
   # the grasp axis and makes purely frictional grasps unreliable in MuJoCo (see report). As in

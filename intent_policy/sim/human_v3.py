@@ -11,9 +11,9 @@
   - rotations of base-driven joints are recovered from the children positions (Procrustes with two or more
     children, swing with one child, twist inherited), which reproduces HY-Motion keypoints exactly (14/11 check).
 
-The body collides with the table, the objects and the robot (the scene builder sets contype / conaffinity and
-excludes each hand from the task objects so a held object does not fight the hand). Mocap bodies are kinematic:
-the robot has to keep clear of the person, the person never yields.
+Collision masks enable contact with dynamic objects and the robot. Mocap bodies are kinematic: contact does not
+stop their commanded motion, and static-world/self intersections need explicit geometry checks. The robot has
+to keep clear of the person; the person never yields. Task objects are not blanket-excluded from hand contact.
 """
 from __future__ import annotations
 import json
@@ -30,6 +30,12 @@ SHOULDER = {'l': 16, 'r': 17}
 ARM_JOINTS = {s: [SHOULDER[s], ELBOW[s], WRIST[s]] + list(range(22, 37) if s == 'l' else range(37, 52)) for s in 'lr'}
 UPPER_BODY = [3, 6, 9, 12, 13, 14, 15] + ARM_JOINTS['l'] + ARM_JOINTS['r']   # rotated by the waist lean (Spine1 pivot)
 SELF_PAD_M = 0.05
+# 61/QĐ-DL: elbow swivel that keeps the arm clear of the trunk (the palm target is unchanged)
+SWIVEL_STEPS_DEG = (0., 10., -10., 20., -20., 30., -30., 45., -45., 60., -60., 75., -75., 90., -90.)
+SWIVEL_RATE_DEG = 8.          # per control tick (0.05 s): 160 deg/s
+SWIVEL_CLEAR_M = 0.003        # solver target clearance arm-trunk (the gate allows 0.5 mm penetration)
+WORLD_CLEAR_M = 0.0           # hands may touch rigid objects, never pass into them
+TRUNK = ('Pelvis', 'L_Hip', 'R_Hip', 'Spine1', 'Spine2', 'Spine3', 'Neck', 'Head', 'L_Collar', 'R_Collar')
 
 
 def _swing(a, b):
@@ -110,6 +116,17 @@ class HumanV3:
                 gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, f'human_hand_{s}_{v}')
                 if gid >= 0: self.hand_geoms[s][v] = gid
         self.hand_geom = self.hand_geoms[self.active]['relaxed']
+        # 61/QĐ-DL: collision geoms of each forearm / hand against the trunk (as V3SelfCheck, shoulder excluded)
+        coll = lambda bodies: [g for g in range(model.ngeom) if model.body(model.geom_bodyid[g]).name in bodies
+                               and (model.geom_contype[g] or model.geom_conaffinity[g])]
+        trunk = coll({f'human_seg_{j}' for j in TRUNK})
+        self.self_pairs = {s: [(a, b) for a in coll({f'human_seg_{S}_Elbow', f'human_seg_{S}_Wrist'}) for b in trunk]
+                           for s, S in (('l', 'L'), ('r', 'R'))}
+        self.swivel = {'l': 0., 'r': 0.}
+        self.world_geoms = []          # set by the episode: rigid non-human, non-robot collision geoms
+        self.skip_bodies = lambda: set()   # body ids the hands may touch now (objects held by the person)
+        self.held_geoms = lambda s: []     # collision geoms of the objects arm s carries: they move with the hand
+        self.hand_world_geoms = {s: coll({f'human_seg_{S}_Elbow', f'human_seg_{S}_Wrist'}) for s, S in (('l', 'L'), ('r', 'R'))}
         self.proxy_mocap = {}
         for name in ('hand', 'forearm', 'upperarm', 'torso', 'head'):
             bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, f'human_{name}')
@@ -158,7 +175,10 @@ class HumanV3:
         D = float(np.clip(np.linalg.norm(v), abs(L1 - L2) + 1e-3, min(L1 + L2 - 1e-4, self.max_extension * (L1 + L2))))
         u = unit(v)
         a = np.arccos(np.clip((L1 ** 2 + D ** 2 - L2 ** 2) / (2 * L1 * D), -1., 1.))
-        hint = swivel if swivel is not None else unit(self.R_yaw @ [0.35, 0.6 * side, -1.0])
+        # elbow direction: the base pose's swivel blended with the outward / back / down hint of v2, so an arm that
+        # starts from the hanging rest does not fold its forearm through the chest when reaching forward
+        outward = unit(self.R_yaw @ [0.35, 0.6 * side, -1.0])
+        hint = unit(swivel + outward) if swivel is not None else outward
         w = hint - np.dot(hint, u) * u
         w = unit(w) if np.linalg.norm(w) > 1e-6 else np.array([0., 0., -1.])
         elbow = shoulder + L1 * (np.cos(a) * u + np.sin(a) * w)
@@ -215,12 +235,16 @@ class HumanV3:
             mid = .5 * (lo + hi); lo, hi = (mid, hi) if gap(mid) > 0 else (lo, mid)
         return hi, axis
 
-    def pose(self, palm, point_at=None, palm_up=0., aim_blend=1., idle_palm=None, idle_palm_up=0., base=None):
+    def pose(self, palm, point_at=None, palm_up=0., aim_blend=1., idle_palm=None, idle_palm_up=0., base=None, swivel=None):
         """World keypoints (52, 3) and body rotations (52) for the task targets on top of a base body pose."""
         k = np.array(self.base if base is None else base, float)
         palm = np.asarray(palm, float)
+        swivel_offsets = swivel
         # waist lean fallback (rate limited): rotate the upper body about Spine1 when the palm is out of reach
         theta, axis = self.lean_needed(k, palm, self.active)
+        if idle_palm is not None:      # 56/QĐ-DL: lean for the farther hand (as human_body_v2.pose); C3 brushing hand
+            th2, ax2 = self.lean_needed(k, np.asarray(idle_palm, float), self.idle)
+            if th2 > theta: theta, axis = th2, ax2
         step = np.radians(self.lean_rate) * self.lean_dt
         theta = float(np.clip(theta, self._lean_prev - step, self._lean_prev + step))
         self._theta = theta
@@ -233,6 +257,9 @@ class HumanV3:
             if target is None: continue
             sh = k[SHOULDER[s]]
             swivel = unit(k[ELBOW[s]] - sh)
+            phi = 0. if swivel_offsets is None else swivel_offsets.get(s, 0.)
+            if phi:                                    # 61/QĐ-DL: rotate the preferred elbow about shoulder->target
+                swivel = rotation(unit(np.asarray(target, float) - sh), np.radians(phi)) @ swivel
             normal = PALM_DOWN; fore_normal = None
             if up > 0:
                 medial = -SIDE[s] * (self.R_yaw @ np.array([0., 1., 0.]))
@@ -253,18 +280,126 @@ class HumanV3:
                     idle_palm=arms[self.idle]['palm'] if self.idle in arms else self.palm_of(k, self.idle),
                     arms=arms)
 
+    def _write(self, data, pose):
+        quat = np.zeros(4)
+        for i, mid in self.seg_mocap.items():
+            mujoco.mju_mat2Quat(quat, np.ascontiguousarray(pose['R'][i]).ravel())
+            data.mocap_pos[mid] = pose['k'][i]; data.mocap_quat[mid] = quat
+
+    def arm_clearance(self, data, s, away=False):
+        """Min signed distance (m) of arm s (forearm, hand) to the trunk at the current mocap pose; with `away`
+        also the unit vector from the closest trunk point to the closest arm point."""
+        best, vec, ft = np.inf, None, np.zeros(6)
+        for a, b in self.self_pairs[s]:
+            dist = mujoco.mj_geomDistance(self.model, data, a, b, .05, ft)
+            if dist < best:
+                # fromto runs trunk -> arm surface when apart; when they overlap it points INTO the trunk: flip it
+                best = dist; v = (ft[:3] - ft[3:]) * (1. if dist >= 0 else -1.); n = np.linalg.norm(v)
+                vec = v / n if n > 1e-9 else None
+        return (best, vec) if away else best
+
+    def world_clearance(self, data, s):
+        """(min signed distance, unit push direction) of arm s (forearm, hand) to rigid world geoms not held now."""
+        skip = self.skip_bodies(); best, vec, ft = np.inf, None, np.zeros(6)
+        held = list(self.held_geoms(s))
+        # carried objects follow the hand only at the next physics step: shift them by the candidate hand motion
+        shift = np.zeros(3)
+        if held and getattr(self, '_palm_prev', {}).get(s) is not None and getattr(self, '_palm_now', {}).get(s) is not None:
+            shift = self._palm_now[s] - self._palm_prev[s]
+        saved = data.geom_xpos[held].copy() if held else None
+        if held:
+            data.geom_xpos[held] += shift
+        try:
+            for a in list(self.hand_world_geoms[s]) + held:
+                for b in self.world_geoms:
+                    if self.model.geom_bodyid[b] in skip:
+                        continue
+                    dist = mujoco.mj_geomDistance(self.model, data, a, b, .03, ft)
+                    if dist < best:
+                        best = dist; v = (ft[:3] - ft[3:]) * (1. if dist >= 0 else -1.); n = np.linalg.norm(v)
+                        vec = v / n if n > 1e-9 else None
+        finally:
+            if held:
+                data.geom_xpos[held] = saved
+        return best, vec
+
+    def _best_swivel(self, data, s, pose, *args):
+        """Smallest swivel offset (deg) keeping arm s >= SWIVEL_CLEAR_M from the trunk, preferring the current one.
+        Leaves the mocap state of the CURRENT pose in `data` on return."""
+        cur = self.swivel[s]
+        if self.arm_clearance(data, s) >= SWIVEL_CLEAR_M and abs(cur) < 1e-9:
+            return 0.
+        palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, lean_prev = args
+        results = []
+        for phi in SWIVEL_STEPS_DEG:
+            offs = dict(self.swivel); offs[s] = phi
+            self._lean_prev = lean_prev
+            cand = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, swivel=offs)
+            self._write(data, cand); mujoco.mj_kinematics(self.model, data)
+            c = self.arm_clearance(data, s)
+            results.append((phi, c))
+            if c >= SWIVEL_CLEAR_M and abs(phi) <= abs(cur) + 1e-9:
+                break                                   # the smallest |phi| that is clear (back towards 0)
+        self._lean_prev = lean_prev
+        self._write(data, pose); mujoco.mj_kinematics(self.model, data)
+        clear = [r for r in results if r[1] >= SWIVEL_CLEAR_M]
+        if clear:
+            return min(clear, key=lambda r: (abs(r[0]), abs(r[0] - cur)))[0]
+        return max(results, key=lambda r: r[1])[0]       # none clear: the least penetrating
+
     def palm_of(self, k, s):
         return k[[WRIST[s], *FINGER_BASES[s][:4]]].mean(axis=0)
 
     def apply(self, data, palm, point_at=None, hand_shape='relaxed', palm_up=0., smooth=False, aim_blend=1.,
               shape_from=None, shape_progress=None, idle_palm=None, idle_shape=None, idle_palm_up=0., base=None):
-        pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base)
+        lean_prev = self._lean_prev
+        pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, swivel=dict(self.swivel))
+        sides = [x for x in (self.active, self.idle) if x in pose['arms']]
+        if getattr(self, 'self_pairs', None) and sides:
+            self._write(data, pose); mujoco.mj_kinematics(self.model, data)
+            changed = False
+            for s in sides:
+                want = self._best_swivel(data, s, pose, palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, lean_prev)
+                step = float(np.clip(want - self.swivel[s], -SWIVEL_RATE_DEG, SWIVEL_RATE_DEG))
+                if abs(step) > 1e-9:
+                    self.swivel[s] += step; changed = True
+            if changed:
+                self._lean_prev = lean_prev
+                pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, swivel=dict(self.swivel))
+            # 61/QĐ-DL step 2: swivel alone cannot clear a hand target that lies against the body -> move that palm
+            # target away from the trunk by the remaining overlap (a few mm to ~1.5 cm), up to 4 iterations
+            self._write(data, pose); mujoco.mj_kinematics(self.model, data)
+            palm, idle_palm = np.asarray(palm, float), None if idle_palm is None else np.asarray(idle_palm, float)
+            self.self_push_m = {}
+            self._palm_now = {self.active: pose['palm'], self.idle: pose['idle_palm']}
+            for _ in range(4):
+                moved = False
+                for s in sides:
+                    # 61/QĐ-DL: out of the trunk AND out of rigid world geoms (a kinematic hand, with what it carries,
+                    # must not pass into objects / the table: touch = 0); both corrections in the same iteration
+                    d = np.zeros(3)
+                    c, v = self.arm_clearance(data, s, away=True)
+                    if c < SWIVEL_CLEAR_M and v is not None:
+                        d += (SWIVEL_CLEAR_M - c) * v
+                    c, v = self.world_clearance(data, s) if self.world_geoms else (np.inf, None)
+                    if c < WORLD_CLEAR_M and v is not None:
+                        d += (WORLD_CLEAR_M - c) * v
+                    if not d.any():
+                        continue
+                    if s == self.active: palm = palm + d
+                    else: idle_palm = idle_palm + d
+                    self.self_push_m[s] = self.self_push_m.get(s, 0.) + float(np.linalg.norm(d)); moved = True
+                if not moved:
+                    break
+                self._lean_prev = lean_prev
+                pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, swivel=dict(self.swivel))
+                self._write(data, pose); mujoco.mj_kinematics(self.model, data)
+                self._palm_now = {self.active: pose['palm'], self.idle: pose['idle_palm']}
         self._lean_prev = pose['lean']
+        self._palm_prev = {self.active: np.asarray(pose['palm']).copy(), self.idle: np.asarray(pose['idle_palm']).copy()}
         k, R = pose['k'], pose['R']
         quat = np.zeros(4)
-        for i, mid in self.seg_mocap.items():
-            mujoco.mju_mat2Quat(quat, np.ascontiguousarray(R[i]).ravel())
-            data.mocap_pos[mid] = k[i]; data.mocap_quat[mid] = quat
+        self._write(data, pose)
         # hand shapes: one visible variant per side
         for s, shape, frm, prog in ((self.active, hand_shape, shape_from, shape_progress), (self.idle, idle_shape or 'relaxed', None, None)):
             v = self._variant(shape, frm, prog)

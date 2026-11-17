@@ -1,0 +1,22 @@
+# 61/QĐ-DL (17/11/2026): contact classes and physical limits of the physics gate. One table for all tasks
+# (no per-task thresholds). Limits are independent of the previews.
+#
+# allowed_contact       intended interaction, checked by pair AND phase AND physical limits (depth and force)
+# unintended_contact    any other contact; rigid bodies must not interpenetrate beyond the resting depth
+# human_self_collision  the person's arm geometry against the trunk / the other arm
+# invalid_contact       never allowed: the robot (links or the object it holds outside a handover) touching the person
+#
+# Sources
+#  - rigid_penetration_m: measured 17/11 06:5x, every HRC scene, free objects resting on the table / trays for 2 s with
+#    the scene's solref / solimp: max steady penetration 0.37 mm (outputs/diag/qd59/rest_penetration.py). Deeper =
+#    real interpenetration, not solver compliance. Rounded up to 0.5 mm.
+#  - human_force_n: ISO/TS 15066:2016 Annex A, quasi-static contact, hand / fingers: 140 N (lowest body-region value
+#    for the hand; the person touches objects only with the hand in these tasks).
+#  - gripper force: the gripper actuator force range of the robot model (assets/scene.xml), read at run time.
+#  - grasp window: contact of the hand with an object counts as grasping only from 0.5 s before the grasp event to
+#    0.5 s after the release event; 0.5 s covers the scripted approach (0.35 s lower in episode.carry).
+rigid_penetration_m: 0.0005
+human_self_penetration_m: 0.0005     # kinematic capsules: same no-interpenetration rule as rigid bodies
+human_force_n: 140.0
+grasp_window_s: 0.5
+robot_grasp_phases: [close, open, return_open, hold_switch]

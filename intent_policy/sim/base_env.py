@@ -75,6 +75,11 @@ class ManipulationEnv:
         # Read-only collection audits, called at physics rate. Never modify commands.
         self.physics_observers = []
         self.pre_physics_observers = []
+        # Independent force controllers (e.g. a physical human), run before each
+        # integration step. They do not replace the robot's action interface.
+        self.physics_controllers = []
+        # Solver-aligned contact forces, before post-integration geometry refresh.
+        self.solver_observers = []
         self.reset()
         if gui:
             self.viewer, self.viewer_thread = launch_viewer(self.model, self.data)
@@ -101,6 +106,8 @@ class ManipulationEnv:
     def settle(self, ticks: int) -> None:
         """Advance physics while holding the current command, then zero the clock."""
         for _ in range(ticks * self.substeps):
+            for controller in self.physics_controllers:
+                controller(self.model, self.data)
             mujoco.mj_step(self.model, self.data)
         self.data.time = 0.0
 
@@ -121,6 +128,22 @@ class ManipulationEnv:
                 if other in bodies:
                     sides.add(side)
         return sides
+
+    def _finger_touching(self) -> bool:
+        """61/QĐ-DL guarded close: a finger is within `contact_close_gap` of a graspable body (or touches it)."""
+        gap = float(self.cfg.get('contact_close_gap', 0.))
+        if not hasattr(self, '_finger_geoms'):
+            fb = set().union(*self.finger_bodies.values())
+            col = lambda g: self.model.geom_contype[g] or self.model.geom_conaffinity[g]
+            self._finger_geoms = [g for g in range(self.model.ngeom) if self.model.geom_bodyid[g] in fb and col(g)]
+            self._grasp_geoms = [g for g in range(self.model.ngeom) if self.model.geom_bodyid[g] in self.grasp_welds and col(g)]
+        if gap <= 0:
+            return any(self.finger_contacts(b) for b in self.grasp_welds)
+        for a in self._finger_geoms:
+            for b in self._grasp_geoms:
+                if mujoco.mj_geomDistance(self.model, self.data, a, b, gap, None) < gap:
+                    return True
+        return False
 
     def register_graspable(self, body_id: int, weld_id: int) -> None:
         """Declare a graspable body and its (inactive) gripper weld for assisted grasping."""
@@ -196,8 +219,15 @@ class ManipulationEnv:
             # Hold the fingers at the contact width: the weld carries the load, the fingers do not
             # keep squeezing (squeezing a small handle twists the object about the vertical axis).
             grip = max(grip, self.attach_opening - self.hold_squeeze)
-        grip = self.data.ctrl[6] + np.clip(grip - self.data.ctrl[6],
-            -self.cfg['max_gripper_speed'] * self.dt, self.cfg['max_gripper_speed'] * self.dt)
+        v_close = self.cfg['max_gripper_speed']
+        slow = float(self.cfg.get('contact_close_speed', v_close))
+        base_ctrl = float(self.data.ctrl[6])
+        if self.assisted and self.attached is None and grip < base_ctrl and self._finger_touching():
+            # 61/QĐ-DL guarded close: on contact the servo setpoint is pulled back to the measured opening (it ran
+            # ahead of the fingers by several mm = a squeeze of kp x lead), then closes at the slow speed only
+            v_close = slow; base_ctrl = max(base_ctrl, float(self.data.qpos[self.gid]) - slow * self.dt)
+            self.data.ctrl[6] = base_ctrl
+        grip = base_ctrl + np.clip(grip - base_ctrl, -v_close * self.dt, self.cfg['max_gripper_speed'] * self.dt)
         # Linearly ramp the position targets across the physics substeps (first-order hold)
         # instead of a step input: avoids an acceleration spike every control tick.
         previous, target = self.data.ctrl.copy(), np.r_[arm, grip]
@@ -209,7 +239,16 @@ class ManipulationEnv:
         closing = self.assisted and self.attach_substep and action[6] < self.close_below and self.attached is None
         for i in range(self.substeps):
             self.data.ctrl[:] = previous + (target - previous) * (i + 1) / self.substeps
+            for controller in self.physics_controllers:
+                controller(self.model, self.data)
             mujoco.mj_step(self.model, self.data)
+            for observer in self.solver_observers:
+                observer(self.model, self.data)
+            if closing and v_close > slow and self._finger_touching():
+                # first touch inside this tick: from here on close at the guarded speed only
+                rest = (self.substeps - i - 1) / self.substeps * self.dt
+                now = max(float(self.data.ctrl[6]), float(self.data.qpos[self.gid]))
+                previous[6] = now; target[6] = now - slow * rest; v_close = slow
             if closing:
                 for body_id in self.grasp_welds:
                     if self.finger_contacts(body_id) == {'left', 'right'}:
@@ -231,14 +270,18 @@ class ManipulationEnv:
             time.sleep(max(0., self.dt - (time.monotonic() - started_at)))
         return self.observe()
 
-    def solve_ik(self, position: np.ndarray, quaternion: np.ndarray | None = None) -> np.ndarray:
+    def solve_ik(self, position: np.ndarray, quaternion: np.ndarray | None = None,
+                 seed: np.ndarray | None = None, data=None) -> np.ndarray:
         """Damped least-squares IK returns arm [6]; never changes live physics state.
 
         Default orientation is the top-down grasp pose rotated by `tool_yaw_deg` (robot config) about world Z
-        (-90: fingers close along world Y, 0: along world X).
+        (-90: fingers close along world Y, 0: along world X). `seed` / `data` (57/QĐ-DL, prediction only): start
+        from these arm joints and solve in a scratch MjData; `last_ik_error` is then left untouched.
         """
-        d = self.ik_data
+        d = self.ik_data if data is None else data
         d.qpos[:] = self.data.qpos
+        if seed is not None:
+            d.qpos[self.qids] = seed
         target_rot = Rotation.from_euler('xyz', [np.pi, 0, np.radians(self.cfg.get('tool_yaw_deg', -90.0))]).as_matrix() \
             if quaternion is None else Rotation.from_quat(quaternion).as_matrix()
         jp, jr = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
@@ -257,7 +300,8 @@ class ManipulationEnv:
             d.qpos[self.qids] += np.clip(delta, -0.12, 0.12)
             d.qpos[self.qids] = np.clip(d.qpos[self.qids], limits[:, 0], limits[:, 1])
         mujoco.mj_kinematics(self.model, d)
-        self.last_ik_error = float(np.linalg.norm(np.asarray(position) - d.site_xpos[self.tcp]))
+        if data is None:
+            self.last_ik_error = float(np.linalg.norm(np.asarray(position) - d.site_xpos[self.tcp]))
         return d.qpos[self.qids].copy()
 
     def render(self, camera: str = 'high', width: int = 640, height: int = 480) -> np.ndarray:
