@@ -1,0 +1,18 @@
+# ACT + ManiCast with transition-aware importance sampling (docs/PIF.md §8.13, plan of 03/11/2026).
+# D0 = ACT, uniform sampling; D1 = ACT, Q = (1 - mix) P + mix P_T over the training samples, loss unchanged
+# (intent_policy/benchmark/transition_index.py). Same dataset, architecture, split, optimizer steps, learning rate and
+# checkpoint rule for D0 and D1. Read by scripts/train_policy.py (--sampling) and scripts/audit_transitions.py.
+transition_sampling:
+  mix: 0.5                          # ManiCast §4.1: Q = 0.5 P + 0.5 P_T (initial value for ACT, not tuned)
+  pre_s: 1.0                        # a sample this long before a transition counts: the ManiCast forecast horizon (1 s)
+  post_s: 0.5                       # ... and this long after it (design value, checked on the index distribution)
+  chunk_s: 2.0                      # the ACT action chunk: 40 steps at 20 Hz (configs/policy/act_continuous.yaml)
+  cue_labels:                       # the human motions that start a request, one per round (labels as logged in
+                                    #   meta/hri_episodes.jsonl human_motions; scripts/audit_transitions.py lists them)
+    i1_coaster_sequence: [reach_coaster]
+    i2_side_request: [request_out]
+    c3_cloth_bowl: [reach_cloth, carry_towards_decoy]
+    w1_sorting: [reach_item]
+    w2_tray_carry: [reach_tray]
+    c4_waste_sort: [reach_item, reach_item_f, reach_decoy]
+    i3_direct_sort: [direct_out, direct_decoy, redirect]

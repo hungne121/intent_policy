@@ -249,6 +249,24 @@ def keyframe_weights(ds, ep_meta: dict, fps: float, weight: float, window_s: flo
     return w
 
 
+def transition_sample_weights(ds, ep_meta: dict, fps: float, config: str, mix: float | None = None) -> np.ndarray:
+    """D1 (docs/PIF.md §8.13): per-sample probabilities of Q = (1 - mix) P + mix P_T, P_T the transition samples of
+    intent_policy/benchmark/transition_index.py from meta/hri_episodes.jsonl (ManiCast, Kedia et al. 2023, §4.1)."""
+    from intent_policy.benchmark.transition_index import index_episode, load_settings, mixture_weights
+    s = load_settings(config)
+    mix = float(s['mix'] if mix is None else mix)
+    cols = ds.hf_dataset.with_format('numpy', columns=['episode_index', 'frame_index'])
+    ep, fr = np.asarray(cols['episode_index']), np.asarray(cols['frame_index'])
+    in_t = np.zeros(len(ep), bool)
+    for e in np.unique(ep):
+        rows = np.flatnonzero(ep == e)
+        mask = index_episode(ep_meta[int(e)], fps, s)['mask']
+        in_t[rows] = mask[np.clip(fr[rows], 0, len(mask) - 1)]
+    print(f'transition sampling: mix {mix}, {in_t.mean():.1%} of the training samples in P_T '
+          f'(sampled {(1 - mix) * in_t.mean() + mix:.1%} of the time)', flush=True)
+    return mixture_weights(in_t, mix)
+
+
 def run_batch(policy, preprocessor, batch, device, label_key, amp: bool = False, selector: IntentSelector | None = None):
     # the restricted label, the task id and the intent columns are not ACT features: bypass the processor
     extra = {k: batch.pop(k) for k in list(batch)
@@ -354,6 +372,12 @@ def main():
     p.add_argument('--keyframe-weight', type=float, help='sample frames near the key events this many times more often '
                    '(keyframe_weights; default 1 = uniform)')
     p.add_argument('--keyframe-window-s', type=float, default=0.5, help='half width of a key-event window [s]')
+    p.add_argument('--sampling', choices=['uniform', 'transition'], default='uniform',
+                   help='training-sample distribution (docs/PIF.md §8.13): uniform = D0; transition = D1, the mixture '
+                        'Q = (1 - mix) P + mix P_T of intent_policy/benchmark/transition_index.py (loss unchanged)')
+    p.add_argument('--sampling-config', default='configs/experiments/act_tais.yaml',
+                   help='transition_sampling settings (mix, pre_s, post_s, chunk_s, cue_labels)')
+    p.add_argument('--transition-mix', type=float, help='override transition_sampling.mix')
     p.add_argument('--frame-cache', action='store_true', help='camera frames from <dataset root>/frame_cache_q95.npz '
                    '(scripts/build_frame_cache.py) instead of decoding the videos')
     p.add_argument('--init-from', help='pretrained_model folder to start from (fine-tuning; new optimizer)')
@@ -473,6 +497,10 @@ def main():
     if weights is not None:
         print(f'key-frame sampling: weight {args.keyframe_weight} within {args.keyframe_window_s} s of the key events, '
               f'{(weights > 1).mean():.1%} of the training frames', flush=True)
+    if args.sampling == 'transition':
+        if weights is not None:
+            raise ValueError('--sampling transition and --keyframe-weight are exclusive')
+        weights = transition_sample_weights(train_ds, ep_meta, meta.fps, args.sampling_config, args.transition_mix)
     sampler = EpochSampler(len(train_ds), seed, weights)
     # own generator: creating a loader iterator must not consume the global torch RNG (dropout), or resume drifts
     train_loader = torch.utils.data.DataLoader(train_ds, sampler=sampler, generator=torch.Generator().manual_seed(seed),

@@ -8,7 +8,10 @@ Pair coverage: an explicit list, or `all_scene_pairs` = every robot geom x every
 segment geom x every object geom, every robot geom x every object geom and every object x object geom pair (table
 contacts of resting objects are not audited). Permitted contact is phase/state specific, never a blanket object
 exemption:
-  - `allowed_contacts`: geom pair + human/robot stages (as before);
+  - `allowed_contacts`: geom pair + human/robot stages (as before); a side may name a body (`body_a` / `body_b`)
+    instead of a geom, for the unnamed mesh geoms of the gripper links (W3 fingers x pads, PIF §8.13 18:27);
+    `robot_stage_window_s`: only during the first that many seconds of the robot stage (W3: the fingers leaving the
+    pad at the start of lift_wipe, PIF §8.13 decision 03/11 20:2x);
   - `contact_rules` kind `robot_manipulation`: gripper geoms (bodies named sus2f_*) x the object the robot is
     manipulating, i.e. the sim reports it grasped, or released less than `release_grace_s` ago (the opening fingers
     leave the rim), or the expert is in one of `stages` with it as its target;
@@ -16,11 +19,22 @@ exemption:
     cup on its coaster); side contact or a push is not support;
   - `contact_rules` kind `human_manipulation`: the human's hand segment geoms x the object the human holds, or the
     object the current hand motion is aimed at during one of `stages` (fingertips arriving on it to take it), or any of
-    `objects` during `stages` (the can lowered into the open palm);
+    `objects` during `stages` (the can lowered into the open palm); `robot_stages` restricts that stage clause to those
+    robot stages (C1: the can only while the robot brings it into the palm, not while it waits above it, PIF §8.13
+    decision 04/11 08:34);
   - `contact_rules` kind `handover`: the human's hand x the gripper during the human `stages` of taking the object
     the robot still holds (both hands on it);
-  - `contact_rules` kind `container`: two objects inside the same open box (decor open_box) may rest against each
-    other. `container_exempt`: objects in an open box are not movement-checked (they settle as others drop in).
+  - `contact_rules` kind `container`: two objects inside the same open box (decor open_box), or inside the same cup
+    object listed in the rule's `objects` (C4 bins, PIF §8.13 04/11), may rest against each other. `container_exempt`:
+    objects in a container are not movement-checked (they settle as others drop in).
+  - `table_pairs: true` (PIF §8.13 decision 03/11 20:2x): also every moving robot geom (bodies not welded to the world;
+    the base is mounted on the table) x the table, and every object geom x the table. No rule permits robot x table.
+    Object x table needs an explicit `contact_rules` kind `table_support`: the object is not held by the robot (it
+    rests, or the human moves it), or the robot holds it during one of the rule's `robot_stages` (putting it down);
+    a robot-held object touching the table at any other time is a violation.
+Every violating pair is also kept for the whole episode (`geometry.all_violations`: per pair and robot / human stage,
+first / last time, samples, deepest), so a diagnosis run with `stop_on_rejection: false` reports all of them, not only
+the first (PIF §8.13 decision 04/11 08:34); the pass / fail verdict is unchanged.
 Penetration of permitted contact stays bounded by the rule's `max_penetration_m` (else the pair's
 max_contact_penetration_m).
 Movement: `protected_objects` (list or `all`) must not move while nobody manipulates them (held by the human,
@@ -32,7 +46,11 @@ import numpy as np
 from intent_policy.sim.demo_contact_audit import DemoContactAudit, PairRule
 
 
-def scene_pairs(sc, clearance_m, max_contact_penetration_m):
+def table_geoms(m):
+    return [g for g in range(m.ngeom) if m.geom(g).name == 'table']
+
+
+def scene_pairs(sc, clearance_m, max_contact_penetration_m, table=False):
     m = sc.env.model
     human = [g for g in range(m.ngeom) if m.geom(g).name.startswith('human_seg_')]
     objects = [g for k in sc.on_table for g in sc.object_geom_ids[k]]
@@ -41,6 +59,9 @@ def scene_pairs(sc, clearance_m, max_contact_penetration_m):
         pairs.update(product(sc.object_geom_ids[a], sc.object_geom_ids[b]))
     decor = [g for g in range(m.ngeom) if m.geom(g).name.startswith('decor_')]   # static trays / boxes: the human and
     pairs |= set(product(human, decor)) | set(product(sc.robot_geoms, decor))    #   the robot must not enter them
+    if table:
+        moving = [g for g in sc.robot_geoms if m.body_weldid[m.geom_bodyid[g]] != 0]
+        pairs |= set(product(moving, table_geoms(m))) | set(product(objects, table_geoms(m)))
     return [dict(geom_a=int(a), geom_b=int(b), clearance_m=clearance_m,
                  max_contact_penetration_m=max_contact_penetration_m) for a, b in sorted(pairs)]
 
@@ -56,7 +77,8 @@ class CollectionGate:
                 raise ValueError('Contact permission must specify a phase; no blanket object exemptions')
         self.rules = config.get('contact_rules', [])
         for rule in self.rules:
-            if rule.get('kind') not in ('robot_manipulation', 'support', 'human_manipulation', 'handover', 'container'):
+            if rule.get('kind') not in ('robot_manipulation', 'support', 'human_manipulation', 'handover', 'container',
+                                        'table_support'):
                 raise ValueError(f"Unknown contact rule {rule.get('kind')!r}")
             if rule['kind'] in ('robot_manipulation', 'human_manipulation', 'handover') and not rule.get('stages'):
                 raise ValueError(f"{rule['kind']} needs the stages of the manipulation")
@@ -64,7 +86,9 @@ class CollectionGate:
         m = scenario.env.model
         pairs = config['pairs']
         if pairs == 'all_scene_pairs':
-            pairs = scene_pairs(scenario, float(config['pair_clearance_m']), float(config['pair_max_penetration_m']))
+            pairs = scene_pairs(scenario, float(config['pair_clearance_m']), float(config['pair_max_penetration_m']),
+                                table=bool(config.get('table_pairs', False)))
+        self.table = set(table_geoms(m))
         self.owner = {}
         if self.rules or config.get('protected_objects') == 'all':
             for k, ids in scenario.object_geom_ids.items():
@@ -89,12 +113,20 @@ class CollectionGate:
         self._was_grasped, self._released_at = {}, {}
         self._human_held, self._human_released_at = None, {}
         self.movement_violation = None
+        self.violations = {}               # every violating pair over the episode, per (pair, robot / human stage)
+        self._stage, self._stage_t0 = self._expert_stage(), float(scenario.env.data.time)
         self.observe(scenario.env.model, scenario.env.data)
         scenario.env.physics_observers.append(self.observe)
         scenario.env.pre_physics_observers.append(self.observe)
 
     def _name(self, g):
         return self.sc.env.model.geom(g).name if isinstance(g, (int, np.integer)) else g
+
+    def _side(self, g, r, side):
+        if f'body_{side}' in r:
+            m = self.sc.env.model
+            return m.body(m.geom_bodyid[m.geom(g).id]).name == r[f'body_{side}']
+        return self._name(g) == r[f'geom_{side}'] or g == r[f'geom_{side}']
 
     def _expert_stage(self):
         return getattr(getattr(self.agent, 'expert', None), 'stage', None)
@@ -108,6 +140,10 @@ class CollectionGate:
             return True                          # the opening fingers leave the rim just after the release
         target = sc.robot_target() if hasattr(sc, 'robot_target') else None
         return stages is not None and key == target and self._expert_stage() in stages
+
+    def _robot_holds(self, key):
+        """The robot holds the object now (sim grasp state; once released on the table it rests there)."""
+        return bool(getattr(self.sc, 'grasp_state', {}).get(key))
 
     def _supports(self, a, b):
         """a and b are objects: the upper one stands within the lower one's footprint."""
@@ -124,10 +160,12 @@ class CollectionGate:
                     return float(r['max_penetration_m']) if 'max_penetration_m' in r else True
             return False
         for r in self.permissions:
-            if {self._name(a), self._name(b)} != {r['geom_a'], r['geom_b']} and {a, b} != {r['geom_a'], r['geom_b']}:
+            if not (self._side(a, r, 'a') and self._side(b, r, 'b')) and not (self._side(b, r, 'a') and self._side(a, r, 'b')):
                 continue
             human_ok = not r.get('human_stages') or self.sc.human.stage in r['human_stages']
             robot_ok = not r.get('robot_stages') or self._expert_stage() in r['robot_stages']
+            if robot_ok and r.get('robot_stage_window_s') is not None:
+                robot_ok = float(self.sc.env.data.time) - self._stage_t0 <= float(r['robot_stage_window_s'])
             if human_ok and robot_ok:
                 return True
         ga, gb = int(self.sc.env.model.geom(a).id), int(self.sc.env.model.geom(b).id)
@@ -146,12 +184,21 @@ class CollectionGate:
             objs = r.get('objects')            # with `objects`: those objects in `stages`, whatever the motion aims at
             t = float(self.sc.env.data.time)
             just = lambda o: self._human_released_at.get(o) is not None and t - self._human_released_at[o] <= self.release_grace_s
+            robot = r.get('robot_stages')      # with `robot_stages`: the stage clause only while the robot is in them
             return any(g in self.human_hand and o is not None and (getattr(h, 'holding', None) == o or just(o) or (
-                h.stage in r['_stages'] and (o in objs if objs else getattr(h, 'motion_key', None) == o)))
+                h.stage in r['_stages'] and (robot is None or self._expert_stage() in robot)
+                and (o in objs if objs else getattr(h, 'motion_key', None) == o)))
                 for g, o in ((ga, ob), (gb, oa)))
         if r['kind'] == 'handover':            # the human's hand and the gripper both on the object being handed over
             return self.sc.human.stage in r['_stages'] and (
                 (ga in self.human_hand and gb in self.gripper) or (gb in self.human_hand and ga in self.gripper))
+        if r['kind'] == 'table_support':       # an object on the table: not robot-held, or put down in robot_stages
+            o = ob if ga in self.table else oa if gb in self.table else None
+            if o is None or (ga in self.table) == (gb in self.table):
+                return False
+            if not self._robot_holds(o):
+                return True
+            return self._expert_stage() in r.get('robot_stages', ())
         if r['kind'] == 'container' and oa is not None and ob is not None and oa != ob:
             return self._same_container(oa, ob)      # objects dropped into one open box may rest against each other
         if r['kind'] == 'support' and oa is not None and ob is not None and oa != ob:
@@ -170,6 +217,13 @@ class CollectionGate:
         for i, (xy, half, top) in enumerate(self._containers()):
             if np.all(np.abs(p[:2] - xy) <= half) and p[2] < top + 0.04:    # also one leaning on another inside
                 return i
+        for c in (k for r in self.rules if r['kind'] == 'container' for k in r.get('objects', ())):
+            if c == key:
+                continue
+            radius, height = (float(v) for v in self.sc.scene['objects'][c]['size'][:2])
+            q = self.sc.pos(c)                    # a cup object (C4 bins): body origin at mid-height
+            if float(np.linalg.norm(p[:2] - q[:2])) <= radius and p[2] < q[2] + height / 2 + 0.04:
+                return c
         return None
 
     def _same_container(self, a, b):
@@ -184,6 +238,9 @@ class CollectionGate:
         return self._robot_manipulates(key, stages)
 
     def observe(self, model, data):
+        stage = self._expert_stage()
+        if stage != self._stage:
+            self._stage, self._stage_t0 = stage, float(data.time)
         for k, g in getattr(self.sc, 'grasp_state', {}).items():
             if g:
                 self._was_grasped[k] = True
@@ -202,6 +259,21 @@ class CollectionGate:
             self.audit.first_violation.update(human_stage=getattr(h, 'stage', None), robot_stage=self._expert_stage(),
                 human_holding=getattr(h, 'holding', None), human_motion_key=getattr(h, 'motion_key', None),
                 hand_shape=getattr(h, 'hand_shape', None))
+        for i, distance, boundary, allowed in self.audit.step_violations:
+            a, b = self.audit.pairs[i]
+            key = (model.geom(a).name or str(a), model.geom(b).name or str(b), self._expert_stage(),
+                   getattr(self.sc.human, 'stage', None))
+            v = self.violations.get(key)
+            if v is None:
+                v = self.violations[key] = dict(geom_a=key[0], geom_b=key[1],
+                    body_a=model.body(model.geom_bodyid[a]).name, body_b=model.body(model.geom_bodyid[b]).name,
+                    robot_stage=key[2], human_stage=key[3], contact_permitted=allowed, required_minimum_m=boundary,
+                    first_t=float(data.time), last_t=float(data.time), samples=0, min_distance_m=distance,
+                    min_distance_t=float(data.time))
+            v['samples'] += 1
+            v['last_t'] = float(data.time)
+            if distance < v['min_distance_m']:
+                v['min_distance_m'], v['min_distance_t'] = distance, float(data.time)
         if self.audit.first_violation is not None and self.config.get('stop_on_rejection', True):
             fail = getattr(self.sc, 'fail', None)
             if fail is not None:
@@ -259,5 +331,6 @@ class CollectionGate:
         for label in sorted(required - seen):
             missing.append(dict(label=label, reason='required_motion_not_observed'))
         passed = geometry['passed_configured_pairs'] and self.movement_violation is None and not missing
+        geometry['all_violations'] = sorted(self.violations.values(), key=lambda v: v['first_t'])
         return dict(passed=passed, geometry=geometry, movement_violation=self.movement_violation,
                     missing_hymotion=missing, scope='reviewed_configured_geometry_and_motion_sources')

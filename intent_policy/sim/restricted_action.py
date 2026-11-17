@@ -116,6 +116,7 @@ class RestrictedActionMapper:
         self._arm_cache: tuple[np.ndarray, np.ndarray] | None = None
         self.speed = 0.0                      # continuous: current set-point speed along the path [m/s]
         self.next_goal: np.ndarray | None = None
+        self.next_open: float | None = None    # OPEN_GRIPPER to this finger gap [m] for one command (None: gripper.open)
         self.next_speed: float | None = None  # continuous: speed cap for the next move only (e.g. into the palm)
 
     @property
@@ -167,11 +168,12 @@ class RestrictedActionMapper:
     def preview(self, action_id) -> ControllerCommand:
         """The command `map` would return, without changing the mapper state (set-point, gripper, cache, speed, goal)."""
         saved = (self.setpoint.copy(), self.gripper_target, self._arm_cache, getattr(self.env, 'last_ik_error', None),
-                 self.speed, self.next_goal, self.next_speed)
+                 self.speed, self.next_goal, self.next_speed, self.next_open)
         try:
             return self.map(action_id)
         finally:
-            self.setpoint, self.gripper_target, self._arm_cache, last, self.speed, self.next_goal, self.next_speed = saved
+            (self.setpoint, self.gripper_target, self._arm_cache, last, self.speed, self.next_goal, self.next_speed,
+             self.next_open) = saved
             if last is not None:
                 self.env.last_ik_error = last
 
@@ -185,9 +187,10 @@ class RestrictedActionMapper:
                 self.speed = 0.0              # HOLD / gripper: the set-point stops
             delta_frame = self.translation(action)
             delta_world = self.frame_rotation() @ delta_frame
+        opening, self.next_open = self.next_open, None
         self.next_goal, self.next_speed = None, None      # a goal / speed cap is valid for one command only
         if action is RestrictedAction.OPEN_GRIPPER:
-            self.gripper_target = float(self.cfg.gripper['open'])
+            self.gripper_target = float(self.cfg.gripper['open'] if opening is None else min(opening, self.cfg.gripper['open']))
         elif action is RestrictedAction.CLOSE_GRIPPER:
             self.gripper_target = float(self.cfg.gripper['closed'])
         rejected = False

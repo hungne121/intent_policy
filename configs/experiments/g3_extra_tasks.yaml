@@ -1,4 +1,4 @@
-# G3 gate for the extra tasks (docs/PIF.md §8.12): ten_task_v9.yaml with the tasks C1 / C4 / C2 / W3 (nominal only),
+# G3 gate for the extra tasks (docs/PIF.md §8.12): ten_task_v9.yaml with the tasks C1 / C4 / C2 / W3 / I3 (nominal only),
 # read by scripts/diag/oracle_bound.py (ORACLE_CONFIG). Not a collection config. 02/11/2026.
 experiment: ten_task_v9
 intent:
@@ -144,5 +144,9 @@ tasks:
       nominal: {}
   W3:
     scenario: w3_lint_roll
+    cases:
+      nominal: {}
+  I3:
+    scenario: i3_direct_sort
     cases:
       nominal: {}

@@ -1,0 +1,115 @@
+# v10 copy of intent_schema_v6.yaml (03/11/2026, docs/PIF.md §8.13 G0): the same contract and ManiCast token
+# (8 waypoints over 1 s x the 6 arm joints); only `tasks` / `task_of_scenario` differ: the 10 tasks of the multi-task
+# ACT (task token = one of the 10, not the 4 v6 codes, which several v9 / v10 tasks share). In the training datasets the
+# source `perfect` (intent_pp.*) holds the forecast in xi (scripts/add_manicast_intent.py); the other fields are neutral.
+# Intent data contract v2 (INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d] §2 + §9). Every intent source (hindsight /
+# perfect / predicted, intent_policy/intent/sources.py) emits exactly these fields per frame; the policy never knows
+# which source produced them (intent_policy/intent/contract.py validates them).
+#   p_who (4) p_target (K) c_who (4) c_target (K) occupancy (7) tte (1) tte_std (1) phase (5) xi (M, J, 3)
+#   confidence (2) + task_id (T1-T4)
+# `none` (index 0 of targets / who) = "no intention"; no distribution is ever all-zero.
+version: 2
+# K = 17 target places (configs/layout.yaml). Identical objects stand on randomised slots, so the target is a place;
+# U1 / U2 = the T3 cube spots in U (layout `U.blocks` order).
+targets: [none, S1, S2, S3, S4, S5, S6, U1, U2, U, P1, P2, H1, H2, U_cup, robot_zone, zone_edge]
+target_kinds:                      # valid swaps stay within a kind (and, for objects, an occupied slot of the same kind)
+  object: [S1, S2, S3, S4, S5, S6, U1, U2]
+  place: [P1, P2, U_cup]
+  hand: [H1, H2]
+  region: [U, robot_zone, zone_edge]
+who: [none, robot, human, joint]
+phases: [rest, prepare, stroke, hold, retract]
+gestures: [rest, point, reach, palm_up, palm_forward]     # palm_forward: the 'wait' signal before a change of mind
+tasks: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]   # task_id (the ten-task dataset, PIF §8.12 / §8.13)
+task_of_scenario: {i1_coaster_sequence: I1, i2_side_request: I2, i3_direct_sort: I3, c1_handover: C1,
+                   c2_shelf_wipe: C2, c3_cloth_bowl: C3, c4_waste_sort: C4, w1_sorting: W1, w2_tray_carry: W2,
+                   w3_lint_roll: W3}
+# Task instruction (user 2026-10-03): the simulated spoken command of T1 / T2, given from the episode start. It names
+# the KIND of object and destination but never WHICH one: the scene always holds an identical twin of the target, so
+# only the human's cues (pointing, the hand held out) tell the exact target. T3 / T4 have no command (task id only):
+# the robot anticipates the human's choice (T3) or the intrusion (T4) from the learned workflow.
+instruction:
+  objects: [none, red_cube, blue_cube, yellow_cube, white_cup, green_cup]
+  dests: [none, place, hand]
+  object_desc: {B1: red_cube, B1p: red_cube, B2: blue_cube, B2p: blue_cube, B3: yellow_cube, B3p: yellow_cube,
+                C1: white_cup, C2: white_cup, C3: green_cup}
+  dest_of_task: {T1: place, T2: hand}
+n_waypoints: 8                     # M: xi at (m + 1) / M * horizon_s
+horizon_s: 1.0                     # v6: ManiCast forecasts 1 s
+keypoints: [l_shoulder, r_shoulder, l_elbow, r_elbow, l_wrist, r_wrist]   # J = 6, v6: the ManiCast arm joints
+keypoint_dim: 3
+tte_max_s: 3.0
+fps: 20
+savgol: {window: 7, order: 2}
+occupancy_margin_m: 0.05           # occupancy box = hand keypoints now + xi, grown by this margin
+
+# Ground-truth segments of simulated episodes (hindsight source; also the reference timeline of the demo):
+#   t_onset  start of the gesture's hand motion          t_clear  end of that motion (goal pose reached)
+#   t_event  end of the gesture itself (incl. its hold)  t_end    end of the following `hold` stages (waiting)
+# p_* follow the gesture over [t_onset, t_end]; phase: prepare [t_onset, evidence), stroke [evidence, t_clear),
+# hold [t_clear, t_end], retract during the `retract_labels` motion that follows, rest otherwise.
+sim_segments:
+  point_object: {gesture: point, who: robot}
+  point_place: {gesture: point, who: robot}
+  reach_out: {gesture: palm_up, who: joint, hold: [waiting_offer, take_object, pulling]}
+  reach_block: {gesture: reach, who: human, hold: [lift_block, waiting_cup]}
+  move_over_cup: {gesture: reach, who: human}
+  intrude_approach: {gesture: reach, who: human}
+  intrude: {gesture: reach, who: human, hold: [dwelling]}
+  reach_near: {gesture: reach, who: human, hold: [dwelling]}
+  stop_signal: {gesture: palm_forward, who: robot}   # 'wait!' before a change of mind (2026-10-03)
+retract_labels: [return_rest, withdraw, withdraw_change, withdraw_with_object]
+evidence_fraction: 0.4             # sim information-timing contract (ScriptedHuman.evidence_fraction)
+neg_target_obj: {U: U, edge: zone_edge}
+
+# IntentTracker (intent_policy/intent/tracker.py): committed intentions, kept until the robot completes them.
+tracker:
+  commit_thr: 0.8
+  hold_frames: 5
+  lift_m: 0.03                     # pick done: holding and TCP this much above where the grasp closed
+  place_radius_m: 0.08             # place done: gripper released with the TCP within this xy distance of the place
+  hand_radius_m: 0.10              # handover done: released with a human hand keypoint this close to the H zone
+
+# Holding flag from the measured gripper opening (RobotState.holding); calibrated against the sim grasp state by
+# scripts/calibrate_intent.py holding (precision / recall / latency in its report).
+holding: {open_min_m: -0.005, open_max_m: 0.05, steady_m: 0.003, steady_frames: 1}
+
+# PerfectPerceptionSource (causal, clean keypoints). Values marked `measured` come from scripts/calibrate_intent.py.
+perfect:
+  cone_sigma_deg: 4.61              # measured: pointing-ray error (index base -> tip), see intent_calibration
+  reach_tau_m: 0.05                # softmax temperature of the reach end point distance
+  switch_eps: 0.02
+  w_point: 1.0
+  w_reach: 1.0
+  onset_speed_m_s: 0.08            # gesture onset: active-hand speed above this (causal detector)
+  still_speed_m_s: 0.03            # below this the hand counts as still (hold / goal pose reached)
+  ramp_s: 1.15                      # measured: median (t_clear - t_onset) of the training episodes
+  p_max: 0.95                      # gesture-class probability reached after ramp_s
+
+# Measuring device in the loop (intent_policy/intent/device.py, `expert.trigger: device`; INTENT_ACT_v3.2.md §4.2e): the
+# multi-gesture DeePoint (scripts/deepoint_finetune.py --classes multi) on the sensor camera, its belief over the task's
+# candidates L = p_c exp(-theta^2 / 2 sigma_c^2) + (1 - p_c). The camera is added by the experiment config
+# (scenario_overrides: scene.cameras.sensor_side = the `side` view of scripts/render_sensor_view.py).
+device:
+  folds_file: outputs/device/current/device_folds.json   # the 5 fold models + their calibration, written by
+                                    #   workstation/job1_device.sh (removed 2026-10-23, git history e29ed0d) (model k: test fold k, validation fold k + 1, trained
+                                    #   on the other 3; an episode is measured by the model of its fold, intent/folds.py):
+                                    #   checkpoint, sigma_deg / sigma_deg_by_frames (Rayleigh MLE vs device frames since
+                                    #   the detection), hold_frames {late, early} (smallest hold with <= 5 % false-trigger
+                                    #   episodes), pause_timeout_s (95th percentile of 'wait' onset -> next pointing onset)
+                                    #   (scripts/calibrate_device_rules.py, on each model's validation fold)
+  classes: [none, point, reach, palm_up, palm_forward, withdraw]
+  camera: sensor_side
+  width: 1280
+  height: 720
+  rule: late                        # late: commit once a belief >= late_star; early: once >= early_star (§4.2c-g)
+  late_star: 0.95                   # the user's late level (posterior >= 1 - alpha, alpha = 5 %)
+  early_star: 0.7                   # the user's early level (2026-10-12; before: the device's first detection)
+  preroll_frames: 14                # the sensor runs before the episode: 14 frames of the resting human fill the 15-frame
+                                    #   window, so the first output is at t = 0 (else 0.95 s, after most cue onsets)
+
+# PredictedSource: same pipeline on noisy keypoints + a learned gesture classifier.
+predicted:
+  replicas: 3                      # noisy copies per episode (noise_scale drawn per replica)
+  noise_scale_range: [0.0, 0.0]    # TODO(user): measured noise not available yet -> 0 ("chưa hiệu chỉnh")
+  noise: {}                        # TODO(user): jitter_m, dropout_prob, latency_s, angle_deg from scripts/record_real.py

@@ -254,12 +254,14 @@ class DemoContactAudit:
     def reset(self):
         self.samples = 0
         self.first_violation = None
+        self.step_violations = []
         self.minimum_distance_m = np.full(len(self.rules), np.inf)
         self.pair_samples = np.zeros(len(self.rules), int)
 
     def observe(self, model, data):
         self.samples += 1
         self._contacts_at = None                 # solver contacts are read afresh for this sample
+        self.step_violations = []                # every violating pair of this sample: (rule index, distance, boundary)
         if not all(np.isfinite(x).all() for x in
                    (data.qpos, data.qvel, data.mocap_pos, data.mocap_quat)):
             if self.first_violation is None:
@@ -297,6 +299,8 @@ class DemoContactAudit:
             allowed = bool(permit)
             bound = r.max_contact_penetration_m if permit is True or not allowed else float(permit)
             boundary = -bound if allowed else r.clearance_m
+            if distance < boundary:
+                self.step_violations.append((i, distance, boundary, allowed))
             if distance < boundary and self.first_violation is None:
                 self.first_violation = dict(kind='penetration' if distance < 0 else 'clearance',
                     t=float(data.time), geom_a=r.geom_a, geom_b=r.geom_b,

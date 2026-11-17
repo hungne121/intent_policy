@@ -1,0 +1,323 @@
+# v10 collection config for the extra tasks (docs/PIF.md §8.13, 03/11/2026): ten_task_v9.yaml with its own data
+# root and the new tasks (C4 first). Case values as the v9 tasks (design values, PIF §8.12); C4 forecast_fault as
+# I1 / C1 (forecast arm turned 45-75 deg on one reach). Gate: robot_manipulation over the bin-handling stages,
+# container (items into bins), support, human_manipulation over the take / carry / drop motions.
+# C1 (PIF §8.13 decision 14:0x-3): the withdraw-then-ask-again case (v7 human case C4) is one case, withdraw_and_retry,
+# its withdrawal 0.1-1.6 s after the open hand is out (the v9 switch_before / switch_after ranges 0.1-0.5 / 0.8-1.6 s
+# joined: whether the robot had committed is a logged result, not a separate case).
+# I3 (PIF §8.13): gate as I2 / W1 (items dropped into the open baskets: container), the four cases of the v9 tasks.
+# W3 (Cowork, as W1 / W2): nominal only; gate starts with the default pairs + support (first pilot).
+experiment: ten_task_v10
+intent:
+  provider: manicast
+  keypoints:
+  - l_shoulder
+  - r_shoulder
+  - l_elbow
+  - r_elbow
+  - l_wrist
+  - r_wrist
+  - r_index_base
+  - r_index_tip
+  - head
+observation:
+  cameras:
+  - high
+  - wrist
+  - top
+  width: 256
+  height: 192
+controller: configs/controller/continuous_motion.yaml
+data:
+  root: outputs/datasets/ten_task_v10
+  quota:
+    train: 50
+    val: 10
+  paired_source_selection: true
+  require_matched_motion_sources: true
+  max_attempts_factor: 3
+  seed_base: 3000000
+gates:
+  default:
+    pairs: all_scene_pairs
+    pair_clearance_m: 0.0
+    pair_max_penetration_m: 0.001
+    protected_objects: all
+    protected_translation_m: 0.005
+    protected_rotation_rad: 0.05
+    settle_speed_mps: 0.04
+    settle_s: 0.5
+    release_grace_s: 1.0
+    stop_on_rejection: true
+    table_pairs: true               # robot x table and object x table audited too (PIF §8.13 decision 03/11 20:2x); object x
+                                    #   table only by each task's explicit table_support rule
+tasks:
+  C4:
+    scenario: c4_waste_sort
+    overrides:
+      scene:
+        grasp_hold_squeeze_m: 0.0
+    scene_coverage_reviewed: true
+    gate:
+      container_exempt: true
+      contact_rules:
+      - kind: table_support         # bins and waste items rest on the table; a bin the robot holds touches it only while
+        max_penetration_m: 0.001    #   being picked up (close..lift), set down / taken again at the presentation point
+        robot_stages: [close, settle_grasp, lift, lower_present, settle_present, release_present, close_regrasp,
+                       settle_regrasp, lift_regrasp, lower_home, settle_before_release, release]   # (PIF §8.13 04/11) or put back
+      - kind: robot_manipulation
+        max_penetration_m: 0.003
+        stages:
+        - close
+        - settle_grasp
+        - lift
+        - to_present
+        - lower_present
+        - hold_present
+        - lift_present
+        - settle_present            # set down at the presentation point and taken again there (PIF §8.13 04/11)
+        - release_present
+        - clear_present
+        - close_regrasp
+        - settle_regrasp
+        - lift_regrasp
+        - to_home
+        - lower_home
+        - settle_before_release
+        - release
+        - retreat
+      - kind: container             # items resting against each other in one bin (cup objects, PIF §8.13 04/11)
+        max_penetration_m: 0.002
+        objects: [B_CAN, B_PL]
+      - kind: support
+        max_penetration_m: 0.002
+      - kind: human_manipulation
+        max_penetration_m: 0.001
+        stages:
+        - reach_item
+        - reach_item_f
+        - reach_decoy
+        - lift_item
+        - lift_decoy
+        - return_decoy
+        - to_bin_front
+        - to_bin
+        - lower_into_bin
+        - rise_from_bin
+      require_hymotion_labels:
+      - reach_item
+    cases:
+      nominal: {}
+      forecast_fault:
+        scene_variation:
+          c4:
+            forecast_fault_round: true
+        expert:
+          forecast_fault_anchor:
+            labels:
+            - reach_item_f
+            yaw_deg:
+            - 45
+            - 75
+            extra_s: 0.5
+            ramp_s: 0.2
+      switch_before_commit:
+        scene_variation:
+          c4:
+            switch:
+              kind: before
+              progress:
+              - 0.4
+              - 0.7
+      switch_after_commit:
+        scene_variation:
+          c4:
+            switch:
+              kind: after
+              delay_s:
+              - 0.3
+              - 1.0
+  C1:
+    scenario: c1_handover
+    overrides:
+      scene:
+        grasp_hold_squeeze_m: 0.0
+    scene_coverage_reviewed: true
+    rules:
+      early:
+        expert:
+          trigger: goal
+          goal_rule: early
+          grasp_settle_ticks: 0
+          guard_withdrawal: true
+          over_hand_clearance_m: 0.025   # PIF §8.13 03/11: 0.08 (v8, no source) put the over-hand point at the
+                                        #   arm's reach: elbow ~0, an IK branch flip brought the upper arm onto the can
+          guard_reaching_hand: {react_s: 0.15}   # PIF §8.13 04/11: over the hand while it still moves, back away when
+                                        #   closer than 0.04 + v * 0.15 s (one 20 Hz tick + 0.04 m at tcp_speed 0.39 m/s)
+      observed:
+        expert:
+          trigger: goal
+          goal_rule: observed
+          grasp_settle_ticks: 0
+          guard_withdrawal: true
+          over_hand_clearance_m: 0.025   # PIF §8.13 03/11: 0.08 (v8, no source) put the over-hand point at the
+                                        #   arm's reach: elbow ~0, an IK branch flip brought the upper arm onto the can
+          guard_reaching_hand: {react_s: 0.15}   # PIF §8.13 04/11: over the hand while it still moves, back away when
+                                        #   closer than 0.04 + v * 0.15 s (one 20 Hz tick + 0.04 m at tcp_speed 0.39 m/s)
+    gate:
+      contact_rules:
+      - kind: table_support         # the can / work piece rest on the table; the held can touches it only while picked up
+        max_penetration_m: 0.001
+        robot_stages: [close, settle_grasp, lift]
+      - kind: robot_manipulation
+        max_penetration_m: 0.003
+        stages:
+        - close
+        - settle_grasp
+        - lift
+        - to_staging
+        - staging
+        - zone_hedge
+        - over_hand
+        - settle_over_hand
+        - to_handover
+        - time_descent
+        - descend
+        - await_let_go
+        - wait_pull
+        - release
+      - kind: support
+        max_penetration_m: 0.002
+      - kind: human_manipulation
+        max_penetration_m: 0.001
+        stages:
+        - work
+        - take_object
+        - pulling
+        - wait_release
+        - reach_own
+        - grasp_own
+      - kind: human_manipulation
+        max_penetration_m: 0.001
+        objects:
+        - CAN
+        stages:
+        - reach_out
+        - waiting_offer
+        robot_stages:               # PIF §8.13 decision 04/11 08:34: the receiving phase only (the can lowered into the
+        - to_handover               #   palm, the pull awaited, released); above the hand (over_hand, settle_over_hand,
+        - wait_pull                 #   time_descent) a hand x can contact is a collision before the hand-over
+        - release
+      - kind: handover
+        max_penetration_m: 0.001
+        stages:
+        - take_object
+        - pulling
+        - wait_release
+      require_hymotion_labels:
+      - reach_out
+    cases:
+      nominal: {}
+      forecast_fault:
+        expert:
+          forecast_fault_anchor:
+            labels:
+            - reach_out
+            yaw_deg:
+            - 45
+            - 75
+            extra_s: 0.5
+            ramp_s: 0.2
+      withdraw_and_retry:
+        human_behavior:
+          cases:
+          - C4
+          cancel_after_ready_s:
+          - 0.1
+          - 1.6
+  I3:
+    scenario: i3_direct_sort
+    overrides:
+      scene:
+        grasp_hold_squeeze_m: 0.0
+    scene_coverage_reviewed: true
+    gate:
+      container_exempt: true
+      contact_rules:
+      - kind: table_support         # items rest on the table; a held item touches it only while picked up
+        max_penetration_m: 0.001
+        robot_stages: [close, settle_grasp, lift]
+      - kind: robot_manipulation
+        max_penetration_m: 0.0035
+        stages:
+        - descend
+        - settle_before_grasp
+        - close
+        - settle_grasp
+        - lift
+        - hold_item
+        - choose
+        - to_box
+        - lower_box
+        - release
+        - retreat
+        - lift_redirect
+      - kind: container
+        max_penetration_m: 0.002
+      - kind: support
+        max_penetration_m: 0.002
+      require_hymotion_labels:
+      - direct_out
+    cases:
+      nominal: {}
+      forecast_fault:
+        scene_variation:
+          i3:
+            forecast_fault:
+              factor:
+              - 0.8
+              - 1.2
+              extra_s: 0.5
+              ramp_s: 0.2
+      switch_before_commit:
+        scene_variation:
+          i3:
+            switch:
+              kind: before
+              progress:
+              - 0.4
+              - 0.7
+      switch_after_commit:
+        scene_variation:
+          i3:
+            switch:
+              kind: after
+              delay_s:
+              - 0.3
+              - 1.0
+  W3:
+    scenario: w3_lint_roll
+    overrides:
+      scene:
+        grasp_hold_squeeze_m: 0.0
+    scene_coverage_reviewed: true
+    gate:
+      allowed_contacts:             # PIF §8.13 18:27: the fingertips on the pad being cleaned, only while wiping; bounded
+      - {body_a: sus2f_finger_l_link, geom_b: decor_PAD_A_0, robot_stages: [wipe]}   # by the pair limit (1 mm)
+      - {body_a: sus2f_finger_r_link, geom_b: decor_PAD_A_0, robot_stages: [wipe]}
+      - {body_a: sus2f_finger_l_link, geom_b: decor_PAD_B_0, robot_stages: [wipe]}
+      - {body_a: sus2f_finger_r_link, geom_b: decor_PAD_B_0, robot_stages: [wipe]}
+      # the fingers leaving the pad at the start of lift_wipe (decision 03/11 20:2x): one control tick (20 Hz); measured,
+      #   the last contact 0.024-0.040 s after the lift starts, <= 0.47 mm (probe_w3_lift.py, 6 episodes)
+      - {body_a: sus2f_finger_l_link, geom_b: decor_PAD_A_0, robot_stages: [lift_wipe], robot_stage_window_s: 0.05}
+      - {body_a: sus2f_finger_r_link, geom_b: decor_PAD_A_0, robot_stages: [lift_wipe], robot_stage_window_s: 0.05}
+      - {body_a: sus2f_finger_l_link, geom_b: decor_PAD_B_0, robot_stages: [lift_wipe], robot_stage_window_s: 0.05}
+      - {body_a: sus2f_finger_r_link, geom_b: decor_PAD_B_0, robot_stages: [lift_wipe], robot_stage_window_s: 0.05}
+      contact_rules:
+      - kind: table_support         # trays rest on / are pulled over the table by the human; the robot holds nothing
+        max_penetration_m: 0.001
+      - kind: support
+        max_penetration_m: 0.002
+      require_hymotion_labels: []
+    cases:
+      nominal: {}
