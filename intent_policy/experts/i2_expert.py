@@ -1,92 +1,99 @@
-"""v7 I2 demonstrator (scenarios/i2_side_request.py): an item from the side whose arm reaches out, into the tray.
-
-A request of side s = the wrist of s reaching forward >= ext_m from where it hangs at rest (along the human's
-facing direction); a hand moving to the chest (adjusting clothes) does not reach that far.
-  observed: the wrists as seen now;
-  early:    also the ManiCast forecast of both wrists at +1 s (the controlled fault of C3 turns the forecast arm).
-After serving a request the robot waits for that arm to come back (below ext_m / 2) before taking a new one.
-Nothing reads the human's requested side: the wrists and the forecast only. Separation monitoring as W1.
-"""
-from __future__ import annotations
+"""I2 expert (Instructor, FOLLOW reading). Both modes first stage above the cake. Observed: pick after a stable
+pointing ray (5 frames) with a slowing hand. Forecast: pick as soon as the forecast is active (hand moving), then
+while lifting follow the 1 s forecast end point mapped from the hand (shoulder frame) into the plate row. Both:
+carry to the plate confirmed by the observed pointing ray once the hand is 22 cm from that plate, lower, release."""
 import numpy as np
-from intent_policy.experts.w1_expert import W1Expert
-from intent_policy.experts.scripted_expert import Step
+
+from intent_policy.experts.base_expert import BaseExpert
+from intent_policy.scenarios.i2 import PLATES
+from intent_policy.shared.sim_env import GRIP_OPEN, GRIP_CLOSED
+from intent_policy.shared.episode import select_pointed
 
 
-class I2Expert(W1Expert):
-    def reset(self) -> None:
-        super().reset()
-        sc, e = self.sc, self.sc.cfg.expert
-        self.ext_m = float(e['extend_m'])
-        yaw = np.radians(float(sc.scene['human'].get('facing_deg', 180.0)))
-        self.fwd = np.array([np.cos(yaw), np.sin(yaw), 0.0])
-        self.rest_w = None
-        self.side = None
-        self.armed = True
-        self.served_side = None
-        if self._gb is None:                     # observed: the same keypoint history, no forecast
-            from intent_policy.intent.goal_belief import GoalBelief
-            self._kp_only = GoalBelief(sc, 'observed', self._speed, self.travel - self.z0)
-            self._kp_only.reset()
-        else:
-            self._kp_only = None
+class Expert(BaseExpert):
+    task, reading = 'I2', 'follow'
 
-    def _belief(self):
-        return self._gb if self._gb is not None else self._kp_only
+    def __init__(self, ep):
+        super().__init__(ep)
+        self.selected, self.observed, self.ready = None, [], 0
+        self.anchor = None
 
-    def _ext(self):
-        """Forward reach of each wrist (now, and at +1 s for the early rule) from its rest position."""
-        gb = self._belief()
-        if not gb.kp:
+    def observe(self):
+        """Observed pointing: the same plate on the index ray for 5 frames; hand slowing for 3 frames."""
+        ep = self.ep
+        arm = ep.human.active
+        ray = ep.human.keypoints(ep.pose, [arm + '_index_base', arm + '_index_tip'])
+        visible = select_pointed(ray[0], ray[1], PLATES, max_distance_m=.065, margin_m=.01)
+        self.observed = (self.observed + [visible])[-5:]
+        if self.selected is None and len(self.observed) == 5 and self.observed[0] is not None and all(x == self.observed[0] for x in self.observed):
+            self.selected = self.observed[0]; ep.event('target_observed', plate=self.selected)
+        self.ready = self.ready + 1 if self.selected is not None and ep.hand_speed < .045 else 0
+
+    def follow_goal(self):
+        """1 s end point of the wrist in the shoulder frame, mapped from the anchor into the plate row."""
+        ep = self.ep
+        f = ep.forecast_for_expert()
+        if f is None or not self.plan.active():
             return None
-        w = {'l': np.asarray(gb.kp[-1][4], float), 'r': np.asarray(gb.kp[-1][5], float)}
-        if self.rest_w is None:
-            self.rest_w = {s: v.copy() for s, v in w.items()}
-        now = {s: float((w[s] - self.rest_w[s]) @ self.fwd) for s in w}
-        ahead = dict(now)
-        if self.rule == 'early' and gb.forecast is not None and gb.forecast_left is not None:
-            ahead = {'l': max(now['l'], float((np.asarray(gb.forecast_left[-1]) - self.rest_w['l']) @ self.fwd)),
-                     'r': max(now['r'], float((np.asarray(gb.forecast[-1]) - self.rest_w['r']) @ self.fwd))}
-        return now, ahead
+        shoulders = ep.kp[:2].mean(axis=0)
+        future_rel = f[-1, ep.wrist_index()] - f[-1, :2].mean(axis=0)
+        if self.anchor is None:
+            self.anchor = (ep.wrist() - shoulders, ep.tcp()); ep.event('forecast_follow_started')
+        g = self.anchor[1] + np.r_[(future_rel - self.anchor[0])[:2], 0.]
+        xs = [v[0] for v in PLATES.values()]
+        return np.array([np.clip(g[0], min(xs), max(xs)), np.clip(g[1], -.11, .08), .80])
 
-    def _remaining_side(self, side):
-        sc = self.sc
-        return [k for k in sc.variation['i2']['items'][side] if not sc.in_box(k, sc.robot_box) and k not in sc.served]
+    def wait(self, cond, phase, grip):
+        while not cond():
+            self.observe(); self.ep.phase = phase
+            yield self.ep.hold(grip)
+        self.observe()
 
-    def _served_done(self):
-        self.served_side, self.side = self.side, None
-        self.item = self.sc.robot_item = None
-        self._set_plan([Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='clear_up'),
-                        Step('goto', lambda: self.sc.rest_tcp, name='to_rest'),
-                        Step('hold', ticks=10 ** 6, name='await_request')])     # waits for a request at rest
+    def goto(self, goal, phase, grip, follow=False):
+        ep = self.ep
+        while True:
+            self.observe()
+            g = self.follow_goal() if follow else None
+            if g is None:
+                g = goal
+                if ep.reached(g):
+                    return
+                yield ep.command_to(g, phase, grip)
+            else:
+                yield self.plan.follow_step(g, phase, grip)
+                if self.selected is not None and np.linalg.norm(ep.wrist() - PLATES[self.selected]) > .22:
+                    return
 
-    def _item_plan(self, key):
-        plan = super()._item_plan(key)
-        return [s for s in plan if s.name != 'next'] + [Step('call', target=self._served_done, name='served')]
+    def run(self):
+        ep = self.ep
+        src = ep.pos('cake')
+        yield from self.goto(np.r_[src[:2], .80], 'above_cake', GRIP_OPEN)
+        if self.forecast_mode:
+            yield from self.wait(lambda: self.plan.active() or (self.selected is not None and self.ready >= 3), 'wait_cue', GRIP_OPEN)
+            ep.event('pick_start', basis='forecast' if self.selected is None else 'observed')
+        else:
+            yield from self.wait(lambda: self.selected is not None and self.ready >= 3, 'wait_cue', GRIP_OPEN)
+            ep.event('pick_start', basis='observed')
+        yield from self.goto(np.r_[src[:2], .667], 'descend', GRIP_OPEN)
+        for cmd in ep.close_on('cake'):
+            self.observe(); yield cmd
+        yield from self.goto(np.r_[src[:2], .80], 'lift', GRIP_CLOSED, follow=self.forecast_mode)
+        yield from self.wait(lambda: self.selected is not None and np.linalg.norm(ep.wrist() - PLATES[self.selected]) > .22,
+                             'wait_target', GRIP_CLOSED)
+        plate = PLATES[self.selected]; ep.event('transport_start', plate=self.selected)
+        yield from self.goto(np.r_[plate[:2], .80], 'move_plate', GRIP_CLOSED)
+        yield from self.goto(np.r_[plate[:2], .674], 'lower_plate', GRIP_CLOSED)
+        for cmd in ep.open_gripper('release', ticks=20):
+            self.observe(); yield cmd
+        yield from self.goto(np.r_[plate[:2], .80], 'retreat', GRIP_OPEN)
+        ep.phase = 'done'
 
-    def act(self) -> int:
-        from intent_policy.experts.separation import separation_hold
-        from intent_policy.sim.restricted_action import RestrictedAction as A
-        sc = self.sc
-        self._belief().step()
-        ext = self._ext()
-        if ext is not None:
-            now, ahead = ext
-            if not self.armed and self.served_side is not None and now[self.served_side] < self.ext_m / 2:
-                self.armed = True
-            if self.armed and self.side is None:
-                cand = [s for s in ('l', 'r') if ahead[s] >= self.ext_m and self._remaining_side(s)]
-                if cand:
-                    s = max(cand, key=lambda q: ahead[q])
-                    tcp = sc.tcp()
-                    key = min(self._remaining_side(s), key=lambda k: float(np.linalg.norm(sc.pos(k)[:2] - tcp[:2])))
-                    self.side, self.armed, self.item, sc.robot_item = s, False, key, key
-                    self._commit(key, self._item_plan(key))
-        if separation_hold(self):
-            a = self._toward(self._back_away())
-            return int(A.HOLD) if a is None else int(a)
-        return super(W1Expert, self).act()
+    def success(self):
+        ep = self.ep
+        cake = ep.pos('cake')
+        ok = (self.selected is not None and np.all(np.abs(cake[:2] - PLATES[self.selected][:2]) < [.035, .03])
+              and ep.attached_name() is None and .63 < cake[2] < .71)
+        return bool(ok), None if ok else 'cake_not_on_pointed_plate'
 
-    def _remaining(self):
-        sc = self.sc
-        return [k for k in sc.robot_items if k not in sc.served]
+    def extra(self):
+        return {'selected_from_observed_pointing': self.selected, 'human_motion_source': getattr(self.ep, 'human_motion_source', None)}

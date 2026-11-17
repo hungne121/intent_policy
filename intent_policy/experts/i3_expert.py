@@ -1,172 +1,177 @@
-"""v10 I3 demonstrator (scenarios/i3_direct_sort.py): lift the nearest item of the pile and hold it up above the pile
-(the common preparation of both sides), then put it into the basket of the side the right arm is swept to.
+"""I3 expert (Instructor, FOLLOW reading) — per-tick port of scripts/i3_collect.py::rollout (14/11 rules).
 
-A direction = the right wrist displaced sideways (world x: the human faces +y, its left is -x) >= lateral_m from where
-it rested when the item was held up (the start of the instruction, as the motion start S of inverse planning, Dragan
-et al. 2013; the hand does not come back to one fixed rest: it stopped ~0.095 m off after a sweep, trace 02/11); a hand
-moving to the chest (adjusting clothes) does not move that far sideways.
-  observed: the wrist as seen now;
-  early:    also the ManiCast forecast path of that wrist at D's waypoints (expert.decision.path_features: endpoint =
-            the +1 s point only, path = the furthest sideways point of the path; docs/PIF.md §8.12 "Khai thác hết
-            ManiCast").
-Recovery: a direction to the other side seen / forecast before the release turns the robot to the other basket (cheap);
-seen / forecast after the release, before the next item is held up, the robot takes the item out again and puts it
-into the other basket (the after-commit cost, as C4's wrong bin put back). One direction per item: the reference is taken anew for the next item, so the arm coming back is never read as one.
-Nothing reads the human's side: the wrist and the forecast only. Separation monitoring as W1.
+Both modes first stage at the shared neutral point between the trays. Observed: choose the cake after a stable
+pointing ray (5 frames) with a still hand (3 frames), wait until the hand is 22 cm away, then pick and place on
+the receive tray. Forecast: once the hand moves, the TCP reference follows the 1 s forecast end point projected
+0.27 m forward (pointing hand -> cake row), clipped to the cake area at 0.82 m (54/QĐ-DL); the cake nearest the
+projected end point starts the approach at human pace before the ray is confirmed (13/11 refinement); a forecast
+withdrawal lifts the gripper high above the selected cake early. Change of mind (identical in both modes, from
+observation only): after the pointing hand withdrew and reaches out again, hold above an ungrasped cake or return a
+grasped one to its spot, then follow the new confirmed ray.
 """
-from __future__ import annotations
 import numpy as np
-from intent_policy.experts.w1_expert import W1Expert
-from intent_policy.experts.scripted_expert import Step
 
-HOLDING = ('lift', 'hold_item', 'choose')
-CARRYING = ('to_box', 'lower_box')
+from intent_policy.experts.base_expert import BaseExpert
+from intent_policy.scenarios.i3 import CAKES, PLATE_XY, MIDPOINT, SWITCH_WITHDRAW_M
+from intent_policy.shared.sim_env import DT, GRIP_OPEN, GRIP_CLOSED
+from intent_policy.shared.forecast_planner import TARGET_RADIUS
+from intent_policy.shared.episode import select_pointed
+
+NORMAL = ['approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open', 'retreat', 'settle']
+UNDO = ['return_above', 'return_lower', 'return_open', 'return_retreat']
+COUNT_PHASES = {'open': 10, 'return_open': 10}
+PROJECT = np.array([0., .27, 0.])            # pointing hand -> cake row (i3_collect projection)
 
 
-class I3Expert(W1Expert):
-    def reset(self) -> None:
-        super().reset()
-        sc, e = self.sc, self.sc.cfg.expert
-        self.lat_m = float(e['lateral_m'])
-        self.hold_dz = float(e['hold_dz_m'])
-        d = e.get('decision') or {}
-        self.path_features = str(d.get('path_features', 'endpoint'))
-        if self._gb is not None and d.get('forecast_waypoints'):
-            m = int(d['forecast_waypoints'])
-            self._gb.t_out = (np.arange(m) + 1) / m * float(d.get('forecast_horizon_s', 1.0))
-        if self._gb is None:                     # observed: the same keypoint history, no forecast
-            from intent_policy.intent.goal_belief import GoalBelief
-            self._kp_only = GoalBelief(sc, 'observed', self._speed, self.travel - self.z0)
-            self._kp_only.reset()
-        else:
-            self._kp_only = None
-        self.pile = np.asarray(sc.cfg.scene_variation['i3']['pile_xy'], float)
-        self.ref_x = None
-        self.side = None
-        self.prev = None                         # the item just released: (item, side, reference), until the next is up
-        self._next()
+class Expert(BaseExpert):
+    task, reading = 'I3', 'follow'
 
-    def _belief(self):
-        return self._gb if self._gb is not None else self._kp_only
+    def set_phase(self, phase, **kw):
+        self.phase = phase; self.stage_start = self.ep.tick
+        self.ep.event('phase', phase=phase, item=self.selected, **kw)
 
-    def _lateral(self):
-        """Sideways displacement of the right wrist from rest: (now, ahead); ahead = now for observed."""
-        gb = self._belief()
-        if not gb.kp:
-            return None
-        w = np.asarray(gb.kp[-1][5], float)
-        sc = self.sc
-        if (self.ref_x is None and self.side is None and self.stage in HOLDING and sc.grasp_state.get(self.item)
-                and not gb.moving):
-            self.ref_x = float(w[0])                 # the hand at rest while the item is held up: the reference
-        if self.ref_x is None:
-            return None
-        return self._lat_from(self.ref_x)
+    def targets(self, current):
+        xy = current[self.selected][:2]; src = self.source_pos[:2]
+        return {'approach': ([*xy, .78], GRIP_OPEN), 'descend': ([*xy, .667], GRIP_OPEN), 'close': ([*xy, .667], GRIP_CLOSED),
+                'lift': ([*xy, .78], GRIP_CLOSED), 'move_plate': ([*PLATE_XY, .78], GRIP_CLOSED),
+                'lower_plate': ([*PLATE_XY, .668], GRIP_CLOSED), 'open': ([*PLATE_XY, .668], GRIP_OPEN),
+                'retreat': ([*PLATE_XY, .78], GRIP_OPEN), 'return_above': ([*src, .78], GRIP_CLOSED),
+                'return_lower': ([*src, .667], GRIP_CLOSED), 'return_open': ([*src, .667], GRIP_OPEN),
+                'return_retreat': ([*src, .78], GRIP_OPEN)}
 
-    def _lat_from(self, ref):
-        gb = self._belief()
-        w = np.asarray(gb.kp[-1][5], float)
-        now = ahead = float(w[0]) - ref
-        if self.rule == 'early' and gb.forecast is not None:
-            X = np.asarray(gb.forecast, float)[:, 0] - ref
-            f = float(X[np.argmax(np.abs(X))]) if self.path_features == 'path' else float(X[-1])
-            ahead = f if abs(f) > abs(now) else now
-        return now, ahead
-
-    def _remaining(self):
-        """Items not yet in a basket. Over a basket's footprint counts as in it: an item just released is still
-        falling / settling there (taken again as the next item otherwise, smoke 02/11)."""
-        sc = self.sc
-        over = lambda k: any(np.all(np.abs(sc.pos(k)[:2] - np.asarray(b['xy'], float)) <= np.asarray(b['half'], float))
-                             for b in sc.baskets.values())
-        return [k for k in sc.items if 'sorted_' + k not in sc.protocol_done and not over(k)]
-
-    def _pick_plan(self, key):
-        sc = self.sc
-        grasp = [g for g in self._grasp_steps(key) if g.name not in ('open', 'confirm_target')]
-        return [Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25, name='open')] + grasp + [
-            Step('goto', lambda: np.r_[self.pile + self.tcp_obj_offset[:2], self.travel + self.hold_dz], name='hold_item'),
-            Step('hold', ticks=10 ** 6, name='choose')]
-
-    def _box_plan(self, side):
-        sc = self.sc
-        key = self.item
-        b = sc.baskets[side]
-        n = sum(1 for k in sc.items if k != key and sc.basket_of(k) == side)   # items in that basket (seen): the next slot
-        bx = np.asarray(b['xy'], float) + np.asarray(sc.variation['w1']['drop_slots'][n], float)
-        drop_z = lambda: sc.table_z + float(b['height']) + 0.02 + sc.rest_height[key] - sc.table_z
-        return [Step('goto', lambda: np.r_[bx + self.tcp_obj_offset[:2], self.travel], name='to_box', guard=True),
-                Step('goto', lambda: np.r_[bx + self.tcp_obj_offset[:2], drop_z() + self.tcp_obj_offset[2]], name='lower_box'),
-                Step('grip', 'open', until=lambda: not sc.grasp_state[key] and sc.env.data.qpos[sc.env.gid] > 0.06, ticks=25,
-                     name='release'),
-                Step('goto', lambda: np.r_[self.mapper.setpoint[:2], self.travel], name='retreat'),
-                Step('call', target=self._next, name='next')]
-
-    def _next(self):
-        sc = self.sc
-        self.prev = (self.item, self.side, self.ref_x) if self.side is not None else None
-        self.side = self.ref_x = None
-        left = self._remaining()
-        if not left:
-            self.item = sc.robot_item = None
-            self._set_plan(self._home_steps())
-            return
-        tcp = sc.tcp()
-        self.item = sc.robot_item = min(left, key=lambda k: float(np.linalg.norm(sc.pos(k)[:2] - tcp[:2])))
-        self._set_plan(self._pick_plan(self.item))
-
-    def act(self) -> int:
-        from intent_policy.experts.separation import separation_hold
-        from intent_policy.sim.restricted_action import RestrictedAction as A
-        sc = self.sc
-        self._belief().step()
-        self._apply_forecast_fault()
-        if self.prev is not None and self._belief().kp:
-            item, side, ref = self.prev
-            if self.stage in HOLDING and sc.grasp_state.get(self.item):
-                self.prev = None                     # the next item is up: its own direction from now on
+    def run(self):
+        ep = self.ep
+        self.phase, self.selected, self.source_pos, self.stage_start = 'observe', None, None, 0
+        pending, stable, clear_samples, settled = None, [], 0, 0
+        prep_target, switched, switch_pending = None, False, False
+        visible_still, last_confirmation, confirm_t, t_switch = 0, None, {}, -1.
+        closest, last_sel_cue, withdrawn, reextend, prev_wrist, hold_goal = None, None, False, 0, None, None
+        early_candidate, prep_goal, at_midpoint = None, None, False
+        while self.phase != 'done':
+            current = {k: ep.pos(k) for k in CAKES}
+            wrist = ep.wrist()
+            if not at_midpoint and np.linalg.norm(ep.tcp() - MIDPOINT) < .025:
+                at_midpoint = True
+            # ---- FOLLOW reading: continuous reversible prep towards the projected 1 s end point
+            if self.forecast_mode and self.phase == 'observe' and at_midpoint:
+                f = self.plan.follow_point(offset=PROJECT)
+                if f is not None:
+                    bounds = np.asarray([v[:2] for v in current.values()])
+                    proposed = np.r_[np.clip(f[:2], bounds.min(axis=0), bounds.max(axis=0)), .82]
+                    if prep_goal is None:
+                        prep_goal = ep.tcp(); ep.event('forecast_continuous_follow')
+                    prep_goal = prep_goal + (1 - np.exp(-DT / .18)) * (proposed - prep_goal)
+                    d = {k: float(np.linalg.norm(f[:2] - v[:2])) for k, v in current.items()}
+                    cand = min(d, key=d.get)
+                    cand = cand if d[cand] < TARGET_RADIUS else None
+                    if cand != early_candidate:
+                        early_candidate = cand; ep.event('forecast_route_update', item=cand)
+            # ---- observed pointing
+            arm = ep.human.active
+            ray = ep.human.keypoints(ep.pose, [arm + '_index_base', arm + '_index_tip'])
+            stable = (stable + [select_pointed(ray[0], ray[1], current, max_distance_m=.065, margin_m=.01)])[-5:]
+            decided = stable[0] if len(stable) == 5 and stable[0] is not None and all(x == stable[0] for x in stable) else None
+            visible_still = visible_still + 1 if ep.hand_speed < .045 and decided is not None else 0
+            if decided is not None and decided != last_confirmation:
+                ep.event('pointing_confirmed', item=decided); last_confirmation = decided; confirm_t[decided] = ep.t
+            if self.phase == 'observe' and self.forecast_mode and early_candidate is not None and ep.hand_speed > .025:
+                self.selected = early_candidate; self.source_pos = current[self.selected].copy()
+                self.set_phase('approach', basis='forecast')
+            # ---- change of mind (same in both modes, observation only)
+            if self.selected is not None and not switched and not switch_pending and self.phase not in ('settle', 'done'):
+                dist_sel = float(np.linalg.norm(wrist[:2] - current[self.selected][:2]))
+                if last_sel_cue != self.selected:
+                    last_sel_cue = self.selected; closest = dist_sel; withdrawn = False; reextend = 0
+                closest = min(closest, dist_sel)
+                if dist_sel > closest + SWITCH_WITHDRAW_M: withdrawn = True
+                outward = prev_wrist is not None and (wrist[1] - prev_wrist[1]) > .002
+                reextend = reextend + 1 if (withdrawn and ep.hand_speed > .05 and outward) else 0
+                if reextend >= 3:
+                    switch_pending = switched = True; withdrawn = False; reextend = 0; t_switch = ep.t
+                    ep.event('switch_observed', item=self.selected, attached=ep.attached_name() is not None)
+                    if ep.attached_name() is not None and self.phase in ('lift', 'move_plate', 'lower_plate'):
+                        pending = None; self.set_phase('return_above')
+                    elif ep.attached_name() is None and self.phase in ('wait_hand_clear', 'approach', 'descend', 'close'):
+                        hold_goal = np.r_[ep.tcp()[:2], .78]; self.set_phase('hold_switch')
+                    else:
+                        switch_pending = False
+            prev_wrist = wrist.copy()
+            new_cue = None
+            if switch_pending and last_confirmation not in (None, self.selected) and confirm_t.get(last_confirmation, -1.) >= t_switch:
+                new_cue = last_confirmation
+            if switch_pending and new_cue is not None and self.phase in ('hold_switch', 'wait_new_cue'):
+                old = self.selected; self.selected = new_cue; self.source_pos = current[self.selected].copy()
+                clear_samples = 0; switch_pending = False; self.set_phase('wait_hand_clear', switched_from=old)
+            if self.phase == 'observe' and decided is not None and (self.forecast_mode or visible_still >= 3):
+                self.selected = decided; self.source_pos = current[self.selected].copy(); self.set_phase('wait_hand_clear')
+            elif (decided is not None and self.selected is not None and decided != self.selected
+                  and self.phase in ('wait_hand_clear', 'approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open')):
+                switched = True
+                if ep.attached_name() is not None:
+                    pending = decided; self.set_phase('return_above', new=pending)
+                else:
+                    old = self.selected; self.selected = decided; self.source_pos = current[self.selected].copy()
+                    clear_samples = 0; self.set_phase('wait_hand_clear', switched_from=old)
+            if self.phase == 'wait_hand_clear':
+                clear_samples = clear_samples + 1 if np.linalg.norm(wrist - current[self.selected]) > .22 else 0
+                if clear_samples >= 3:
+                    self.set_phase('approach')
+                elif self.forecast_mode and not switched and prep_target != self.selected:
+                    f = self.plan.follow_point()
+                    if f is not None and np.linalg.norm(f - current[self.selected]) > np.linalg.norm(wrist - current[self.selected]) + .03:
+                        prep_target = self.selected; ep.event('forecast_high_prep', item=self.selected)
+            # ---- command
+            advance = False
+            if self.phase in NORMAL[:-1] or self.phase in UNDO:
+                goal, grip = self.targets(current)[self.phase]
+                following = self.forecast_mode and self.phase == 'approach' and decided is None and not switched
+                cmd = ep.command_to(goal, self.phase, grip, following=following)
+                if self.phase in COUNT_PHASES:
+                    advance = ep.tick - self.stage_start + 1 >= COUNT_PHASES[self.phase]
+                elif self.phase != 'close':
+                    advance = ep.reached(goal)
+            elif self.phase == 'hold_switch':
+                cmd = ep.command_to(hold_goal, 'hold_switch', GRIP_OPEN)
+            elif self.phase == 'wait_new_cue':
+                cmd = ep.hold()
+            elif self.phase == 'wait_hand_clear' and self.forecast_mode and prep_target == self.selected:
+                cmd = ep.command_to(np.r_[current[self.selected][:2], .91], 'wait_hand_clear', GRIP_OPEN)
+            elif self.phase == 'observe':
+                follow = self.forecast_mode and prep_goal is not None
+                cmd = ep.command_to(prep_goal if follow else MIDPOINT, 'observe', GRIP_OPEN, following=follow)
+            elif self.phase == 'settle':
+                cmd = ep.hold()
+                dof = int(ep.m.joint(self.selected + '_free').dofadr[0]); vel = ep.d.qvel[dof:dof + 6]
+                settled = settled + 1 if np.linalg.norm(vel[:3]) < .01 and np.linalg.norm(vel[3:]) < .1 else 0
+                if settled >= 10:
+                    self.set_phase('done')
             else:
-                _, ahead = self._lat_from(ref)
-                s = 'l' if ahead <= -self.lat_m else ('r' if ahead >= self.lat_m else None)
-                if s is not None and s != side and sc.basket_of(item) == side:
-                    # recovery after the release: the item out of the basket again, into the other one
-                    sc.log_recovery = getattr(sc, 'log_recovery', []) + [dict(t=sc.time, frm=side, to=s, released=True)]
-                    self.prev = None
-                    self.item, self.side, self.ref_x = item, s, ref
-                    sc.robot_item = item
-                    grasp = [g for g in self._grasp_steps(item) if g.name not in ('open', 'confirm_target')]
-                    self._commit(item, [self._lift_step('lift_redirect'),
-                                        Step('grip', 'open', until=lambda: sc.env.data.qpos[sc.env.gid] > 0.075, ticks=25,
-                                             name='open')] + grasp + self._box_plan(s))
-        lat = self._lateral()
-        if lat is not None:
-            now, ahead = lat
-            s = 'l' if ahead <= -self.lat_m else ('r' if ahead >= self.lat_m else None)
-            if self.side is None and s is not None and self.stage in HOLDING and sc.grasp_state.get(self.item):
-                self.side = s
-                self._commit(self.item, self._box_plan(s))
-            elif self.side is not None and s is not None and s != self.side and self.stage in CARRYING:
-                # recovery: the direction seen / forecast changed before the release: the other basket
-                sc.log_recovery = getattr(sc, 'log_recovery', []) + [dict(t=sc.time, frm=self.side, to=s)]
-                self.side = s
-                self._commit(self.item, [self._lift_step('lift_redirect')] + self._box_plan(s))
-        if separation_hold(self):
-            a = self._toward(self._back_away())
-            return int(A.HOLD) if a is None else int(a)
-        return super(W1Expert, self).act()
+                cmd = ep.hold()
+            ep.phase = self.phase
+            ep.robot_selection = self.selected          # allowed finger contact while closing / opening on it
+            yield cmd
+            if self.phase == 'close':
+                if ep.attached_name() == self.selected:
+                    ep.event('robot_grasp', object=self.selected); advance = True
+                elif ep.tick - self.stage_start > 60:
+                    ep.event('grasp_failed', item=self.selected); return
+            if advance:
+                if self.phase == 'return_retreat':
+                    if pending is not None:
+                        self.selected, pending = pending, None; self.source_pos = current[self.selected].copy()
+                        clear_samples = 0; self.set_phase('wait_hand_clear')
+                    else:
+                        self.set_phase('wait_new_cue')
+                elif self.phase in UNDO:
+                    self.set_phase(UNDO[UNDO.index(self.phase) + 1])
+                else:
+                    self.set_phase(NORMAL[NORMAL.index(self.phase) + 1])
+        ep.phase = 'done'
 
-    def _apply_forecast_fault(self) -> None:
-        """forecast_fault case: the forecast arm turned about the shoulder during the sweep of the fault round
-        (intent/forecast_fault.py, as C3); the realised window on the scenario (never an input of ACT)."""
-        sc, gb = self.sc, self._gb
-        spec = sc.variation['i3'].get('forecast_fault')
-        if gb is None or spec is None or sc.realized_forecast_fault is not None or sc.human.k != spec['round']:
-            return
-        seg = sc.human.segment
-        if seg is None or seg.label != 'direct_out':
-            return
-        from intent_policy.intent.forecast_fault import ForecastFault
-        fault = dict(start_s=round(float(sc.time), 4), end_s=round(float(seg.end_t + spec['extra_s']), 4),
-                     yaw_deg=float(spec['yaw_deg']), arm='right', ramp_s=float(spec['ramp_s']))
-        gb.forecast_fault = ForecastFault(**fault)
-        sc.realized_forecast_fault = fault
+    def success(self):
+        ep = self.ep
+        ok = self.phase == 'done' and ep.attached_name() is None
+        return ok, None if ok else f'last_phase_{self.phase}'
+
+    def extra(self):
+        return {'expert_selected': self.selected, 'human_motion_source': getattr(self.ep, 'human_motion_source', None)}

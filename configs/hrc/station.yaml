@@ -1,0 +1,66 @@
+# HRC station, controller and intent rule shared by the 10 tasks (QĐ 53/QĐ-DL, QĐ 54/QĐ-DL; 16/11/2026).
+# Moved from configs/previews/v2_common.yaml (user decisions 13–15/11/2026); values unchanged.
+robot_base_xy: [0.30, 0.33]          # probe 13/11: cup cluster and coaster row clear of the inner / outer IK limits
+robot_base_yaw_deg: -90              # arm forward axis faces the human
+human_stand_xy: [0.30, -0.54]        # human at the opposite table edge facing +Y
+continuous_skin: true
+human_model: v3                      # 22-joint articulated mannequin with collision capsules (TTR-DL-08)
+human_held_object_frame: world      # 61/QĐ-DL 08:3x: "hand" tried on W3 (3/4 failed, hand still 16 mm in the item) -> kept world; a carried object turns with the hand (with 'world' it kept its world
+                                    #   orientation while the hand turned, and the fingers swept 5-15 mm into it, W3 17/11)
+camera_high: {pos: [-0.60, 0.05, 1.45], target: [0.34, 0.02, 0.74], fovy: 62}
+camera_back: {pos: [0.30, 1.05, 1.30], target: [0.30, -0.30, 0.72], fovy: 60}
+camera_top: {pos: [0.30, 0.04, 1.72], target: [0.30, -0.04, 0.62], fovy: 54}
+proximity_margin_m: 0.03             # robot-human proximity contacts are MEASURED within this margin
+expert_keep_clear_m: 0.04            # default expert wait distance for its own work moves
+switch_withdraw_m: 0.075
+
+controller:
+  dt_s: 0.05                         # 20 Hz control
+  work_speed_m_s: {horizontal: 0.36, vertical: 0.18}   # independent robot work, same in both modes (13/11)
+  work_accel_m_s2: 1.0
+  travel_z_m: 0.80
+  grasp_dz_m: 0.024
+  robot_reach_m: 0.47               # 55/QĐ-DL: horizontal base-to-object distance the robot claims objects within (UR3e ~0.50 m)
+
+intent:                              # QĐ 54/QĐ-DL: one forecast, two readings
+  horizons_s: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  follow_point_index: -1             # I and C tasks follow the 1 s end point
+  min_hand_speed_m_s: 0.03           # forecast used only while the observed hand moves
+  target_radius_m: 0.12              # 1 s end point near a target counts as heading to it
+  follow_keep_clear_m: 0.08          # 56/QĐ-DL: trial observed-person clearance, all FOLLOW tasks
+  avoid_radius_m: 0.08               # W tasks: tube radius around the 0-1 s forecast
+  follow_speed_ratio: 0.8            # following pace <= 0.8 x filtered observed hand speed
+  follow_goal_clear_m: 0.10          # 56/QĐ-DL: closer FOLLOW goal boundary
+  safety_band_m: 0.02                # above follow_keep_clear: come to rest smoothly instead of approaching
+  emergency_clear_m: 0.04            # 56/QĐ-DL: retreat only at close range
+
+# 56/QĐ-DL: detail tuning; provisional values checked by paired previews.
+task_tuning:
+  C1: {reach_cue_m: 0.10, return_palm_clear_xy_m: 0.14}
+  C2: {handover_z_m: 0.80, prep_y_m: 0.02, prep_z_m: 0.78}
+  # 56/QĐ-DL: forecast commit = socket nearest (along the row, x) the forecast palm (1 s wrist end point + observed
+  # palm-wrist offset) within half the 0.12 m socket spacing, leading the runner-up by a third of it, for 3 ticks;
+  # only while the observed hand decelerates (< 0.6 x its peak speed) with the palm within 0.08 m of that socket
+  # (measured 16/11, seed 300100: the 1 s end point lags a fast reach and passes over the middle socket)
+  C4: {handover_z_m: 0.84, commit_radius_m: 0.06, commit_margin_m: 0.04, commit_ticks: 3, commit_decel_ratio: 0.6,
+       commit_palm_m: 0.08, switch_leave_m: 0.05}   # 58/QĐ-DL: palm >= 5 cm back from its closest approach = left the socket (nominal 17/11: <= 0.03 cm while waiting)
+
+# 57/QĐ-DL: Predictive Minimum-Interruption Avoidance, shared by W1-W3 (intent_policy/shared/predictive_avoidance.py).
+# Sources: ManiCast (Kedia, Dan, Bhardwaj, Choudhury, 2023), Mainprice and Berenson (2013), Unhelkar et al. (2018),
+# Tonola et al. (2025). Values are provisional and checked by the paired previews.
+predictive_avoidance:
+  clearance_m: 0.08                  # robot link / held object to person capsule; = follow_keep_clear (56/QĐ-DL)
+  resume_margin_m: 0.02              # hysteresis to resume after a wait; = safety_band_m
+  check_horizon_s: 1.0               # the 10 ManiCast steps (0.1-1.0 s); later robot motion is checked on later ticks
+  delays_s: [0.0, 0.25, 0.5, 1.0]    # start-time options
+  speed_scales: [1.0, 0.8, 0.6]      # speed options (x work speed)
+  reroute: {up_m: 0.10, back_m: 0.12, max_z_m: 0.92}   # via a raised point / a point towards the robot base
+  idle_weight: 0.5                   # extra cost per second of waiting (rule 6: limit idle time); time to finish counts 1
+  switch_cost_s: 0.5                 # extra cost of changing operation (avoid needless re-plans)
+  reroute_cost_s: 0.2                # extra cost of leaving the direct path
+  wait_cost_s: 4.0                   # cost of waiting in place with no operation scheduled
+  hysteresis_s: 0.3                  # keep the current plan unless another is cheaper by this much (6 ticks)
+  retreat_judged_from_s: 0.3
+  dwell_s: {close: 0.3, open: 0.5}   # gripper close / open times (close_on, open_gripper 10 ticks)
+  ik_tol_m: 0.005
+  ssm_reaction_s: 0.05               # 58/QĐ-DL: robot reaction time T_r = one 20 Hz control tick; S_h = v_hand (T_r + v_robot / work_accel) (ISO/TS 15066:2016)

@@ -1,114 +1,136 @@
-"""v10 C2 demonstrator (scenarios/c2_shelf_wipe.py): wipe the section whose item the human is taking, once the item
-and the hand have left it; wait above the middle of the sections otherwise (the best common point, v9 G2).
-
-The section = the pad of the item the hand goes for, chosen as in experts/c4_expert.py (belief over the items, Fang et
-al. 2026; commit at tau, Lekeufack et al. 2024). Nothing reads the human's
-order: the wrist, the forecast and the visible items only.
-"""
-from __future__ import annotations
+"""C2 expert (Collaborator, FOLLOW reading). Takes the brush from the open hand, sweeps the dust under each lifted
+object, gives the brush back. Forecast mode: heads for the handover point when the 1 s forecast says the hand goes
+for the brush and follows the offering hand at grasp height; once the hand is free and the forecast heads for the
+next object it waits at the robot-side standoff of that object (>= 0.16 m from the observed person)."""
 import numpy as np
-from intent_policy.experts.c4_expert import C4Expert
-from intent_policy.experts.w1_expert import W1Expert
-from intent_policy.experts.scripted_expert import Step
 
-WIPING = ('approach_pad', 'over_pad', 'descend_wipe', 'wipe', 'lift_wipe')
+from intent_policy.experts.base_expert import BaseExpert
+from intent_policy.scenarios.c2 import (HANDOVER, PALM_TO_CLOTH, ROBOT_GRIP_OFF, BRISTLE_HALF, SPOTS, STANDBY,
+                                         SHELF_FLOOR, TOOL_YAW_DEG, sweep_dust)
+from intent_policy.shared.sim_env import TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, STATION
+from intent_policy.shared.episode import marks_left
+from intent_policy.shared.forecast_planner import FOLLOW_KEEP_CLEAR, SAFETY_BAND
 
 
-class C2Expert(C4Expert):
-    def reset(self) -> None:
-        W1Expert.reset(self)
-        sc, e = self.sc, self.sc.cfg.expert
-        self._decision_params(e)
-        self.wipe_dz, self.stroke_m, self.strokes = float(e['wipe_dz']), float(e['stroke_m']), int(e['strokes'])
-        self.clear_m = float(sc.cfg.human_behavior['clear_m'])
-        self.staging = np.asarray(list(sc.pads.values()), float).mean(0) + np.asarray(e['staging_offset'], float)
-        self.bin = self.item = None              # self.bin = the pad being served (C4Expert's bookkeeping)
-        if self._gb is None:
-            from intent_policy.intent.goal_belief import GoalBelief
-            self._kp_only = GoalBelief(sc, 'observed', self._speed, self.travel - self.z0)
-            self._kp_only.reset()
+class Expert(BaseExpert):
+    task, reading = 'C2', 'follow'
+
+    def __init__(self, ep):
+        super().__init__(ep)
+        ep.env.cfg['tool_yaw_deg'] = TOOL_YAW_DEG
+
+    def run(self):
+        ep = self.ep
+        ep.wiped = {}
+        # 1. take the cloth where the human offers it (observed cloth pose; forecast of the offering hand in Intent)
+        if self.forecast_mode:
+            # 16/11 (user): the robot must be ready when the person is. Start as soon as the forecast says the hand is
+            # heading for the brush on its stand (observable: brush pose + ManiCast), pre-position above the handover
+            # point at work speed, then follow the offering hand until it is still.
+            # FOLLOW reading (54/QĐ-DL): the 1 s forecast end point heads for the brush on its stand
+            yield from ep.wait(lambda: self.plan.heads_to(ep.pos('cloth')) or ep.human_phase in ('offer_cloth', 'wait_robot_grip'), 'wait_offer')
+            ep.event('forecast_handover_prep')
+            yield from ep.goto(HANDOVER + [*ROBOT_GRIP_OFF, GRASP_DZ + .06], 'approach', keep_clear=FOLLOW_KEEP_CLEAR,
+                               until=lambda: ep.human_phase in ('offer_cloth', 'wait_robot_grip'))
+            # follow the offering hand (1 s end point + hand-to-handle offset) just above the handle height, so only a
+            # 3 cm descent remains when the hand stops; this is the deliberate handover approach (no keep-clear)
+            grip_off = (0., PALM_TO_CLOTH[1] + ROBOT_GRIP_OFF[1], 0.)
+            def handover_goal():
+                f = self.plan.follow_point(grip_off)
+                xy = f[:2] if f is not None else ep.pos('cloth')[:2] + ROBOT_GRIP_OFF
+                return np.r_[xy, ep.pos('cloth')[2] + GRASP_DZ + .03]
+            yield from ep.goto(handover_goal, 'approach', following=True,
+                               until=lambda: ep.human_phase == 'wait_robot_grip', keep_clear=0.)
         else:
-            self._kp_only = None
-        self._set_plan(self._staging_plan())
+            yield from ep.wait(lambda: ep.human_phase in ('offer_cloth', 'wait_robot_grip'), 'wait_offer')
+        yield from ep.wait(lambda: ep.human_phase == 'wait_robot_grip', 'wait_offer_still')
+        cloth = lambda: ep.pos('cloth')
+        # taking the brush from the open hand is a deliberate close approach: no keep-clear rule in these two moves
+        if not self.forecast_mode:
+            yield from ep.goto(lambda: np.r_[cloth()[:2] + ROBOT_GRIP_OFF, cloth()[2] + .06], 'approach', keep_clear=0.)
+        yield from ep.goto(lambda: np.r_[cloth()[:2] + ROBOT_GRIP_OFF, cloth()[2] + GRASP_DZ], 'descend', keep_clear=0.)
+        ok = yield from ep.close_on('cloth')
+        yield from ep.wait(lambda: 'cloth' not in ep.held_by_human, 'wait_human_release', GRIP_CLOSED, timeout=40)
+        yield from ep.goto(STANDBY, 'retreat', GRIP_CLOSED)
+        for _ in range(2):
+            # 2. which object is being lifted: observed lift, or in Intent the forecast hand heading
+            def hand_free():
+                # observable: no object is off its mark (the hand is not carrying anything)
+                return all(ep.pos(o)[2] < ep.initial[o][2] + .02 for o in ('cup', 'clock'))
+            def lifted():
+                for o in ('cup', 'clock'):
+                    if o not in ep.wiped and ep.pos(o)[2] > ep.initial[o][2] + .07: return o
+                return None
+            if self.forecast_mode:
+                # FOLLOW reading: while the hand is free, wait at the robot-side standoff (y +0.10, z 0.74; bristles at
+                # y ~ +0.025, the hand never comes to +y) of the object nearest the 1 s forecast end point, re-evaluated
+                # every tick; safety from the observed person in parallel (follow_step, >= 0.16 m)
+                # 58/QĐ-DL: a robot at rest (standby or the standoff) stays put when the person comes near the brush
+                # (the person keeps clear); the stop / back-off rule applies only while it is moving
+                hover, resting = None, False
+                while lifted() is None:
+                    cand = {o: ep.pos(o) for o in ('cup', 'clock') if o not in ep.wiped} if hand_free() else {}
+                    h = self.plan.nearest(cand)
+                    if h is not None and h != hover:
+                        hover, resting = h, False; ep.event('forecast_prep', object=h)
+                    if hover is not None and not resting:
+                        goal = np.array([ep.pos(hover)[0], STATION['task_tuning']['C2']['prep_y_m'], STATION['task_tuning']['C2']['prep_z_m']])
+                        dist, _ = ep.validator.robot_near_human(include_held=True)
+                        still = float(np.linalg.norm(ep.controller.follower.velocity)) < .01
+                        if ep.reached(goal, .015):
+                            resting = True; ep.event('robot_rests', object=hover)
+                        elif still and dist < FOLLOW_KEEP_CLEAR + SAFETY_BAND:
+                            # at rest (standby) with the person near the brush: stay put, the person keeps clear
+                            if ep.phase != 'rest_person_near':
+                                ep.event('robot_stays_for_person', distance_m=round(dist, 4))
+                            ep.phase = 'rest_person_near'
+                        else:
+                            yield self.plan.follow_step(goal, 'approach', GRIP_CLOSED); continue
+                    yield ep.hold(GRIP_CLOSED)
+            yield from ep.wait(lambda: lifted() is not None, 'wait_lift', GRIP_CLOSED)
+            obj = lifted()
+            spots = [np.array(s) for s in SPOTS[obj]]
+            # enter the wipe area only once the lifting hand is clearly out of it (observable), never under the hand
+            def hand_clear():
+                w = ep.wrist()
+                return w[2] > .85 and all(np.linalg.norm(w[:2] - s) > .12 for s in spots)
+            yield from ep.wait(hand_clear, 'wait_hand_clear', GRIP_CLOSED)
+            ep.event('wipe_start', object=obj)
+            wipe_z = SHELF_FLOOR + BRISTLE_HALF[2] + GRASP_DZ + .001   # bristle bottom ~1 mm above the shelf floor
+            # Cross the shelf wall while the whole gripper is above it, then lower vertically.
+            yield from ep.goto(np.r_[spots[0] + ROBOT_GRIP_OFF, .74], 'move', GRIP_CLOSED)
+            yield from ep.goto(np.r_[spots[0] + ROBOT_GRIP_OFF, wipe_z], 'wipe_lower', GRIP_CLOSED)
+            # sweep 1.5 cm past both end spots so the outer dust columns pass under the bristles (goto tol 1.2 cm)
+            ends = [spots[0] + [-.015, 0.], spots[-1] + [.015, 0.]]
+            for s in [ends[0]] + spots + [ends[1]] + spots[::-1][1:] + [ends[0]]:
+                # Wipe marks have a 35 mm effect radius; reaching within 12 mm is
+                # sufficient and avoids freezing against the shelf's IK boundary.
+                for cmd in ep.goto(np.r_[s + ROBOT_GRIP_OFF, wipe_z], 'wipe', GRIP_CLOSED, tol=.012):
+                    sweep_dust(ep); yield cmd
+                sweep_dust(ep)
+            ep.wiped[obj] = True; ep.event('wipe_end', object=obj, marks_left=marks_left(ep))
+            yield from ep.goto(np.r_[spots[-1] + ROBOT_GRIP_OFF, .74], 'lift', GRIP_CLOSED)
+            yield from ep.goto(STANDBY, 'retreat', GRIP_CLOSED)
+        # 3. return the cloth: present it at the handover point and release when the human holds it
+        yield from ep.wait(lambda: ep.human_phase in ('rest', 'wait_cloth') and ep.pos('clock')[2] < ep.initial['clock'][2] + .02
+                           and ep.pos('cup')[2] < ep.initial['cup'][2] + .02, 'wait_objects_back', GRIP_CLOSED)
+        yield from ep.goto(HANDOVER + [*ROBOT_GRIP_OFF, GRASP_DZ + .06], 'move', GRIP_CLOSED)
+        # handing the towel back is a deliberate close approach to the open hand: no keep-clear rule here
+        yield from ep.goto(HANDOVER + [*ROBOT_GRIP_OFF, GRASP_DZ], 'present_cloth', GRIP_CLOSED, keep_clear=0.)
+        yield from ep.wait(lambda: 'cloth' in ep.held_by_human and ep.human_phase == 'wait_robot_release', 'present_cloth', GRIP_CLOSED)
+        yield from ep.open_gripper(); ep.event('return_handover')
+        # back off upwards and towards the robot side (the straight-up point was at the arm's reach limit)
+        yield from ep.goto(HANDOVER + [0, .10, GRASP_DZ + .06], 'retreat', keep_clear=0.)
+        yield from ep.goto(np.array([.25, .05, .82]), 'home')
+        ep.phase = 'done'
 
-    def _group(self, item):
-        return self.sc.pad_of[item]
+    def success(self):
+        ep = self.ep
+        back = all(np.linalg.norm(ep.pos(o)[:2] - ep.initial[o][:2]) < .02 and abs(ep.pos(o)[2] - ep.initial[o][2]) < .01
+                   for o in ('cup', 'clock'))
+        on_stand = np.linalg.norm(ep.pos('cloth')[:2] - ep.initial['cloth'][:2]) < .03 and abs(ep.pos('cloth')[2] - ep.initial['cloth'][2]) < .02
+        ok = back and marks_left(ep) == 0 and on_stand and ep.attached_name() is None
+        return ok, None if ok else 'dust_objects_or_brush'
 
-    def _staging_plan(self):
-        sc = self.sc
-        return [Step('grip', 'close', until=lambda: sc.env.data.qpos[sc.env.gid] < 0.01, ticks=25, name='close_hand'),
-                Step('goto', lambda: np.r_[self.staging, self.travel], name='staging', guard=True),
-                Step('hold', ticks=10 ** 6, name='choose')]
-
-    def _left(self):
-        sc = self.sc
-        return [k for k in sc.items if 'wiped_' + sc.pad_of[k] not in sc.protocol_done]
-
-    def _cleared(self):
-        """An item already taken off its section (seen: put elsewhere, W3) whose section is not wiped yet."""
-        sc = self.sc
-        for k in self._left():
-            if sc.human.holding != k and float(np.linalg.norm(sc.pos(k)[:2] - sc.pads[sc.pad_of[k]])) > self.clear_m:
-                return k
-        return None
-
-    def _wipe_plan(self, pad):
-        sc = self.sc
-        c = sc.pads[pad]
-        z = lambda: sc.table_z + self.wipe_dz
-        item = next(k for k in sc.items if sc.pad_of[k] == pad)
-        # the section's item is off it (held up, or put elsewhere: W3) and the hand and the item are clear of it
-        clear = lambda: (float(np.linalg.norm(sc.pos(item)[:2] - c)) > self.clear_m
-                         and float(np.linalg.norm(sc.human.pos[:2] - c)) > self.clear_m
-                         and (getattr(sc.human, 'bimanual', None) is None or float(np.linalg.norm(sc.human.idle_palm()[:2] - c)) > self.clear_m))
-        r_max = float(sc.cfg.expert.get('reach_m', np.inf))
-        def at(dx):                                # a stroke end, kept within the robot's reach (configs/layout.yaml)
-            q = c + [dx, 0.0]
-            n = float(np.linalg.norm(q))
-            return q * (r_max / n) if n > r_max else q
-        strokes = []
-        for j in range(self.strokes):
-            s = self.stroke_m * (1 if j % 2 == 0 else -1)
-            strokes.append(Step('goto', lambda s=s: np.r_[at(s), z()], name='wipe'))
-        # wait at a standoff on the robot's side of the section (not over it: the hands work there) until it is clear
-        stand = c + np.asarray(sc.cfg.expert.get('standoff_offset', [0.0, 0.0]), float)
-        return [Step('goto', lambda: np.r_[stand, self.travel], name='approach_pad', guard=True),
-                Step('wait', until=clear, name='await_clear'),
-                Step('goto', lambda: np.r_[c, self.travel], name='over_pad', guard=True),
-                Step('goto', lambda: np.r_[at(-self.stroke_m), z()], name='descend_wipe')] + strokes + [
-                Step('goto', lambda: np.r_[c, self.travel], name='lift_wipe'),
-                Step('call', target=self._served, name='served')]
-
-    def act(self) -> int:
-        from intent_policy.experts.separation import separation_hold
-        from intent_policy.sim.restricted_action import RestrictedAction as A
-        sc = self.sc
-        self._belief().step()
-        held = sc.human.holding if sc.human.holding in sc.items else None
-        if held is not None and held != self._last_held and held in self._left():
-            self._round_outcome(held)
-        self._last_held = held
-        if self.bin is None and self.stage in ('close_hand', 'staging', 'choose'):
-            k = self._target_item() or self._cleared()
-            if k is not None:
-                self.item, self.bin = k, sc.pad_of[k]
-                self._round_groups.add(self.bin)
-                sc.robot_item = k
-                self._commit(k, self._wipe_plan(self.bin))
-        elif (self.bin is not None and sc.human.holding in sc.items and sc.pad_of[sc.human.holding] != self.bin
-              and self.stage in ('approach_pad', 'await_clear', 'over_pad')):
-            # the item taken is another section's: go there instead (nothing wiped yet)
-            self.item, self.bin = sc.human.holding, sc.pad_of[sc.human.holding]
-            self._round_groups.add(self.bin)
-            sc.robot_item = self.item
-            self._set_plan(self._wipe_plan(self.bin))
-        if sc.cfg.expert.get('yield_while_wiping', False) and sc.human_distance < float(sc.cfg.expert['yield_distance_m']):
-            # Cowork (W3): any part of the human arm closing in on the robot (its whole body, not only the hand): rise
-            # straight up out of the shared space, then carry on with the plan
-            a = self._toward(np.r_[sc.tcp()[:2], self.travel + float(sc.cfg.expert['yield_rise_m'])])
-            return int(A.HOLD) if a is None else int(a)
-        exempt = () if sc.cfg.expert.get('yield_while_wiping', False) else WIPING + ('await_clear',)
-        if self.stage not in exempt and separation_hold(self):
-            a = self._toward(self._back_away())
-            return int(A.HOLD) if a is None else int(a)
-        return super(W1Expert, self).act()
+    def extra(self):
+        return {'marks_left': marks_left(self.ep)}

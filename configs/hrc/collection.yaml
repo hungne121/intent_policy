@@ -1,0 +1,70 @@
+# Collection settings (QĐ 53/QĐ-DL §6–§7). Fixed before any bulk collection; change => bump schema_version.
+schema_version: hrc-1.1
+fps: 20
+robot_type: ur3e_sus2f
+cameras: [high, top, wrist]          # observation.images.<name>
+image_hw: [256, 256]
+review_camera: top                   # preview video camera (user, 16/11)
+review_hw: [480, 640]
+modes: [observed, forecast]
+datasets:
+  root: outputs/datasets_hrc
+  observed: hrc_observed
+  forecast: hrc_forecast
+  reports: collection_reports
+  rejected: rejected_episodes
+# split by seed, decided before collection; both modes of a seed share the split
+splits:
+  train: [300000, 300799]
+  val:   [300800, 300899]
+  test:  [300900, 300999]
+preview_seeds: {I1: 300100, I2: 300106, I3: 0, C1: 300100, C2: 300100, C3: 300100, C4: 300100, W1: 300100, W2: 300100, W3: 300100}
+versions: {expert: hrc-expert-1.0, controller: cartesian-dls-1.0, manicast: manicast-0.4s-1s}
+
+# ---------------------------------------------------------------- 59/QĐ-DL: collection groups (17/11/2026)
+schema_version_note: "hrc-1.1 = hrc-1.0 + observation.forecast_provided + episode sidecar (59/QĐ-DL)"
+dataset_version: hrc-ds-0.1-pilot
+groups:
+  N1:                                 # nominal, diverse; no forecast fault, no change of mind
+    variants:
+      default: [nominal]
+      W1: [nominal, linger_in_tray]   # 57/QĐ-DL previewed overlap cases
+      W3: [nominal, contest_middle]
+    modes: [observed, forecast]
+  N5:                                 # forecast fault; only the forecast expert reads the forecast
+    variants: {default: [nominal]}
+    fault_types: [spatial_fault, temporal_fault, direction_fault]
+    modes: [forecast]                 # observed rollout would equal the N1 observed rollout of the seed
+  N6:                                 # change of mind: ONLY the previewed cases (user 17/11 06:2x)
+    variants:
+      default: []
+      I3: [switch_before_commit, switch_after_commit]
+      C4: [switch_before_commit, switch_after_commit]
+    modes: [observed, forecast]
+  PREVIEW:                            # the exact 17/11 preview cases, no generic variation (regression check)
+    variants: {default: all}
+    modes: [observed, forecast]
+    variation: false
+
+# N1 generic variation (shared/variation.py); applied in N1, N5 and N6 (one nominal distribution for all groups)
+n1:
+  speed_scale: [0.8, 1.2]             # measured: HY-Motion peak wrist speed p10 / p90 across samples 0.80 / 1.24
+  start_shift_s: [-0.3, 0.6]          # design value
+  pause: {probability: 0.5, after_s: [0.5, 3.0], duration_s: [0.3, 0.8]}   # design value
+  robot_tcp_offset_m: [0.03, 0.03, 0.02]                                    # design value, +- per axis
+  per_task: {}                        # per-task overrides of the keys above, e.g. {I2: {speed_scale: [0.9, 1.1]}}
+
+# N5 forecast faults (shared/forecast_fault.py)
+n5:
+  trigger: forecast_use              # fault after the k-th onset of the expert reading the forecast (hand moving)
+  onset_index: [0, 0]                 # pilot: first use; widen per task once use counts are measured
+  rearm_s: 0.3                        # this long without forecast reads before a new use onset counts
+  delay_s: [0.0, 0.2]
+  duration_s: [0.5, 1.0]              # measured: goal-revealing human motion lasts 0.5-1 s (PIF §8.12, 30/10)
+  ramp_s: 0.25                        # design value: continuity (<= 4 cm offset change per tick at 1 s)
+  spatial_fault: {amplitude_m: [0.12, 0.20]}     # >= target_radius_m; 1.5-2.5 x measured ManiCast 1 s error 79.5 mm
+  temporal_fault: {progress_scale: [0.3, 0.6]}   # design value: forecast lags the motion
+  direction_fault: {yaw_deg: [20., 40.]}         # >= 0.12 m at 1 s for a wrist ~0.4 m from the shoulder
+  checks: {bone_tol_m: 0.01, start_tol_m: 0.04, jump_tol_m: 0.05}
+  per_task: {}
+

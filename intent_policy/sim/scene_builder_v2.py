@@ -238,10 +238,13 @@ def build_scene_xml(scene: dict) -> str:
     asset = root.find('asset')
     _sub(asset, 'texture', name='human_wood', type='2d', file=str(model.parent / skel['texture']))
     _sub(asset, 'material', name='human_wood', texture='human_wood', specular='0.15', shininess='0.2')
-    if human.get('model_version') == 'v3':
+    if human.get('model_version') in ('v3', 'v4'):
         # 06/TTr-DL: articulated 22-joint human with collision capsules and a connected skin (sim/human_v3.py)
         add_human_v3(root, world, asset, human, skel, list(scene.get('objects', {})))
-    for seg, info in ([] if human.get('model_version') == 'v3' else skel['segments'].items()):
+        if human.get('model_version') == 'v4':
+            from intent_policy.sim.human_physics import articulate_human
+            articulate_human(root, world, human)
+    for seg, info in ([] if human.get('model_version') in ('v3', 'v4') else skel['segments'].items()):
         # hands come in shape variants (relaxed / point / grasp); the scenario switches the geom's mesh at runtime
         for variant, f in info.get('variants', {None: info['mesh']}).items():
             _sub(asset, 'mesh', name=human_mesh_name(seg, variant), file=str(model.parent / f), inertia='shell')
@@ -263,7 +266,7 @@ def build_scene_xml(scene: dict) -> str:
                                                  ('nose', 'sphere', [0.016], [-0.108, 0.0, 0.118], '0.62 0.42 0.28 1')):
                 _sub(body, 'geom', name=f'human_face_{name}', type=gtype, size=size, pos=pos, rgba=rgba,
                      contype='0', conaffinity='0')
-    if human.get('continuous_skin', False) and human.get('model_version') != 'v3':
+    if human.get('continuous_skin', False) and human.get('model_version') not in ('v3', 'v4'):
         add_continuous_human_skin(root, model.parent)
     J, S = skel['joints'], human.get('active_arm', 'r').upper()
     length = lambda a, b: float(np.linalg.norm(np.subtract(J[b], J[a])))
@@ -281,7 +284,12 @@ def build_scene_xml(scene: dict) -> str:
             _sub(body, 'geom', name='human_palm_support', type='box', size=human['palm_support']['half_size'],
                  pos=human['palm_support']['pos'], rgba=hidden, contype='0', conaffinity='0', friction='1.0 0.01 0.001')
     # Invisible anchor used to weld an object to the human hand (human grasp/hold).
-    _sub(world, 'body', name='human_grasp_anchor', mocap='true', pos=human['hand_rest'])
+    if human.get('model_version') == 'v4':
+        wrist = root.find(f".//body[@name='human_seg_{S}_Wrist']")
+        palm = np.asarray(skel['palm'][S.lower()]) - np.asarray(J[f'{S}_Wrist'])
+        _sub(wrist, 'body', name='human_grasp_anchor', pos=palm)
+    else:
+        _sub(world, 'body', name='human_grasp_anchor', mocap='true', pos=human['hand_rest'])
     for key in scene.get('objects', {}):
         _sub(equality, 'weld', name=weld_name(key), body1='human_grasp_anchor', body2=key, active='false',
              relpose='0 0 0 1 0 0 0', solref='0.01 1')
@@ -376,11 +384,14 @@ V3_RADIUS = {'Pelvis': .10, 'L_Hip': .075, 'R_Hip': .075, 'L_Knee': .055, 'R_Kne
              'Spine1': .11, 'Spine2': .115, 'Spine3': .10, 'Neck': .05, 'L_Collar': .06, 'R_Collar': .06,
              'L_Shoulder': .045, 'R_Shoulder': .045, 'L_Elbow': .038, 'R_Elbow': .038}
 V3_HEAD_RADIUS = .10
+# the trunk as boxes (asset axes: x = depth, y = width), not round capsules: a hanging forearm 20 cm from the spine
+# must clear a chest that is 30 cm wide but 18 cm deep (self-check overlap 22 mm with capsules, 14/11)
+V3_TRUNK_BOX = {'Spine1': (.075, .13), 'Spine2': (.08, .15), 'Spine3': (.075, .165)}   # half depth / half width
 
 
 def add_human_v3(root, world, asset, human: dict, old_skel: dict, objects: list) -> None:
     """22 mocap bodies (one per SMPL-H body joint), capsule collision geoms along the bones, the hand mesh variants on
-    the wrist bodies, the connected skin, and contact exclusions between each hand and every task object."""
+    the wrist bodies and the connected skin. Hands collide with all task objects."""
     v3 = json.loads((ROOT / 'assets/human_v3/skeleton_v3.json').read_text())
     names, parents, J = v3['names'], v3['parents'], np.asarray(v3['joints'], float)
     children = {i: [c for c in range(len(names)) if parents[c] == i] for i in range(len(names))}
@@ -396,7 +407,14 @@ def add_human_v3(root, world, asset, human: dict, old_skel: dict, objects: list)
             if c >= v3['body_joints'] and names[c] not in ('L_Index1', 'R_Index1'): continue   # fingers: hand meshes
             r = V3_RADIUS.get(n, .04)
             if n in ('L_Wrist', 'R_Wrist'): continue                                                   # the hand mesh collides
-            fromto = [0.0, 0.0, 0.0, *(J[c] - J[i])]
+            bone = J[c] - J[i]
+            if n in V3_TRUNK_BOX and names[c] in ('Spine2', 'Spine3', 'Neck'):
+                hx, hy = V3_TRUNK_BOX[n]
+                # axes fixed to the asset frame (x depth, y width, z up): the spine bones are within a few degrees of +z
+                _sub(body, 'geom', name=f'human_v3_{n}_{names[c]}', type='box', size=[hx, hy, abs(bone[2]) / 2 + .01],
+                     pos=bone / 2, rgba=hidden, **coll)
+                continue
+            fromto = [0.0, 0.0, 0.0, *bone]
             _sub(body, 'geom', name=f'human_v3_{n}_{names[c]}', type='capsule', size=[r], fromto=fromto, rgba=hidden, **coll)
         if n in ('L_Wrist', 'R_Wrist'):
             s = n[0].lower()
@@ -413,8 +431,3 @@ def add_human_v3(root, world, asset, human: dict, old_skel: dict, objects: list)
             _sub(body, 'geom', name=f'human_v3_{n}_fingers', type='capsule', size=[.015], fromto=[*palm, *tip], rgba=hidden, **coll)
     skin = ET.parse(ROOT / 'assets/human_v3/skin_body.xml').getroot()
     asset.append(skin)
-    contact = root.find('contact')
-    if contact is None: contact = ET.SubElement(root, 'contact')
-    for s in 'LR':
-        for key in objects:
-            _sub(contact, 'exclude', body1=f'human_seg_{s}_Wrist', body2=key)
