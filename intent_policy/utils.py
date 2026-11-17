@@ -8,7 +8,6 @@ import numpy as np
 import torch
 import yaml
 from intent_policy.sim.base_env import ROOT
-from intent_policy.benchmark.runner import ObservationConfig
 from intent_policy.sim.restricted_action import RestrictedActionConfig
 
 
@@ -75,7 +74,8 @@ def log_run(out: Path, module: str | None = None) -> None:
             f.write(f"{datetime.now().isoformat(timespec='seconds')}  ./run.sh -m {module} {shlex.join(sys.argv[1:])}\n")
 
 
-def observation_config(exp: dict) -> ObservationConfig:
+def observation_config(exp: dict):
+    from intent_policy.benchmark.runner import ObservationConfig   # old benchmark env only (removed 16/11, QĐ 53)
     o = exp['observation']
     return ObservationConfig(tuple(o['cameras']), int(o['width']), int(o['height']), bool(o.get('command_state', False)))
 

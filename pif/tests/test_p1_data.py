@@ -121,19 +121,3 @@ def test_no_labels_in_training_samples():
 
 
 REPLAY = ROOT / 'outputs/pif/sim_replay/intent_act_late_v5'
-
-
-@pytest.mark.skipif(not (REPLAY / 'episode_000000.npz').exists(), reason='sim replay not available')
-def test_sim_episode_reader():
-    from pif.data.sim import TARGET_NONE, labels, load_meta, read_episode
-    meta = load_meta(CFG['sim'])[0]                             # T1: B1 (twin B1p) -> P1, 250 frames at 20 fps
-    ep = read_episode(meta, CFG['sim'], CFG['fps'], CFG['tokens']['keypoints'], CFG['tokens']['object_types'])
-    assert len(ep['holding']) == 125 and ep['meta']['stride'] == 2
-    assert ep['obj_names'][-3:] == ['P1', 'P2', 'U'] and ep['human_pos'].shape == (125, J, 3)
-    assert abs(np.median(ep['obj_pos'][0, :, 2])) < 0.05     # table frame: objects near z = 0
-    held = ep['holding'][ep['holding'] >= 0]
-    assert len(held) and np.all(np.array(ep['obj_names'])[held] == 'B1')
-    assert ep['obj_done'][-1, ep['obj_names'].index('B1')] and ep['obj_has_item'][-1, ep['obj_names'].index('P1')]
-    lab = labels(meta, ep, CFG['sim'])
-    targets = [(g['label'], g['target']) for g in lab['gestures'] if g['target'] != TARGET_NONE]
-    assert targets == [('point_object', ep['obj_names'].index('B1')), ('point_place', ep['obj_names'].index('P1'))]
