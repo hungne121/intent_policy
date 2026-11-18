@@ -1,0 +1,49 @@
+# Đợt 1 (68/69/QĐ-DL, hrc-ds-0.5) — cặp hạng A theo 66/QĐ-DL, 18/11/2026 09:59
+# pod 7uw3athkmn9gzq cpu3c 32 vCPU $0,96/h US-NE-1, 07:38–09:19 (≈ $1,6), 535/535 shard trên HF Hungdd88/hrc-collect-20261118 (shards_d1); pod đã xoá 09:19.
+# Metadata: outputs/datasets_hrc_pod/2026-11-18/d1_meta. Lệnh: ./run.sh outputs/diag/qd59/quota_d1.py
+# LƯU Ý: episode_grade hiện tính tập N5 bị fault_checks thành A (đang sửa, agent F). Đếm đúng (fault_checks = C): N5-C1 8+2, N5-C2 7+2, N5-C3 2+0, N5-C4 2+0, N5-I1 10+1, N5-I2 10+3, N5-I3 9+3.
+N1-C1-nominal                       46 + 12   quota 40 + 10   ĐỦ
+N1-C2-nominal                       33 +  6   quota 40 + 10   thiếu 7 + 4
+N1-C3-nominal                       30 +  4   quota 40 + 10   thiếu 10 + 6
+N1-C4-nominal                       46 + 12   quota 40 + 10   ĐỦ
+N1-I1-nominal                       46 + 12   quota 40 + 10   ĐỦ
+N1-I2-nominal                       46 + 12   quota 40 + 10   ĐỦ
+N1-I3-nominal                       43 + 12   quota 40 + 10   ĐỦ
+N5-C1                               10 +  3   quota 8 + 2   ĐỦ
+N5-C2                                7 +  2   quota 8 + 2   thiếu 1 + 0
+N5-C3                                7 +  1   quota 8 + 2   thiếu 1 + 1
+N5-C4                               10 +  3   quota 8 + 2   ĐỦ
+N5-I1                               10 +  3   quota 8 + 2   ĐỦ
+N5-I2                               10 +  3   quota 8 + 2   ĐỦ
+N5-I3                               10 +  3   quota 8 + 2   ĐỦ
+N6-C4-switch_after_commit           13 +  4   quota 12 + 3   ĐỦ
+N6-C4-switch_before_commit          15 +  4   quota 12 + 3   ĐỦ
+N6-I3-switch_after_commit           15 +  4   quota 12 + 3   ĐỦ
+N6-I3-switch_before_commit           8 +  0   quota 12 + 3   thiếu 4 + 3
+# Nguyên nhân non-A chính: C3 Forecast tay người–khay 888 N > 140 N và kẹp–khay 53 N > 40 N (24/58 fc); C2 Forecast upper_arm_link–chổi, người chạm chổi robot cầm (17/58 fc); N6 I3 before: bánh Ly/Lx/Rx bị xê dịch, time_limit, ngón kẹp chạm bánh (val 0/4).
+# Kế hoạch (06/QĐ-VH): thu bù bằng seed mới cho N1 C2, C3, N6 I3 before; N5 C2/C3/C4 sau khi sửa bộ kiểm fault (agent E); W1/W2 sau khi agent D sửa đạt; gộp chung một pod.
+# 18/11 10:03 70/QĐ-DL: ngừng sửa, thu dư seed. Agent D (W1/W2) đã hoàn nguyên. Phát hiện để sau (outputs/diag/w1w2_fix_1118/): W2 tay dao động do đẩy từng tiếp xúc sâu nhất ở góc khay (sửa thử: đẩy khỏi mọi tiếp xúc cùng lúc, chưa đo đủ); W1 cake0 lệch 9,5 cm lúc nắm, bánh lệch tay tới 20 cm khi cầm; W1 300401 kẹt do ngưỡng resume 0,10 m > 0,0945 m; W2 ngón kẹp chạm khối bên cạnh (khe 2,6 cm) và chạm khối vừa đặt khi né (predictive_avoidance). W2 để sau.
+# 18/11 10:54 71/QĐ-DL: W2 kiểm 6 seed v0.4 đã đạt (300200 300202 300203 300204 300205 300208) bằng code hrc-ds-0.5 trên pod hkcup2ek47ftcd: 6/6 cặp A (cả collector và 66/QĐ-DL). Nguyên nhân 0/6 ở seed 300000–300005 là dải seed, không phải code / môi trường (MuJoCo 3.3.7 cả hai, code W2 không đổi so với gói v0.4.1). Thu W2 dư seed: train 300200–300269 (64 mới + 6 đã kiểm), val 300800–300815, prefix HF shards_tu2.
+# 18/11 15:49 SAU THU BÙ (71/QĐ-DL): pod hkcup2ek47ftcd 10:39–12:31 (đợt chính 208/283 xong, 75 bỏ do trần; W2 52/80, 28 bỏ), + 31 shard laptop. HF: shards_d1 535, shards_tu 239, shards_tu2 52. W2 val do Codex thu bổ sung (10/QĐ-HL, ≥ 10 cặp A theo TRAIN_REPAIR_2026-11-18.md) không nằm trong tu_meta nên bảng dưới ghi W2 val 0.
+#   N1-C1-nominal                       46 + 12   quota 40 + 10   ĐỦ
+#   N1-C2-nominal                       43 + 10   quota 40 + 10   ĐỦ
+#   N1-C3-nominal                       38 + 11   quota 40 + 10   thiếu 2 + 0
+#   N1-C4-nominal                       46 + 12   quota 40 + 10   ĐỦ
+#   N1-I1-nominal                       46 + 12   quota 40 + 10   ĐỦ
+#   N1-I2-nominal                       46 + 12   quota 40 + 10   ĐỦ
+#   N1-I3-nominal                       43 + 12   quota 40 + 10   ĐỦ
+#   N1-W1-linger_in_tray                25 + 12   quota 40 + 10   thiếu 15 + 0
+#   N1-W1-nominal                       28 + 11   quota 40 + 10   thiếu 12 + 0
+#   N1-W2-nominal                       32 +  0   quota 40 + 10   thiếu 8 + 10
+#   N5-C1                                8 +  2   quota 8 + 2   ĐỦ
+#   N5-C2                               10 +  2   quota 8 + 2   ĐỦ
+#   N5-C3                                4 +  1   quota 8 + 2   thiếu 4 + 1
+#   N5-C4                                2 +  2   quota 8 + 2   thiếu 6 + 0
+#   N5-I1                               10 +  4   quota 8 + 2   ĐỦ
+#   N5-I2                               10 +  3   quota 8 + 2   ĐỦ
+#   N5-I3                                9 +  3   quota 8 + 2   ĐỦ
+#   N6-C4-switch_after_commit           13 +  4   quota 12 + 3   ĐỦ
+#   N6-C4-switch_before_commit          15 +  4   quota 12 + 3   ĐỦ
+#   N6-I3-switch_after_commit           25 + 14   quota 12 + 3   ĐỦ
+#   N6-I3-switch_before_commit          15 +  7   quota 12 + 3   ĐỦ
+# Thiếu chính: W1 nominal 12 + 0, linger 15 + 0 (seed bị cắt do trần); W2 train 8; N5 C3 4 + 1, C4 6 + 0 (bộ kiểm fault); N1 C3 2 + 0. Train pilot chạy trên tập hiện có (lượt 2026-11-18_w2fixed).

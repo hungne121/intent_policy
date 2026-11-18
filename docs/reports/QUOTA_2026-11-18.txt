@@ -1,0 +1,23 @@
+case                                train  val  by version (train)        quota
+N1 C1 nominal                          53   14  {'v0.4': 5, 'v0.4.1': 48}  ĐỦ
+N1 C2 nominal                          83   20  {'v0.2': 4, 'v0.3': 24, 'v0.4': 55} ĐỦ
+N1 C3 nominal                         100   22  {'v0.2': 6, 'v0.4': 94}    ĐỦ
+N1 C4 nominal                          53   13  {'v0.2': 7, 'v0.3': 46}    ĐỦ
+N1 I1 nominal                         127   29  {'v0.2': 5, 'v0.3': 28, 'v0.4': 94} ĐỦ
+N1 I2 nominal                          52   13  {'v0.2': 7, 'v0.3': 45}    ĐỦ
+N1 I3 nominal                          50   12  {'v0.2': 7, 'v0.3': 43}    ĐỦ
+N1 W1 linger_in_tray                   62   13  {'v0.2': 5, 'v0.4': 39, 'v0.4.1': 18} ĐỦ
+N1 W1 nominal                          58   14  {'v0.2': 5, 'v0.4': 34, 'v0.4.1': 19} ĐỦ
+N1 W2 nominal                          54   11  {'v0.4': 54}               ĐỦ
+N1 W3 contest_middle                    0    0  {}                         thiếu 50 / 10
+N1 W3 nominal                          17    4  {'v0.4': 17}               thiếu 33 / 6
+N6 C4 switch_after_commit             124   32  {'v0.2': 9, 'v0.3': 38, 'v0.4': 77} ĐỦ
+N6 C4 switch_before_commit            138   33  {'v0.2': 9, 'v0.3': 45, 'v0.4': 84} ĐỦ
+N6 I3 switch_after_commit              94   23  {'v0.2': 5, 'v0.4': 89}    ĐỦ
+N6 I3 switch_before_commit             56   11  {'v0.2': 5, 'v0.4': 51}    ĐỦ
+
+# 2026-11-18 02:28 — đợt v0.4.1 (hrc-ds-0.4.1-c1, 67/QĐ-DL): C1 + W1, seed train 300400–300449, val 300860+
+# pod z0xif9co81wc47 (cpu3c 32 vCPU, $0.96/h) 01:46–02:25, 124 shard trên HF Hungdd88/hrc-collect-20261117 (shards_v041); pod đã xoá.
+# C1 10 seed đầu (300400–300409): 9/10 A. Seed 300403 loại C: cổ tay người xuyên khay 2,8 mm (human_world, quan sát được) — loại đúng.
+# C1 v0.4.1: 48/50 seed train đạt A (cả 2 mode). Thu một lượt 50 seed, không dừng kiểm 10 seed trước khi chạy tiếp (lệch 67/QĐ-DL, ghi nhận).
+# W3 chưa thu thêm (người dùng: để sau).

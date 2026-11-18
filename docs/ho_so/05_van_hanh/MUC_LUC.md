@@ -1,6 +1,6 @@
 # Vận hành — mục lục (VH)
 
-Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 17/11/2026 09:17. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
+Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 18/11/2026 17:34. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
 Tra nhanh: `./run.sh scripts/ho_so.py tra --hm VH` (thêm `--pham-vi <task>` để lọc theo task).
 
 ## Đang hiệu lực
@@ -19,6 +19,9 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm VH` (thêm `--pham-vi <task>` đ�
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
+| 10/QĐ-HL | 18/11/2026 13:17 | Khắc phục validation thiếu W2, backup thiếu trạng thái resume và vòng chờ upload vô hạn trên pod xsxday50on2u21. Nguyên văn: 'khắc phục hết đi'. Thu bổ sung seed validation độc lập, giữ ngưỡng A và tập train; kiểm đủ task trước train. Sửa lưu checkpoint nguyên tử có optimizer và sao lưu kiểm chứng; chỉ chờ PID train, kết thúc uploader rồi đóng gói. Được chuyển sang lượt train sửa lỗi khi dữ liệu đã kiểm; giữ kết quả lượt cũ để đối chiếu. | hiệu lực | [so_dang_ky.yaml](../so_dang_ky.yaml) |
+| 07/QĐ-VH | 18/11/2026 10:27 | Dọn đĩa laptop: xoá hẳn dữ liệu thiết kế cũ không có quyết định giữ (outputs/prelim/2026-10-13_slow; outputs/datasets/intent_act_late_v5, t2c1_*, t2deep_*, ten_task_v7*, ten_task_v8*, v6_*); preview tải lên HF private Hungdd88/hrc-previews, đọc lại danh sách đủ rồi mới xoá local (v11_preview_2026-11-09, diag/preview_d1_1118, diag/review_1118, hrc_preview_test, habit_motion*_preview, detail_tune_*, tune_claude_20261116). Giữ: v9 / v10 / v10b (46/QĐ-DL), hrc_collect v0.2 / v0.3 (68/QĐ-DL đến khi có BB), datasets_hrc_pod/2026-11-18, mọi thứ đang thu. Nguyên văn: 'Xoá cái k dùng đi preview tải lên hf rồi xoá'. | hiệu lực | [so_dang_ky.yaml](../so_dang_ky.yaml) |
+| 06/QĐ-VH | 18/11/2026 07:37 | Uỷ quyền làm tiếp đến hết các bước (thu → train → đánh giá → bàn giao) khi người dùng bận. Clip / episode lỗi: sửa tối đa 3 lần; không được thì bỏ, thu lại tối đa 3 lần; vẫn không được thì đổi seed; vẫn không được thì dừng và báo. Nguyên văn: 'từ giờ mình sẽ bận k xem được thương xuyên nên cố làm cho đến hết đi các phần nhá. nếu có vấn đề với clip thu thì cái nào sai sửa 3 lần k được bỏ thu lại. thu lại 3 lần vẫn k được thì đổi seed thử xem, thử vẫn k được thì mình bó tay.' | hiệu lực, đã sửa một phần | [so_dang_ky.yaml](../so_dang_ky.yaml) |
 | 05/QĐ-VH | 06/11/2026 12:2x | Xong trong hôm nay: thuê một pod RunPod nhiều nhân cho pilot và thu song song (báo giá trước, xoá pod ngay khi xong), agent con làm song song theo nhóm task; làm thật chuẩn xác, đọc kĩ nguyên văn biên bản 01/BB-DL và đề xuất người dùng dán vào chat; giữ trình tự 01/KH-DL (đặc tả → duyệt → xem thử → pilot → G3 → clip → 02/BB-DL → thu); config ten_task_v11. | hiệu lực | [PIF.md:1066](../../PIF.md#L1066) |
 | 41/QĐ-DL | 04/11/2026 2x:xx | Vòng 3: W3 không lau vùng xung đột, chỉ rút theo đường đã kiểm; C1 rút tay trước tiếp xúc lon; C4 vòng 3, không khả thi thì dừng C4; phân loại 49 test FAIL; pilot rồi regression đầy đủ; giữ 12 chunk v10; montage trước khi train; không train. *(sửa `39/QĐ-DL`)* | hiệu lực, đã sửa một phần | [PIF.md:940](../../PIF.md#L940) |
 | 04/QĐ-TT | 02/11/2026 18:08 | Bốn quyết định cho bộ 10 task: (1) ô Instructor thứ 3 là task HABIT mới, duyệt trước khi dựng; (2) bộ v9 chờ ablation C4 rồi mới quyết thu lại; (3) duyệt hết clip rồi mới train; (4) train trên RunPod, ngân sách $15. *(thay `19/QĐ-DL`, `01/QĐ-HL`; sửa `15/QĐ-DL`)* | hiệu lực, đã sửa một phần | [PIF.md:777](../../PIF.md#L777) |
@@ -37,8 +40,8 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm VH` (thêm `--pham-vi <task>` đ�
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
 | 08/TTr-DL | 14/11/2026 20:55 | Môi trường mô phỏng có ràng buộc vật lý và an toàn: người v3 22 khớp dựng từ keypoints HY-Motion (rot6d không khớp FK), capsule va chạm thật, da liền 22 xương, phát lại toàn thân clip + IK tay làm việc; dừng an toàn robot; kiểm nghiệm I1 trước khi thay hẳn. | chờ quyết | [TTR-DL-08_moi_truong_rang_buoc_vat_ly.md:1](../01_thu_du_lieu/TTR-DL-08_moi_truong_rang_buoc_vat_ly.md#L1) |
-| 02/TTr-VH | 06/11/2026 02:30 | Ký hiệu trùng nghĩa: G1–G5 là bước của kế hoạch 03/11 nhưng G1–G4 cũng là cổng của task (G1 người ưu tiên, G3 lợi thời gian); C1–C4 vừa là trường hợp của T2 (§4) vừa là task Collaborator. Đề xuất đổi tên bước kế hoạch thành B0–B5 và gọi trường hợp T2 theo tên. | chờ quyết | [so_dang_ky.yaml:1696](../so_dang_ky.yaml#L1696) |
-| 03/TTr-VH | 06/11/2026 02:30 | CLAUDE.md và đầu PIF vẫn gọi docs/sim/PIPELINE_v6.md là 'việc đang làm', trong khi việc hiện tại là bộ 10 task (v9 / v10 / v10b). Đề xuất viết hướng dẫn chạy mới cho bộ 10 task và chuyển PIPELINE_v6 sang lưu trữ. | chờ quyết | [so_dang_ky.yaml:1707](../so_dang_ky.yaml#L1707) |
+| 02/TTr-VH | 06/11/2026 02:30 | Ký hiệu trùng nghĩa: G1–G5 là bước của kế hoạch 03/11 nhưng G1–G4 cũng là cổng của task (G1 người ưu tiên, G3 lợi thời gian); C1–C4 vừa là trường hợp của T2 (§4) vừa là task Collaborator. Đề xuất đổi tên bước kế hoạch thành B0–B5 và gọi trường hợp T2 theo tên. | chờ quyết | [so_dang_ky.yaml:1782](../so_dang_ky.yaml#L1782) |
+| 03/TTr-VH | 06/11/2026 02:30 | CLAUDE.md và đầu PIF vẫn gọi docs/sim/PIPELINE_v6.md là 'việc đang làm', trong khi việc hiện tại là bộ 10 task (v9 / v10 / v10b). Đề xuất viết hướng dẫn chạy mới cho bộ 10 task và chuyển PIPELINE_v6 sang lưu trữ. | chờ quyết | [so_dang_ky.yaml:1793](../so_dang_ky.yaml#L1793) |
 | 01/TTr-VH | 06/11/2026 01:21 | Xin ý kiến: gộp code worktree ../intent_policy_dev (branch dev-v10-fixes, bản thu v10b) vào cây chính và commit. | chờ quyết | [bao_cao_10_task_2026-11-06.md](../../reports/bao_cao_10_task_2026-11-06.md) |
 
 ## Báo cáo hiện hành

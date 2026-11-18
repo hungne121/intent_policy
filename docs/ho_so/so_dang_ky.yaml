@@ -1503,6 +1503,36 @@ van_ban:
     noi_luu: docs/PIF.md
     moc: ["| Train đợt tới (27/10) |"]
 
+  - so: QD-HL-07
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-18 02:45"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Agent 2 — baseline: một ACT chung cho 10 task; M0 (ACT observation, D_observed), M1 (ACT + full ManiCast forecast 10×J×3 qua MLP thành observation token, D_forecast, gồm fault N5), M1-noH (D_forecast, bỏ forecast); kiểm dữ liệu bằng LeRobot, normalization từ train; K chọn theo FPS / sự kiện, thử ≥ 2 execution horizon; loss ACT (L1 có mask + KL); cân bằng sampling theo task; chọn checkpoint trên val; nghiệm thu bằng closed-loop. Người dùng: chưa triển khai, mới lưu văn bản."
+    pham_vi: [tat_ca, M0, M1, M1-noH]
+    chu_de: [mo_hinh, train.cau_hinh, train.lay_mau, danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-59, QD-DL-66, BC-DL-20]
+    lien_quan: [QD-HL-02, QD-HL-03, KH-TT-01, TTR-HL-02, QD-VH-03]
+    noi_luu: docs/ho_so/03_train/QD-HL-07_agent2_baseline_M0_M1.md
+    ghi_chu: "7 điểm đối chiếu với văn bản hiện hành (tên mô hình, K, lấy mẫu, tập test, N5 chưa thu, W3 thiếu, BB dữ liệu) ghi cuối văn bản, chờ người dùng chốt. Lộ trình bước 2: docs/lo_trinh/BUOC_2_baseline_M0_M1.md."
+
+  - so: QD-HL-08
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-18 02:50"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Agent 3 — phương pháp, làm sau 07/QĐ-HL: M2 = ACT + Spatiotemporal Interaction Encoder (token mỗi bước × khớp: vị trí, vị trí so với TCP, vận tốc + embedding thời gian / khớp → Transformer_H → cross-attention với robot / scene), loss ACT giữ nguyên, ablation full / endpoint / wrist / no-forecast / time-shuffled; M3 = M2 + trọng số cửa sổ quyết định w = 1 + α·m (event timestamps chỉ dùng khi train, α chọn trên val) + sampling cân bằng; onset head chỉ khi M3 chưa đạt; safety filter và controller giống M0–M3. Người dùng: mới lưu văn bản."
+    pham_vi: [tat_ca, M2, M3]
+    chu_de: [mo_hinh, train.cau_hinh, train.lay_mau, danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-07]
+    lien_quan: [KH-TT-01, QD-HL-03, QD-DL-59]
+    noi_luu: docs/ho_so/03_train/QD-HL-08_agent3_method_M2_M3.md
+    ghi_chu: "5 điểm đối chiếu (lấy mẫu vs D1 của 01/KH-TT, độ rộng cửa sổ quyết định, N5 chưa thu, re-query / chunk, phụ thuộc M1) ghi cuối văn bản. Lộ trình bước 3: docs/lo_trinh/BUOC_3_phuong_phap_M2_M3.md."
+
   - so: TTR-HL-01
     loai: TTr
     hm: [HL]
@@ -1525,6 +1555,17 @@ van_ban:
     can_cu: [DA-TT-01, QD-DL-24]
     noi_luu: docs/ho_so/so_dang_ky.yaml
     moc: ["so: TTR-HL-02"]
+
+  - so: TTR-HL-03
+    loai: TTr
+    hm: [HL]
+    ngay: "2026-11-18 07:50"
+    ban_hanh: agent (lead, theo uỷ quyền 06/QĐ-VH)
+    trich_yeu: "Chốt tạm 7 điểm bước 2: tên M0 / M1-noH / M1 theo 07/QĐ-HL; K = 40 @ 20 Hz, execution horizon 1 và 10 bước; lấy mẫu cân bằng theo task, N1 / N5 / N6 tỉ lệ tự nhiên đợt 1; test closed-loop seed 300900–300999 không thu; N5 dùng tập A có được; pilot 7 task (W1 / W2 sau, W3 để sau); pilot train là đợt 1 của kế hoạch người dùng, BB dữ liệu lập để người dùng ký."
+    chu_de: [train.chia_tap]
+    trang_thai: cho_quyet
+    can_cu: [QD-HL-07, QD-VH-06, QD-DL-68, QD-DL-69]
+    noi_luu: docs/ho_so/03_train/TTR-HL-03_chot_tam_buoc2.md
 
 # ───────────────────────── KT — Chạy policy và test ─────────────────────────
 
@@ -1589,6 +1630,51 @@ van_ban:
     chu_de: [danh_gia]
     trang_thai: hieu_luc
     noi_luu: "bo_nho:thesis-timing-metrics-priority.md"
+
+  - so: QD-KT-05
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 02:52"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Agent 4 — bước cuối: đánh giá M0, M1-noH, M1, M2, M3 theo benchmark dẫn xuất từ HRIBench; Claim 1 (bắt đầu hành động hữu ích sớm hơn) và Claim 2 (CT giảm) chỉ có nghĩa khi hoàn thành và an toàn; audit code metric (TSync, CT, HCS, CSR, IR, RSP, OC, Recovery), không sửa công thức; cùng điều kiện, scenario test tách train; ablation A1–A6; nhiều training seed, so sánh ghép cặp, CI; không đổi benchmark để kết quả đẹp. Người dùng: mới lưu văn bản."
+    pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-07, QD-HL-08]
+    lien_quan: [QD-KT-04, KH-TT-01, QD-DL-59]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-05_agent4_danh_gia_benchmark.md
+    ghi_chu: "benchmark/metrics.py đã bị xoá ở commit 3f3deeb (53/QĐ-DL), chỉ còn trong git history và bản sao provenance; 6 điểm đối chiếu ghi cuối văn bản. Lộ trình bước 4: docs/lo_trinh/BUOC_4_danh_gia.md."
+
+  - so: QD-KT-06
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 05:42"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Bổ sung Agent 4 (Phase 4): khôi phục công thức 8 metric thành metric_spec 12 mục (nguồn, unit test), code khác slide thì dừng chấm và xin chốt; TSync, CT, HCS nổi bật; CT chỉ trên episode thành công, thất bại báo bằng CSR / timeout; log rollout đủ trường và event cùng đồng hồ; Claim 1 (RSP, TSync, L_early chẩn đoán), Claim 2 (CT, IR, ΔCT ghép cặp); N5 ≠ N6; tổng hợp 4 cấp, macro chỉ khi chốt trước; paired bootstrap theo scenario; ablation A1–A8; camera ablation tùy ngân sách. Người dùng: mới lưu văn bản."
+    pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-05]
+    lien_quan: [QD-HL-07, QD-HL-08, QD-KT-04, KH-TT-01, QD-DL-59, QD-KT-07]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-06_agent4_bo_sung_benchmark.md
+    ghi_chu: "Bổ sung 05/QĐ-KT (cùng cấp, ban hành sau). Slide_HRI_English_v9_Formulas.pdf / v10_Learning.pdf không tìm thấy trong ur_ws/src; 5 điểm đối chiếu cuối văn bản."
+
+  - so: QD-KT-07
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 05:42"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Agent 5 (Phase 5): bảng kết quả 8 metric cho M0–M3 (N1, N5, N6, từng task, nhóm I/C/W, tổng thể, kèm CI, số mẫu, số success); bảng forecast ablation và method ablation; learning curve P(n) với val cố định; failure analysis 9 nhóm lỗi kèm video; 19 mục bàn giao để tái lập; Gate 1–9; kết luận C1, C2, robustness, mechanism dẫn về phép so sánh cụ thể; không đổi metric / split / success sau khi xem kết quả; không xoá bản cũ trước nghiệm thu. Người dùng: mới lưu văn bản."
+    pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-05, QD-KT-06]
+    lien_quan: [QD-HL-07, QD-HL-08, KH-TT-01, QD-VH-01]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-07_agent5_ket_qua_ban_giao.md
+    ghi_chu: "Bước 5 của lộ trình: docs/lo_trinh/BUOC_5_ket_qua_ban_giao.md; 4 điểm đối chiếu cuối văn bản."
 
 # ───────────────────────── VH — Vận hành ─────────────────────────
 
@@ -1984,7 +2070,298 @@ van_ban:
     trich_yeu: "Chưa thu hàng loạt. Physics: sửa C2–C4 trước rồi duyệt thêm seed (chỉ duyệt hành vi), không cộng biên mm, giới hạn theo loại tiếp xúc; giữ giới hạn tốc độ khép ngón, sửa hồi quy I3 / W2 / W3; C2 người chạm đế robot không chấp nhận; video trước / sau + overlay quỹ đạo tay C1 / W1 / W2. N5: kích hoạt khi chuyển động người bắt đầu có ý nghĩa với quyết định robot (không chọn k để ép expert đổi), kiểm Δa trên cặp forecast thật / lỗi cùng trạng thái, W1–W3 lỗi lúc xung đột không–thời gian, temporal_fault = forecast cũ Δ s ghi timestamp + tuổi. N6: tạm tắt biến thiên N1, bật lại từng yếu tố. Git: tách commit theo chức năng, rà xoá config v5 / v6. Hồ sơ: sửa mã HD-DL-PHYS-20261114, QD-DB-04 chờ xác nhận."
     pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
     chu_de: [thu_du_lieu, nghiem_thu, mo_phong, expert]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     sua: [QD-DL-61, QD-DL-59]
     can_cu: [BC-DL-16, BC-DL-17, HD-DL-08, QD-DL-52]
     noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-62_physics_N5_N6_git.md
+
+  - so: QD-DL-63
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 13:42"
+    ban_hanh: người dùng (chat, phiên Codex)
+    trich_yeu: "Ủy quyền thu N1/N5/N6 theo schema và cổng physics/task/data, dùng RunPod trong ngân sách hiện hành; giữ các case đổi ý; không train."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: da_sua
+    sua: [QD-DL-62]
+    can_cu: [QD-DL-59, QD-DL-61, QD-DL-62]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-63_thu_N1_N5_N6_RunPod.md
+
+  - so: QD-DL-64
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 13:51"
+    ban_hanh: người dùng (chat, phiên Codex)
+    trich_yeu: "Pilot A/B/C theo từng task; chỉ A vào train, giữ B/C và log, không tự thu hàng loạt; tối đa hai vòng sửa có kiểm chứng, regression và rollback."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: da_sua
+    sua: [QD-DL-63, QD-DL-62, QD-DL-61]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-64_pilot_ABC.md
+
+  - so: QD-DL-65
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 15:25"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "Duyệt có điều kiện: tư thế đầu robot ±1 cm (kiểm IK / va chạm / giới hạn khớp, resample + log); không đổi config giữa phiên, version mới; thu tiếp I2 / I3 / C4, I1 / C2 tập hợp lệ; sửa C1 / C3 / W1 (human trajectory, grasp alignment), W2 (ngón chạm bàn / vật bên), N6 I3 (đẩy lệch bánh), tối đa 2 vòng; W3 contest_middle tạm dừng train, giữ benchmark; báo cáo A/B/C theo task / variant / seed / config version, không gộp."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: da_sua
+    can_cu: [QD-DL-64, QD-DL-63, QD-DL-62]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-65_dieu_chinh_thu_pod.md
+
+  - so: QD-DL-66
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 16:05"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "Bỏ qua lỗi không truyền vào policy / không quan sát rõ: người tự xuyên, tay trong vật đang cầm, vật cầm / đang nằm lún mặt đỡ, ngón robot trong vật gắp (≤ 40 N). Vẫn tính: robot chạm vật không gắp, người chạm vật không cầm, tiếp xúc người – robot, task, giới hạn robot, tư thế đầu, dữ liệu."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: hieu_luc
+    sua: [QD-DL-64, QD-DL-65]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-66_bo_qua_loi_khong_quan_sat.md
+
+  - so: BC-DL-18
+    loai: BC
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 16:50"
+    ban_hanh: agent
+    trich_yeu: "Thu RunPod 17/11 (v0.2 137 shard, v0.3 337 shard, chi ≈ $14,6 / $15, pod đã xoá): đủ quota 50 + 10 theo 66/QĐ-DL cho I2, I3, C4, N6 C4 switch_before; thiếu ít N6 C4 switch_after; còn thiếu I1, C2, C3, C1, W1–W3, N6 I3. Sửa v0.4: quai cốc I1, đường với C1, trí nhớ đẩy tay, chấm I3 switch_after theo kết quả; rollback giới hạn độ mở gripper (hồi quy I2)."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-64, QD-DL-65, QD-DL-66]
+    noi_luu: docs/reports/QD65_66_POD_2026-11-17.md
+
+  - so: QD-DL-67
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-17 18:23"
+    ban_hanh: người dùng (chat, phiên Claude 17/11)
+    trich_yeu: "C1: duyệt nắm mép khăn, thu riêng tới quota với version cố định, không trùng tập, kiểm 10 seed đầu. W3: không đổi ô hộp / vùng rải; nâng TCP khi transit, tiếp cận từ vùng an toàn, kiểm va chạm mọi link robot với người và vật trên bàn, không né / lùi về phía người làm giảm khoảng an toàn, không có đường an toàn thì dừng / giữ; hồi quy W1 / W2; tối đa 2 vòng; không nới ngưỡng."
+    pham_vi: [C1, W1, W2, W3]
+    chu_de: [thu_du_lieu, expert]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-66, BC-DL-18]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-67_C1_W3.md
+
+  - so: QD-DL-68
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-18 05:45"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Camera cố định 10 task: front_oblique + overhead_oblique (giữa thấp) + wrist thay high / top (hrc-1.2, hrc-ds-0.5); sửa người nắm vật khi tay thật chưa tới vật (chờ tay ≤ HUMAN_GRASP_GAP_M); I1 Forecast đi chéo tới trước chỗ đặt lót dự báo; thu lại 9 task (trừ W3) theo kế hoạch số lượng người dùng (thiết kế 1.840 cặp, ba đợt); đợt 1: N1 40 + 10, N5 8 + 2 / task, N6 12 + 3 / case, rồi train M0 / M1; giữ dataset cũ đến khi có BB."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2]
+    chu_de: [thu_du_lieu, expert, camera]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-59, QD-DL-66, QD-DL-67, BC-DL-20]
+    lien_quan: [QD-KT-06, QD-KT-07, QD-HL-07, QD-DL-54]
+    noi_luu: docs/ho_so/01_thu_du_lieu/QD-DL-68_camera_moi_thu_lai_9_task.md
+    ghi_chu: "Bằng chứng lỗi nắm: outputs/diag/grasp_gap_1118. Đo thấy khớp: outputs/diag/cam_layout_1118/vis. Luật khớp thiếu cho ManiCast ngoài đời chưa chốt."
+
+  - so: QD-DL-69
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-18 07:26"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Sau preview 68/QĐ-DL (27/28 A, artifact V5vTB989yz6gWSiajMrDAe): thu đợt 1 cho 7 task I1, I2, I3, C1, C2, C3, C4 (N1, N5, N6) trên RunPod ngay; song song một agent sửa W1 / W2 (nắm vật trễ, tay dao động, W1 chờ nhau) rồi thu W1 / W2 sau. Thuê RunPod tiết kiệm nhất có thể để ngân sách đủ cho mọi bước (thu, train, đánh giá). Nguyên văn: 'ok bạn cho agent làm trong lúc thu 7 cái kia là vừa mà. mà thuê runpod thuê cho tiết kiệm nhất co thể để dùng đu chạy được cho tát cả các bước nhá'."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2]
+    chu_de: [thu_du_lieu, runpod]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-68]
+    lien_quan: [QD-TT-04]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    ghi_chu: "Lead giám sát chi phí pod, dừng trước giới hạn (yêu cầu người dùng 18/11 05:52)."
+
+  - so: QD-VH-06
+    loai: QĐ
+    hm: [VH]
+    cap: 2
+    ngay: "2026-11-18 07:37"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Uỷ quyền làm tiếp đến hết các bước (thu → train → đánh giá → bàn giao) khi người dùng bận. Clip / episode lỗi: sửa tối đa 3 lần; không được thì bỏ, thu lại tối đa 3 lần; vẫn không được thì đổi seed; vẫn không được thì dừng và báo. Nguyên văn: 'từ giờ mình sẽ bận k xem được thương xuyên nên cố làm cho đến hết đi các phần nhá. nếu có vấn đề với clip thu thì cái nào sai sửa 3 lần k được bỏ thu lại. thu lại 3 lần vẫn k được thì đổi seed thử xem, thử vẫn k được thì mình bó tay.'"
+    pham_vi: [tat_ca]
+    chu_de: [van_hanh, uy_quyen]
+    trang_thai: da_sua
+    can_cu: [QD-DL-69]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    ghi_chu: "Điểm 'Cần chốt' của lộ trình: agent quyết tạm có lý do + nguồn, ghi tờ trình để người dùng duyệt sau; BB nghiệm thu vẫn cần người dùng ký."
+
+  - so: BC-DL-21
+    loai: BC
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-18 09:59"
+    ban_hanh: agent
+    trich_yeu: "Đợt 1 (hrc-ds-0.5, 7 task) xong: 535/535 shard, pod ≈ $1,6 đã xoá. Đủ quota: N1 I1 I2 I3 C1 C4, N5 I2 I3 (+ C1 vừa đủ), N6 C4 hai biến thể, N6 I3 after. Thiếu: N1 C2 7+4, C3 10+6; N5 C2 1+0, C3 / C4 6+2 (đếm đúng fault_checks), I1 0+1; N6 I3 before 4+3. Thu bù bằng seed mới cùng W1 / W2 sau khi sửa."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4]
+    chu_de: [thu_du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-68, QD-DL-69, QD-VH-06]
+    noi_luu: docs/reports/QUOTA_D1_2026-11-18.txt
+
+  - so: QD-DL-71
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-18 10:38"
+    ban_hanh: người dùng (chuyển từ phiên intent-policy-ee, 18/11)
+    trich_yeu: "Thu đủ quota đợt 1 cho 9 task (I1–I3, C1–C4, W1, W2) trên pod rẻ nhất, thu dư seed theo tỉ lệ A, chỉ giữ cặp A, không nới ngưỡng; W1 đủ 90 + 24 seed; W2 kiểm 6 seed v0.4 đã đạt A trước rồi mới thu dư; rồi train M0 / M1-noH / M1 ngay (GPU nếu số dư đủ, không thì laptop) mà không hỏi lại từng bước; agent tự quyết, ghi sổ. Thay phần 'không tạo pod' của bản 06/QĐ-TT trước. Giữ: không để tài khoản về 0 giữa chừng, xoá pod ngay khi xong, laptop ≥ 3 GB RAM; BB dữ liệu người dùng ký sau; train lần này là pilot, chưa dùng cho claim. Nguyên văn: 'Pod có tiền mà, sao k thu trên pod cjo nhanh'; 'Thu đủ 9 task đi'; 'Bảo thu nhanh đủ 9 task rồi train t k quan tâm'."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2]
+    chu_de: [thu_du_lieu, runpod, train]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-70, QD-TT-06]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-HL-09
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-18 10:43"
+    ban_hanh: người dùng (chuyển từ phiên intent-policy-ee, 18/11)
+    trich_yeu: "Train M0 / M1-noH / M1 trên pod GPU (không train trên laptop): loại rẻ nhất đủ VRAM, đủ số bước đề xuất (60k bước, batch 32, 03/TTr-HL); tạo pod ngay khi thu xong và đếm A; trần thời gian pod; checkpoint lên HF định kỳ; theo dõi ≤ 5 phút; tải về rồi xoá pod. Nguyên văn: 'Train trên pod, trên lap bao giờ mới xong'."
+    pham_vi: [M0, M1-noH, M1]
+    chu_de: [train, runpod]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-71, QD-HL-07, TTR-HL-03]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-HL-11
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-18 15:54"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Đổi pod train sang GPU có nhiều vCPU (nghẽn CPU: pod xsxday50on2u21 chỉ 5,95 CPU, 3 data worker 100 %, GPU ≈ 60 %, 1,3 bước/s). Cách làm: tải nguyên tập train_set_w2fixed lên HF để pod mới dùng đúng tập đó; dừng an toàn (SIGTERM → checkpoint), backup có optimizer, kiểm; pod mới ≥ 16 vCPU / GPU; resume lượt 2026-11-18_w2fixed (cùng 60k bước, batch 32); xoá pod cũ. Nguyên văn: 'phần cứng bạn chọn tối ưu chưa?' → 'đổi đê'."
+    pham_vi: [M0, M1-noH, M1]
+    chu_de: [train, runpod]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-09, QD-HL-10]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-HL-12
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-18 16:22"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Chọn checkpoint / dừng train theo cả validation loss và closed-loop: loss giảm mà robot không hoàn thành thì tìm nguyên nhân, không mặc định train lâu hơn; 2–3 mốc closed-loop liên tiếp không cải thiện đáng kể + dấu hiệu overfit + đã kiểm scenario quan trọng thì cân nhắc dừng; collision / task failure tăng thì không chọn checkpoint chỉ vì CT thấp. Đến 60k bước đánh giá closed-loop, chưa ổn thì train tiếp. Áp dụng: công cụ rollout policy trong sim (agent G), đánh giá closed-loop trên seed val (300800–300899, không dùng seed test 300900–300999) ở các mốc checkpoint trên laptop. Nguyên văn: (dán) 'Mình không muốn agent chỉ nhìn validation loss rồi quyết định. Dùng cả validation loss và closed-loop performance: …'; 'bước 60k thì đánh giá xem có ổn k k thì train tiếp nhé.'"
+    pham_vi: [M0, M1-noH, M1]
+    chu_de: [train, danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-07, QD-KT-06, QD-HL-11]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-KT-08
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 16:30"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Công cụ chạy policy (eval closed-loop trong sim, chạy theo episode, inference) phải nằm đủ trong repo intent_policy, không gọi lerobot_eval / lerobot_rollout; chỉ tham khảo cách làm hay của LeRobot (env reset mở episode, policy.reset() đầu episode, kết thúc khi xong / hết giờ, pha reset về tư thế nghỉ, phím: kết thúc sớm / làm lại / dừng; eval_info gồm pc_success, thời gian, video). Thư viện lerobot chỉ dùng làm thư viện model (lớp policy ACT + processor của checkpoint), cài qua pip ghim commit 64b2317. Nguyên văn: 'tức là trong repo của bọn mình cũng phải đủ các cái để chạy nha vì khi đóng gói repo của bọn mình thì đâu cso dóng được lerobot theo, chúng ta tham khảo cái hay của lerobot hoi'."
+    pham_vi: [M0, M1-noH, M1, tat_ca]
+    chu_de: [danh_gia, inference]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-12, QD-KT-06]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: TTR-KT-01
+    loai: TTr
+    hm: [KT]
+    ngay: "2026-11-18 16:44"
+    ban_hanh: agent (lead), từ báo cáo agent G
+    trich_yeu: "Bộ đánh giá closed-loop (intent_policy/envs/hrc_env.py, intent_policy/eval/runner.py, tools/eval_policy.py; 08/QĐ-KT) phải tự đặt các cờ 'bắt tay' mà kịch bản người chờ (trước đây do expert đặt): I1 robot_prepared (TCP ở độ cao di chuyển, ±2 cm trên một cốc còn lại — bật ngay t = 0,15 s), C2 wiped (hết vết bụi trong 35 mm) và present_cloth (giữ brush, người chờ, TCP < 0,005 m/s), C4 delivered (TCP trong 2 cm lòng bàn tay); trường FSM cho success() (I1/I3 phase = done, I2 selected = đĩa trong plan); nhãn validator theo lệnh gripper, vật gần TCP trong 6 cm. Dung sai 2 cm / 6 cm là giá trị thiết kế chưa có nguồn. Xin xác nhận hoặc chỉnh trước khi dùng kết quả closed-loop cho claim; trong lúc chờ, chỉ dùng để chọn checkpoint (12/QĐ-HL)."
+    chu_de: [danh_gia]
+    trang_thai: cho_quyet
+    can_cu: [QD-KT-08, QD-HL-12]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-VH-07
+    loai: QĐ
+    hm: [VH]
+    cap: 2
+    ngay: "2026-11-18 10:27"
+    ban_hanh: người dùng (chuyển từ phiên intent-policy-ee, 18/11); phiên intent-policy-ee thực hiện
+    trich_yeu: "Dọn đĩa laptop: xoá hẳn dữ liệu thiết kế cũ không có quyết định giữ (outputs/prelim/2026-10-13_slow; outputs/datasets/intent_act_late_v5, t2c1_*, t2deep_*, ten_task_v7*, ten_task_v8*, v6_*); preview tải lên HF private Hungdd88/hrc-previews, đọc lại danh sách đủ rồi mới xoá local (v11_preview_2026-11-09, diag/preview_d1_1118, diag/review_1118, hrc_preview_test, habit_motion*_preview, detail_tune_*, tune_claude_20261116). Giữ: v9 / v10 / v10b (46/QĐ-DL), hrc_collect v0.2 / v0.3 (68/QĐ-DL đến khi có BB), datasets_hrc_pod/2026-11-18, mọi thứ đang thu. Nguyên văn: 'Xoá cái k dùng đi preview tải lên hf rồi xoá'."
+    pham_vi: [tat_ca]
+    chu_de: [van_hanh]
+    trang_thai: hieu_luc
+    can_cu: [QD-TT-06]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+    ghi_chu: "Xong 18/11 10:35 (phiên intent-policy-ee): đĩa trống 3,1 → 16 GB. Xoá hẳn ≈ 13 GB: prelim/2026-10-13_slow (7,7 GB); datasets/ intent_act_late_v5, t2c1_early, t2c1_late, t2deep_early, t2deep_late, ten_task_v7, ten_task_v8, ten_task_v8_smoke, v6_early, v6_early_try1, v6_early_try2, v6_late, v6_late_try1, v6_late_try2. Preview 723 MB / 7.612 file lên HF private Hungdd88/hrc-previews (đường dẫn tương đối trong outputs/, đọc lại thiếu 0) rồi xoá local: datasets/ten_task_v7_preview, datasets/v11_preview_2026-11-09, diag/preview_d1_1118, diag/review_1118, hrc_preview_test, habit_motion_preview, habit_motion_candidates_preview, detail_tune_20261116, detail_tune_c3_final_20261116, detail_tune_shared_20261116, detail_tune_v2_20261116, tune_claude_20261116."
+
+  - so: QD-DL-70
+    loai: QĐ
+    hm: [DL]
+    cap: 2
+    ngay: "2026-11-18 10:03"
+    ban_hanh: người dùng (chuyển từ phiên intent-policy-ee, 18/11)
+    trich_yeu: "Ngừng sửa; thu dư seed rồi chỉ giữ cặp A (không nới ngưỡng), xong train ngay. Thay quy trình 'sửa 3 lần' của 06/QĐ-VH cho phần còn lại. Áp dụng: thu bù N1 C2, C3, N6 I3 before, N5 C2 / C3 / C4 / I1, W1 (bản trước khi agent D sửa) theo tỉ lệ A đo ở đợt 1; W2 để sau (0/6 cặp A ở bản before: tay người ép block3 192–261 N > 140 N khi đặt, cả hai mode — không thu dư được nếu không sửa). Nguyên văn: 'Ê bạn bảo no thu đủ lẹ lẹ mà train tốn thời gian quá. Sửa sửa k thì cứu thu nhiều lên r loại ra.'"
+    pham_vi: [C2, C3, I3, I1, C4, W1, W2]
+    chu_de: [thu_du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-VH-06, BC-DL-21]
+    sua: [QD-VH-06]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-TT-06
+    loai: QĐ
+    hm: [TT]
+    cap: 2
+    ngay: "2026-11-18 10:03"
+    ban_hanh: người dùng (chuyển từ phiên intent-policy-ee, 18/11)
+    trich_yeu: "Ngân sách RunPod = số dư hiện có trên tài khoản đang dùng; không cộng tiền đã chi ở tài khoản cũ (dự án giai đoạn mới). Đính chính lần 2 (2026-11-18 10:38), thay hai bản trước ('trần $5 từ 09:57', 'tổng $15 + $5 = $20'). Số dư: API MCP không có trường số dư, đọc thông tin đăng nhập để gọi GraphQL bị chặn → người dùng xem trên console. Đã chi tài khoản hiện tại: $2,15 (billing 18/11 10:08). Nguyên văn: 'Trần chỉ có 5 đô nữa thôi'; 'Ê k má ý là đang có 15 đô thì chỉ thêm đc 5 đô nữa thôi'; 'Dự án giai đoạn mới rồi. Bạn k cần tính hộ đâu. Gửi tin bảo nó xem số tiêng hiện cod trên pod mà làm'."
+    pham_vi: [tat_ca]
+    chu_de: [runpod]
+    trang_thai: hieu_luc
+    can_cu: [QD-TT-04]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-HL-10
+    loai: QĐ
+    hm: [HL, DL, VH]
+    cap: 2
+    ngay: "2026-11-18 13:17"
+    ban_hanh: người dùng
+    trich_yeu: "Khắc phục validation thiếu W2, backup thiếu trạng thái resume và vòng chờ upload vô hạn trên pod xsxday50on2u21. Nguyên văn: 'khắc phục hết đi'. Thu bổ sung seed validation độc lập, giữ ngưỡng A và tập train; kiểm đủ task trước train. Sửa lưu checkpoint nguyên tử có optimizer và sao lưu kiểm chứng; chỉ chờ PID train, kết thúc uploader rồi đóng gói. Được chuyển sang lượt train sửa lỗi khi dữ liệu đã kiểm; giữ kết quả lượt cũ để đối chiếu."
+    pham_vi: [train, W2, runpod]
+    chu_de: [train, thu_du_lieu, runpod]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-09, QD-DL-71]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: BC-DL-19
+    loai: BC
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-17 20:28"
+    ban_hanh: agent
+    trich_yeu: "Chốt số cặp A (66/QĐ-DL, Observed + Forecast cùng seed) sau v0.2 / v0.3 / v0.4 (1.005 shard v0.4 trên HF): đủ 50 + 10 cho I1, I2, I3, C2, C3, C4, W2, N6 C4 (2 biến thể), N6 I3 (2 biến thể); thiếu W1 (nominal 39 / 8, linger 44 / 9), W3 (17 / 4; contest_middle tạm dừng), C1 (5 / 2, bản sửa nắm mép khăn chưa thu vì hết tiền). W3: 2 vòng sửa bộ lập kế hoạch không đạt, đã hoàn nguyên; không có điều kiện seed nào tách rõ A / C."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-66, QD-DL-67]
+    noi_luu: docs/reports/QUOTA_2026-11-17.txt
+  - so: BC-DL-20
+    loai: BC
+    hm: [DL]
+    cap: 3
+    ngay: "2026-11-18 02:28"
+    ban_hanh: agent
+    trich_yeu: "Đợt v0.4.1 (67/QĐ-DL) thu C1 + W1 trên pod: C1 đủ 53 / 14 (48 / 50 seed A ở v0.4.1; 10 seed đầu 9 / 10 A, seed 300403 loại do cổ tay xuyên khay 2,8 mm), W1 nominal 58 / 14, W1 linger 62 / 13 — đủ. Còn thiếu W3 nominal 17 / 4 và W3 contest_middle 0 / 0 (để sau). Thu một lượt 50 seed C1, không dừng kiểm 10 seed trước (lệch 67/QĐ-DL, ghi nhận)."
+    pham_vi: [C1, W1, W3]
+    chu_de: [thu_du_lieu, nghiem_thu]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-67, BC-DL-19]
+    noi_luu: docs/reports/QUOTA_2026-11-18.txt

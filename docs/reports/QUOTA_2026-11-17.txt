@@ -1,0 +1,17 @@
+case                                train  val  by version (train)        quota
+N1 C1 nominal                           5    2  {'v0.4': 5}                thiếu 45 / 8
+N1 C2 nominal                          83   20  {'v0.2': 4, 'v0.3': 24, 'v0.4': 55} ĐỦ
+N1 C3 nominal                         100   22  {'v0.2': 6, 'v0.4': 94}    ĐỦ
+N1 C4 nominal                          53   13  {'v0.2': 7, 'v0.3': 46}    ĐỦ
+N1 I1 nominal                         127   29  {'v0.2': 5, 'v0.3': 28, 'v0.4': 94} ĐỦ
+N1 I2 nominal                          52   13  {'v0.2': 7, 'v0.3': 45}    ĐỦ
+N1 I3 nominal                          50   12  {'v0.2': 7, 'v0.3': 43}    ĐỦ
+N1 W1 linger_in_tray                   44    9  {'v0.2': 5, 'v0.4': 39}    thiếu 6 / 1
+N1 W1 nominal                          39    8  {'v0.2': 5, 'v0.4': 34}    thiếu 11 / 2
+N1 W2 nominal                          54   11  {'v0.4': 54}               ĐỦ
+N1 W3 contest_middle                    0    0  {}                         thiếu 50 / 10
+N1 W3 nominal                          17    4  {'v0.4': 17}               thiếu 33 / 6
+N6 C4 switch_after_commit             124   32  {'v0.2': 9, 'v0.3': 38, 'v0.4': 77} ĐỦ
+N6 C4 switch_before_commit            138   33  {'v0.2': 9, 'v0.3': 45, 'v0.4': 84} ĐỦ
+N6 I3 switch_after_commit              94   23  {'v0.2': 5, 'v0.4': 89}    ĐỦ
+N6 I3 switch_before_commit             56   11  {'v0.2': 5, 'v0.4': 51}    ĐỦ
