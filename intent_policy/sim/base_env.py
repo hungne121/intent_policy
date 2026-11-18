@@ -91,6 +91,7 @@ class ManipulationEnv:
         """
         mujoco.mj_resetData(self.model, self.data)
         self.attached = None
+        self._guarded = False                    # guarded close entered (setpoint pulled back once)
         home = np.asarray(self.cfg['home'] if home is None else home, dtype=float)
         self.data.qpos[self.qids] = home
         self.set_gripper_qpos(GRIPPER_OPEN)
@@ -222,11 +223,17 @@ class ManipulationEnv:
         v_close = self.cfg['max_gripper_speed']
         slow = float(self.cfg.get('contact_close_speed', v_close))
         base_ctrl = float(self.data.ctrl[6])
-        if self.assisted and self.attached is None and grip < base_ctrl and self._finger_touching():
-            # 61/QĐ-DL guarded close: on contact the servo setpoint is pulled back to the measured opening (it ran
-            # ahead of the fingers by several mm = a squeeze of kp x lead), then closes at the slow speed only
-            v_close = slow; base_ctrl = max(base_ctrl, float(self.data.qpos[self.gid]) - slow * self.dt)
-            self.data.ctrl[6] = base_ctrl
+        guard = self.assisted and self.attached is None and grip < base_ctrl and self._finger_touching()
+        if guard:
+            # 61/QĐ-DL guarded close: close at the slow speed only. On ENTRY (62/QĐ-DL: once, not every tick) the
+            # servo setpoint is pulled back to the measured opening: it ran ahead of the fingers by several mm = a
+            # squeeze of kp x lead. Pulling it back every tick kept the servo behind and the opening fell at ~9 mm/s,
+            # below the gripper's slowest speed (measured 17/11, I3 seed 0: 1.05 s per grasp).
+            v_close = slow
+            if not self._guarded:
+                base_ctrl = max(base_ctrl, float(self.data.qpos[self.gid]) - slow * self.dt)
+                self.data.ctrl[6] = base_ctrl
+        self._guarded = guard
         grip = base_ctrl + np.clip(grip - base_ctrl, -v_close * self.dt, self.cfg['max_gripper_speed'] * self.dt)
         # Linearly ramp the position targets across the physics substeps (first-order hold)
         # instead of a step input: avoids an acceleration spike every control tick.
@@ -248,7 +255,7 @@ class ManipulationEnv:
                 # first touch inside this tick: from here on close at the guarded speed only
                 rest = (self.substeps - i - 1) / self.substeps * self.dt
                 now = max(float(self.data.ctrl[6]), float(self.data.qpos[self.gid]))
-                previous[6] = now; target[6] = now - slow * rest; v_close = slow
+                previous[6] = now; target[6] = now - slow * rest; v_close = slow; self._guarded = True
             if closing:
                 for body_id in self.grasp_welds:
                     if self.finger_contacts(body_id) == {'left', 'right'}:

@@ -1,5 +1,5 @@
 """Review previews (QĐ 53/QĐ-DL §9): run observed and forecast rollouts of the same seed / human scenario and
-write one top-camera video, a summary and a trace per mode. Not dataset collection.
+write one review-camera video (collection.yaml `review_camera`), a summary and a trace per mode. Not dataset collection.
 
     ./run.sh -m tools.preview --tasks I1 C2 --out previews
 """

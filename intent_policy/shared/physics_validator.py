@@ -107,6 +107,14 @@ class PhysicsValidator:
         self.away = None
         pairs = [PairRule(a, b, 0., 0.) for a in self.human_geoms for b in self.robot_geoms + self.world_geoms]
         pairs += [PairRule(a, b, 0., 0.) for a in self.robot_geoms for b in self.world_geoms]
+        # 62/QĐ-DL: objects against the scene and against each other (a held brush pressed 2.8 mm / 12.8 N into the C2
+        # shelf floor was not audited). Collision geoms only; static-static pairs never collide.
+        col = lambda g: bool(m.geom_contype[g] or m.geom_conaffinity[g])
+        names = set(ep.positions)
+        obj = [g for g in self.world_geoms if col(g) and m.body(m.geom_bodyid[g]).name in names]
+        self.n_actor_pairs = len(pairs)
+        pairs += [PairRule(a, b, 0., 0.) for a in obj for b in self.world_geoms
+                  if col(b) and m.geom_bodyid[b] != m.geom_bodyid[a] and not (b in obj and b < a)]
         self.audit = DemoContactAudit(m, pairs)
         from intent_policy.sim.human_physics import physics_config
         self.contact_depth_tolerance = float(physics_config()['max_contact_depth_m'])
@@ -236,12 +244,16 @@ class PhysicsValidator:
         self.audit.observe(m, d)
         attached = ep.attached_name()
         if len(self.context) <= ep.tick:
+            # 62/QĐ-DL: an object carried by the second (idle) hand is held by the person too (C3 brush)
             self.context.append({'robot_phase': ep.phase, 'human_phase': ep.human_phase, 'attached': attached,
-                                 'selection': ep.robot_selection, 'held_by_human': set(ep.held_by_human)})
+                                 'selection': ep.robot_selection,
+                                 'held_by_human': set(ep.held_by_human) | set(ep.idle_hand_objects)})
         for idx, dist, _, _ in self.audit.step_violations:
             pair = self.audit.rules[idx]
             if not (m.body_weldid[m.geom_bodyid[pair.geom_a]] == 0 and m.geom(pair.geom_b).name == 'table'):
                 self._sample(pair.geom_a, pair.geom_b, -float(dist))
+            if idx >= self.n_actor_pairs:
+                continue                       # object pairs: classified only (62/QĐ-DL), no legacy tolerance
             ba = m.body(m.geom_bodyid[pair.geom_a]).name; bb = m.body(m.geom_bodyid[pair.geom_b]).name
             tol = overlap_tolerance(robot_body=ba, other_body=bb, other_geom=m.geom(pair.geom_b).name,
                                     attached=attached, selection=ep.robot_selection, phase=ep.phase,
@@ -306,12 +318,17 @@ class PhysicsValidator:
                 return 'robot'
             return 'object' if m.body(m.geom_bodyid[g]).name in self.objects else 'world'
         sa, sb = side(ga), side(gb)
-        if (sb, sa) in {('human', 'robot'), ('human', 'object'), ('human', 'world'), ('robot', 'object'), ('robot', 'world')}:
+        if (sb, sa) in {('human', 'robot'), ('human', 'object'), ('human', 'world'), ('robot', 'object'), ('robot', 'world'),
+                        ('object', 'world')}:
             ga, gb, sa, sb = gb, ga, sb, sa
         na, nb = m.geom(ga).name or str(ga), m.geom(gb).name or str(gb)
         ba, bb = m.body(m.geom_bodyid[ga]).name, m.body(m.geom_bodyid[gb]).name
         label = f"{ba}|{bb if bb != 'world' else nb}"
         in_win = lambda o: any(a <= t <= b for a, b in windows.get(o, ()))
+        if sa == 'object':
+            # 62/QĐ-DL: object against the scene / another object. Same rigid-body limit as every other contact.
+            held = {ctx['attached'], *ctx['held_by_human']} - {None}
+            return ('allowed_contact', 'held_object' if (ba in held or bb in held) else 'object_support', label)
         if sa == 'human' and sb == 'human':
             return 'human_self_collision', 'arm_vs_body', f'{na}|{nb}'
         if sa == 'human' and sb == 'robot':

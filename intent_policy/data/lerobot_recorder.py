@@ -29,6 +29,7 @@ class LeRobotRecorder:
 
     # -------------------------------------------------------------- per episode
     def start_episode(self, ep):
+        self.episode = ep
         self.task_string = ep.task
         self.frames = 0
 
@@ -59,12 +60,20 @@ class LeRobotRecorder:
             'observation.forecast_provided': np.array([float(ep.forecast_available() is not None)], np.float32),
             'task': self.task_string,
         })
+        for key, value in frame.items():
+            if key != 'task' and not np.isfinite(value).all():
+                raise ValueError(f'non-finite {key} at tick {ep.tick}')
         self.ds.add_frame(frame)
         self.frames += 1
 
     def accept(self, metadata, arrays=None):
         index = self.ds.meta.total_episodes
         self.ds.save_episode()
+        trace_dir = self.root / 'meta' / 'hrc_sidecar'
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        (trace_dir / f'episode_{index:06d}_trace.json').write_text(json.dumps({
+            'time_convention': 't = observation/action start; trace TCP/objects measured after physics at t + dt',
+            'dt_s': 1. / self.ds.fps, 'frames': self.episode.trace}) + '\n')
         if arrays:                                   # 59/QĐ-DL: raw forecast, fault strength, natural error
             d = self.root / 'meta' / 'hrc_sidecar'; d.mkdir(parents=True, exist_ok=True)
             np.savez_compressed(d / f'episode_{index:06d}.npz', **arrays)

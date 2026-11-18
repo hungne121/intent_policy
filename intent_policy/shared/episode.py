@@ -29,6 +29,11 @@ MODES = ('observed', 'forecast')
 MIN_HAND_SPEED = float(STATION['intent']['min_hand_speed_m_s'])
 HORIZON_TICKS = [int(round(h / DT)) for h in STATION['intent']['horizons_s']]
 HUMAN_GRASP_GAP_M = .01
+# 68/QĐ-DL B.1: longest wait for the reached palm to come within HUMAN_GRASP_GAP_M of a grasp command. Bound from
+# the human model itself: the full waist lean at the lean rate limit (HumanV3 default max 60 deg at 40 deg/s = 1.5 s)
+# plus the palm filter settling 13 cm -> 1 cm (critically damped, PALM_TAU 0.08 s: (1 + t/tau) e^(-t/tau) = 0.077 at
+# t = 4.3 tau = 0.35 s) = 1.85 s, rounded up to 2 s.
+HUMAN_SETTLE_TIMEOUT_S = 2.
 
 
 class HumanReachError(RuntimeError):
@@ -46,7 +51,7 @@ class Episode:
     grip_open, grip_closed = GRIP_OPEN, GRIP_CLOSED
 
     def __init__(self, task, mode, seed, scene, positions, xml, predictor, out=None, max_ticks=1600,
-                 review_camera='top', review_hw=(480, 640), recorder=None, variant='nominal', injector=None,
+                 review_camera='overhead_oblique', review_hw=(480, 640), recorder=None, variant='nominal', injector=None,
                  variation=None, name_suffix=''):
         if mode not in MODES:
             raise ValueError(f'mode must be one of {MODES}')
@@ -62,6 +67,7 @@ class Episode:
         self.max_ticks = int(max_ticks)
         self.tick = 0
         self.history, self.kp, self.pose = [], None, None
+        self.palm_history = []                          # reached active palm, last 5 ticks (settle_hand)
         self.hand_speed = self.predicted_speed = 0.
         self.pace = HumanPace(DT)
         self.controller = CartesianController(self.env, DT)
@@ -99,7 +105,8 @@ class Episode:
         self.recorder = recorder
         if self.variation.get('robot_tcp_offset_m') is not None:        # 59/QĐ-DL N1: valid robot start state
             from intent_policy.shared.variation import apply_robot_start
-            self.variation_log['robot_start'] = apply_robot_start(self, self.variation['robot_tcp_offset_m'])
+            self.variation_log['robot_start'] = apply_robot_start(self, self.variation['robot_tcp_offset_m'],
+                                                                  self.variation.get('robot_tcp_offset_range_m'))
         self.wall0 = time.time()
 
     # ---------------------------------------------------------------- state helpers
@@ -152,6 +159,42 @@ class Episode:
         if not objects:
             return float('inf')
         return min(mujoco.mj_geomDistance(self.m, self.d, h, o, .2, None) for h in hands for o in objects)
+
+    def settle_hand(self, frame, tol=HUMAN_GRASP_GAP_M, timeout_s=HUMAN_SETTLE_TIMEOUT_S):
+        """Generator (68/QĐ-DL B.1), used as `yield from ep.settle_hand(frame)` right before `human_grasp`: keep
+        yielding the last commanded grasp frame until the hand has caught up with it (palm filter lag, rate-limited
+        waist lean). The weld in `human_grasp` captures the current hand-object offset, so a lagging hand carried
+        the object at a distance (C1 seed 300400: reached palm 11 cm from the grip). Settled when
+          (a) |reached palm - commanded palm| <= tol, or
+          (b) the palm has stopped (median reached-palm speed over the last 5 ticks < MIN_HAND_SPEED, the repo's
+              "hand moves" threshold, computed as observed_hand_speed but on the palm; known gap 18/11: at W2 block3
+              the palm keeps oscillating at 3.7 cm/s around a 3.1 cm contact offset, so `carry` does not use this) AND the
+              arm reaches its own target (pose reach_error <= tol): the remaining offset is then the contact
+              correction of the person model (61/66/QĐ-DL, WORLD_CLEAR_M = 0: the hand rests on the object / table
+              instead of passing into it). Measured 18/11 (outputs/diag/grasp_gap_1118/probe.jsonl): 1.8-4.5 cm,
+              mostly vertical, constant for 2 s at I1 / C1 / W1 / W2 -- the commanded grasp point lies inside a geom.
+        Raises HumanReachError (-> `human_reach_timeout`) when neither holds within `timeout_s`."""
+        target = np.asarray(frame['palm'], float)
+        t0 = self.tick
+        while True:
+            reached = np.asarray(self.pose['palm'], float) if self.pose is not None else np.full(3, np.inf)
+            err = float(np.linalg.norm(reached - target))
+            reach_err = float(self.pose.get('reach_error', 0.)) if self.pose is not None else np.inf
+            ph = np.asarray(self.palm_history, float)
+            palm_speed = float(np.median(np.linalg.norm(np.diff(ph, axis=0), axis=1)) / DT) if len(ph) >= 5 else np.inf
+            still = palm_speed < MIN_HAND_SPEED and reach_err <= tol
+            if err <= tol or still:
+                break
+            if (self.tick - t0) * DT >= timeout_s:
+                raise HumanReachError(f'hand {err:.3f} m from the grasp command after {timeout_s:.1f} s (palm speed '
+                                      f'{palm_speed:.3f} m/s, reach error {reach_err:.3f} m, phase {self.human_phase}, '
+                                      f'lean {np.degrees(float(self.pose.get("lean", 0.))):.1f} deg)')
+            yield frame
+        mem = getattr(self.human, '_push_mem', None) or {}
+        push = mem.get(self.human.active) if mem else None
+        self.event('human_hand_settled', wait_s=round((self.tick - t0) * DT, 3), error_m=round(err, 4),
+                   by='position' if err <= tol else 'still_in_contact',
+                   contact_push_m=None if push is None else round(float(np.linalg.norm(push)), 4))
 
     def human_grasp(self, name):
         m, d = self.m, self.d
@@ -236,6 +279,7 @@ class Episode:
         mujoco.mj_forward(self.m, self.d)
         self.kp = self.human.keypoints(self.pose, JOINTS)
         self.history = (self.history + [self.kp.copy()])[-9:]
+        self.palm_history = (self.palm_history + [np.asarray(self.pose['palm'], float).copy()])[-5:]
         self.hand_speed = observed_hand_speed(self.history, self.wrist_index(), DT)
         # both modes: recorded; used only in forecast mode. The injector (N5) sees only observed data.
         self.manicast.update(self.history, self.t, self.hand_speed, self.human.active,
@@ -517,6 +561,10 @@ def carry(ep, obj, dest, start, dz=.035, lift=.08, reach_s=.9, carry_s=1.0, lowe
     top = ep.pos(obj) + np.array([0., 0., dz])
     yield from move(start, top + [0, 0, .05], reach_s, lift=.04, shape=shape, shape_from='relaxed', phase=phase + '_reach')
     yield from move(top + [0, 0, .05], top, .35, shape=shape, phase=phase + '_lower')
+    # 68/QĐ-DL B.1: settle_hand NOT applied here yet (18/11): W1 cake0 lags 9-12 cm at the weld (same bug as C1), but
+    # with settle_hand W2 block3 never settles (palm oscillates 3.7 cm/s in contact at 3.1 cm, 3/3 seeds
+    # human_reach_failed) and W1 seed 300401 deadlocks (human yield_1 vs robot wait_place). Open, see
+    # outputs/diag/grasp_gap_1118/TABLE.md
     ep.human_grasp(obj)
     # place with the REAL hand-to-object offset at the grasp (the smoothed palm lags its command; 55/QĐ-DL W3 fix)
     end = np.asarray(dest, float) + (np.asarray(ep.pose['palm'], float) - ep.pos(obj))

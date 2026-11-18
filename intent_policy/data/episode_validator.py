@@ -14,9 +14,12 @@ pose must be reached by the IK (error <= 5 mm).
 
 def validate(summary, frames_recorded, ticks):
     reasons = []
+    if frames_recorded <= 0 or ticks <= 0:
+        reasons.append('empty episode')
     if not summary['success']:
         reasons.append(f"task: {summary.get('failure_reason')}")
     if not summary['physics_valid']:
+        reasons.append('physics_valid=false')
         if summary['contact_violations']:
             reasons.append('contacts: ' + ', '.join(sorted(summary['contact_violations'])[:4]))
         if summary['human_self_violations']:
@@ -35,6 +38,7 @@ def validate(summary, frames_recorded, ticks):
         if fault['violations']:
             reasons.append(f"fault_checks {fault['violations'][0]['checks']} at t={fault['violations'][0]['t']}")
     start = (summary.get('variation_log') or {}).get('robot_start')
-    if start is not None and start['ik_error_m'] > .005:
-        reasons.append(f"robot start pose IK error {start['ik_error_m']:.4f} m")
+    if start is not None and (start.get('failed') or start['ik_error_m'] > .005):
+        reasons.append(f"robot start pose invalid after {len(start.get('attempts', [1]))} draws "
+                       f"(IK error {start['ik_error_m']:.4f} m)")
     return not reasons, reasons

@@ -10,6 +10,8 @@ from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import DT, smooth, apply_station, connected_human
 
 TASK, MAX_TICKS = 'C1', 1600
+REACH_ARC_M = .10              # 66/QĐ-DL: reach arc height over the straight path (was .04)
+CLOTH_GRIP_DY_M = -.03         # 66/QĐ-DL: grip 3 cm towards the person from the cloth centre
 TRAY_X = {'L': .12, 'R': .48}
 CRUISE_Z = .78            # 16/11: 0.84 put the UR3e at full elbow extension (docs/reports/C1_GIAT_NGUYEN_NHAN_2026-11-16.md)
 NEUTRAL = np.array([.30, -.10, CRUISE_Z])
@@ -45,7 +47,9 @@ def human(ep, info):
         # commanded palm positions throughout, as in the reviewed version: the reach-limited real palm differs at
         # the far tray and must not enter the spread offset (16/11 port fix)
         start = home.copy()
-        grip = ep.pos(cloth) + [0, 0, .055]
+        # 66/QĐ-DL: take the cloth by its edge near the person; gripping the centre put the fingers over the cup
+        # tray rim (y -0.16): wrist-rim overlap in 75/71 non-A v0.4 episodes
+        grip = ep.pos(cloth) + [0, CLOTH_GRIP_DY_M, .055]
         # 57/QĐ-DL: reach over the cloth, then lower onto it (as `carry`). The straight path from the hanging hand
         # came up from below the table edge, swept the wrist along the table into the cloth (16 mm, 60 N) and
         # stood it on edge before the grasp, so it was carried upright through the hand.
@@ -53,7 +57,8 @@ def human(ep, info):
         n = int(round(.8 / DT))
         for i in range(1, n + 1):
             u = smooth(i / n)
-            yield {'palm': start + (over_cloth - start) * u + [0, 0, .04 * np.sin(np.pi * i / n)], 'shape': 'grasp',
+            # 66/QĐ-DL: higher arc (was 4 cm) so the reach passes over the cups (seed 300152: hand into cupL 15 mm / 936 N)
+            yield {'palm': start + (over_cloth - start) * u + [0, 0, REACH_ARC_M * np.sin(np.pi * i / n)], 'shape': 'grasp',
                    'shape_from': 'relaxed', 'progress': 0., 'phase': 'reach_cloth'}
         n = int(round(.3 / DT))
         for i in range(1, n + 1):
@@ -62,6 +67,8 @@ def human(ep, info):
         n = int(round(.35 / DT))
         for i in range(1, n + 1):
             yield {'palm': grip, 'shape': 'grasp', 'shape_from': 'relaxed', 'progress': smooth(i / n), 'phase': 'grasp_cloth'}
+        # 68/QĐ-DL B.1: the far-tray grip is reach / lean limited (seed 300400: 13 cm off) -> wait for the hand
+        yield from ep.settle_hand({'palm': grip, 'shape': 'grasp', 'shape_from': 'relaxed', 'progress': 1., 'phase': 'grasp_cloth'})
         ep.human_grasp(cloth)
         held = np.array([target[0], -.27, .77]); n = int(round(.7 / DT))
         for i in range(1, n + 1):
@@ -72,7 +79,8 @@ def human(ep, info):
         spread = np.array([target[0] - hand_offset[0], target[1] - hand_offset[1], .680])
         # 55/QĐ-DL: lay the cloth, do not throw it: lower it in front of the tray, glide it in just above the rim,
         # set it down, release, lift the hand, then withdraw
-        front = spread + np.array([0., -.08, .02]); over = spread + np.array([0., 0., .02])
+        # 66/QĐ-DL: glide 1 cm higher (was 2 cm above the set-down point): the wrist dipped 4.6 mm into the tray rim
+        front = spread + np.array([0., -.08, .03]); over = spread + np.array([0., 0., .03])
         for a, b, dur in ((held, front, .9), (front, over, .9)):
             n = int(round(dur / DT))
             for i in range(1, n + 1):

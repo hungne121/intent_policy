@@ -7,6 +7,14 @@ continuous_skin: true
 human_model: v3                      # 22-joint articulated mannequin with collision capsules (TTR-DL-08)
 human_held_object_frame: world      # 61/QĐ-DL 08:3x: "hand" tried on W3 (3/4 failed, hand still 16 mm in the item) -> kept world; a carried object turns with the hand (with 'world' it kept its world
                                     #   orientation while the hand turned, and the fingers swept 5-15 mm into it, W3 17/11)
+# 68/QĐ-DL A (18/11/2026): the recorded scene cameras (observation.images.<name>, configs/hrc/collection.yaml
+# `cameras`), the SAME for all 10 tasks, train and test. sim_env.fix_recorded_cameras sets them LAST from here (after
+# every per-task scene / cam= override), so no task can change them; `wrist` = configs/scene/common.yaml cameras.wrist
+# (gripper-mounted, unchanged), re-applied the same way. Chosen by the user from outputs/diag/cam_layout_1118 (layout L).
+recorded_cameras:
+  front_oblique: {pos: [1.35, 0.35, 1.70], target: [0.30, -0.20, 0.90], fovy: 60}      # oblique, on the person's right
+  overhead_oblique: {pos: [0.30, 0.35, 1.80], target: [0.30, -0.18, 0.70], fovy: 62}   # 'centre low' overhead (~64 deg down)
+# review-only cameras (no longer recorded since 68/QĐ-DL; per-task `high` / `top` overrides affect only these)
 camera_high: {pos: [-0.60, 0.05, 1.45], target: [0.34, 0.02, 0.74], fovy: 62}
 camera_back: {pos: [0.30, 1.05, 1.30], target: [0.30, -0.30, 0.72], fovy: 60}
 camera_top: {pos: [0.30, 0.04, 1.72], target: [0.30, -0.04, 0.62], fovy: 54}
@@ -64,3 +72,7 @@ predictive_avoidance:
   dwell_s: {close: 0.3, open: 0.5}   # gripper close / open times (close_on, open_gripper 10 ticks)
   ik_tol_m: 0.005
   ssm_reaction_s: 0.05               # 58/QĐ-DL: robot reaction time T_r = one 20 Hz control tick; S_h = v_hand (T_r + v_robot / work_accel) (ISO/TS 15066:2016)
+
+# QD64: measured contact-stiffness pilot, NOT a change to acceptance thresholds.
+contact_solver:
+  solref: [0.004, 1.0]

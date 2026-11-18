@@ -1,10 +1,10 @@
 # Collection settings (QĐ 53/QĐ-DL §6–§7). Fixed before any bulk collection; change => bump schema_version.
-schema_version: hrc-1.1
+schema_version: hrc-1.2
 fps: 20
 robot_type: ur3e_sus2f
-cameras: [high, top, wrist]          # observation.images.<name>
+cameras: [front_oblique, overhead_oblique, wrist]   # observation.images.<name>; 68/QĐ-DL A: fixed for all 10 tasks (configs/hrc/station.yaml recorded_cameras)
 image_hw: [256, 256]
-review_camera: top                   # preview video camera (user, 16/11)
+review_camera: overhead_oblique      # preview video camera (68/QĐ-DL: was top; the recorded overhead view, the same in every task)
 review_hw: [480, 640]
 modes: [observed, forecast]
 datasets:
@@ -22,14 +22,14 @@ preview_seeds: {I1: 300100, I2: 300106, I3: 0, C1: 300100, C2: 300100, C3: 30010
 versions: {expert: hrc-expert-1.0, controller: cartesian-dls-1.0, manicast: manicast-0.4s-1s}
 
 # ---------------------------------------------------------------- 59/QĐ-DL: collection groups (17/11/2026)
-schema_version_note: "hrc-1.1 = hrc-1.0 + observation.forecast_provided + episode sidecar (59/QĐ-DL)"
-dataset_version: hrc-ds-0.1-pilot
+schema_version_note: "hrc-1.2 = hrc-1.1 with cameras front_oblique + overhead_oblique + wrist instead of high + top + wrist (68/QĐ-DL); hrc-1.1 = hrc-1.0 + observation.forecast_provided + episode sidecar (59/QĐ-DL)"
+dataset_version: hrc-ds-0.5       # 68/QĐ-DL: cameras front_oblique + overhead_oblique + wrist; human grasp settle; I1 forecast prep. 0.4.1-c1 = 67/QĐ-DL: + C1 cloth gripped at its near edge. 0.4 = 66/QĐ-DL: policy-unobservable violations ignored for the grade; I1 mug handle to +Y; C1 higher reach arc + glide; human push memory; C3 idle-hand grasp event; I3 switch_after_commit check outcome-based (0.3: 65/QĐ-DL robot start ±1 cm, W3 contest_middle paused)
 groups:
   N1:                                 # nominal, diverse; no forecast fault, no change of mind
     variants:
       default: [nominal]
       W1: [nominal, linger_in_tray]   # 57/QĐ-DL previewed overlap cases
-      W3: [nominal, contest_middle]
+      W3: [nominal]                   # 65/QĐ-DL: contest_middle paused for train (kept for benchmark / fixing)
     modes: [observed, forecast]
   N5:                                 # forecast fault; only the forecast expert reads the forecast
     variants: {default: [nominal]}
@@ -41,6 +41,7 @@ groups:
       I3: [switch_before_commit, switch_after_commit]
       C4: [switch_before_commit, switch_after_commit]
     modes: [observed, forecast]
+    variation: false                  # 62/QĐ-DL: debug change of mind without N1 variation first, then re-enable per factor
   PREVIEW:                            # the exact 17/11 preview cases, no generic variation (regression check)
     variants: {default: all}
     modes: [observed, forecast]
@@ -51,7 +52,7 @@ n1:
   speed_scale: [0.8, 1.2]             # measured: HY-Motion peak wrist speed p10 / p90 across samples 0.80 / 1.24
   start_shift_s: [-0.3, 0.6]          # design value
   pause: {probability: 0.5, after_s: [0.5, 3.0], duration_s: [0.3, 0.8]}   # design value
-  robot_tcp_offset_m: [0.03, 0.03, 0.02]                                    # design value, +- per axis
+  robot_tcp_offset_m: [0.01, 0.01, 0.01]   # 65/QĐ-DL pilot (was ±3/±3/±2 cm: seeds 300111 / 300114 stalled); start state checked (IK, collision, joint limits), resampled + logged
   per_task: {}                        # per-task overrides of the keys above, e.g. {I2: {speed_scale: [0.9, 1.1]}}
 
 # N5 forecast faults (shared/forecast_fault.py)
@@ -68,3 +69,6 @@ n5:
   checks: {bone_tol_m: 0.01, start_tol_m: 0.04, jump_tol_m: 0.05}
   per_task: {}
 
+
+quality:
+  review_allowed_contacts: true   # 64/QĐ-DL: B criterion confirmed by the user 17/11 13:56 (intended grasp / support contacts only)

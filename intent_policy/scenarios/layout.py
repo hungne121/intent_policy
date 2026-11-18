@@ -84,8 +84,9 @@ def make(task, human_model=None):
         objects[name] = {'shape':shape, 'size':list(size), 'color':color, 'mass':.06}
         height = size[1] if shape == 'cylinder' else size[2]
         positions[name] = (x,y,.62+height+.007 if z is None else z)
-    def tray(name,x,y,hx=.075,hy=.07,color='white'):
-        decor.append({'name':name,'type':'open_box','xy':[x,y], 'half':[hx,hy], 'height':.015,'wall':.003,'color':color})
+    def tray(name,x,y,hx=.075,hy=.07,color='white',open=()):
+        decor.append({'name':name,'type':'open_box','xy':[x,y], 'half':[hx,hy], 'height':.015,'wall':.003,'color':color,
+                      'open':list(open)})
     if task == 'I1':
         for i,x in enumerate([.10,.24,.38]):
             # v4 uses a collider sized to the scanned mug's visible width;
@@ -115,7 +116,11 @@ def make(task, human_model=None):
         scene['human']['hand_rest'] = [.45,-.68,.68]
         scene['cameras']['high'] = {'pos':[.30,1.15,1.75], 'target':[.30,-.30,.78], 'fovy':75}
     elif task == 'C2':
-        tray('shelf',.28,-.07,.22,.07)
+        # 62/QĐ-DL (measured 17/11): the brush lying flat is 15 cm long (5 cm bristles + handle), the old shelf inside
+        # was 13.4 cm deep: the bristles hit the back wall (3 mm) and the handle and the gripper fingers rested on the
+        # front wall (3.6 mm / 18 N, 3 mm / 34 N). Open front on the robot side (a ledge shelf) and the back wall
+        # 1.5 cm further towards the person; the front edge (y = 0) and the objects stay where they were.
+        tray('shelf',.28,-.0775,.22,.0775,open=('+y',))
         obj('cup',.18,-.07,'cylinder',(.034,.037),'white',.665)
         obj('clock',.38,-.07,'box',(.035,.025,.035),'brown',.658)
         obj('cloth',.28,-.26,'box',(.04,.035,.004),'blue')
@@ -152,12 +157,12 @@ def make(task, human_model=None):
         asset = root.find('asset'); path = HERE/'assets/gso/Room_Essentials_Mug_White_Yellow'
         # 61/QĐ-DL (17/11): the 0.7 visual was off-centre by 12.5 mm and flared to 45 mm radius around the 34 mm cylinder
         # collider (fingers looked sunk 12-14 mm into the mug, no physical contact); it is now fitted inside the
-        # collider, handle turned to -Y (the person's side), out of the fingers' closing axis X.
+        # collider, handle out of the fingers' closing axis X (66/QĐ-DL: turned to +Y, the robot side).
         first = root.find(f"./worldbody/body[@name='{mugs[0]}']")
         if task == 'I1' and model == 'v4':
             scale, vis_pos, vis_quat = '.60 .60 .60', '0 0 -.037', '1 0 0 0'
         else:
-            scale, vis_pos, vis_quat = fit_visual(first, path / 'model.obj', yaw_deg=-90., exclude_handle=True)
+            scale, vis_pos, vis_quat = fit_visual(first, path / "model.obj", yaw_deg=90., exclude_handle=True)   # 66/QĐ-DL: handle to +Y (robot side); at -Y the person's fingers crossed it (I1 3-5 mm)
         ET.SubElement(asset,'mesh',name='mug_scan',file=str(path/'model.obj'),scale=scale)
         ET.SubElement(asset,'texture',name='mug_tex',type='2d',file=str(path/'texture.png'))
         ET.SubElement(asset,'material',name='mug_mat',texture='mug_tex')

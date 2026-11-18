@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 STATION = yaml.safe_load((ROOT / 'configs/hrc/station.yaml').read_text())
 CONTROL = STATION['controller']
 INTENT = STATION['intent']
+RECORDED_CAMERAS = STATION['recorded_cameras']                                         # 68/QĐ-DL A
+WRIST_CAMERA = yaml.safe_load((ROOT / 'configs/scene/common.yaml').read_text())['cameras']['wrist']
 
 DT = float(CONTROL['dt_s'])
 JOINTS = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist']   # ManiCast joints (J = 6)
@@ -65,7 +67,8 @@ def motion_deviation(path, progress):
 
 def apply_station(scene, xml, stand_xy=None, cam=None):
     """Shared station: robot base across the table facing the human, human stand, continuous skin,
-    side overview (`high`), back and top cameras. Returns the edited scene XML."""
+    side overview (`high`, review only; `cam=` overrides it), back camera and the recorded cameras (68/QĐ-DL, fixed).
+    Returns the edited scene XML."""
     from intent_policy.sim.scene_builder_v2 import add_continuous_human_skin, ROOT as SIM_ROOT
     scene['human']['stand_xy'] = list(stand_xy if stand_xy is not None else STATION['human_stand_xy'])
     scene['human']['continuous_skin'] = bool(STATION['continuous_skin'])
@@ -80,6 +83,7 @@ def apply_station(scene, xml, stand_xy=None, cam=None):
     mount.set('pos', f'{BASE_XY[0]} {BASE_XY[1]} 0.62')
     half = np.radians(float(STATION['robot_base_yaw_deg'])) / 2
     mount.set('quat', f'{np.cos(half):.7f} 0 0 {np.sin(half):.7f}')
+    fix_recorded_cameras(root)                      # 68/QĐ-DL: last, so `cam=` / scene overrides cannot change them
     return ET.tostring(root, encoding='unicode')
 
 
@@ -93,12 +97,36 @@ def set_camera(root, name, cam):
     el.set('fovy', str(cam['fovy']))
 
 
+def fix_recorded_cameras(root):
+    """68/QĐ-DL A: (re)set the recorded cameras from config, identical for every task: the world cameras of
+    station.yaml `recorded_cameras` and the gripper `wrist` camera of configs/scene/common.yaml. Called last
+    (apply_station, ensure_review_cameras via Episode), so per-task scene / `cam=` overrides cannot change them."""
+    for name, cam in RECORDED_CAMERAS.items():
+        set_camera(root, name, cam)
+    w = WRIST_CAMERA
+    el = root.find(".//camera[@name='wrist']")
+    body = root.find(f".//body[@name='{w['body']}']")
+    if el is not None and body is not None and el not in list(body):
+        root.find(".//camera[@name='wrist']/..").remove(el); el = None
+    if body is None:
+        return
+    if el is None:
+        el = ET.SubElement(body, 'camera', name='wrist')
+    el.set('pos', ' '.join(str(float(v)) for v in w['pos']))
+    el.set('xyaxes', look_at_xyaxes(w['pos'], w['target'], w.get('up', (0.0, 0.0, 1.0))))
+    el.set('fovy', str(w['fovy']))
+    for k in ('quat', 'axisangle', 'euler', 'zaxis', 'mode', 'target'):
+        el.attrib.pop(k, None)
+
+
 def ensure_review_cameras(xml):
-    """Every task (also those with their own station) gets the shared back and top cameras."""
+    """Every task (also those with their own station) gets the shared back and top review cameras, then the fixed
+    recorded cameras (68/QĐ-DL), set last."""
     root = ET.fromstring(xml)
     if root.find("./worldbody/camera[@name='back']") is None:
         set_camera(root, 'back', STATION['camera_back'])
     set_camera(root, 'top', STATION['camera_top'])
+    fix_recorded_cameras(root)
     return ET.tostring(root, encoding='unicode')
 
 
@@ -126,6 +154,12 @@ def connected_human(scene, xml):
 def make_env(scene, positions, scene_xml):
     env = ManipulationEnv(model_xml=scene_xml)
     m, d = env.model, env.data
+    solver = STATION.get('contact_solver')
+    if solver:
+        solref = np.asarray(solver['solref'], float)
+        if solref.shape != (2,) or solref[0] < 2 * m.opt.timestep or solref[1] <= 0:
+            raise ValueError('contact solref requires timeconst >= 2*timestep and positive damping')
+        m.geom_solref[:] = solref
     for name, pos in positions.items():
         q = int(m.joint(name + '_free').qposadr[0]); d.qpos[q:q + 7] = [*pos, 1, 0, 0, 0]
         env.register_graspable(m.body(name).id, m.equality(robot_weld_name(name)).id)

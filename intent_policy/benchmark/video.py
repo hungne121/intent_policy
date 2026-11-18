@@ -1,6 +1,6 @@
 """Episode videos (H.264 mp4, plays in any player), recorded while the episode runs as `lerobot-eval` does.
 
-Frame: the `high` camera large (rendered at the panel size), the agent's other camera images in a side column, the
+Frame: the main camera (first of configs/hrc/collection.yaml `cameras`, 68/QĐ-DL: front_oblique) large (rendered at the panel size), the agent's other camera images in a side column, the
 episode, time and TCP speed on top, the benchmark events logged so far at the bottom (cue onset, intention evident,
 target commit, grasp, release, ...), and a SUCCESS / FAILURE banner held for 2 s at the end.
 """
@@ -9,12 +9,14 @@ from pathlib import Path
 
 import av
 import numpy as np
+import yaml
 from PIL import Image, ImageDraw, ImageFont
 
 SHOWN_EVENTS = ('human_cue_onset', 'human_intention_evident', 'human_intention_change', 'robot_target_commit',
                 'object_grasp', 'object_release', 'disruption_start', 'disruption_end', 'human_robot_contact',
                 'safety_distance_violation', 'task_success', 'task_failure')
-MAIN_CAMERA = 'high'                       # shown large; the side column shows the other cameras
+# shown large; the side column shows the other cameras. From config (68/QĐ-DL: front_oblique), not hard-coded.
+MAIN_CAMERA = yaml.safe_load((Path(__file__).resolve().parents[2] / 'configs/hrc/collection.yaml').read_text())['cameras'][0]
 MAIN_W, MAIN_H, SIDE_W = 512, 384, 256
 FPS = 20                                   # one decision per 0.05 s tick, as in the datasets
 FONT = ImageFont.load_default(size=12)      # scalable (FreeType) default font

@@ -16,6 +16,7 @@ Groups (configs/hrc/collection.yaml `groups`, 59/QĐ-DL):
 import argparse
 import copy
 import json
+import hashlib
 import time
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from intent_policy.shared.variation import sample_variation
 from intent_policy.shared.forecast_fault import sample_fault
 from intent_policy.experts import TASKS
 from intent_policy.data.lerobot_recorder import LeRobotRecorder
-from intent_policy.data.episode_validator import validate
+from intent_policy.data.episode_quality import classify
 from tools.preview import run_episode, variants
 
 CFG = yaml.safe_load((ROOT / 'configs/hrc/collection.yaml').read_text())
@@ -75,14 +76,23 @@ def main():
     p.add_argument('--n-seeds', type=int, required=True)
     p.add_argument('--first-seed', type=int, default=None)
     p.add_argument('--root', type=Path, default=ROOT / CFG['datasets']['root'])
-    p.add_argument('--review-video', action='store_true', help='also write the top review video per episode')
+    p.add_argument('--review-video', action='store_true', help='also write the review-camera video (collection.yaml review_camera) per episode')
+    p.add_argument('--pilot-abc', action='store_true', help='Preserve all grades in a separate pilot archive; never on main root')
     p.add_argument('--record-rejected', action='store_true',
                    help='PILOT DIAGNOSTIC ONLY: also write rejected episodes into the dataset with accepted=false, to '
                         'test LeRobot write / read-back / replay while no episode passes the physics gate. Refused '
                         'on the main dataset root.')
     a = p.parse_args()
+    a.record_rejected = a.record_rejected or a.pilot_abc
     if a.record_rejected and a.root.resolve() == (ROOT / CFG['datasets']['root']).resolve():
         raise SystemExit('--record-rejected is refused on the main dataset root')
+    source_hash = hashlib.sha256()
+    for base in ('intent_policy', 'tools', 'configs'):
+        for source in sorted((ROOT / base).rglob('*')):
+            if source.is_file() and source.suffix in ('.py', '.yaml', '.sh'):
+                source_hash.update(str(source.relative_to(ROOT)).encode())
+                source_hash.update(source.read_bytes())
+    source_digest = source_hash.hexdigest()
     grp = CFG['groups'][a.group]
     modes = a.modes or grp['modes']
     faults = [None] if a.group != 'N5' else (a.fault_types or grp['fault_types'])
@@ -120,10 +130,14 @@ def main():
                                             variant=variant, variation=variation, fault=spec,
                                             name_suffix=f'{a.group}_{seed}_' + ('' if fault_type is None else fault_type + '_'))
                             arrays = s.pop('_arrays', None)
-                            ok, reasons = validate(s, rec.frames, round(s['duration_s'] / 0.05))
+                            grade, reasons = classify(s, rec.frames, round(s['duration_s'] * CFG['fps']),
+                                                      CFG.get('quality', {}).get('review_allowed_contacts', False))
+                            ok = grade == 'A'
                             fault = s.get('fault') or {}
                             meta = jsonable({
                                 'episode_id': eid, 'group': a.group, 'task_name': task, 'task_variant': variant,
+                                'task': task, 'variant': variant, 'mode': mode, 'source_sha256': source_digest,
+                                'contact_classes': s.get('contact_classes', {}),
                                 'expert_mode': mode, 'seed': seed, 'split': a.split, 'success': s['success'],
                                 'failure_reason': s['failure_reason'], 'duration': s['duration_s'],
                                 'physics_valid': s['physics_valid'], 'forecast_validity_summary': s['forecast_validity_summary'],
@@ -138,7 +152,7 @@ def main():
                                 'controller_version': CFG['versions']['controller'], 'schema_version': CFG['schema_version'],
                                 'dataset_version': CFG['dataset_version'], 'wall_s': round(time.time() - t0, 1),
                                 'final_positions': s['final_positions'], 'events': s['events']})
-                            meta['accepted'] = ok; meta['reject_reasons'] = reasons
+                            meta['accepted'] = ok; meta['quality_grade'] = grade; meta['reject_reasons'] = reasons
                             if ok or a.record_rejected:
                                 idx = rec.accept(meta, arrays)
                             else:
@@ -147,9 +161,9 @@ def main():
                                 rej = rejected_root / eid
                                 rej.mkdir(parents=True, exist_ok=True)
                                 (rej / 'summary.json').write_text(json.dumps(jsonable({**s, 'reject_reasons': reasons}), indent=2) + '\n')
-                            row = {'episode_id': eid, 'accepted': ok, 'episode_index': idx, 'reasons': reasons,
+                            row = {'episode_id': eid, 'quality_grade': grade, 'accepted': ok, 'episode_index': idx, 'reasons': reasons,
                                    'success': s['success'], 'duration_s': s['duration_s'], 'wall_s': meta['wall_s'],
-                                   'frames': rec.frames if ok else None}
+                                   'frames': rec.frames}
                             with report.open('a') as f:
                                 f.write(json.dumps(row) + '\n')
                             print(json.dumps(row), flush=True)

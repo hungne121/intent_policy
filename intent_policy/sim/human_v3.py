@@ -35,6 +35,7 @@ SWIVEL_STEPS_DEG = (0., 10., -10., 20., -20., 30., -30., 45., -45., 60., -60., 7
 SWIVEL_RATE_DEG = 8.          # per control tick (0.05 s): 160 deg/s
 SWIVEL_CLEAR_M = 0.003        # solver target clearance arm-trunk (the gate allows 0.5 mm penetration)
 WORLD_CLEAR_M = 0.0           # hands may touch rigid objects, never pass into them
+PUSH_DECAY = 0.85             # 66/QĐ-DL: per 20 Hz tick, ~0.3 s time constant
 TRUNK = ('Pelvis', 'L_Hip', 'R_Hip', 'Spine1', 'Spine2', 'Spine3', 'Neck', 'Head', 'L_Collar', 'R_Collar')
 
 
@@ -310,8 +311,12 @@ class HumanV3:
         if held:
             data.geom_xpos[held] += shift
         try:
+            W = np.asarray(self.world_geoms, int)
+            wpos, wr = data.geom_xpos[W], self.model.geom_rbound[W]
             for a in list(self.hand_world_geoms[s]) + held:
-                for b in self.world_geoms:
+                # broad phase (speed only): bounding spheres farther apart than the 3 cm query cannot be closer
+                near = W[np.linalg.norm(wpos - data.geom_xpos[a], axis=1) - wr - self.model.geom_rbound[a] < .03]
+                for b in near:
                     if self.model.geom_bodyid[b] in skip:
                         continue
                     dist = mujoco.mj_geomDistance(self.model, data, a, b, .03, ft)
@@ -353,6 +358,15 @@ class HumanV3:
     def apply(self, data, palm, point_at=None, hand_shape='relaxed', palm_up=0., smooth=False, aim_blend=1.,
               shape_from=None, shape_progress=None, idle_palm=None, idle_shape=None, idle_palm_up=0., base=None):
         lean_prev = self._lean_prev
+        # 66/QĐ-DL: push memory. The correction found last tick is kept and decays (time constant ~0.3 s) instead of
+        # vanishing: without it a 4 cm push out of the table one tick, a sideways push off a cup the next and nothing
+        # the tick after made the C1 hand oscillate into the cup (5-15 mm, up to 936 N).
+        mem = getattr(self, '_push_mem', {})
+        cmd_palm = np.asarray(palm, float); cmd_idle = None if idle_palm is None else np.asarray(idle_palm, float)
+        if mem.get(self.active) is not None:
+            palm = cmd_palm + mem[self.active] * PUSH_DECAY
+        if cmd_idle is not None and mem.get(self.idle) is not None:
+            idle_palm = cmd_idle + mem[self.idle] * PUSH_DECAY
         pose = self.pose(palm, point_at, palm_up, aim_blend, idle_palm, idle_palm_up, base, swivel=dict(self.swivel))
         sides = [x for x in (self.active, self.idle) if x in pose['arms']]
         if getattr(self, 'self_pairs', None) and sides:
@@ -397,6 +411,8 @@ class HumanV3:
                 self._palm_now = {self.active: pose['palm'], self.idle: pose['idle_palm']}
         self._lean_prev = pose['lean']
         self._palm_prev = {self.active: np.asarray(pose['palm']).copy(), self.idle: np.asarray(pose['idle_palm']).copy()}
+        self._push_mem = {self.active: np.asarray(palm, float) - cmd_palm,
+                          self.idle: None if cmd_idle is None else np.asarray(idle_palm, float) - cmd_idle}
         k, R = pose['k'], pose['R']
         quat = np.zeros(4)
         self._write(data, pose)

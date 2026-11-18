@@ -1,0 +1,535 @@
+N1 I1 train 300000
+N1 I2 train 300000
+N1 I3 train 300000
+N1 C1 train 300000
+N1 C2 train 300000
+N1 C3 train 300000
+N1 C4 train 300000
+N5 I1 train 300000 spatial_fault
+N5 I2 train 300000 temporal_fault
+N5 I3 train 300000 direction_fault
+N5 C1 train 300000 spatial_fault
+N5 C2 train 300000 temporal_fault
+N5 C3 train 300000 direction_fault
+N5 C4 train 300000 spatial_fault
+N6 I3 train 300000
+N6 C4 train 300000
+N1 I1 val 300800
+N1 I2 val 300800
+N1 I3 val 300800
+N1 C1 val 300800
+N1 C2 val 300800
+N1 C3 val 300800
+N1 C4 val 300800
+N5 I1 val 300800 direction_fault
+N5 I2 val 300800 spatial_fault
+N5 I3 val 300800 temporal_fault
+N5 C1 val 300800 direction_fault
+N5 C2 val 300800 spatial_fault
+N5 C3 val 300800 temporal_fault
+N5 C4 val 300800 direction_fault
+N6 I3 val 300800
+N6 C4 val 300800
+N1 I1 train 300001
+N1 I2 train 300001
+N1 I3 train 300001
+N1 C1 train 300001
+N1 C2 train 300001
+N1 C3 train 300001
+N1 C4 train 300001
+N5 I1 train 300001 temporal_fault
+N5 I2 train 300001 direction_fault
+N5 I3 train 300001 spatial_fault
+N5 C1 train 300001 temporal_fault
+N5 C2 train 300001 direction_fault
+N5 C3 train 300001 spatial_fault
+N5 C4 train 300001 temporal_fault
+N6 I3 train 300001
+N6 C4 train 300001
+N1 I1 train 300002
+N1 I2 train 300002
+N1 I3 train 300002
+N1 C1 train 300002
+N1 C2 train 300002
+N1 C3 train 300002
+N1 C4 train 300002
+N5 I1 train 300002 direction_fault
+N5 I2 train 300002 spatial_fault
+N5 I3 train 300002 temporal_fault
+N5 C1 train 300002 direction_fault
+N5 C2 train 300002 spatial_fault
+N5 C3 train 300002 temporal_fault
+N5 C4 train 300002 direction_fault
+N6 I3 train 300002
+N6 C4 train 300002
+N1 I1 train 300003
+N1 I2 train 300003
+N1 I3 train 300003
+N1 C1 train 300003
+N1 C2 train 300003
+N1 C3 train 300003
+N1 C4 train 300003
+N5 I1 train 300003 spatial_fault
+N5 I2 train 300003 temporal_fault
+N5 I3 train 300003 direction_fault
+N5 C1 train 300003 spatial_fault
+N5 C2 train 300003 temporal_fault
+N5 C3 train 300003 direction_fault
+N5 C4 train 300003 spatial_fault
+N6 I3 train 300003
+N6 C4 train 300003
+N1 I1 train 300004
+N1 I2 train 300004
+N1 I3 train 300004
+N1 C1 train 300004
+N1 C2 train 300004
+N1 C3 train 300004
+N1 C4 train 300004
+N5 I1 train 300004 temporal_fault
+N5 I2 train 300004 direction_fault
+N5 I3 train 300004 spatial_fault
+N5 C1 train 300004 temporal_fault
+N5 C2 train 300004 direction_fault
+N5 C3 train 300004 spatial_fault
+N5 C4 train 300004 temporal_fault
+N6 I3 train 300004
+N6 C4 train 300004
+N1 I1 val 300801
+N1 I2 val 300801
+N1 I3 val 300801
+N1 C1 val 300801
+N1 C2 val 300801
+N1 C3 val 300801
+N1 C4 val 300801
+N5 I1 val 300801 spatial_fault
+N5 I2 val 300801 temporal_fault
+N5 I3 val 300801 direction_fault
+N5 C1 val 300801 spatial_fault
+N5 C2 val 300801 temporal_fault
+N5 C3 val 300801 direction_fault
+N5 C4 val 300801 spatial_fault
+N6 I3 val 300801
+N6 C4 val 300801
+N1 I1 train 300005
+N1 I2 train 300005
+N1 I3 train 300005
+N1 C1 train 300005
+N1 C2 train 300005
+N1 C3 train 300005
+N1 C4 train 300005
+N5 I1 train 300005 direction_fault
+N5 I2 train 300005 spatial_fault
+N5 I3 train 300005 temporal_fault
+N5 C1 train 300005 direction_fault
+N5 C2 train 300005 spatial_fault
+N5 C3 train 300005 temporal_fault
+N5 C4 train 300005 direction_fault
+N6 I3 train 300005
+N6 C4 train 300005
+N1 I1 train 300006
+N1 I2 train 300006
+N1 I3 train 300006
+N1 C1 train 300006
+N1 C2 train 300006
+N1 C3 train 300006
+N1 C4 train 300006
+N5 I1 train 300006 spatial_fault
+N5 I2 train 300006 temporal_fault
+N5 I3 train 300006 direction_fault
+N5 C1 train 300006 spatial_fault
+N5 C2 train 300006 temporal_fault
+N5 C3 train 300006 direction_fault
+N5 C4 train 300006 spatial_fault
+N6 I3 train 300006
+N6 C4 train 300006
+N1 I1 train 300007
+N1 I2 train 300007
+N1 I3 train 300007
+N1 C1 train 300007
+N1 C2 train 300007
+N1 C3 train 300007
+N1 C4 train 300007
+N5 I1 train 300007 temporal_fault
+N5 I2 train 300007 direction_fault
+N5 I3 train 300007 spatial_fault
+N5 C1 train 300007 temporal_fault
+N5 C2 train 300007 direction_fault
+N5 C3 train 300007 spatial_fault
+N5 C4 train 300007 temporal_fault
+N6 I3 train 300007
+N6 C4 train 300007
+N1 I1 train 300008
+N1 I2 train 300008
+N1 I3 train 300008
+N1 C1 train 300008
+N1 C2 train 300008
+N1 C3 train 300008
+N1 C4 train 300008
+N5 I1 train 300008 direction_fault
+N5 I2 train 300008 spatial_fault
+N5 I3 train 300008 temporal_fault
+N5 C1 train 300008 direction_fault
+N5 C2 train 300008 spatial_fault
+N5 C3 train 300008 temporal_fault
+N5 C4 train 300008 direction_fault
+N6 I3 train 300008
+N6 C4 train 300008
+N1 I1 val 300802
+N1 I2 val 300802
+N1 I3 val 300802
+N1 C1 val 300802
+N1 C2 val 300802
+N1 C3 val 300802
+N1 C4 val 300802
+N5 I1 val 300802 temporal_fault
+N5 I2 val 300802 direction_fault
+N5 I3 val 300802 spatial_fault
+N5 C1 val 300802 temporal_fault
+N5 C2 val 300802 direction_fault
+N5 C3 val 300802 spatial_fault
+N5 C4 val 300802 temporal_fault
+N6 I3 val 300802
+N6 C4 val 300802
+N1 I1 train 300009
+N1 I2 train 300009
+N1 I3 train 300009
+N1 C1 train 300009
+N1 C2 train 300009
+N1 C3 train 300009
+N1 C4 train 300009
+N5 I1 train 300009 spatial_fault
+N5 I2 train 300009 temporal_fault
+N5 I3 train 300009 direction_fault
+N5 C1 train 300009 spatial_fault
+N5 C2 train 300009 temporal_fault
+N5 C3 train 300009 direction_fault
+N5 C4 train 300009 spatial_fault
+N6 I3 train 300009
+N6 C4 train 300009
+N1 I1 train 300010
+N1 I2 train 300010
+N1 I3 train 300010
+N1 C1 train 300010
+N1 C2 train 300010
+N1 C3 train 300010
+N1 C4 train 300010
+N6 I3 train 300010
+N6 C4 train 300010
+N1 I1 train 300011
+N1 I2 train 300011
+N1 I3 train 300011
+N1 C1 train 300011
+N1 C2 train 300011
+N1 C3 train 300011
+N1 C4 train 300011
+N6 I3 train 300011
+N6 C4 train 300011
+N1 I1 train 300012
+N1 I2 train 300012
+N1 I3 train 300012
+N1 C1 train 300012
+N1 C2 train 300012
+N1 C3 train 300012
+N1 C4 train 300012
+N6 I3 train 300012
+N6 C4 train 300012
+N1 I1 val 300803
+N1 I2 val 300803
+N1 I3 val 300803
+N1 C1 val 300803
+N1 C2 val 300803
+N1 C3 val 300803
+N1 C4 val 300803
+N6 I3 val 300803
+N6 C4 val 300803
+N1 I1 train 300013
+N1 I2 train 300013
+N1 I3 train 300013
+N1 C1 train 300013
+N1 C2 train 300013
+N1 C3 train 300013
+N1 C4 train 300013
+N6 I3 train 300013
+N6 C4 train 300013
+N1 I1 train 300014
+N1 I2 train 300014
+N1 I3 train 300014
+N1 C1 train 300014
+N1 C2 train 300014
+N1 C3 train 300014
+N1 C4 train 300014
+N6 I3 train 300014
+N6 C4 train 300014
+N1 I1 train 300015
+N1 I2 train 300015
+N1 I3 train 300015
+N1 C1 train 300015
+N1 C2 train 300015
+N1 C3 train 300015
+N1 C4 train 300015
+N1 I1 train 300016
+N1 I2 train 300016
+N1 I3 train 300016
+N1 C1 train 300016
+N1 C2 train 300016
+N1 C3 train 300016
+N1 C4 train 300016
+N1 I1 val 300804
+N1 I2 val 300804
+N1 I3 val 300804
+N1 C1 val 300804
+N1 C2 val 300804
+N1 C3 val 300804
+N1 C4 val 300804
+N1 I1 train 300017
+N1 I2 train 300017
+N1 I3 train 300017
+N1 C1 train 300017
+N1 C2 train 300017
+N1 C3 train 300017
+N1 C4 train 300017
+N1 I1 train 300018
+N1 I2 train 300018
+N1 I3 train 300018
+N1 C1 train 300018
+N1 C2 train 300018
+N1 C3 train 300018
+N1 C4 train 300018
+N1 I1 train 300019
+N1 I2 train 300019
+N1 I3 train 300019
+N1 C1 train 300019
+N1 C2 train 300019
+N1 C3 train 300019
+N1 C4 train 300019
+N1 I1 train 300020
+N1 I2 train 300020
+N1 I3 train 300020
+N1 C1 train 300020
+N1 C2 train 300020
+N1 C3 train 300020
+N1 C4 train 300020
+N1 I1 val 300805
+N1 I2 val 300805
+N1 I3 val 300805
+N1 C1 val 300805
+N1 C2 val 300805
+N1 C3 val 300805
+N1 C4 val 300805
+N1 I1 train 300021
+N1 I2 train 300021
+N1 I3 train 300021
+N1 C1 train 300021
+N1 C2 train 300021
+N1 C3 train 300021
+N1 C4 train 300021
+N1 I1 train 300022
+N1 I2 train 300022
+N1 I3 train 300022
+N1 C1 train 300022
+N1 C2 train 300022
+N1 C3 train 300022
+N1 C4 train 300022
+N1 I1 train 300023
+N1 I2 train 300023
+N1 I3 train 300023
+N1 C1 train 300023
+N1 C2 train 300023
+N1 C3 train 300023
+N1 C4 train 300023
+N1 I1 train 300024
+N1 I2 train 300024
+N1 I3 train 300024
+N1 C1 train 300024
+N1 C2 train 300024
+N1 C3 train 300024
+N1 C4 train 300024
+N1 I1 val 300806
+N1 I2 val 300806
+N1 I3 val 300806
+N1 C1 val 300806
+N1 C2 val 300806
+N1 C3 val 300806
+N1 C4 val 300806
+N1 I1 train 300025
+N1 I2 train 300025
+N1 I3 train 300025
+N1 C1 train 300025
+N1 C2 train 300025
+N1 C3 train 300025
+N1 C4 train 300025
+N1 I1 train 300026
+N1 I2 train 300026
+N1 I3 train 300026
+N1 C1 train 300026
+N1 C2 train 300026
+N1 C3 train 300026
+N1 C4 train 300026
+N1 I1 train 300027
+N1 I2 train 300027
+N1 I3 train 300027
+N1 C1 train 300027
+N1 C2 train 300027
+N1 C3 train 300027
+N1 C4 train 300027
+N1 I1 train 300028
+N1 I2 train 300028
+N1 I3 train 300028
+N1 C1 train 300028
+N1 C2 train 300028
+N1 C3 train 300028
+N1 C4 train 300028
+N1 I1 val 300807
+N1 I2 val 300807
+N1 I3 val 300807
+N1 C1 val 300807
+N1 C2 val 300807
+N1 C3 val 300807
+N1 C4 val 300807
+N1 I1 train 300029
+N1 I2 train 300029
+N1 I3 train 300029
+N1 C1 train 300029
+N1 C2 train 300029
+N1 C3 train 300029
+N1 C4 train 300029
+N1 I1 train 300030
+N1 I2 train 300030
+N1 I3 train 300030
+N1 C1 train 300030
+N1 C2 train 300030
+N1 C3 train 300030
+N1 C4 train 300030
+N1 I1 train 300031
+N1 I2 train 300031
+N1 I3 train 300031
+N1 C1 train 300031
+N1 C2 train 300031
+N1 C3 train 300031
+N1 C4 train 300031
+N1 I1 train 300032
+N1 I2 train 300032
+N1 I3 train 300032
+N1 C1 train 300032
+N1 C2 train 300032
+N1 C3 train 300032
+N1 C4 train 300032
+N1 I1 val 300808
+N1 I2 val 300808
+N1 I3 val 300808
+N1 C1 val 300808
+N1 C2 val 300808
+N1 C3 val 300808
+N1 C4 val 300808
+N1 I1 train 300033
+N1 I2 train 300033
+N1 I3 train 300033
+N1 C1 train 300033
+N1 C2 train 300033
+N1 C3 train 300033
+N1 C4 train 300033
+N1 I1 train 300034
+N1 I2 train 300034
+N1 I3 train 300034
+N1 C1 train 300034
+N1 C2 train 300034
+N1 C3 train 300034
+N1 C4 train 300034
+N1 I1 train 300035
+N1 I2 train 300035
+N1 I3 train 300035
+N1 C1 train 300035
+N1 C2 train 300035
+N1 C3 train 300035
+N1 C4 train 300035
+N1 I1 train 300036
+N1 I2 train 300036
+N1 I3 train 300036
+N1 C1 train 300036
+N1 C2 train 300036
+N1 C3 train 300036
+N1 C4 train 300036
+N1 I1 val 300809
+N1 I2 val 300809
+N1 I3 val 300809
+N1 C1 val 300809
+N1 C2 val 300809
+N1 C3 val 300809
+N1 C4 val 300809
+N1 I1 train 300037
+N1 I2 train 300037
+N1 I3 train 300037
+N1 C1 train 300037
+N1 C2 train 300037
+N1 C3 train 300037
+N1 C4 train 300037
+N1 I1 train 300038
+N1 I2 train 300038
+N1 I3 train 300038
+N1 C1 train 300038
+N1 C2 train 300038
+N1 C3 train 300038
+N1 C4 train 300038
+N1 I1 train 300039
+N1 I2 train 300039
+N1 I3 train 300039
+N1 C1 train 300039
+N1 C2 train 300039
+N1 C3 train 300039
+N1 C4 train 300039
+N1 I1 train 300040
+N1 I2 train 300040
+N1 I3 train 300040
+N1 C1 train 300040
+N1 C2 train 300040
+N1 C3 train 300040
+N1 C4 train 300040
+N1 I1 val 300810
+N1 I2 val 300810
+N1 I3 val 300810
+N1 C1 val 300810
+N1 C2 val 300810
+N1 C3 val 300810
+N1 C4 val 300810
+N1 I1 train 300041
+N1 I2 train 300041
+N1 I3 train 300041
+N1 C1 train 300041
+N1 C2 train 300041
+N1 C3 train 300041
+N1 C4 train 300041
+N1 I1 train 300042
+N1 I2 train 300042
+N1 I3 train 300042
+N1 C1 train 300042
+N1 C2 train 300042
+N1 C3 train 300042
+N1 C4 train 300042
+N1 I1 train 300043
+N1 I2 train 300043
+N1 I3 train 300043
+N1 C1 train 300043
+N1 C2 train 300043
+N1 C3 train 300043
+N1 C4 train 300043
+N1 I1 train 300044
+N1 I2 train 300044
+N1 I3 train 300044
+N1 C1 train 300044
+N1 C2 train 300044
+N1 C3 train 300044
+N1 C4 train 300044
+N1 I1 val 300811
+N1 I2 val 300811
+N1 I3 val 300811
+N1 C1 val 300811
+N1 C2 val 300811
+N1 C3 val 300811
+N1 C4 val 300811
+N1 I1 train 300045
+N1 I2 train 300045
+N1 I3 train 300045
+N1 C1 train 300045
+N1 C2 train 300045
+N1 C3 train 300045
+N1 C4 train 300045

@@ -20,3 +20,7 @@ human_self_penetration_m: 0.0005     # kinematic capsules: same no-interpenetrat
 human_force_n: 140.0
 grasp_window_s: 0.5
 robot_grasp_phases: [close, open, return_open, hold_switch]
+b_max_depth_m: 0.005               # 65/QĐ-DL item 7: an intended contact deeper than this is "severe" -> C, never B.
+                                    #   DESIGN VALUE (10 x rigid_penetration_m), pending user approval; conservative
+policy_unobservable_rules: [arm_vs_body, human_grasp, handover, held_object, object_support, robot_grasp]   # 66/QĐ-DL:
+                                    #   ignored for the A/B/C grade (robot_grasp only within the gripper force range)

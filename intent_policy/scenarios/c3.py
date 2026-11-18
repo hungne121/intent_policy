@@ -71,6 +71,7 @@ def human(ep, info):
     reached = lambda: np.linalg.norm(np.asarray(ep.pose['idle_palm']) - (cloth0 + PALM_TO_BRUSH)) < .01
     yield from hold(home, 1.0, until=reached, idle_palm=cloth0 + PALM_TO_BRUSH, idle_shape='grasp', phase='left_take_cloth')
     ep.idle_hand_objects['cloth'] = -PALM_TO_BRUSH
+    ep.event('human_grasp', object='cloth', hand='idle')     # 65/QĐ-DL: the idle-hand grasp is an intended contact
     idle = cloth0 + PALM_TO_BRUSH
     for f in move(idle, HOLD_PALM, .8, phase='left_hold'):
         yield {'palm': home, 'idle_palm': f['palm'], 'idle_shape': 'grasp'}
@@ -80,6 +81,8 @@ def human(ep, info):
         yield {**f, 'idle_palm': idle, 'idle_shape': 'grasp'}
     for f in move(handle + [0, 0, .08], handle, .4, shape='grasp', phase='reach_handle'):
         yield {**f, 'idle_palm': idle, 'idle_shape': 'grasp'}
+    yield from ep.settle_hand({'palm': handle, 'progress': 1., 'shape': 'grasp', 'phase': 'reach_handle',   # 68/QĐ-DL B.1
+                               'idle_palm': idle, 'idle_shape': 'grasp'})
     ep.human_grasp('tray'); ep.event('human_grasp_handle')
     yield from hold(handle, until=lambda: ep.attached_name() == 'tray', shape='grasp', idle_palm=idle, idle_shape='grasp', phase='wait_robot_handle')
     yield from hold(handle, .3, shape='grasp', idle_palm=idle, idle_shape='grasp', phase='wait_robot_handle')

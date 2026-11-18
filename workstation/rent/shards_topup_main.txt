@@ -1,0 +1,194 @@
+N1 C2 train 300046
+N1 C2 val 300812
+N1 C3 train 300046
+N1 C3 val 300812
+N6 I3 train 300015
+N6 I3 val 300804
+N5 C3 train 300010 spatial_fault
+N5 C3 val 300803 temporal_fault
+N5 C4 train 300010 temporal_fault
+N5 C4 val 300803 direction_fault
+N5 C2 train 300010 direction_fault
+N5 I1 val 300803 direction_fault
+N1 C2 train 300047
+N1 C2 val 300813
+N1 C3 train 300047
+N1 C3 val 300813
+N6 I3 train 300016
+N6 I3 val 300805
+N5 C3 train 300011 temporal_fault
+N5 C3 val 300804 direction_fault
+N5 C4 train 300011 direction_fault
+N5 C4 val 300804 spatial_fault
+N5 C2 train 300011 spatial_fault
+N5 I1 val 300804 spatial_fault
+N1 C2 train 300048
+N1 C2 val 300814
+N1 C3 train 300048
+N1 C3 val 300814
+N6 I3 train 300017
+N6 I3 val 300806
+N5 C3 train 300012 direction_fault
+N5 C3 val 300805 spatial_fault
+N5 C4 train 300012 spatial_fault
+N5 C4 val 300805 temporal_fault
+N5 C2 train 300012 temporal_fault
+N5 I1 val 300805 temporal_fault
+N1 C2 train 300049
+N1 C2 val 300815
+N1 C3 train 300049
+N1 C3 val 300815
+N6 I3 train 300018
+N6 I3 val 300807
+N5 C3 train 300013 spatial_fault
+N5 C3 val 300806 temporal_fault
+N5 C4 train 300013 temporal_fault
+N5 C4 val 300806 direction_fault
+N1 C2 train 300050
+N1 C2 val 300816
+N1 C3 train 300050
+N1 C3 val 300816
+N6 I3 train 300019
+N6 I3 val 300808
+N5 C3 train 300014 temporal_fault
+N5 C3 val 300807 direction_fault
+N5 C4 train 300014 direction_fault
+N5 C4 val 300807 spatial_fault
+N1 C2 train 300051
+N1 C2 val 300817
+N1 C3 train 300051
+N1 C3 val 300817
+N6 I3 train 300020
+N6 I3 val 300809
+N5 C3 train 300015 direction_fault
+N5 C3 val 300808 spatial_fault
+N5 C4 train 300015 spatial_fault
+N5 C4 val 300808 temporal_fault
+N1 C2 train 300052
+N1 C2 val 300818
+N1 C3 train 300052
+N1 C3 val 300818
+N6 I3 train 300021
+N6 I3 val 300810
+N5 C3 train 300016 spatial_fault
+N5 C3 val 300809 temporal_fault
+N5 C4 train 300016 temporal_fault
+N5 C4 val 300809 direction_fault
+N1 C2 train 300053
+N1 C2 val 300819
+N1 C3 train 300053
+N1 C3 val 300819
+N6 I3 train 300022
+N6 I3 val 300811
+N5 C3 train 300017 temporal_fault
+N5 C3 val 300810 direction_fault
+N5 C4 train 300017 direction_fault
+N5 C4 val 300810 spatial_fault
+N1 C2 train 300054
+N1 C2 val 300820
+N1 C3 train 300054
+N1 C3 val 300820
+N6 I3 train 300023
+N6 I3 val 300812
+N5 C3 train 300018 direction_fault
+N5 C3 val 300811 spatial_fault
+N5 C4 train 300018 spatial_fault
+N5 C4 val 300811 temporal_fault
+N1 C2 train 300055
+N1 C2 val 300821
+N1 C3 train 300055
+N1 C3 val 300821
+N6 I3 train 300024
+N6 I3 val 300813
+N5 C3 train 300019 spatial_fault
+N5 C3 val 300812 temporal_fault
+N5 C4 train 300019 temporal_fault
+N5 C4 val 300812 direction_fault
+N1 C2 train 300056
+N1 C3 train 300056
+N1 C3 val 300822
+N5 C3 train 300020 temporal_fault
+N5 C3 val 300813 direction_fault
+N5 C4 train 300020 direction_fault
+N5 C4 val 300813 spatial_fault
+N1 C2 train 300057
+N1 C3 train 300057
+N1 C3 val 300823
+N5 C3 train 300021 direction_fault
+N5 C3 val 300814 spatial_fault
+N5 C4 train 300021 spatial_fault
+N5 C4 val 300814 temporal_fault
+N1 C2 train 300058
+N1 C3 train 300058
+N1 C3 val 300824
+N5 C3 train 300022 spatial_fault
+N5 C3 val 300815 temporal_fault
+N5 C4 train 300022 temporal_fault
+N5 C4 val 300815 direction_fault
+N1 C2 train 300059
+N1 C3 train 300059
+N1 C3 val 300825
+N5 C3 train 300023 temporal_fault
+N5 C3 val 300816 direction_fault
+N5 C4 train 300023 direction_fault
+N5 C4 val 300816 spatial_fault
+N1 C3 train 300060
+N1 C3 val 300826
+N5 C3 train 300024 direction_fault
+N5 C4 train 300024 spatial_fault
+N1 C3 train 300061
+N1 C3 val 300827
+N5 C3 train 300025 spatial_fault
+N5 C4 train 300025 temporal_fault
+N1 C3 train 300062
+N1 C3 val 300828
+N5 C3 train 300026 temporal_fault
+N5 C4 train 300026 direction_fault
+N1 C3 train 300063
+N1 C3 val 300829
+N5 C3 train 300027 direction_fault
+N5 C4 train 300027 spatial_fault
+N5 C3 train 300028 spatial_fault
+N5 C4 train 300028 temporal_fault
+N5 C3 train 300029 temporal_fault
+N5 C4 train 300029 direction_fault
+N5 C3 train 300030 direction_fault
+N5 C4 train 300030 spatial_fault
+N5 C3 train 300031 spatial_fault
+N5 C4 train 300031 temporal_fault
+N5 C3 train 300032 temporal_fault
+N5 C4 train 300032 direction_fault
+N5 C3 train 300033 direction_fault
+N5 C4 train 300033 spatial_fault
+N5 C3 train 300034 spatial_fault
+N5 C4 train 300034 temporal_fault
+N5 C3 train 300035 temporal_fault
+N5 C4 train 300035 direction_fault
+N5 C3 train 300036 direction_fault
+N5 C4 train 300036 spatial_fault
+N5 C3 train 300037 spatial_fault
+N5 C4 train 300037 temporal_fault
+N5 C3 train 300038 temporal_fault
+N5 C4 train 300038 direction_fault
+N5 C3 train 300039 direction_fault
+N5 C4 train 300039 spatial_fault
+N5 C3 train 300040 spatial_fault
+N5 C4 train 300040 temporal_fault
+N5 C3 train 300041 temporal_fault
+N5 C4 train 300041 direction_fault
+N5 C3 train 300042 direction_fault
+N5 C4 train 300042 spatial_fault
+N5 C3 train 300043 spatial_fault
+N5 C4 train 300043 temporal_fault
+N5 C3 train 300044 temporal_fault
+N5 C4 train 300044 direction_fault
+N5 C3 train 300045 direction_fault
+N5 C4 train 300045 spatial_fault
+N5 C3 train 300046 spatial_fault
+N5 C4 train 300046 temporal_fault
+N5 C3 train 300047 temporal_fault
+N5 C4 train 300047 direction_fault
+N5 C3 train 300048 direction_fault
+N5 C4 train 300048 spatial_fault
+N5 C3 train 300049 spatial_fault
+N5 C4 train 300049 temporal_fault

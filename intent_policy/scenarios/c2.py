@@ -90,6 +90,7 @@ def human(ep, info):
                     shape_from='relaxed', phase='reach_cloth')
     yield from move(above + [0, 0, .06], above, .4, shape='grasp', phase='grip_cloth')
     yield from hold(above, .2, shape='grasp', phase='grip_cloth')
+    yield from ep.settle_hand({'palm': above, 'shape': 'grasp', 'phase': 'grip_cloth'})   # 68/QĐ-DL B.1
     ep.human_grasp('cloth')
     raised = above + [0, 0, .04]
     yield from move(above, raised, .6, shape='grasp', phase='lift_cloth')
@@ -108,6 +109,7 @@ def human(ep, info):
         yield from move(top + [0, 0, .06], top, .35, shape='grasp', phase=f'grip_{obj}')
         # Let the smoothed reaching hand settle over the object before lifting vertically.
         yield from hold(top, .35, shape='grasp', phase=f'settle_{obj}')
+        yield from ep.settle_hand({'palm': top, 'shape': 'grasp', 'phase': f'settle_{obj}'})   # 68/QĐ-DL B.1
         ep.human_grasp(obj)
         # lift the object well above the shelf and draw it back towards the body, so the robot can wipe
         # underneath without coming within the safety distance of the hand
@@ -141,6 +143,7 @@ def human(ep, info):
     yield from move(home, recv + [0, -.06, .06], .7, lift=.04, shape='grasp', shape_from='relaxed', phase='reach_cloth_back')
     yield from move(recv + [0, -.06, .06], recv + [0, 0, .06], .3, lift=.04, shape='grasp', shape_from='relaxed', phase='reach_cloth_back')
     yield from move(recv + [0, 0, .06], recv, .4, shape='grasp', phase='reach_cloth_back')
+    yield from ep.settle_hand({'palm': recv, 'progress': 1., 'shape': 'grasp', 'phase': 'reach_cloth_back'})   # 68/QĐ-DL B.1
     ep.human_grasp('cloth'); ep.event('human_holds_cloth')
     yield from hold(recv, until=lambda: ep.attached_name() is None, shape='grasp', phase='wait_robot_release')
     # put the brush back on its stand, then rest (55/QĐ-DL: carrying it down to the hanging hand bent the wrist into it)

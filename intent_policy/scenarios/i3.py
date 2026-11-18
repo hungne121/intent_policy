@@ -143,6 +143,8 @@ def check(ep, info):
         reasons.append(f'grasp sequence {grasps}')
     if info['variant'] == 'switch_before_commit' and grasps != [target]:
         reasons.append(f'grasp sequence {grasps} (A must not be grasped)')
-    if info['variant'] == 'switch_after_commit' and grasps != [a, target]:
-        reasons.append(f'grasp sequence {grasps} (A then B expected)')
+    # 66/QĐ-DL: the switch time is on the person's clock (seed); a robot that had not yet grasped A when the person
+    # switched (the slower observed expert) correctly takes only B. Outcome-based: [A, B] (A taken, returned) or [B].
+    if info['variant'] == 'switch_after_commit' and grasps not in ([a, target], [target]):
+        reasons.append(f'grasp sequence {grasps} (A then B, or only B, expected)')
     return not reasons, '; '.join(reasons) or None

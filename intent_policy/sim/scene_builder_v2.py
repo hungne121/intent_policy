@@ -143,7 +143,7 @@ def _add_zone_markers(world, layout: dict, top: float) -> None:
 
 def _add_decor(world, decor: list, palette: dict, top: float) -> None:
     """Static scene furniture (v6: trays, open boxes, a baking sheet), physical so objects rest on it. `xy` is the
-    footprint centre on the table (x, y); `open_box` = bottom + 4 walls (half: outer half size x / y, height, wall)."""
+    footprint centre on the table (x, y); `open_box` = bottom + 4 walls (half: outer half size x / y, height, wall; `open`: walls left out)."""
     for d in decor:
         rgba = resolve_color(d['color'], palette)
         x, y = d['xy']
@@ -154,7 +154,12 @@ def _add_decor(world, decor: list, palette: dict, top: float) -> None:
                      ([w / 2, hy, h / 2], [x + hx - w / 2, y, top + h / 2]), ([w / 2, hy, h / 2], [x - hx + w / 2, y, top + h / 2])]
         else:
             parts = [(d['size'], [x, y, top + float(d['size'][-1])])]
+        # 62/QĐ-DL: `open` lists walls left out (part index kept in the geom name: 1 = +y, 2 = -y, 3 = +x, 4 = -x)
+        skip = {'+y': 1, '-y': 2, '+x': 3, '-x': 4}
+        drop = {skip[o] for o in d.get('open', ())} if d['type'] == 'open_box' else set()
         for i, (size, pos) in enumerate(parts):
+            if i in drop:
+                continue
             _sub(world, 'geom', name=f"decor_{d['name']}_{i}", type='box', size=size, pos=pos, rgba=rgba,
                  contype='1', conaffinity='1', friction=d.get('friction', '1.0 0.01 0.001'))
 

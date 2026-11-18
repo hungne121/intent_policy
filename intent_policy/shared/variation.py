@@ -22,7 +22,8 @@ def sample_variation(seed, cfg):
     rng = np.random.default_rng([int(seed), 59, 1])
     spec = {'speed_scale': float(rng.uniform(*cfg['speed_scale'])),
             'start_shift_s': float(rng.uniform(*cfg['start_shift_s'])),
-            'pause': None, 'robot_tcp_offset_m': [float(rng.uniform(-a, a)) for a in cfg['robot_tcp_offset_m']]}
+            'pause': None, 'robot_tcp_offset_m': [float(rng.uniform(-a, a)) for a in cfg['robot_tcp_offset_m']],
+            'robot_tcp_offset_range_m': [float(a) for a in cfg['robot_tcp_offset_m']]}
     if rng.uniform() < float(cfg['pause']['probability']):
         spec['pause'] = {'after_s': float(rng.uniform(*cfg['pause']['after_s'])),
                          'duration_s': float(rng.uniform(*cfg['pause']['duration_s']))}
@@ -85,19 +86,57 @@ def timed_human(gen, spec, log):
         yield frame
 
 
-def apply_robot_start(ep, offset):
-    """Move the robot to home TCP + offset before the first tick (top-down DLS IK, gripper open)."""
+START_ATTEMPTS = 10
+START_IK_TOL_M = .005        # = episode_validator robot start pose check
+
+
+def _start_state(ep, offset, home_q, home_tcp):
+    """Put the robot at home TCP + offset (top-down DLS IK); return (ok, reasons, info)."""
     import mujoco
+    env, m, d = ep.env, ep.m, ep.d
+    d.qpos[env.qids] = home_q; d.qvel[env.dids] = 0.; mujoco.mj_forward(m, d)
+    q = np.asarray(env.solve_ik(home_tcp + offset), float)
+    lo, hi = env.arm_limits[:, 0], env.arm_limits[:, 1]
+    reasons = []
+    if np.any(q <= lo + 1e-3) or np.any(q >= hi - 1e-3):
+        reasons.append('joint_limit')
+    q = np.clip(q, lo, hi)
+    d.qpos[env.qids] = q; d.qvel[env.dids] = 0.; d.ctrl[:6] = q
+    mujoco.mj_forward(m, d)
+    err = float(np.linalg.norm(d.site_xpos[env.tcp] - home_tcp - offset))
+    if err > START_IK_TOL_M:
+        reasons.append(f'ik_error {err:.4f}')
+    robot = set(ep.validator.robot_geoms) if hasattr(ep, 'validator') else set()
+    for c in d.contact[:d.ncon]:
+        if c.dist < 0 and (c.geom1 in robot or c.geom2 in robot):
+            b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]
+            if m.body_weldid[b1] == 0 and m.body_weldid[b2] == 0:
+                continue                                        # robot mount on the table
+            reasons.append(f'collision {m.geom(c.geom1).name or c.geom1}|{m.geom(c.geom2).name or c.geom2}')
+            break
+    return not reasons, reasons, {'start_tcp': d.site_xpos[env.tcp].round(4).tolist(), 'ik_error_m': err}
+
+
+def apply_robot_start(ep, offset, offset_range=None):
+    """65/QĐ-DL: robot starts at home TCP + offset; the start state must pass IK (<= 5 mm), joint limits and no robot
+    collision, otherwise a new offset is drawn (seeded: seed, attempt) within `offset_range`, up to START_ATTEMPTS;
+    every attempt is logged. Returns the log (None when there is no offset)."""
     offset = np.asarray(offset, float)
     if not np.any(offset):
         return None
-    env, m, d = ep.env, ep.m, ep.d
-    home_tcp = d.site_xpos[env.tcp].copy()
-    q = np.asarray(env.solve_ik(home_tcp + offset), float)
-    lo, hi = env.arm_limits[:, 0], env.arm_limits[:, 1]
-    q = np.clip(q, lo, hi)
-    d.qpos[env.qids] = q; d.qvel[env.dids] = 0.
-    d.ctrl[:6] = q
-    mujoco.mj_forward(m, d)
-    return {'home_tcp': home_tcp.round(4).tolist(), 'start_tcp': d.site_xpos[env.tcp].round(4).tolist(),
-            'ik_error_m': float(np.linalg.norm(d.site_xpos[env.tcp] - home_tcp - offset))}
+    env, d = ep.env, ep.d
+    home_q = d.qpos[env.qids].copy(); home_tcp = d.site_xpos[env.tcp].copy()
+    attempts = []
+    for k in range(START_ATTEMPTS):
+        if k > 0:
+            if offset_range is None:
+                break
+            rng = np.random.default_rng([int(ep.seed), 59, 2, k])
+            offset = np.array([rng.uniform(-a, a) for a in offset_range])
+        ok, reasons, info = _start_state(ep, offset, home_q, home_tcp)
+        attempts.append({'offset_m': offset.round(4).tolist(), 'ok': ok, 'reasons': reasons})
+        if ok:
+            return {'home_tcp': home_tcp.round(4).tolist(), **info, 'offset_m': offset.round(4).tolist(),
+                    'attempts': attempts, 'resampled': k > 0}
+    return {'home_tcp': home_tcp.round(4).tolist(), **info, 'offset_m': offset.round(4).tolist(), 'attempts': attempts,
+            'resampled': len(attempts) > 1, 'failed': True}

@@ -52,8 +52,12 @@ def human(ep, info):
         yield from move(cur, top + [0, 0, .04], .9, lift=.03, motion=reach_shape, motion_scale=.2,
                         shape='grasp', shape_from='relaxed', phase=f'reach_{r}')
         yield from move(top + [0, 0, .04], top, .3, shape='grasp', phase=f'grip_{r}')
+        yield from ep.settle_hand({'palm': top, 'progress': 1., 'shape': 'grasp', 'phase': f'grip_{r}'})   # 68/QĐ-DL B.1
         ep.human_grasp(co); ep.event('human_carry_onset', round=r)
-        down = np.array([spot[0], spot[1], .623 + .002]) + np.array([0., 0., HOLD_DZ])
+        # 64/QĐ-DL: place with the REAL palm-to-coaster offset at the grasp (as episode.carry, 55/QĐ-DL); the nominal
+        # HOLD_DZ put the coaster 9-12 mm into the table because the reached palm sits higher than its command
+        off = np.asarray(ep.pose['palm'], float) - ep.pos(co)
+        down = np.array([spot[0], spot[1], .623 + .002]) + off
         up = down + [0, 0, .10]
         yield from move(top, up, 1.4, lift=.06, motion=carry_shape, motion_scale=.25, shape='grasp', phase=f'carry_{r}')
         yield from move(up, down, .6, shape='grasp', phase=f'lower_{r}')
