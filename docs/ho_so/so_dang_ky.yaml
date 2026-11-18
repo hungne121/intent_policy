@@ -2287,6 +2287,18 @@ van_ban:
     can_cu: [QD-KT-08, QD-HL-12]
     noi_luu: docs/ho_so/so_dang_ky.yaml
 
+  - so: QD-VH-08
+    loai: QĐ
+    hm: [VH]
+    cap: 3
+    ngay: "2026-11-18 17:35"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Bỏ 48 file config của pipeline cũ (configs/benchmark/phase2_protocol_v1.yaml, configs/episode_lists/v5/*, configs/previews/i3_interaction.yaml, configs/scenario_lists/*, configs/scenarios/*) đã bị xoá khỏi cây làm việc từ trước. Còn trỏ tới chúng: configs/experiments/{phase2_oracle, foundation_baseline, intent_act_*, t2deep_*}.yaml (pipeline cũ, không chạy được nữa). Lưu ý của người dùng: chạy sau này phải cẩn thận. Nguyên văn: 'bản cũ đó thôi cứ bỏ đi, nhưng sau này kh ichayj cẩn thận nhá. có đoạn nào chưa có hướng dãn của mình thì nói'."
+    pham_vi: [tat_ca]
+    chu_de: [van_hanh]
+    trang_thai: hieu_luc
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
   - so: QD-VH-07
     loai: QĐ
     hm: [VH]

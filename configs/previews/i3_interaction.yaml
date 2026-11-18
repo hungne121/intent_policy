@@ -1,3 +1,0 @@
-# Shared observed/intent response to a second hand reach after pointing.
-# metres of retreat from the closest hand-to-selected-object distance.
-switch_withdraw_m: 0.075

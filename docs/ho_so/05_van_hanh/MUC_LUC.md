@@ -1,6 +1,6 @@
 # Vận hành — mục lục (VH)
 
-Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 18/11/2026 17:34. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
+Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 18/11/2026 17:35. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
 Tra nhanh: `./run.sh scripts/ho_so.py tra --hm VH` (thêm `--pham-vi <task>` để lọc theo task).
 
 ## Đang hiệu lực
@@ -31,6 +31,7 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm VH` (thêm `--pham-vi <task>` đ�
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
+| 08/QĐ-VH | 18/11/2026 17:35 | Bỏ 48 file config của pipeline cũ (configs/benchmark/phase2_protocol_v1.yaml, configs/episode_lists/v5/*, configs/previews/i3_interaction.yaml, configs/scenario_lists/*, configs/scenarios/*) đã bị xoá khỏi cây làm việc từ trước. Còn trỏ tới chúng: configs/experiments/{phase2_oracle, foundation_baseline, intent_act_*, t2deep_*}.yaml (pipeline cũ, không chạy được nữa). Lưu ý của người dùng: chạy sau này phải cẩn thận. Nguyên văn: 'bản cũ đó thôi cứ bỏ đi, nhưng sau này kh ichayj cẩn thận nhá. có đoạn nào chưa có hướng dãn của mình thì nói'. | hiệu lực | [so_dang_ky.yaml](../so_dang_ky.yaml) |
 | 08/HD-DL | 14/11/2026 21:32 | Ưu tiên nền vật lý: cho phép tiếp xúc cầm/đỡ/chạm; ngăn xuyên thân, bàn và vật; mô hình người động lực học có lực hữu hạn; hành vi robot cộng tác linh hoạt làm sau. | hiệu lực | [NEN_VAT_LY_2026-11-14.md:1](../../reports/NEN_VAT_LY_2026-11-14.md#L1) |
 | 04/QĐ-VH | 31/10/2026 09:21 | Trong lúc thu không sửa .py / .yaml / .sh trong intent_policy/, scripts/, configs/ (kiểm toàn vẹn sẽ dừng bộ thu); sửa code cho đợt sau làm trong worktree. | hiệu lực | [PIF.md:760](../../PIF.md#L760) |
 | 01/QĐ-VH | 04/10/2026 | Đầu ra kiểu LeRobot: mỗi lần thu / train / đánh giá / video ghi vào outputs/<loại>/<ngày>/<giờ>_<tên>/ kèm log và lệnh; video đánh giá ghi ngay trong lần chạy; clip demo cắt từ dataset, không mô phỏng lại. | hiệu lực | bộ nhớ agent `lerobot-style-outputs.md` |
