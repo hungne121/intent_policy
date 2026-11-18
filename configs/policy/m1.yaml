@@ -1,0 +1,39 @@
+# M1 — ACT + ManiCast forecast token (07/QĐ-HL D; 03/TTr-HL #1, 18/11/2026): M1-noH + z_H = MLP(Flatten(X_H)).
+# Every network / optimiser field = act_continuous.yaml (03/QĐ-HL: chunk 40 @ 20 Hz = 2 s). Inputs: the 3
+# recorded cameras + observation.state + the forecast token. Trained on D_forecast (incl. N5).
+# Equals m1_noh.yaml except use_forecast + forecast_* (tests/test_step2_forecast_token.py).
+# `train_data` is read by tools/train_policy.py (not a policy field). Shared training budget: train_m0m1.yaml.
+type: hri_act
+train_data:
+  dataset: D_forecast
+  cameras: [front_oblique, overhead_oblique, wrist]   # configs/hrc/collection.yaml cameras (68/QĐ-DL), this order
+action_mode: continuous
+use_intent: false
+use_forecast: true
+chunk_size: 40
+n_action_steps: 1                 # execution horizon: 03/TTr-HL #2 tests 1 and 10 at rollout (inference-only field)
+temporal_ensemble_coeff: null
+vision_backbone: resnet18
+pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+dim_model: 256
+n_heads: 8
+dim_feedforward: 1024
+n_encoder_layers: 4
+n_decoder_layers: 1
+use_vae: true                     # ACT objective: masked L1 + kl_weight x KL (07/QĐ-HL F), no extra loss
+kl_weight: 10.0
+dropout: 0.1
+optimizer_lr: 1.0e-4
+optimizer_lr_backbone: 1.0e-5
+optimizer_weight_decay: 1.0e-4
+# forecast token (intent_policy/policies/forecast_token.py). X_H = [Ĥ, Ĥ - p_TCP, dĤ/dt] over the full 10 x 6 x 3
+# effective forecast (N5: the faulty one), validity from observation.forecast_valid (invalid -> zeros + flag 0).
+# Positions normalised with the training split's per-axis mean / std; p_TCP by UR3e FK of qpos (assets/scene.xml +
+# configs/hrc/station.yaml, filled into forecast_fk_chain by tools/train_policy.py). ManiCast frozen (dataset column).
+forecast_key: observation.human_forecast
+forecast_valid_key: observation.forecast_valid
+forecast_horizons: 10             # 0.1 ... 1.0 s (dataset_schema.HORIZONS, station.yaml intent.horizons_s)
+forecast_joints: 6                # dataset_schema / sim_env.JOINTS: l/r shoulder, elbow, wrist
+forecast_dt_s: 0.1                # horizon spacing, for the velocity
+forecast_hidden_dim: 256          # = dim_model (design value: a 2-layer MLP, 07/QĐ-HL D "baseline đơn giản")
+forecast_in_cvae: true            # as the existing tokens path (intent_in_cvae default true): z_H also in the CVAE encoder

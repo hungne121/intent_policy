@@ -1,0 +1,16 @@
+# Training budget shared by M0 / M1-noH / M1 (07/QĐ-HL H: same optimizer, schedule, batch, steps, seed, splits).
+# Optimizer = LeRobot ACT preset (AdamW, optimizer_lr / optimizer_lr_backbone / optimizer_weight_decay of the policy
+# yaml, constant lr, no scheduler); grad clip 10 = LeRobot TrainPipelineConfig default. Steps / batch: pod defaults in
+# workstation/rent/run_train_m0m1.sh (STEPS, BATCH override these).
+steps: 60000
+batch_size: 32
+num_workers: 8
+seed: 1000
+amp: false
+grad_clip_norm: 10.0
+log_every: 100
+val_every: 2000                   # val L1 (z = 0, inference) over the whole val split; best checkpoint by it
+val_max_batches: null             # null = the whole val split
+save_every: 2000                  # QD-HL-10: atomic resumable state; keep latest two, sync to HF
+sampling: task_balanced           # 03/TTr-HL #3: each task the same total weight, frames uniform within a task
+group_weights: null               # e.g. {N1: 1.0, N5: 1.0, N6: 1.0} multiplies the group's weight; null = natural ratio

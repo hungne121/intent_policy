@@ -16,6 +16,11 @@ With neither task nor intent tokens the module is exactly LeRobot's ACT (same mo
 
 Inputs through the batch: `batch['task_id']` (B,) long, `batch['intent']` = contract fields (xi normalised) and
 optionally `batch['intent_keep']` = {group: BoolTensor (B,)}.
+
+M1 forecast token (07/QĐ-HL D, `forecast_cfg`): one more extra token z_H from policies/forecast_token.ForecastEncoder,
+read from the raw batch keys observation.human_forecast / observation.forecast_valid (+ observation.state for the TCP);
+it goes through the same path as the intent tokens: transformer encoder input after the state token (its own learned
+1-D position embedding) and, with `in_cvae`, the CVAE encoder.
 """
 import einops
 import torch
@@ -23,6 +28,7 @@ from torch import Tensor, nn
 from lerobot.policies.act.modeling_act import ACT, create_sinusoidal_pos_embedding
 from lerobot.utils.constants import ACTION, OBS_ENV_STATE, OBS_IMAGES, OBS_STATE
 
+from intent_policy.policies.forecast_token import ForecastEncoder
 from intent_policy.policies.intent_encoder import IntentEncoder, IntentFiLM
 from intent_policy.policies.intent_encoder_v32 import IntentEncoderUnified, IntentEncoderV32, IntentFiLMV32
 
@@ -61,12 +67,14 @@ def decode_masked(decoder, x: Tensor, encoder_out: Tensor, decoder_pos_embed: Te
 
 
 class IntentACT(ACT):
-    def __init__(self, config, intent_cfg: dict | None = None, n_tasks: int = 0, instruction: tuple[int, int] | None = None):
+    def __init__(self, config, intent_cfg: dict | None = None, n_tasks: int = 0, instruction: tuple[int, int] | None = None,
+                 forecast_cfg: dict | None = None):
         super().__init__(config)
         self.use_intent = intent_cfg is not None
         self.use_task = n_tasks > 0
+        self.use_forecast = forecast_cfg is not None
         self.n_extra = 0
-        if not (self.use_intent or self.use_task):
+        if not (self.use_intent or self.use_task or self.use_forecast):
             return
         d = config.dim_model
         if self.use_task:
@@ -91,6 +99,12 @@ class IntentACT(ACT):
                                                 cfg['n_joints'], cfg.get('kp_dim', 3), n_fourier=cfg.get('n_fourier', 6),
                                                 tte_max=cfg.get('tte_max', 3.0))
             self.n_extra += self.intent_encoder.n_tokens
+        if self.use_forecast:
+            if self.use_intent:
+                raise ValueError('forecast token and intent tokens together are not supported')
+            self.forecast_encoder = ForecastEncoder(d, forecast_cfg)
+            self.n_extra += self.forecast_encoder.n_tokens
+            cfg = {'in_cvae': forecast_cfg.get('in_cvae', True)}
         # v3.2: intent never enters the CVAE encoder (the latent keeps the motion style, intent goes through the tokens)
         self.intent_in_cvae = bool(cfg.get('in_cvae', True)) and config.use_vae and not self.intent_v32
         n_1d = 1 + bool(config.robot_state_feature) + bool(config.env_state_feature)
@@ -129,6 +143,8 @@ class IntentACT(ACT):
             else:
                 intent_tok = self.intent_encoder(batch['intent'], batch.get('intent_keep'))
             parts.append(intent_tok)
+        if self.use_forecast:
+            parts.append(self.forecast_encoder(batch))
         mask = torch.cat(masks, dim=1) if self.intent_v32 else None
         return torch.cat(parts, dim=1), intent_tok, mask
 
@@ -144,7 +160,7 @@ class IntentACT(ACT):
         return x
 
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, tuple[Tensor, Tensor] | tuple[None, None]]:
-        if not (self.use_intent or self.use_task):
+        if not (self.use_intent or self.use_task or self.use_forecast):
             return super().forward(batch)
         if self.config.use_vae and self.training:
             assert ACTION in batch, 'actions must be provided when using the variational objective in training mode.'

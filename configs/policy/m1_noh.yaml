@@ -1,0 +1,28 @@
+# M1-noH — the M0 network trained on D_forecast, no forecast input (07/QĐ-HL G; 03/TTr-HL #1, 18/11/2026).
+# Every network / optimiser field = act_continuous.yaml (03/QĐ-HL: chunk 40 @ 20 Hz = 2 s). Inputs: the 3
+# recorded cameras + observation.state (qpos 6, qvel 6, gripper 1). Trained on D_forecast (incl. N5).
+# Must equal m1.yaml except use_forecast + forecast_* (tests/test_step2_forecast_token.py).
+# `train_data` is read by tools/train_policy.py (not a policy field). Shared training budget: train_m0m1.yaml.
+type: hri_act
+train_data:
+  dataset: D_forecast
+  cameras: [front_oblique, overhead_oblique, wrist]   # configs/hrc/collection.yaml cameras (68/QĐ-DL), this order
+action_mode: continuous
+use_intent: false
+use_forecast: false
+chunk_size: 40
+n_action_steps: 1                 # execution horizon: 03/TTr-HL #2 tests 1 and 10 at rollout (inference-only field)
+temporal_ensemble_coeff: null
+vision_backbone: resnet18
+pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+dim_model: 256
+n_heads: 8
+dim_feedforward: 1024
+n_encoder_layers: 4
+n_decoder_layers: 1
+use_vae: true                     # ACT objective: masked L1 + kl_weight x KL (07/QĐ-HL F), no extra loss
+kl_weight: 10.0
+dropout: 0.1
+optimizer_lr: 1.0e-4
+optimizer_lr_backbone: 1.0e-5
+optimizer_weight_decay: 1.0e-4

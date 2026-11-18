@@ -75,9 +75,30 @@ class HRIACTConfig(ACTConfig):
     # Task instruction (intent/instruction.py): the object / destination kind of the spoken command, added to the task
     # token (needs use_task_token and intent_schema['instruction']).
     use_instruction: bool = False
+    # M1 forecast token (07/QĐ-HL D, policies/forecast_token.py): one extra transformer-encoder token
+    # z_H = MLP(Flatten([Ĥ, Ĥ - p_TCP, dĤ/dt])) from the full forecast; read directly from the batch (the keys are NOT
+    # ACT input features, so LeRobot's normaliser leaves them raw). `forecast_fk_chain` = forecast_token.ur3e_tcp_chain(),
+    # filled by tools/train_policy.py; `forecast_in_cvae` puts the token in the CVAE encoder too (as intent_in_cvae).
+    use_forecast: bool = False
+    forecast_key: str = 'observation.human_forecast'
+    forecast_valid_key: str = 'observation.forecast_valid'
+    forecast_horizons: int = 10
+    forecast_joints: int = 6
+    forecast_dt_s: float = 0.1
+    forecast_hidden_dim: int = 256
+    forecast_in_cvae: bool = True
+    forecast_fk_chain: dict = field(default_factory=dict)
 
     def __post_init__(self):
         super().__post_init__()
+        if self.use_forecast:
+            if self.action_mode != 'continuous' or self.use_intent:
+                raise ValueError('use_forecast needs action_mode continuous and no intent tokens (07/QĐ-HL M1)')
+            if not self.forecast_fk_chain.get('links'):
+                raise ValueError('use_forecast needs forecast_fk_chain (policies/forecast_token.ur3e_tcp_chain)')
+            mode = self.normalization_mapping.get('STATE')
+            if getattr(mode, 'value', mode) != 'MEAN_STD':
+                raise ValueError('the forecast token undoes the MEAN_STD normalisation of observation.state for FK')
         if self.action_mode not in ACTION_MODES:
             raise ValueError(f'action_mode must be one of {ACTION_MODES}, got {self.action_mode!r}')
         if self.num_restricted_actions != 9:
@@ -142,6 +163,15 @@ class HRIACTConfig(ACTConfig):
             out.update(n_gestures=len(s['gestures']) + 1, hand_hist=HAND_HIST,
                        target_init_std=1.0 if self.intent_target_init == 'type' else 0.02, repr=self.intent_repr)
         return out
+
+    @property
+    def forecast_token_cfg(self) -> dict | None:
+        """`forecast_cfg` of policies/intent_act.IntentACT (None: no forecast token)."""
+        if not self.use_forecast:
+            return None
+        return dict(key=self.forecast_key, valid_key=self.forecast_valid_key, horizons=self.forecast_horizons,
+                    joints=self.forecast_joints, dt_s=self.forecast_dt_s, hidden_dim=self.forecast_hidden_dim,
+                    in_cvae=self.forecast_in_cvae, fk_chain=self.forecast_fk_chain)
 
     @property
     def n_tasks(self) -> int:

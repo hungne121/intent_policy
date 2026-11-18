@@ -12,6 +12,11 @@ replaces it by the fused latent h'), so both heads share one backbone and one fo
 With intent tokens (`intent_arch: tokens`, INTENT_ACT_GUIDE_v2.md [removed, git e29ed0d]) the network is `IntentACT`, LeRobot's ACT with the
 intent tokens in its transformer / CVAE encoders (policies/intent_act.py); the batch carries the labels intent.obj,
 intent.act, intent.phase, intent.tte, intent.xi (raw xi, normalised here with the training-split statistics).
+
+With `use_forecast` (M1, 07/QĐ-HL D) the network is `IntentACT` with the forecast token z_H only (no task / intent token);
+M0 / M1-noH are plain LeRobot ACT. `per_sample_l1` gives the masked L1 of each sample of the last forward (the
+action head output is captured by a forward hook), for the per-task / per-variant loss logs (07/QĐ-HL H); the training
+loss itself stays LeRobot's ACTPolicy.forward (masked L1 + kl_weight x KL).
 """
 from collections import deque
 
@@ -42,15 +47,35 @@ class HRIACTPolicy(ACTPolicy):
 
     def __init__(self, config: HRIACTConfig, **kwargs):
         super().__init__(config, **kwargs)
-        if config.intent_token_cfg is not None or config.use_task_token:
-            self.model = IntentACT(config, config.intent_token_cfg, config.n_tasks, config.instruction_sizes)
+        if config.intent_token_cfg is not None or config.use_task_token or config.use_forecast:
+            self.model = IntentACT(config, config.intent_token_cfg, config.n_tasks, config.instruction_sizes,
+                                   config.forecast_token_cfg)
         self.restricted_head = RestrictedActionHead(config.dim_model, config.num_restricted_actions,
                                                     config.restricted_head_hidden_dim)
         self.intent_fusion = IntentFusion(config.dim_model, dict(config.intent_branch_dims), config.intent_hidden_dim,
                                           config.intent_embed_dim) if config.use_intent and config.intent_arch == 'fusion' else None
         self._latent: Tensor | None = None
         self._intent_input: dict | None = None
+        self._actions_hat: Tensor | None = None
         self.model.action_head.register_forward_pre_hook(self._capture_latent)
+        self.model.action_head.register_forward_hook(self._capture_actions)
+
+    def _capture_actions(self, module, args, output):
+        self._actions_hat = output
+
+    @property
+    def forecast_encoder(self):
+        return self.model.forecast_encoder if isinstance(self.model, IntentACT) and self.model.use_forecast else None
+
+    def set_forecast_stats(self, pos_mean, pos_std, q_mean, q_std) -> None:
+        self.forecast_encoder.set_stats(pos_mean, pos_std, q_mean, q_std)
+
+    def per_sample_l1(self, batch: dict[str, Tensor]) -> Tensor:
+        """(B,) masked L1 of the last forward pass, LeRobot's formula per sample: sum |a - â| over valid steps and
+        action dims / (valid steps x dims)."""
+        err = (batch[ACTION] - self._actions_hat).abs()
+        valid = (~batch['action_is_pad']).unsqueeze(-1).to(err.dtype)
+        return (err * valid).sum((1, 2)) / (valid.sum((1, 2)) * err.shape[-1]).clamp_min(1)
 
     def _capture_latent(self, module, args):
         h = args[0]
