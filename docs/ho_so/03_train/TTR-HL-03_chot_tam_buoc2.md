@@ -13,3 +13,5 @@
 | 7 | BB dữ liệu chưa có | Pilot train M0 / M1 thuộc **đợt 1** của kế hoạch người dùng ("Train M0/M1 để kiểm tra mô hình có học được không"). Lập BB nghiệm thu dữ liệu đợt 1 để người dùng ký; kết quả pilot không dùng cho claim khi chưa có BB | 68/QĐ-DL mục C.3; 06/QĐ-VH. |
 
 **Chi phí train:** GPU thuê rẻ nhất đủ chạy (ACT ResNet18, ảnh 256 × 256 × 3 camera); ước tính trước khi thuê, trần theo dõi bởi lead.
+
+**Cập nhật 18/11/2026 17:40 (72/QĐ-DL):** người dùng xác định đợt dữ liệu và lượt train hiện tại là **đợt chính thức**, không phải pilot. Điểm 7 ở trên được thay: dữ liệu hrc-ds-0.5 (thiếu quota W1 / W2 / N5 C3–C4 được chấp nhận) và lượt 2026-11-18_w2fixed là kết quả chính; có vấn đề thì bổ sung / cải thiện. BB nghiệm thu lập để người dùng ký xác nhận.

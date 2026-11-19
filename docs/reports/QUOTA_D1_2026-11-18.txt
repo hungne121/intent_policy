@@ -47,3 +47,4 @@ N6-I3-switch_before_commit           8 +  0   quota 12 + 3   thiếu 4 + 3
 #   N6-I3-switch_after_commit           25 + 14   quota 12 + 3   ĐỦ
 #   N6-I3-switch_before_commit          15 +  7   quota 12 + 3   ĐỦ
 # Thiếu chính: W1 nominal 12 + 0, linger 15 + 0 (seed bị cắt do trần); W2 train 8; N5 C3 4 + 1, C4 6 + 0 (bộ kiểm fault); N1 C3 2 + 0. Train pilot chạy trên tập hiện có (lượt 2026-11-18_w2fixed).
+# 18/11/2026 17:40 72/QĐ-DL: đợt này là CHÍNH THỨC (không phải pilot); thiếu quota được chấp nhận, có vấn đề thì bổ sung / cải thiện.

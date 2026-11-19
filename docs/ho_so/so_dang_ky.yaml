@@ -1527,7 +1527,7 @@ van_ban:
     trich_yeu: "Agent 3 — phương pháp, làm sau 07/QĐ-HL: M2 = ACT + Spatiotemporal Interaction Encoder (token mỗi bước × khớp: vị trí, vị trí so với TCP, vận tốc + embedding thời gian / khớp → Transformer_H → cross-attention với robot / scene), loss ACT giữ nguyên, ablation full / endpoint / wrist / no-forecast / time-shuffled; M3 = M2 + trọng số cửa sổ quyết định w = 1 + α·m (event timestamps chỉ dùng khi train, α chọn trên val) + sampling cân bằng; onset head chỉ khi M3 chưa đạt; safety filter và controller giống M0–M3. Người dùng: mới lưu văn bản."
     pham_vi: [tat_ca, M2, M3]
     chu_de: [mo_hinh, train.cau_hinh, train.lay_mau, danh_gia]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     can_cu: [QD-HL-07]
     lien_quan: [KH-TT-01, QD-HL-03, QD-DL-59]
     noi_luu: docs/ho_so/03_train/QD-HL-08_agent3_method_M2_M3.md
@@ -2283,7 +2283,7 @@ van_ban:
     ban_hanh: agent (lead), từ báo cáo agent G
     trich_yeu: "Bộ đánh giá closed-loop (intent_policy/envs/hrc_env.py, intent_policy/eval/runner.py, tools/eval_policy.py; 08/QĐ-KT) phải tự đặt các cờ 'bắt tay' mà kịch bản người chờ (trước đây do expert đặt): I1 robot_prepared (TCP ở độ cao di chuyển, ±2 cm trên một cốc còn lại — bật ngay t = 0,15 s), C2 wiped (hết vết bụi trong 35 mm) và present_cloth (giữ brush, người chờ, TCP < 0,005 m/s), C4 delivered (TCP trong 2 cm lòng bàn tay); trường FSM cho success() (I1/I3 phase = done, I2 selected = đĩa trong plan); nhãn validator theo lệnh gripper, vật gần TCP trong 6 cm. Dung sai 2 cm / 6 cm là giá trị thiết kế chưa có nguồn. Xin xác nhận hoặc chỉnh trước khi dùng kết quả closed-loop cho claim; trong lúc chờ, chỉ dùng để chọn checkpoint (12/QĐ-HL)."
     chu_de: [danh_gia]
-    trang_thai: cho_quyet
+    trang_thai: het_hieu_luc
     can_cu: [QD-KT-08, QD-HL-12]
     noi_luu: docs/ho_so/so_dang_ky.yaml
 
@@ -2298,6 +2298,146 @@ van_ban:
     chu_de: [van_hanh]
     trang_thai: hieu_luc
     noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-DL-72
+    loai: QĐ
+    hm: [DL, HL]
+    cap: 2
+    ngay: "2026-11-18 17:40"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Đợt dữ liệu và lượt train hiện tại là đợt CHÍNH THỨC, không phải pilot: dataset hrc-ds-0.5 (HF Hungdd88/hrc-collect-20261118: shards_d1, shards_tu, shards_tu2 + W2 val 300800–300815 thu trên pod train, tập train train_sets/train_set_w2fixed) và lượt train outputs/train_step2/2026-11-18_w2fixed (M0 / M1-noH / M1). Thiếu quota (W1 nominal 12 train, linger 15 train, W2 ≈ 8 train, N5 C3 / C4, N1 C3 2 train) được chấp nhận; có vấn đề thì chỉ bổ sung / cải thiện, không làm lại từ đầu. Còn cần cho claim: đánh giá trên tập test (05–07/QĐ-KT); BB nghiệm thu dữ liệu theo 02/QC-VH lập để người dùng ký xác nhận quyết định này. Nguyên văn: 'rôi đành để vậy đã chứ sao' (W1 / W2 thiếu); 'cái này là đợt chính thức rồi đó nếu có vấn đề chỉ có cố bổ sung cải thiện thôi đấy'."
+    pham_vi: [I1, I2, I3, C1, C2, C3, C4, W1, W2, M0, M1-noH, M1]
+    chu_de: [thu_du_lieu, train]
+    trang_thai: hieu_luc
+    can_cu: [QD-DL-68, QD-DL-71, QD-HL-09]
+    sua: [TTR-HL-03]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-KT-09
+    loai: QĐ
+    hm: [KT, HL, DL, VH]
+    cap: 2
+    ngay: "2026-11-18 17:46"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Ưu tiên đánh giá ACT closed-loop: P0 sửa môi trường đánh giá (bỏ cờ chỉ expert biết; event detector từ trạng thái robot / vật / contact / điều kiện hoàn thành hiện tại, dùng chung cho expert và policy; tách event điều khiển người với nhãn chấm; regression expert; không duyệt ngưỡng 2 cm / 6 cm); P1 eval 20k là pre-eval-fix, n_action_steps = 10 chính, so n = 1 có / không temporal ensemble, kiểm tần số / latency / chuẩn hoá / timeout từng cái một; P2 giữ nguyên run đang train; P3 audit W1 / W2, sửa N5 trên branch riêng + dataset version mới, kiểm lệch vật–tay, khôi phục đúng 8 công thức; P4 không gia hạn pod vượt ngân sách, kiểm commit trước push, checkpoint resume đầy đủ, robot thật để sau."
+    pham_vi: [tat_ca, M0, M1-noH, M1]
+    chu_de: [danh_gia, train, thu_du_lieu, van_hanh]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-12, QD-KT-08, QD-DL-72]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-09_uu_tien_danh_gia_closed_loop.md
+
+  - so: QD-KT-10
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 18:34"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Khoá 8 metric theo Slide_HRI_English_v10_Learning.pdf slide 10: TSync = |t_R,ready − t_H,ready|, CT = t_success − t_start (chỉ episode thành công), HCS = N_safe / N (không contact người–robot và không vi phạm khoảng cách an toàn), CSR = N_success / N, Rsp = t_response − t_trigger, OC = n_ordered / n_required, DSR = N_recovered / N_disrupted, CFR = N_contactfree / N; TSync, CT, HCS trọng tâm; n/a không đổi thành 0; không loại episode thất bại khỏi CSR / HCS / CFR; mẫu số DSR chỉ episode có disruption; sự kiện ready / response phát hiện từ trạng thái mô phỏng, không dùng cờ expert; ghi 'HRIBench-style metrics adapted for this project; not an exact reproduction of HRIBench.'"
+    pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-05, QD-KT-06, QD-KT-09]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-10_khoa_8_metric_slide10.md
+
+  - so: TTR-KT-02
+    loai: TTr
+    hm: [KT]
+    ngay: "2026-11-18 21:09"
+    ban_hanh: agent (lead), từ báo cáo agent I
+    trich_yeu: "Xin chốt các lựa chọn khi cài 8 metric (10/QĐ-KT; docs/reports/METRIC_SPEC_2026-11-18.md mục 2–3): C1 episode nhiều vòng / cue: TSync, Rsp = trung bình các cặp hợp lệ; C2 ngưỡng safety distance cho HCS = predictive_avoidance.clearance_m 0,08 m (57/QĐ-DL, ISO/TS 15066 SSM phần tĩnh) — với C2 / C4 (handover bắt buộc robot sát tay) gần như mọi episode sẽ HCS = 0: giữ 0,08 m, bỏ khoảng handover khỏi phép đo, hay ngưỡng theo task; C3 OC: bước k tính khi mọi bước bắt buộc trước nó đã xong trước nó (cowork không thứ tự thì mọi bước đã làm đều tính) hoặc LCS; C4 Rsp giữ dấu; C5 không có người trong 0,25 m = không vi phạm; C6 nhóm I / C / W theo chữ đầu tên task; số chính macro hay pooled (06/QĐ-KT chưa chốt, đang báo cả hai)."
+    chu_de: [danh_gia]
+    trang_thai: het_hieu_luc
+    can_cu: [QD-KT-10, QD-KT-06]
+    noi_luu: docs/reports/METRIC_SPEC_2026-11-18.md
+
+  - so: QD-KT-11
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 21:20"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Quyết 02/TTr-KT — khoá event semantics: C1 TSync / Rsp theo từng lượt, trung bình lượt hợp lệ, báo lượt thiếu; C2 HCS miễn khoảng cách chỉ cho cặp hình học / vùng được phép trong pha close-interaction có chủ đích (bắt đầu / kết thúc từ trạng thái hợp lệ, khai báo trước), không miễn cả task hay cả gripper; 0,08 m không phải chuẩn ISO, kiểm lại ngưỡng pha non-contact; audit min distance / cặp link gần nhất / pha / lý do miễn / lực / vi phạm; sensitivity analysis, không chỉnh theo M1; C3 OC theo predecessor (total order nghiêm ngặt, partial order theo script), không LCS; C4 Rsp chỉ từ trigger trở đi, không âm, thiếu = n/a + cờ; anticipation đo riêng (useful-action onset, AM); C5 không dùng bán kính 0,25 m để bỏ qua kiểm tra; C6 I = Instructor, C = Collaborator, W = Cowork (không phải Intruder của HRIBench); macro theo task là bảng chính, pooled phụ; tích hợp H → I theo 6 bước, kết quả chính thức chỉ sau khi event pipeline đạt."
+    pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-10, QD-KT-09]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-11_khoa_event_semantics.md
+
+  - so: BC-KT-02
+    loai: BC
+    hm: [KT]
+    cap: 3
+    ngay: "2026-11-18 21:45"
+    ban_hanh: agent (H, lead đăng ký)
+    trich_yeu: "Áp dụng 09/QĐ-KT P0 và 10–11/QĐ-KT rule 7: detector hrc-events-1.0 (intent_policy/shared/events.py, configs/hrc/events.yaml) — người kịch bản chỉ phản ứng với vị từ trên trạng thái hiện tại, thay 6 cờ chỉ expert biết (I1 robot_prepared, C2 wiped / present_cloth, C4 delivered + expert nắm thay người, W2 / W3 claimed); tham số đo từ expert (mean + 3 sd, MEASUREMENTS.md); bỏ tol 2 cm / 6 cm. Regression 54 episode (9 task × 3 seed val × 2 mode) giống hệt success / grade / thời lượng; Δt người: I1 median 50 ms, max 150 ms (sớm hơn), C4 50 ms, mọi cue khác 0 → dữ liệu đã thu vẫn khớp, không cần thu lại / train lại vì detector. Metric record hrc-metric-record-1.0 (rounds có round_id, Rsp không âm, anticipation AM = t_trigger − t_useful_onset riêng, step_predecessors, safety_audit đủ link × đoạn người, distmax 10 m); ngưỡng non-contact SSM ISO/TS 15066 §5.5.4 S_p theo cấu hình trạm (T_r 0,05 s, a 1,0 m/s²), 0,08 m chỉ là biến thể; pha close-interaction C2 / C4 miễn cặp ngón kẹp / vật trao × lòng bàn tay / ngón phải; events_sensitivity.yaml khai báo 21:28 trước mọi eval model. Lỗi MuJoCo 3.3.7 mj_geomDistance mesh–box trả 0 → dùng cận dưới (chỉ thêm vi phạm). 45 test đạt."
+    pham_vi: [tat_ca]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-09, QD-KT-10, QD-KT-11]
+    noi_luu: outputs/diag/event_detector_1118/REGRESSION.md
+
+  - so: TTR-KT-03
+    loai: TTr
+    hm: [KT]
+    ngay: "2026-11-18 21:45"
+    ban_hanh: agent (lead), từ báo cáo agent H và I
+    trich_yeu: "Xin quyết trước khi xuất kết quả benchmark chính thức (11/QĐ-KT bước 6): (1) ngưỡng detector hẹp đo từ expert (I1 xy 5 mm / z 3 mm, C4 2 mm, W 2 mm) có thể làm người chờ mãi khi policy đặt kém chính xác — giữ, hay nới theo căn cứ hình học (ví dụ khe ngón kẹp–cốc 8,5 mm); (2) với luật SSM S_p, chính expert có vi phạm clearance không được miễn (C4 ≈ 94 tick / ep, min 4 mm part–cổ tay; C2 ≈ 62; I1 17; W2 16) → HCS expert ≈ 0: chọn biến thể chính trong configs/hrc/events_sensitivity.yaml; (3) TSync / Rsp n/a cho I2, I3 (chưa đo 'đã chỉ tay xong'), C3, W1–W3 (không có lượt cue), C2 lượt 0; (4) OC: bước sau vẫn tính đúng thứ tự khi predecessor của nó tự sai thứ tự (đúng câu chữ 11/QĐ-KT); (5) các mục chưa xác định khác ở METRIC_SPEC §7 (N6 chấm theo mục tiêu mới hay cũ; scenario lặp; task n/a toàn bộ bị bỏ khỏi macro). Ghi nhận: expert vẫn đọc trạng thái ẩn của người (human_phase C2 / C4, coaster_down I1) — không ảnh hưởng policy."
+    chu_de: [danh_gia]
+    trang_thai: het_hieu_luc
+    can_cu: [QD-KT-11, BC-KT-02]
+    noi_luu: docs/reports/METRIC_SPEC_2026-11-18.md
+
+  - so: QD-KT-12
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 22:36"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Quyết 03/TTr-KT — final evaluation integration: P0 nghiệm thu chức năng, chưa xuất benchmark chính thức tới khi đạt gate. A: không giữ ngưỡng 2–5 mm chỉ vì expert chính xác; event từ hình học / trạng thái vật / robot / độ ổn định, dung sai từ geometry + task semantics, test dương / âm (đặt lệch hợp lệ, đặt sai, nhận chưa chắc, timeout), kiểm người khi policy ra ngoài phân bố expert. B: HCS = N_safe / N, 0,08 m không phải chuẩn chính, tách non-contact / authorized close-interaction, miễn chỉ cặp / vùng / thời gian đăng ký, không xoá contact, audit expert C4 / C2 / I1 / W2 (cặp link, pha, vận tốc, lực, xuyên, khoảng cách), phân biệt contact robot / qua vật cầm / gần không chạm, kiểm độc lập cặp mesh–box, cận dưới chỉ là kiểm bảo thủ, cấu hình chính khoá trước khi chấm (thay đổi sau 21:28 phải có version mới), expert không đạt safety thì báo đúng. C: cue I2 / I3 khách quan từ chuyển động người nếu được, không cue giả cho C3 / W1–W3, n/a + số task đóng góp, Rsp không âm, AM / onset chỉ phụ, OC total order = chuỗi đúng từ đầu, partial order theo predecessor, không LCS. D: kiểm hidden human state của expert có gây action-label ambiguity; không kết luận thu lại nếu chưa có failure mode cụ thể; giữ checkpoint / run. E: eval 40k chỉ diagnostic; sau khi khoá chạy lại M0 / M1-noH / M1 cùng scenario val, cùng n_action_steps; 8 metric, macro / task chính; báo riêng nominal / forecast_fault / switch_before / switch_after; không dùng test để chọn ngưỡng / checkpoint / horizon; bàn giao event spec, regression tests, safety audit, metric report, giới hạn."
+    pham_vi: [tat_ca, M0, M1-noH, M1]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-11, BC-KT-02]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-12_final_eval_integration.md
+
+  - so: QD-KT-13
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 22:36"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "Số episode đánh giá: smoke 2–3; eval nhanh theo checkpoint (20k, 40k…) 5–10 episode / task / model; validation chính (chọn checkpoint, execution horizon) 20–30 episode / case / model trên seed val; final test 50 episode / case / model trên seed test độc lập, cùng scenario seed cho mọi model (mở rộng 100 khi cần tỷ lệ chính xác hơn). Ngân sách tham khảo 1.200 episode / model nếu đủ 10 task N1, 10 task N5, 4 case N6; số thực theo danh sách case đã triển khai. Eval 40k hiện tại (3 model × 9 task × 2 seed) chỉ để chẩn đoán. Căn cứ người dùng nêu: ACT gốc 50 lần thử / training seed trong sim (Zhao et al., 2023); 50 episode ở p ≈ 0,5 cho sai số 95 % ≈ ±14 điểm %."
+    pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-12]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: BC-KT-03
+    loai: BC
+    hm: [KT, DL]
+    cap: 3
+    ngay: "2026-11-18 22:43"
+    ban_hanh: agent (J, lead đăng ký)
+    trich_yeu: "D22 (12/QĐ-KT): expert đọc 3 trạng thái ẩn thật (human_phase ở C2 / C3 / C4, coaster_down ở I1, held_by_human); đo trên trace N1 / N5 / N6: nhãn đổi trước dấu hiệu quan sát được tối đa 2–5 tick (≈ 0,3–1,2 % tick mỗi episode), lệnh khớp gần như không đổi (I1 0,014 rad sau 1 tick); C2 rời wait_offer, C3 colift→settle, C4 cam kết socket không mơ hồ. Không có failure mode được chứng minh (lỗi closed-loop C2 / C4 / I1 M1-noH ở 40k không gắn với quyết định ẩn nào) → không sửa, không thu lại (D23). Ứng viên xem video nếu đào sâu: C2 wait_human_release, C4 taken."
+    pham_vi: [C2, C3, C4, I1]
+    chu_de: [danh_gia, thu_du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-12]
+    noi_luu: docs/reports/D22_HIDDEN_STATE_AUDIT_2026-11-18.md
+
+  - so: QD-KT-14
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-18 22:56"
+    ban_hanh: người dùng (chat, phiên Claude 18/11)
+    trich_yeu: "OC total order = tiền tố đúng liên tục (b, a, c với yêu cầu a, b, c = 0/3); partial order theo predecessor graph, không LCS; hai bước cùng tick chỉ vi phạm khi có quan hệ tiên quyết và không có substep ordering ghi nhận. Nghiệm thu D22 ở mức 'không phát hiện leakage ảnh hưởng đáng kể trong các trace đã kiểm tra'. Eval 40k chỉ diagnostic, không chọn checkpoint / đổi config theo 18 episode. Ưu tiên chẩn đoán C2, C4 (video + event / action trace, điểm đầu tiên lệch khỏi expert: observation, forecast, normalized action, joint motion, gripper, event detector), I1 / I3 M1-noH (hành động không bắt đầu, không mặc định do thiếu ManiCast); đối chiếu latency, execution horizon, action scale, normalizer ba model; không sửa expert / train lại khi chưa phân biệt lỗi policy / controller / detector; sau khoá detector chạy validation 20–30 scenario / case / model, cùng seed và n_action_steps."
+    pham_vi: [C2, C4, I1, I3, M0, M1-noH, M1]
+    chu_de: [danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-12, QD-KT-13, BC-KT-03]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-14_eval40k_chan_doan_C2C4.md
 
   - so: QD-VH-07
     loai: QĐ
@@ -2377,3 +2517,282 @@ van_ban:
     trang_thai: hieu_luc
     can_cu: [QD-DL-67, BC-DL-19]
     noi_luu: docs/reports/QUOTA_2026-11-18.txt
+
+  - so: QD-VH-09
+    loai: QĐ
+    hm: [VH, KT, HL]
+    cap: 2
+    ngay: "2026-11-19 02:40"
+    ban_hanh: người dùng
+    trich_yeu: "Tiến độ: trong 1–2 ngày phải có kết quả cả M0 / M1-noH / M1 lẫn M2 / M3 (08/QĐ-HL); làm nhanh phần đã có trước (eval M0 / M1-noH / M1 60k), song song chuẩn bị M2 / M3. Người dùng tự viết thesis và paper; agent chỉ giao kết quả (bảng, số, video). Được mở 1 agent chính + tối đa 2 agent phó song song khi không dùng Runpod. Nguyên văn: 'bạn cố làm xong kết quả nhanh trong 1 hai ngày là được. viết là việc của mình'; 'ý là trong 1 hai ngày xong thêm cả M2/M3 ý. nên là làm nhanh phần đã có trước đi'; 'nên dùng 1 agent chính và các agent phó'. Bổ sung 02:41: làm ĐẦY ĐỦ 08/QĐ-HL (M2, M3, ablation forecast full / endpoint-only / wrist-only / no-forecast / time-shuffled, chọn α bằng validation), không cắt phạm vi; kết quả M0 / M1-noH / M1 giao trước để người dùng viết. Nguyên văn: 'làm đầy đủ má ơi, có gì lấy kết quả chạy 3 cái M đầu viết trước cũng được'. Làm rõ 02:46: theo lộ trình, M2 / M3 (bước 3) chỉ bắt đầu sau cổng bước 2 (eval closed-loop M0 / M1-noH / M1, ≥ 2 execution horizon, phân tích nếu M1 không hơn, BB + QĐ). Nguyên văn: 'mình nhớ là ở quy trình sau khi train xong 3 cái M đầu thì có đánh giá đã mà'."
+    pham_vi: [train, eval, M2, M3]
+    chu_de: [van_hanh, danh_gia, train]
+    trang_thai: da_sua
+    can_cu: [QD-HL-08, QD-KT-13, QD-KT-14]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: QD-HL-13
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-19 02:50"
+    ban_hanh: người dùng
+    trich_yeu: "Gate chuyển sang M2 (bắt buộc): M0 và M1 closed-loop rollout chạy được; M1-noH đối chứng hợp lệ; có đánh giá theo task, variant và metric benchmark; kiểm tra ManiCast có ảnh hưởng tới action trong các trường hợp có ý nghĩa; nếu M1 chưa học được thì kiểm alignment, representation và chất lượng demonstration trước khi thêm module mới."
+    pham_vi: [train, eval, M0, M1, M2]
+    chu_de: [train, danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-07, QD-HL-08, QD-VH-09]
+    noi_luu: docs/ho_so/03_train/QD-HL-13_gate_chuyen_M2.md
+
+  - so: BC-KT-04
+    loai: BC
+    hm: [KT, DL]
+    cap: 3
+    ngay: "2026-11-19 02:53"
+    ban_hanh: agent
+    trich_yeu: "14/QĐ-KT mục 6–7, 12; 09/QĐ-KT P0: nguyên nhân đầu tiên C2 time_limit ở eval 40k (cả 3 model) là MÔI TRƯỜNG — xoá bụi (scenarios/c2.py sweep_dust) chỉ được gọi trong FSM expert nên policy lau đúng chỗ mà không vết nào mất (48 / 48), người chờ area_clean tới 70 s. Sửa: luật thế giới mỗi tick — Episode.step gọi world_tick của scenario nếu có (chỉ c2.py khai báo, gọi sweep_dust), bỏ 2 lời gọi trong c2_expert.py. Regression expert C2 N1 val 300800–300802 × 2 mode: success / grade / duration / mọi cue Δt / marks_left giống hệt; tests/test_c2_world_rule.py, 58 test đạt. Chẩn đoán 60k C2 nominal (2 seed × 3 model): 2 / 6 thành công (M0 300801, M1 300801), 4 lỗi còn lại chưa tra (M0 300800 không lau cup). C4: nguyên nhân là detector part_on_palm (docs/reports/C4_CHAN_DOAN_2026-11-19.md), chờ người dùng quyết."
+    pham_vi: [C2, C4, eval]
+    chu_de: [danh_gia, moi_truong]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-09, QD-KT-12, QD-KT-14]
+    noi_luu: outputs/diag/c2_world_rule_1119/REPORT.md
+
+  - so: QD-KT-15
+    loai: QĐ
+    hm: [KT, HL]
+    cap: 2
+    ngay: "2026-11-19 03:03"
+    ban_hanh: người dùng
+    trich_yeu: "Benchmark readiness / C4 detector 1.2. A: không thu lại C4; detector 1.2 hỗ trợ (i) người nắm trước khi robot nhả, (ii) robot đặt vật vào vùng lòng tay được đỡ hợp lệ rồi người nắm (chỉ nếu đặc tả C4 cho phép); không gắn / teleport vật, không 'received' từ một khoảng cách đơn lẻ; hoàn thành chỉ khi người giữ được vật và robot đã nhả; test dương / âm 7 trường hợp; regression expert 2 mode + biến thể C4, giải thích episode mất grade A ở 1.1; khoá 1.2, không trộn kết quả 1.1 / 1.2. B: audit chỉ đọc C1, C3, I2, I3, W1, W2 (mutation chỉ expert tạo; attach / detach / grasp / release / clean / object movement / progress / success / human reaction; env vs lệnh expert; expert-vs-policy cùng state / event). C: C2 tìm bước đầu policy dừng bằng trace + video; không retrain. D: giữ HCS; expert reference; violation duration, ratio, min verified clearance, max deficit, force / penetration, link pair; phân biệt collision / proximity / chưa xác minh; báo số đóng góp và n/a. E: 9 task, không ghi 10; N5 / N6 là giới hạn; 1 training seed = pilot, không báo CI như variance giữa lượt train; G chọn checkpoint / horizon trên validation; không dùng test seed; không tạo training job, không đổi dataset. F: Gate 1–6 trước benchmark chính thức; Gate 1–4 chưa đạt thì kết quả cũ chỉ là diagnostic. Căn cứ: HRIBench (arXiv 2607.13056); Object Handovers: A Review for Robotics (2021); Physical Human-Robot Interaction: A Critical Review of Safety Constraints (arXiv 2601.19462); 8 metric slide 10."
+    pham_vi: [C1, C2, C3, C4, I1, I2, I3, W1, W2, eval, benchmark]
+    chu_de: [danh_gia, moi_truong, an_toan]
+    trang_thai: da_sua
+    can_cu: [QD-KT-12, QD-KT-13, QD-KT-14, QD-HL-13, BC-KT-04]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-15_benchmark_readiness_C4_detector12.md
+
+  - so: BC-HL-02
+    loai: BC
+    hm: [HL, KT]
+    cap: 3
+    ngay: "2026-11-19 03:39"
+    ban_hanh: agent
+    trich_yeu: "13/QĐ-HL mục 5–6 (agent G): M1 060000 KHÔNG dùng forecast — thay forecast bằng episode khác / mục tiêu khác / trễ 2 s / N5 làm action chunk lệch tối đa 0,054 mm (median 0), mask 0,56 mm, xáo horizon 1,4 mm, so với M1 vs M1-noH median 4,6 mm và quãng chunk median 20 mm (1.087 query, 9 case, seed val 300800–300802; M1-noH lệch đúng 0; nhiễu nền 0). Token z_H suy biến dần (dead ReLU: unit bật 13,7 % ở 20k → 0,09 % ở 50–60k, gần như chỉ phản ánh cờ valid); val L1 60k M1 0,0547 vs M1-noH 0,0551. Demo: forecast expert xong sớm hơn observed ở C1 (−3,35 s), I2 (−2,7 s), C2, C4, I3; W1 / W2 gần như không khác. Mục 5 gate chưa đạt; nguyên nhân chưa xác định; alignment lúc train chưa kiểm (dataset không có trên laptop, HF trả 401 cho log train). Kèm: N5 không chạy closed-loop được (HRCEnv injector=None), GPU laptop lỗi Xid 13/31 từ 22:26 18/11 (eval 40k chạy CPU). Chưa chạy validation closed-loop."
+    pham_vi: [M1, M1-noH, train, eval]
+    chu_de: [train, danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-13, QD-KT-15]
+    noi_luu: docs/reports/GATE_M2_2026-11-19.md
+
+  - so: QD-HL-14
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-19 08:13"
+    ban_hanh: người dùng
+    trich_yeu: "Xử lý M1 không dùng ManiCast (người dùng đặt tên 'QUYẾT ĐỊNH 02/BC-HL'): M1 60k có dấu hiệu forecast-conditioning collapse; dừng full Gate 6, chưa train M2; giữ nguyên checkpoint M0 / M1-noH / M1 60k, không train lại M0 / M1-noH; M1 60k là baseline thất bại direct-conditioning, không dùng để tuyên bố ManiCast cải thiện policy. P0 audit offline: pipeline ManiCast → chuẩn hoá → encoder → z_H → ACT; thống kê đầu vào, mask, clipping; alignment theo timestamp thật; không leak / hoán seed / sai stats; z_H ở 20k / 40k / 60k (variance, active ratio, pre / post activation, weight / gradient norm, gradient flow); train vs inference, nhánh forecast trong graph và param groups; độ nhạy action raw và normalized ở frame onset / commit / switch; cặp quan sát giống nhau mà forecast và action expert khác; log train w2fixed từ nguồn hợp lệ, HF 401 thì báo thiếu quyền. P1 overfit 128–256 window frame quyết định, đối chứng forecast đúng / shuffled / invalid, không cho học cờ validity; không overfit được thì dừng, không full train. P2 chỉ khi P0 / P1 đạt: GELU / residual encoder + FiLM gần identity, warm-start M1 60k, reset nhánh forecast nếu cần, tối đa 5.000 bước, đánh giá trên validation, báo riêng frame quyết định và regression nominal; ước tính chi phí GPU và xin trước khi chạy; không tự mở training job. P3 N5 injector cho policy rollout: không injector=None, lịch fault đã khai báo theo event / timestamp nhân quả, chỉ sửa tensor forecast, log trước / sau, smoke 2 episode val M1 trên một case N5. Không dùng seed test. Bàn giao: root-cause report, audit alignment / normalization, gradient / representation diagnostics, kết quả overfit, test N5 injector, ước tính chi phí GPU."
+    pham_vi: [M1, M2, train, N5, eval]
+    chu_de: [train, danh_gia]
+    trang_thai: da_sua
+    can_cu: [BC-HL-02, QD-HL-13]
+    sua: [QD-KT-15, QD-VH-09]
+    noi_luu: docs/ho_so/03_train/QD-HL-14_xu_ly_M1_khong_dung_manicast.md
+
+  - so: BC-KT-05
+    loai: BC
+    hm: [KT]
+    cap: 3
+    ngay: "2026-11-19 08:17"
+    ban_hanh: agent
+    trich_yeu: "15/QĐ-KT mục B, C (agent D2, chỉ đọc): attach / detach ở mức env (sim/base_env.py) giống nhau cho expert và policy; expert không còn ghi vào thế giới; người kịch bản chỉ đọc detector. Phát lại action expert qua HRCEnv (seed 300800, mode forecast, N1) cho C1, C2, C3, I1, I2, I3, W1, W2: lệch TCP / vật 0, cue / grasp / release khớp → không có hiệu ứng chỉ-expert ở các case đã kiểm. Gate 3 đạt một phần: chưa phủ I3 switch_*, W1 linger_in_tray, mode observed, N5, N6, seed khác, C4. Success I1 lỏng hơn expert (không cần về home). C2 4 lần hết giờ ở 60k đều là lỗi policy (M0 / M1 300800 không quét cốc, về tư thế trao; M1-noH 300800 tự mở kẹp làm rơi chổi; M1-noH 300801 kẹp hụt cán, không thử lại). Không lỗi môi trường mới; không đề xuất sửa."
+    pham_vi: [C1, C2, C3, I1, I2, I3, W1, W2, eval]
+    chu_de: [danh_gia, moi_truong]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-15]
+    noi_luu: docs/reports/AUDIT_MOI_TRUONG_2026-11-19.md
+
+  - so: BC-HL-03
+    loai: BC
+    hm: [HL, KT, DL]
+    cap: 3
+    ngay: "2026-11-19 08:26"
+    ban_hanh: agent
+    trich_yeu: "14/QĐ-HL P3 (agent P3): HRCEnv bật FaultInjector cho group N5 (cùng sample_fault theo seed như tools/collect.py; N1 / N6 tắt; thiếu fault_type thì lỗi), --fault-type ở tools/eval_policy.py, log mỗi tick (cổ tay 1 s trước / sau, strength, used) + rec fault. Trigger cho policy PROVISIONAL n5.policy_trigger = forecast_valid_and_hand_moving (forecast hợp lệ và tốc độ tay > min_hand_speed_m_s 0,03 ở tick trước), chờ người dùng chọn; phương án khác: phát lại start / end của expert cùng seed, hoặc cố định theo hand-onset. Regression đường thu expert N5 C3 spatial val 300800 giống hệt. Smoke M1 060000 C4 spatial val 300800 / 300801 (n_action_steps 1): lỗi kích hoạt (14 / 11 tick, lệch cổ tay 1 s tới 0,141 / 0,091 m, ngoài cửa sổ 0), cả hai time_limit (robot gần như đứng yên — chưa rõ nguyên nhân, chạy với n_action_steps 1). Check của injector (jump ≤ 0,05 m, start ≤ 0,04 m) bị vượt ngay cả ở bản thu (jump 0,122 m) → ảnh hưởng N5 benchmark. 4 test mới đạt; test_events::test_config_complete lỗi do ngày '2026-11-19 03:2x' trong configs/hrc/events*.yaml (phần dở của D1)."
+    pham_vi: [N5, eval, C3, C4]
+    chu_de: [danh_gia, du_bao]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-14]
+    noi_luu: docs/reports/N5_INJECTOR_2026-11-19.md
+
+  - so: QD-HL-15
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-19 08:33"
+    ban_hanh: người dùng
+    trich_yeu: "Quyết định P3 — N5 forecast fault: tách A (offline action sensitivity, giữ observation, đổi forecast A / B; agent G đã làm 1.087 query) và B (N5 closed-loop: người thật đi về A, forecast cho policy dự báo sang B; chưa chạy đúng vì injector=None). Quy tắc N5 closed-loop: trigger tại onset chuyển động có ý nghĩa của người, nhân quả bằng human motion detector hoặc event của human trajectory; không dùng cờ expert-đọc-forecast; không dùng onset chuyển động robot làm trigger chính; người giữ chuyển động thật về A, chỉ sửa forecast thành quỹ đạo hợp lệ hướng B; giữ nguyên duration / severity trong manifest N5; fault đi qua đúng preprocessing và validity mask của M1, không cố tình làm invalid; log onset người, onset fault, forecast gốc / đã sửa, action robot; smoke 2 seed val trên một case N5 của M1 chỉ để xác nhận injector chạy; không trộn bằng chứng offline với closed-loop; chưa mở full N5 benchmark khi smoke chưa đạt."
+    pham_vi: [N5, M1, eval]
+    chu_de: [danh_gia, du_bao]
+    trang_thai: da_sua
+    can_cu: [QD-HL-14, BC-HL-03, BC-HL-02]
+    sua: [QD-HL-14]
+    noi_luu: docs/ho_so/03_train/QD-HL-15_N5_forecast_fault_closed_loop.md
+
+  - so: BC-HL-04
+    loai: BC
+    hm: [HL, KT]
+    cap: 3
+    ngay: "2026-11-19 09:03"
+    ban_hanh: agent
+    trich_yeu: "15/QĐ-HL (agent P3, bản 2): trigger N5 closed-loop = tốc độ tay quan sát > events.yaml metric.hand_still_max_m_s 0,08 m/s (M: mean + 3 sd khi người chờ / đưa, n 3.745) sau khoảng đứng rearm_s 0,3 s của manifest; bỏ điều kiện forecast hợp lệ; không cờ expert, không onset robot; delay / duration / severity giữ manifest. Bằng chứng C4 seed 300800 / 300801: onset 0,10 s là tick đầu của reach_0 về A, lỗi bắt đầu 0,276 / 0,284 s trong reach_0. Forecast lỗi đi qua đúng forecast_encoder.features của M1, forecast_valid = 1 và enc_valid = 1 ở 21 / 21 tick lỗi; ngoài cửa sổ raw = faulted. Check quỹ đạo: 16 / 21 tick đạt (76 %), 5 tick vượt jump (0,056–0,089 m > 0,05) / start (0,051–0,059 m > 0,04), không lỗi bone; bản thu cũng có. Smoke M1 060000 C4 spatial, n_action_steps 10: injector hoạt động (12 / 9 tick, lệch cổ tay 1 s tới 0,141 / 0,143 m); cả hai time_limit, N1 cùng seed 300800 cũng time_limit (không do N5); ở 300800 N5 và N1 trùng onset / grasp / dmin. Chưa làm: spatial_fault dịch theo hướng ngẫu nhiên, không nhắm điểm B cụ thể (quy tắc 4 '…hướng B' chưa được kiểm); chưa smoke temporal / direction. 4 test đạt."
+    pham_vi: [N5, M1, C4, eval]
+    chu_de: [danh_gia, du_bao]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-15, BC-HL-03]
+    noi_luu: docs/reports/N5_INJECTOR_2026-11-19.md
+
+  - so: QD-HL-16
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-19 09:07"
+    ban_hanh: người dùng
+    trich_yeu: "Nghiệm thu N5 injector: chấp nhận trigger nhân quả (tay > 0,08 m/s sau 0,3 s đứng yên), giữ delay / duration / severity manifest, ghi trigger onset và fault onset; giữ 3 loại lỗi spatial / temporal / direction, không biến spatial thành lỗi nhắm B, không thêm wrong-goal A→B lúc này; CHƯA nghiệm thu trajectory generator (5 / 21 tick spatial không đạt); sửa generator cho liên tục từ trạng thái quan sát, giới hạn chuyển động hợp lệ, không vi phạm hình học; không nới ngưỡng, không âm thầm giảm severity, không bỏ episode theo kết quả policy; unit test trên toàn bộ tick lỗi của 2 seed val, 100 % tick phát ra đạt validator đã khoá, không khả thi thì báo lỗi cấu hình; so phân bố severity trước / sau và với fault trong dataset train, khác thì ghi là phiên bản N5 mới; smoke temporal, direction, spatial đã sửa: mỗi loại 2 seed val 300800 / 300801, M1 60k, n_action_steps 10, tối đa 6 rollout; xác minh lỗi kích hoạt, validity = 1, đúng loại, không đổi observation người thật, không can thiệp action; không đánh giá N5 chính thức khi C4 detector 1.2 chưa nghiệm thu; không mở full N5 benchmark trước khi P3 và Gate 1–4 đạt. P0 / P1 tiếp tục độc lập, không chờ P3."
+    pham_vi: [N5, M1, eval]
+    chu_de: [danh_gia, du_bao]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-15, BC-HL-04]
+    sua: [QD-HL-15]
+    noi_luu: docs/ho_so/03_train/QD-HL-16_nghiem_thu_N5_injector.md
+
+  - so: BC-HL-05
+    loai: BC
+    hm: [HL]
+    cap: 3
+    ngay: "2026-11-19 09:10"
+    ban_hanh: agent
+    trich_yeu: "14/QĐ-HL P0 (agent P0): pipeline đúng (valid 98,2 %, stats checkpoint = tính lại ≤ 1,3e-8, FK 0 mm, alignment timestamp / history / chunk đúng, không leak, không hoán seed); log train lấy được từ HF (02/BC-HL ghi 401 là sai, token đọc được). Cơ chế trực tiếp: ReLU lớp 1 của ForecastEncoder chết dần (unit chết 38 → 210 → 253 → 256 / 256 ở init / 20k / 40k / 50–60k), z_H hằng; gradient W1 ‖g‖/‖W‖ 1,8 → 2e-3 → 2,4e-4 → 0. Lúc init gradient vào nhánh forecast đến từ 10·KL (15,2) gấp ~750 lần từ L1 (0,02) vì forecast_in_cvae: true đưa z_H vào CVAE encoder; weight decay chỉ giải thích ~1/2000 độ trôi âm của b1. Đã loại: lỗi dữ liệu / alignment / stats, nhánh ngoài optimizer, nhầm lr, weight decay, đường tắt latent (KL ~1e-5). Nguyên nhân chết (xếp hạng): (1) KL qua forecast_in_cvae chi phối gradient đầu (mạnh), (2) encoder ReLU fan-in 541, đầu vào lớn không tâm (trung bình), (3) tín hiệu forecast trong dữ liệu yếu — kNN state + tư thế người: thêm forecast tệ hơn ở 7 / 9 task, chỉ C2 / C4 (và C2 / I3 ở cửa sổ quyết định) tốt hơn (trung bình). ManiCast 1 s khi tay động 105 mm ≈ người đứng yên 106 mm; lệch hệ thống ~15 mm ở 0,1 s. Std action wrist_2 trong stats.json sai do float32 (0,0010 vs 0,0005). Đề xuất P1: 200–250 window train quanh sự kiện forecast của expert (C2, I3, C4, C1, I2), ~100 window val, đối chứng đúng / xáo cùng task (valid = 1) / mask / M1-noH, backbone M1 60k + ForecastEncoder khởi tạo lại, forecast_in_cvae true và false; ~8 lượt × 12–20 phút trên GTX 1650."
+    pham_vi: [M1, train]
+    chu_de: [train]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-14, BC-HL-02]
+    noi_luu: docs/reports/M1_COLLAPSE_P0_2026-11-19.md
+
+  - so: QD-HL-17
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 09:16"
+    ban_hanh: người dùng
+    trich_yeu: "P1 kiểm chứng nguyên nhân collapse M1, phạm vi rút gọn: giả thuyết chính là gradient KL qua forecast_in_cvae=true làm ForecastEncoder suy biến. Đúng hai cấu hình A (true) / B (false), cùng backbone M1 60k, cùng ForecastEncoder khởi tạo lại, cùng init / window / thứ tự batch / optimizer / số update; 200–250 window train + ~100 val từ C2 / I3 / C4 / C1 / I2, tách theo episode, lấy tại onset / chọn đích / trước commit / switch nếu có, không chọn theo forecast đúng sai; forecast vẫn vào action decoder ở cả A và B; xác nhận gradient KL vào encoder của B = 0 và L1 vẫn truyền; đo gradient L1 / KL, dead unit, variance z_H, action sensitivity trong lúc train. Ba phép đo: representation; action correctness (forecast đúng / sai mục tiêu làm action đổi đúng hướng, không tính độ lớn đơn thuần); validation utility (val L1 ở decision window: forecast đúng / xáo / M1-noH, + mask nếu có). Ưu tiên B; mỗi cấu hình một lượt, không mở rộng 8 lượt; không MuJoCo rollout; không full train, không pod. Bàn giao bảng A / B + 3 kết luận; chỉ đề xuất pilot tiếp khi cả biểu diễn và action utility tích cực."
+    pham_vi: [M1, train]
+    chu_de: [train]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-14, BC-HL-05]
+    sua: [QD-HL-14]
+    noi_luu: docs/ho_so/03_train/QD-HL-17_P1_kiem_chung_collapse_M1.md
+
+  - so: BC-HL-06
+    loai: BC
+    hm: [HL, KT, DL]
+    cap: 3
+    ngay: "2026-11-19 09:20"
+    ban_hanh: agent
+    trich_yeu: "16/QĐ-HL (agent P3, bản 3): generator v2_continuous_eval_2026-11-19 (policy eval; thu dữ liệu giữ v1_collection_hrc-ds-0.5, regression v1 giống hệt) đạt validator khoá ở 100 % tick lỗi của 2 seed val × 3 loại (v1 vi phạm tới 6 / 12 tick); validator vi phạm thì FaultConfigError. Nguyên nhân v1: khuỷu thô của ManiCast nhảy giữa tick (jump), khuỷu giải theo xương tư thế quan sát trong khi forecast thô có lệch xương riêng 3–3,7 cm (start), temporal co thời gian toàn bộ. v2: xương theo forecast thô từng horizon, time-warp neo bước 0,1 s, slew ≤ 0,9 × jump_tol, start ≤ 0,9 × start_tol, decay 1–2 tick sau cửa sổ (hằng tự đặt). Smoke M1 060000 C4 n_action_steps 10: 6 / 6 rollout injector PASS (onset 0,10 s, valid = 1, đúng loại, không chạm quan sát người / action); success False = time_limit như N1. Severity: spatial 300801 chỉ đạt 0,758 × amplitude × strength (tay gần duỗi tối đa, giữ xương) — cần người dùng quyết chấp nhận hay báo lỗi cấu hình. Dữ liệu train N5 (v1) vi phạm validator ở 48–59 % episode spatial / temporal — chưa xử lý. v2 là phiên bản N5 mới, không tương đương v1. 12 test đạt."
+    pham_vi: [N5, M1, C4, eval]
+    chu_de: [danh_gia, du_bao]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-16, BC-HL-04]
+    noi_luu: docs/reports/N5_INJECTOR_2026-11-19.md
+
+  - so: QD-HL-18
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 09:34"
+    ban_hanh: người dùng
+    trich_yeu: "Duyệt P1 — giữ 3 lượt train: B (forecast_in_cvae=false), A (true), M1-noH fine-tune. B / A cùng backbone, cùng ForecastEncoder reset, cùng window train, thứ tự batch, số update; M1-noH warm-start từ M1-noH 60k, cùng window và số update. Forecast đúng / xáo / mask chỉ dùng để đánh giá. Báo riêng gradient KL / L1, dead unit, variance z_H, val L1 decision window, action correctness; action sensitivity đơn thuần không phải bằng chứng. Không thêm lượt train, không rollout MuJoCo, không M2 / M3. Hai câu hỏi: (1) bỏ đường KL có cứu ForecastEncoder không? (2) khi cùng cơ hội học, B có tận dụng ManiCast tốt hơn M1-noH không?"
+    pham_vi: [M1, M1-noH, train]
+    chu_de: [train]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-17]
+    noi_luu: docs/ho_so/so_dang_ky.yaml
+
+  - so: BC-HL-07
+    loai: BC
+    hm: [HL]
+    cap: 3
+    ngay: "2026-11-19 10:28"
+    ban_hanh: agent
+    trich_yeu: "17–18/QĐ-HL P1 (agent P1): 3 lượt × 3.000 bước, batch 8, 240 window train / 100 val (C1 / C2 / C4 / I2 / I3, N1 + N6, tách episode). (1) Bỏ đường KL KHÔNG cứu ForecastEncoder: ở B gradient KL = 0, var z_H giữ (0,0091 → 0,0082; A sụp 0,00018, gradient KL ~3,2 × L1 lúc đầu ⇒ KL có góp phần), nhưng unit chết vẫn 74 → 184 / 256 (A 206), gradient L1 vào encoder giảm 5 lần, attention lên z_H 0,0099 → 0,0039 < 1/S. (2) Cùng cơ hội học, B KHÔNG dùng ManiCast tốt hơn M1-noH: val L1 đúng − xáo ≤ 1,3e-5; đổi forecast lệch TCP median 0,010 mm khi hai mục tiêu cách 57 mm; đúng hướng 46 % (p = 0,48; phép đo chưa có đối chứng dương); val L1 TB cuối B 0,0598 vs M1-noH ft 0,0577. Chỉ train trên window quyết định mà B vẫn bỏ qua forecast ⇒ nghiêng về token loãng / tín hiệu yếu, không phải cửa sổ hiệu dụng thưa; cả 3 lượt (kể cả M1-noH) học thuộc train (L1 0,050 → 0,024), val L1 tăng. Theo 14/QĐ-HL mục 13: DỪNG; theo 17/QĐ-HL: không đề xuất pilot. Đã tải thêm 1,55 GB video train (outputs/diag/m1_p1_1119/, xoá được)."
+    pham_vi: [M1, M1-noH, train]
+    chu_de: [train]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-17, QD-HL-18, BC-HL-05]
+    noi_luu: docs/reports/M1_P1_OVERFIT_2026-11-19.md
+
+  - so: QD-HL-19
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 10:49"
+    ban_hanh: người dùng
+    trich_yeu: "Quyết định: hợp nhất M2 và M3 thành phương pháp duy nhất M* — train full M* trước, ablation sau. (1) Đọc kết quả F1–F4 tháng 10 cùng báo cáo P0/P1 tháng 11 trước khi chốt cấu hình. (2) M* gồm structured ManiCast conditioning, KL isolation, decision-aware action loss và hỗ trợ nominal/forecast_fault/switch; giữ một unified ACT policy cho 10 task, không dùng luật điều khiển riêng từng task. (3) Giữ nguyên ManiCast predictor, physics, safety, dataset split và baseline checkpoints. (4) Tạo config switches cho từng thành phần để làm ablation sau, ưu tiên train bản đầy đủ trước. (5) Smoke test 200–500 steps kiểm tra tensor, gradient, NaN, encoder collapse (kiểm tra kỹ thuật). (6) Đạt thì full train 60k optimizer steps trên toàn bộ training dataset đã duyệt, giữ training budget và dữ liệu so sánh được với baseline. (7) Log định kỳ gradient forecast encoder, dead-unit ratio, z_H variance, attention/conditioning contribution, train/val loss, true-vs-shuffled forecast sensitivity. (8) Nếu collapse hoặc zero forecast gradient kéo dài thì dừng báo cáo, không train máy móc. (9) Sau full train: đánh giá counterfactual action correctness và paired closed-loop val trước benchmark test cuối. (10) Chỉ khi M* có kết quả mới chạy ablation để xác định đóng góp của architecture conditioning và decision-aware loss. Không train M2 và M3 thành hai model riêng biệt, không mở rộng hparam tùy tiện."
+    pham_vi: [M_star, M2, M3, train]
+    chu_de: [train]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-08, QD-HL-14, QD-HL-17, QD-HL-18, BC-HL-05, BC-HL-07]
+    sua: [QD-HL-08]
+    noi_luu: docs/ho_so/03_train/QD-HL-19_phuong_phap_M_star.md
+
+  - so: QD-HL-20
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 16:01"
+    ban_hanh: người dùng
+    trich_yeu: "Quyết định: validation closed-loop M* @10k (cụ thể hoá 19/QĐ-HL mục 9). Giữ checkpoint M* 10k làm đối tượng, không sửa kiến trúc / loss / sampling / forecast scale. Mục tiêu duy nhất: việc M* dùng ManiCast offline có thành hành động hữu ích, sớm, an toàn trong closed-loop không. (1) Paired closed-loop trên C1, I3, C2 nếu qua physics gate (không thì I2 hợp lệ). (2) 5 validation seed mỗi task chưa dùng để chỉnh hparam; cùng seed và human trajectory cho true forecast vs masked forecast. (3) Cố định ACT ckpt, execution horizon, temporal ensembling, safety, detector, physics; mask chỉ tác động nhánh forecast theo đúng tensor contract đã xác minh. (4) Đo useful onset, correct-motion latency, completion time, success, wrong-target / commit, collision / safety, mức can thiệp của forecast. (5) Log raw action chunk, action sau temporal ensemble, TCP thực thi; kiểm tra khác biệt có bị triệt ở khâu execution không. (6) Không loại timeout / failure; ghi từng seed, chênh paired, khoảng tin cậy nếu đủ dữ liệu. (7) True tốt hơn masked chỉ là bằng chứng reliance của M*, chưa phải superiority trước M1-noH. (8) Không dùng test split, không train model mới, không ablation kiến trúc. Bàn giao: bảng paired, video / trajectory seed khác biệt, phân tích vì sao action-output khác mà robot có / không khác. Sau kết quả: đề xuất đúng MỘT hướng (giữ training / thay supervision / sửa execution) theo bằng chứng."
+    pham_vi: [M_star, C1, I3, C2, I2, policy_test]
+    chu_de: [train, policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-19]
+    noi_luu: docs/ho_so/03_train/QD-HL-20_validation_closed_loop_M_star_10k.md
+
+  - so: QD-HL-21
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 17:50"
+    ban_hanh: người dùng
+    trich_yeu: "Quyết định: closed-loop M* 10k vs 20k (mở rộng 20/QĐ-HL). (1) Pause training tại checkpoint an toàn gần nhất, lưu model / optimizer / scheduler / RNG / cấu hình để resume; không huỷ hay xoá job trước khi xác nhận bản lưu. (2) 4 điều kiện: 10k true, 10k masked, 20k true, 20k masked. (3) Cùng val seed, human trajectory, scene, execution horizon, temporal ensembling, physics / safety. (4) Ưu tiên I3, C1, I2; 3 seed / task, tối đa 5; C4 chỉ khi physics gate hợp lệ. (5) Đo useful onset, correct-motion latency, wrong commit, success, completion time, safety, thời điểm action forecast thực sự được thực thi. (6) Log raw action, action sau temporal ensembling, TCP. (7) Báo chênh true–masked từng checkpoint và chênh 10k–20k. (8) Không test split, không sửa model / loss, không tự mở training bổ sung. Sau đánh giá: 20k tốt hơn 10k → xem xét resume; 10k tốt hơn rõ rệt → giữ 10k làm ứng viên và phân tích suy giảm; cả hai không có lợi ích thực tế từ forecast → chưa resume, kiểm tra execution và supervision. Không kết luận chỉ từ offline L1 / sensitivity. GHI CHÚ 17:5x (chỉ đạo của người dùng ngay sau khi ban hành): KHÔNG pause training — mục 1 không áp dụng, train tiếp bình thường; paired 10k vs 20k chạy song song trên laptop."
+    pham_vi: [M_star, I3, C1, I2, policy_test]
+    chu_de: [train, policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-20]
+    noi_luu: docs/ho_so/03_train/QD-HL-21_closed_loop_10k_vs_20k.md
+
+  - so: QD-HL-22
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 18:30"
+    ban_hanh: người dùng
+    trich_yeu: "Quyết định: giữ M*, chẩn đoán C2, chưa train lại. (1) Giữ nguyên M* và ckpt 10k / 20k / 30k / 40k; không reset, không đổi loss / kiến trúc. (2) Tiếp tục training đã duyệt tới 60k nếu diagnostics ổn; không mở job train mới. (3) Chạy M0 và M1-noH trên cùng 5 val seed C2 đã dùng cho M*. (4) Audit 5 episode C2 của M* 20k bằng trace và video để xác định failure stage. (5) Đối chiếu expert C2, physics_valid, success evaluator, onset, goal selection, grasp, release, timeout. (6) Không tự sửa detector, physics, safety, không tăng trọng số C2. (7) Báo C2 thất bại do policy, dữ liệu, execution hay evaluator; thiếu bằng chứng thì ghi chưa xác định. (8) Đề xuất phương án sửa nhỏ nhất tiếp tục từ checkpoint trước khi cân nhắc train lại từ đầu. Chưa triển khai forecast dropout / fallback fine-tune, chưa thu lại dữ liệu, chưa ablation khi chưa có kết quả audit."
+    pham_vi: [M_star, M0, M1-noH, C2, policy_test]
+    chu_de: [train, policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-20, QD-HL-21]
+    noi_luu: docs/ho_so/03_train/QD-HL-22_giu_M_star_chan_doan_C2.md
+
+  - so: QD-HL-23
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 19:40"
+    ban_hanh: người dùng
+    trich_yeu: "Chỉ đạo (chat): task thành công thì đánh giá kỹ chỉ số của claim tương tác mượt / hoàn thành sớm hiệu quả; thêm phản ứng khi intent sai và người đổi ý. Agent áp dụng: (1) C1, I3, I2 (C2 không đủ thành công); (2) success, CT, useful onset, response time, AM, thời gian chờ, đường đi, jerk, khoảng cách / vi phạm / tiếp xúc, so M* 60k với M1-noH và M0 60k cùng seed; (3) N6 I3 switch_before / after_commit (C4 không dùng) và N5 ba loại lỗi trên C1, I3, I2; (4) N5 KHÔNG chạy: người dùng 19/11 19:4x nói chưa duyệt phần N5 (16/QĐ-HL mục 11–12 và 3 điểm mở của generator v2 vẫn treo); (5) không test split, không train thêm."
+    pham_vi: [M_star, M1-noH, M0, C1, I3, I2, N5, N6, policy_test]
+    chu_de: [train, policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-21, QD-HL-22, QD-HL-16]
+    noi_luu: docs/ho_so/03_train/QD-HL-23_danh_gia_claim_tuong_tac_muot_va_doi_y.md
+
