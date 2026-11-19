@@ -2809,3 +2809,16 @@ van_ban:
     can_cu: [QD-HL-19, QD-HL-20, QD-HL-21, QD-HL-22, QD-HL-23]
     noi_luu: docs/ho_so/03_train/QD-HL-24_chot_uu_tien_sau_M_star_60k.md
 
+  - so: QD-HL-25
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 20:25"
+    ban_hanh: người dùng
+    trich_yeu: "Chỉ đạo (chat): eval đầy đủ các task với bộ chỉ số HRIBench của M0 và M* 60k, cho phép dùng RunPod, nhanh. Agent áp dụng: 8 metric của 10/QĐ-KT (HRIBench-style, DIAGNOSTIC); M0 60k và M* 60k, n_action_steps 10; task I1, I2, I3, C1, C2, C3, W1, W2 nominal + I3 switch_before / after_commit; không C4 (tạm dừng), W3 (thiếu dữ liệu), N5 (chưa duyệt); seed val 300820-300829, không test split; một pod GPU, xong tải về và xoá."
+    pham_vi: [M_star, M0, I1, I2, I3, C1, C2, C3, W1, W2, N6, policy_test]
+    chu_de: [policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-10, QD-HL-24, QD-HL-12]
+    noi_luu: docs/ho_so/03_train/QD-HL-25_danh_gia_day_du_M0_vs_M_star_RunPod.md
+
