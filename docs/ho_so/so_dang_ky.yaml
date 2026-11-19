@@ -2597,6 +2597,18 @@ van_ban:
     sua: [QD-KT-10, QD-KT-16]
     noi_luu: docs/ho_so/04_policy_test/QD-KT-17_chuan_hoa_benchmark_theo_HRIBench_10_metric.md
 
+  - so: TTR-KT-02
+    loai: TTr
+    hm: [KT]
+    ngay: "2026-11-19 21:05"
+    ban_hanh: người dùng (dán bản tra cứu), agent ghi
+    trich_yeu: "Đề xuất TSync theo cửa sổ sự kiện (MAD-TN, Isaacson et al. 2020): s_i = exp(-e_i / tau_i), e_i = max(l_i - Delta_i, 0, Delta_i - u_i), TSync = trung bình s_i, sự kiện không xảy ra chấm 0; tên báo cáo 'HRIBench-inspired, event-based implementation (MAD-TN grounded)', không gọi official. Chưa tìm được công thức TSync chính thức (arXiv v1 thiếu Appendix A, chưa thấy evaluator của tác giả). Còn thiếu: cặp sự kiện từng task, cửa sổ [l, u] và tau khoá trước khi xem kết quả, quy tắc N/A. Chờ người dùng duyệt; chưa có hiệu lực."
+    pham_vi: [policy_test, TSync]
+    chu_de: [policy_test]
+    trang_thai: cho_quyet
+    can_cu: [QD-KT-17]
+    noi_luu: docs/ho_so/04_policy_test/TTR-KT-02_TSync_theo_su_kien_MAD_TN.md
+
   - so: BC-HL-02
     loai: BC
     hm: [HL, KT]
