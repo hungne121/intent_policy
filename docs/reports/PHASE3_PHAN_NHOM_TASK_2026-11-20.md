@@ -72,3 +72,6 @@ I3 nominal (M* 95% so với M0 45%, p < 0,001) và I3 đổi ý trước commit 
 2. Sửa expert I3 đổi ý trước commit (lỗi "A moved") — chờ duyệt.
 3. Corrective I3: pilot S1 (đóng không attach sau đổi ý) 10/20, S2 (gắp nhầm lân cận rồi trả) 17/20 theo `corrective_ok` — chi tiết ở mục sau khi duyệt.
 4. Đánh giá lại M0 và M* trên toàn bộ task sau mọi thay đổi dữ liệu.
+
+## Đính chính 20/11/2026 (31/QĐ-HL mục 7)
+Các số "M0 50k" xuất hiện ở báo cáo audit (PHASE3_AUDIT_POLICY_I3_C2) không so được với M* 60k (khác checkpoint, chạy laptop). Bảng nhóm ở mục 1 dùng số 40 seed pod (M0 60k, M* 60k) nên không bị ảnh hưởng.

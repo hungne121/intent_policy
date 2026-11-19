@@ -1,6 +1,8 @@
 # Phase 3 (30/QĐ-HL mục 4–5): audit policy I3 đổi ý sau commit, I3 nominal, C2 — 20/11/2026 06:13, v1
+> **CẢNH BÁO (20/11/2026, theo 31/QĐ-HL mục 7):** các hàng "M0 50k" dùng checkpoint 50k, còn M* dùng 60k, chạy trên laptop. **Không được đọc là so sánh M0 với M*.** M0 50k chỉ cho thấy cơ chế lỗi của một model không có forecast. Mọi câu so M0 với M* trong báo cáo này (kể cả số trả A, thời điểm gắp đầu, retry) là **không có giá trị so sánh**. Phép so đúng nghĩa cần M0 60k và M* 60k cùng một máy (chưa có: token HF cục bộ hết hạn 401, M0 60k chỉ có trên HF/pod).
+
 Phương pháp: chạy lại policy trong sim với `tools/audit_policy_reason.py` (bọc `tools.eval_policy`, không đổi kết quả cũ), bắt lý do chấm thật của `check` và vị trí cuối các cake **trước khi** nhãn `time_limit` ghi đè. 20 seed validation 300820–300839, `n_action_steps=10`. Đối chiếu M0 dùng **checkpoint 50k** (M0 60k không có trên máy; token HF cục bộ hết hạn 401), M* 60k.
-**Hạn chế:** (1) chạy lại trên laptop cho kết quả khác pod ở ít nhất một seed (300820 I3 đổi ý sau commit): không tái lập từng episode giữa phần cứng; số này là mẫu mới, không thay thế 40 seed cũ. (2) M0 50k thay 60k. (3) Mỗi ô n = 20.
+**Hạn chế (ngoài cảnh báo trên):** (1) chạy lại trên laptop cho kết quả khác pod ở ít nhất một seed (300820 I3 đổi ý sau commit): không tái lập từng episode giữa phần cứng; số này là mẫu mới, không thay thế 40 seed cũ. (2) M0 50k thay 60k. (3) Mỗi ô n = 20.
 
 ## 1. I3 đổi ý sau commit (expert 20/20)
 | model | thành công | thất bại chính |
@@ -16,8 +18,8 @@ Phương pháp: chạy lại policy trong sim với `tools/audit_policy_reason.p
 |---|---|---|
 | M* 60k | 19/20 | 1 gắp đúng cake nhưng không vào khay |
 | M0 50k | 13/20 | 3 không gắp (45 s); 1 gắp cake sai; 2 B vào khay nhưng bị luật trình tự (`['Ly'×18]`, `['Lx'×5]`: gắp lại); 1 gắp đúng không vào khay |
-Mốc gắp đầu tiên của các ca thành công: **M0 trung vị 8,5 s, M\* 6,25 s** (M\* sớm hơn khoảng 2,2 s). Số gắp mỗi ca thành công đều 1,0 ở cả hai.
-Vậy M* hơn M0 ở phần thao tác chủ yếu qua: (a) 3/7 thất bại của M0 là **không bao giờ gắp** trong 45 s (do dự), (b) hai ca retry bị luật trình tự phạt, (c) một ca chọn sai cake. Nguyên nhân do dự của M0 chưa kiểm. Giả thuyết (chưa kiểm): dữ liệu train do expert chế độ forecast thu, hành động bắt đầu theo dự báo; M0 không có forecast nên thiếu tín hiệu thời điểm bắt đầu. Cần phép thử đối chứng (M* với forecast bị che) trước khi kết luận; hiện chưa làm.
+Mốc gắp đầu tiên của các ca thành công: M0 50k trung vị 8,5 s, M* 60k 6,25 s (khác checkpoint, **không so được**). Số gắp mỗi ca thành công đều 1,0 ở cả hai.
+Quan sát (khác checkpoint, chỉ mô tả, không kết luận M* hơn M0): (a) 3/7 thất bại của M0 là **không bao giờ gắp** trong 45 s (do dự), (b) hai ca retry bị luật trình tự phạt, (c) một ca chọn sai cake. Nguyên nhân do dự của M0 chưa kiểm. Giả thuyết (chưa kiểm): dữ liệu train do expert chế độ forecast thu, hành động bắt đầu theo dự báo; M0 không có forecast nên thiếu tín hiệu thời điểm bắt đầu. Cần phép thử đối chứng (M* với forecast bị che) trước khi kết luận; hiện chưa làm.
 
 ## 3. C2 (expert 20/20)
 | model | thành công | thất bại |
