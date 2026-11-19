@@ -23,8 +23,9 @@ def main():
         steps = stage_run(a.run, stage, a.final)
         if not steps:
             raise RuntimeError('no complete resumable checkpoint; refusing to report backup success')
-        if a.final and set(steps) != {'M0', 'M1-noH', 'M1'}:
-            raise RuntimeError('final backup requires all three models')
+        expected = set(os.environ.get('MODELS', 'M0 M1-noH M1').split())      # the launcher's MODELS (M* run: M-star only)
+        if a.final and set(steps) != expected:
+            raise RuntimeError(f'final backup requires the models {sorted(expected)}, got {sorted(steps)}')
         hashes = {str(f.relative_to(stage)): sha256(f) for f in stage.rglob('*') if f.is_file()}
         (stage / 'backup_manifest.json').write_text(json.dumps(dict(steps=steps, sha256=hashes), indent=2))
         commit = api.upload_folder(repo_id=a.repo, repo_type='model', folder_path=stage,

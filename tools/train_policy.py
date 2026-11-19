@@ -68,7 +68,7 @@ def build_config(policy_yaml: dict, meta, device: str):
     inputs = {k: feats[k] for k in cams}                          # camera order = config order
     inputs['observation.state'] = feats['observation.state']
     assert all(feats[k].type is FeatureType.VISUAL for k in cams)
-    kwargs = {k: v for k, v in policy_yaml.items() if k not in ('type', 'train_data')}
+    kwargs = {k: v for k, v in policy_yaml.items() if k not in ('type', 'train_data', 'diagnostics')}
     if kwargs.get('use_forecast'):
         for k in (kwargs['forecast_key'], kwargs['forecast_valid_key']):
             if k not in meta.features:
@@ -125,6 +125,7 @@ def main():
     p.add_argument('--val-every', type=int)
     p.add_argument('--save-every', type=int)
     p.add_argument('--log-every', type=int)
+    p.add_argument('--diag-every', type=int, help='M*: override diagnostics.every_steps (smoke test)')
     p.add_argument('--val-max-batches', type=int)
     p.add_argument('--amp', action=argparse.BooleanOptionalAction, default=None)
     p.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
@@ -174,6 +175,22 @@ def main():
     val_loader = torch.utils.data.DataLoader(val_ds, shuffle=False, drop_last=False, **lk) if val_ds else None
 
     policy = HRIACTPolicy(cfg).to(a.device)
+    # M* (19/QĐ-HL): decision-window mask per dataset row (sidecar events), diagnostics + stop rule from the policy yaml
+    from intent_policy.policies.decision_windows import decision_mask
+    dl_on = bool(cfg.decision_loss and cfg.decision_loss.get('enabled'))
+    diag_cfg = pol_yaml.get('diagnostics')
+    masks, mask_share = {}, {}
+    if dl_on or diag_cfg:
+        for nm, ds, em in (('train', train_ds, tr_meta), ('val', val_ds, va_meta)):
+            if ds is None:
+                continue
+            c = ds.hf_dataset.with_format('numpy', columns=['index', 'episode_index', 'timestamp'])
+            idx, epi, ts = (np.asarray(c[k]).reshape(-1) for k in ('index', 'episode_index', 'timestamp'))
+            m, mask_share[nm] = decision_mask(epi, ts, em, cfg.decision_loss['event_windows'])
+            full = np.zeros(int(idx.max()) + 1, bool)
+            full[idx] = m
+            masks[nm] = torch.as_tensor(full)
+        print('decision-window share per task', json.dumps(mask_share), flush=True)
     stats = meta.stats
     fstats = None
     if cfg.use_forecast:
@@ -185,6 +202,21 @@ def main():
         fstats = dict(pos_mean=mu.tolist(), pos_std=sd.tolist(), q_mean=qm.tolist(), q_std=qs.tolist(),
                       source='valid forecasts of the train split (all horizons, joints); qpos = train stats.json')
     preprocessor, postprocessor = make_hri_act_pre_post_processors(cfg, dataset_stats=stats)
+    if a.diag_every and diag_cfg:
+        diag_cfg['every_steps'] = a.diag_every
+    diag_batch = diag_perm = None
+    if diag_cfg and cfg.use_forecast and val_ds is not None:
+        rng = np.random.default_rng(seed)
+        vi = np.asarray(val_ds.hf_dataset.with_format('numpy', columns=['index'])['index']).reshape(-1)
+        vm = masks['val'][vi].numpy()
+        nb = int(diag_cfg['batch']) // 2
+        pick = np.concatenate([rng.choice(np.flatnonzero(vm), nb, replace=False), rng.choice(np.flatnonzero(~vm), nb, replace=False)])
+        items = [val_ds[int(i)] for i in pick]
+        diag_batch = preprocessor(torch.utils.data.default_collate(items))
+        from lerobot.datasets.video_utils import _default_decoder_cache
+        _default_decoder_cache.clear()      # no open video handle may be inherited by the forked DataLoader workers
+        diag_batch = {k: (v.to(a.device) if torch.is_tensor(v) else v) for k, v in diag_batch.items()}
+        diag_perm = torch.roll(torch.arange(len(pick)), len(pick) // 2).to(a.device)    # a different frame (other half)
     opt_cfg = cfg.get_optimizer_preset()
     optimizer = opt_cfg.build(policy.get_optim_params())
     clip = float(tr.get('grad_clip_norm', opt_cfg.grad_clip_norm))
@@ -216,7 +248,7 @@ def main():
         gen.set_state(st['rng']['sampler'])
         print(f'resumed from {ck} at step {step}; sampler starts a new draw (not bitwise replay)', flush=True)
     else:
-        for f in ('train_log.jsonl', 'val_log.jsonl'):
+        for f in ('train_log.jsonl', 'val_log.jsonl', 'diag_log.jsonl'):
             (out / f).write_text('')
     manifest = read_jsonl(a.train_set / 'manifest.jsonl')
     with (out / 'manifest.jsonl').open('w') as f:
@@ -231,7 +263,7 @@ def main():
         val_episodes=val_ds.meta.total_episodes if val_ds else 0, val_frames=val_ds.meta.total_frames if val_ds else 0,
         action_definition=ACTION_DEFINITION, normalization=dict(mapping={k: str(v) for k, v in cfg.normalization_mapping.items()},
                                                                stats_file='stats.json (train split only)'),
-        forecast_stats=fstats, policy_inputs=list(cfg.input_features) + ([cfg.forecast_key, cfg.forecast_valid_key] if cfg.use_forecast else []),
+        forecast_stats=fstats, decision_window_share=mask_share or None, diagnostics=diag_cfg, policy_inputs=list(cfg.input_features) + ([cfg.forecast_key, cfg.forecast_valid_key] if cfg.use_forecast else []),
         params=dict(total=n_params, trainable=n_train, used_by_continuous_act=n_used, forecast_encoder=n_fc),
         optimizer=dict(type='AdamW (LeRobot ACT preset)', lr=cfg.optimizer_lr, lr_backbone=cfg.optimizer_lr_backbone,
                        weight_decay=cfg.optimizer_weight_decay, grad_clip_norm=clip, scheduler=None),
@@ -262,6 +294,23 @@ def main():
             for previous in old[:-2]:
                 shutil.rmtree(previous)
 
+    collapse = defaultdict(int)
+
+    def collapse_check(row: dict, kind: str) -> str | None:
+        """19/QĐ-HL item 8: stop on NaN, a long-zero forecast gradient, z_H variance ~ 0 or a dead FFN (config `diagnostics.stop`)."""
+        st = diag_cfg['stop']
+        if not np.isfinite(row.get('loss', 0.0)):
+            return 'loss is not finite'
+        rules = (('grad_zero', kind == 'log' and row.get('forecast_grad_norm', 1.0) < st['grad_zero_below'], st['grad_zero_log_rows']),
+                 ('zh_var', kind == 'diag' and row.get('zh_var', 1.0) < st['zh_var_below'], st['zh_var_diag_rows']),
+                 ('dead_unit', kind == 'diag' and row.get('dead_unit_ratio', 0.0) > st['dead_unit_above'], st['dead_unit_diag_rows']))
+        for name, hit, need in rules:
+            if (name == 'grad_zero') == (kind == 'log'):
+                collapse[name] = collapse[name] + 1 if hit else 0
+                if collapse[name] >= need:
+                    return f'{name}: {need} consecutive {"log rows" if kind == "log" else "diagnostics"}'
+        return None
+
     stopping = False
     def request_stop(signum, frame):
         nonlocal stopping
@@ -273,19 +322,24 @@ def main():
     def validate() -> dict:
         policy.eval()
         g = Groups(va_meta)
-        tot, n = 0.0, 0
+        tot, n, dec_s, dec_n = 0.0, 0, 0.0, 0
         for i, b in enumerate(val_loader):
             if tr.get('val_max_batches') and i >= int(tr['val_max_batches']):
                 break
             eps = b['episode_index']
+            midx = b['index'].reshape(-1).cpu()
             b = preprocessor(b)
             with torch.autocast('cuda', dtype=torch.float16, enabled=tr['amp']):
                 policy.forward(b)
             per = policy.per_sample_l1(b).float().cpu()
             g.add(eps, per)
             tot, n = tot + float(per.sum()), n + len(per)
+            if 'val' in masks:
+                mm = masks['val'][midx]
+                dec_s, dec_n = dec_s + float(per[mm].sum()), dec_n + int(mm.sum())
         policy.train()
-        return dict(step=step, val_l1=tot / max(n, 1), val_samples=n, **g.result('val_'))
+        extra = dict(val_l1_decision=dec_s / dec_n, val_decision_samples=dec_n) if dec_n else {}
+        return dict(step=step, val_l1=tot / max(n, 1), val_samples=n, **extra, **g.result('val_'))
 
     policy.train()
     if not a.resume:
@@ -297,13 +351,19 @@ def main():
     while step < int(tr['steps']):
         for b in train_loader:
             eps = b['episode_index']
+            midx = b['index'].reshape(-1).cpu()
             b = preprocessor(b)
+            if dl_on:
+                b['decision_mask'] = masks['train'][midx].to(a.device)
             with torch.autocast('cuda', dtype=torch.float16, enabled=tr['amp']):
                 loss, info = policy.forward(b)
             groups.add(eps, policy.per_sample_l1(b).detach().float().cpu())
             optimizer.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
+            if policy.forecast_encoder is not None:
+                fg = [p.grad for p in policy.forecast_encoder.parameters() if p.grad is not None]
+                info['forecast_grad_norm'] = float(torch.sqrt(sum((g.float() ** 2).sum() for g in fg))) if fg else 0.0
             gn = torch.nn.utils.clip_grad_norm_(policy.parameters(), clip)
             scaler.step(optimizer)
             scaler.update()
@@ -321,6 +381,19 @@ def main():
                 acc.clear()
                 with (out / 'train_log.jsonl').open('a') as f:
                     f.write(json.dumps(row) + '\n')
+                why = collapse_check(row, 'log') if diag_cfg else None
+                if why is None and diag_batch is not None and (step % int(diag_cfg['every_steps']) == 0 or last):
+                    d = dict(step=step, **policy.forecast_diagnostics(diag_batch, diag_perm))
+                    d['loss'] = row['loss']
+                    with (out / 'diag_log.jsonl').open('a') as f:
+                        f.write(json.dumps(d) + '\n')
+                    print('diag ' + ' '.join(f'{k}={v:.4g}' for k, v in d.items() if k != 'step'), flush=True)
+                    why = collapse_check(d, 'diag')
+                if why:
+                    save(out / 'checkpoints' / f'{step:06d}', state=True)
+                    (out / 'COLLAPSE.json').write_text(json.dumps(dict(step=step, reason=why, last_log=row), indent=1))
+                    print(f'TRAIN_COLLAPSE step {step}: {why}', flush=True)
+                    raise SystemExit(3)
                 print(f'step={step} loss={row["loss"]:.4f} l1={row.get("l1_loss", float("nan")):.4f} '
                       f'kld={row.get("kld_loss", float("nan")):.4f} steps/s={row["steps_per_s"]}', flush=True)
             if val_loader is not None and (step % int(tr['val_every']) == 0 or last):

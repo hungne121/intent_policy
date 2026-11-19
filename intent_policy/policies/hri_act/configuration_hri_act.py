@@ -88,9 +88,19 @@ class HRIACTConfig(ACTConfig):
     forecast_hidden_dim: int = 256
     forecast_in_cvae: bool = True
     forecast_fk_chain: dict = field(default_factory=dict)
+    # M* (19/QĐ-HL, configs/policy/m_star.yaml): forecast encoder architecture switch ('mlp_flatten' = M1,
+    # 'structured_transformer' = H x J tokens + Pre-LN transformer) and its size; decision-aware action loss switch.
+    forecast_arch: str = 'mlp_flatten'
+    forecast_n_layers: int = 2
+    forecast_n_heads: int = 4
+    forecast_activation: str = 'gelu'
+    forecast_dropout: float = 0.1
+    decision_loss: dict = field(default_factory=dict)        # {enabled, alpha, event_windows: {...}} (decision_windows.py)
 
     def __post_init__(self):
         super().__post_init__()
+        if self.forecast_arch not in ('mlp_flatten', 'structured_transformer'):
+            raise ValueError(f'forecast_arch {self.forecast_arch!r}')
         if self.use_forecast:
             if self.action_mode != 'continuous' or self.use_intent:
                 raise ValueError('use_forecast needs action_mode continuous and no intent tokens (07/QĐ-HL M1)')
@@ -171,7 +181,9 @@ class HRIACTConfig(ACTConfig):
             return None
         return dict(key=self.forecast_key, valid_key=self.forecast_valid_key, horizons=self.forecast_horizons,
                     joints=self.forecast_joints, dt_s=self.forecast_dt_s, hidden_dim=self.forecast_hidden_dim,
-                    in_cvae=self.forecast_in_cvae, fk_chain=self.forecast_fk_chain)
+                    in_cvae=self.forecast_in_cvae, fk_chain=self.forecast_fk_chain,
+                    arch=self.forecast_arch, n_layers=self.forecast_n_layers, n_heads=self.forecast_n_heads,
+                    activation=self.forecast_activation, dropout=self.forecast_dropout)
 
     @property
     def n_tasks(self) -> int:

@@ -28,7 +28,7 @@ from torch import Tensor, nn
 from lerobot.policies.act.modeling_act import ACT, create_sinusoidal_pos_embedding
 from lerobot.utils.constants import ACTION, OBS_ENV_STATE, OBS_IMAGES, OBS_STATE
 
-from intent_policy.policies.forecast_token import ForecastEncoder
+from intent_policy.policies.forecast_token import make_forecast_encoder
 from intent_policy.policies.intent_encoder import IntentEncoder, IntentFiLM
 from intent_policy.policies.intent_encoder_v32 import IntentEncoderUnified, IntentEncoderV32, IntentFiLMV32
 
@@ -102,7 +102,7 @@ class IntentACT(ACT):
         if self.use_forecast:
             if self.use_intent:
                 raise ValueError('forecast token and intent tokens together are not supported')
-            self.forecast_encoder = ForecastEncoder(d, forecast_cfg)
+            self.forecast_encoder = make_forecast_encoder(d, forecast_cfg)
             self.n_extra += self.forecast_encoder.n_tokens
             cfg = {'in_cvae': forecast_cfg.get('in_cvae', True)}
         # v3.2: intent never enters the CVAE encoder (the latent keeps the motion style, intent goes through the tokens)

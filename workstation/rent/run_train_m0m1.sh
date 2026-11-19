@@ -33,7 +33,7 @@ CKPT_EVERY_S="${CKPT_EVERY_S:-300}"
 ckpt_upload() {
     HF_TOKEN="$(cat /root/.hf_token)" ./run.sh -m tools.sync_train_run --repo "$CKPT_REPO" --run "$RUN" "$@"
 }
-declare -A CFG=([M0]=configs/policy/m0.yaml [M1-noH]=configs/policy/m1_noh.yaml [M1]=configs/policy/m1.yaml)
+declare -A CFG=([M0]=configs/policy/m0.yaml [M1-noH]=configs/policy/m1_noh.yaml [M1]=configs/policy/m1.yaml [M-star]=configs/policy/m_star.yaml)
 
 step "1/7 GPU"
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
@@ -44,7 +44,7 @@ echo "cpus $CPUS steps $STEPS batch $BATCH models $MODELS parallel $PARALLEL run
 step "2/7 Python 3.12 env (run_act_v6.sh recipe: torch 2.11.0 cu130, lerobot 64b2317 --no-deps, mujoco 3.3.7, torchcodec CPU)"
 if [ -z "${INTENT_PYTHON:-}" ]; then
     apt-get update -qq && apt-get install -y -qq ffmpeg libegl1 libgl1 libopengl0 >/dev/null
-    python3 -m pip install -q uv
+    python3 -m pip install -q --break-system-packages uv
     [ -x "$VENV/bin/python" ] || python3 -m uv venv -q -p 3.12 "$VENV"
     if [ "${TORCH_BACKEND:-cu128}" = cu130 ]; then grep -v '^lerobot' workstation/env/ur_bullet312.txt > /tmp/req_nolerobot.txt
     else grep -v -E '^(lerobot|cuda-bindings|cuda-pathfinder|cuda-toolkit|nvidia-|triton)' workstation/env/ur_bullet312.txt > /tmp/req_nolerobot.txt; fi   # QĐ-HL-09: the laptop pins CUDA 13 wheels; let uv pick the ones of the chosen torch backend (host driver 570 = CUDA 12.8)
@@ -61,6 +61,21 @@ VB=torchcodec
 echo "video backend $VB"
 
 if [ -n "${WAIT_GO:-}" ]; then echo "waiting for /root/GO (collection still uploading) $(date +%T)"; while [ ! -f /root/GO ]; do sleep 30; done; echo "GO $(date +%T)"; fi
+TRAIN_SET_HF="${TRAIN_SET_HF:-}"      # e.g. train_sets/train_set_w2fixed: use the SAME built train set as the baselines (19/QĐ-HL item 6) instead of rebuilding from shards
+if [ -n "$TRAIN_SET_HF" ] && [ ! -f "$TRAIN_SET/manifest.jsonl" ]; then
+    step "3/7 Built train set $HF_REPO/$TRAIN_SET_HF (no shard rebuild)"
+    mkdir -p "$DATA/hf"
+    HF_TOKEN="$(cat /root/.hf_token)" "$INTENT_PYTHON" - "$HF_REPO" "$TRAIN_SET_HF" "$DATA/hf" "$TRAIN_SET" <<'EOF'
+import os, shutil, sys
+from huggingface_hub import snapshot_download
+repo, sub, out, dst = sys.argv[1:5]
+snapshot_download(repo_id=repo, repo_type='dataset', allow_patterns=[f'{sub}/*'], local_dir=out, token=os.environ['HF_TOKEN'], max_workers=8)
+shutil.copytree(os.path.join(out, sub), dst, symlinks=False)
+print('train set at', dst)
+EOF
+    [ -f "$TRAIN_SET/build_report.json" ] || echo '{}' > "$TRAIN_SET/build_report.json"
+    touch "$DATA/shards/.extracted" 2>/dev/null || { mkdir -p "$DATA/shards"; touch "$DATA/shards/.extracted"; }
+fi
 step "3/7 Shards from $HF_REPO/$HF_PREFIX"
 mkdir -p "$DATA/hf" "$DATA/shards"
 if [ ! -f "$DATA/shards/.extracted" ]; then
@@ -88,13 +103,28 @@ cp "$TRAIN_SET/build_report.json" "$TRAIN_SET/manifest.jsonl" "$RUN/"
 mkdir -p "$RUN/source"
 cp --parents tools/train_policy.py tools/train_checkpoint_io.py tools/sync_train_run.py \
     tools/check_train_data.py workstation/rent/run_train_m0m1.sh "$TRAIN_CONFIG" \
-    configs/policy/m0.yaml configs/policy/m1.yaml configs/policy/m1_noh.yaml "$RUN/source/"
+    configs/policy/m0.yaml configs/policy/m1.yaml configs/policy/m1_noh.yaml configs/policy/m_star.yaml \
+    intent_policy/policies/forecast_token.py intent_policy/policies/decision_windows.py "$RUN/source/"
 
 step "5/7 Data check (tools/check_train_data.py on the built train set)"
 ./run.sh -m tools.check_train_data --root "$TRAIN_SET" --out "$RUN/check_train_set" | tee "$RUN/check_summary.json"
 OK=$("$INTENT_PYTHON" -c "import json; print(json.load(open('$RUN/check_train_set/check_train_data.json'))['ok'])")
 echo "data check ok=$OK"
 [ "$OK" = True ] || [ "$CHECK_STRICT" = 0 ] || { echo "data check failed (CHECK_STRICT=0 to train anyway)"; false; }
+
+SMOKE_STEPS="${SMOKE_STEPS:-0}"       # M* (19/QĐ-HL item 5): >0 = technical smoke first; a failed gate stops before the full run
+if [ "$SMOKE_STEPS" -gt 0 ]; then
+    step "5b/7 Smoke test $MODELS ($SMOKE_STEPS steps; tensors, gradients, NaN, encoder collapse: tools/check_smoke.py)"
+    for m in $MODELS; do
+        [ -f "$RUN/smoke/$m/SMOKE_OK" ] && continue
+        rm -rf "$RUN/smoke/$m"
+        ./run.sh -m tools.train_policy --policy-config "${CFG[$m]}" --train-config "$TRAIN_CONFIG" --train-set "$TRAIN_SET" \
+            --output-dir "$RUN/smoke/$m" --steps "$SMOKE_STEPS" --batch-size "$BATCH" --num-workers 4 --device cuda --video-backend "$VB" \
+            --log-every 20 --diag-every 100 --val-every "$SMOKE_STEPS" --val-max-batches 20 --save-every 0 > "$RUN/smoke_$m.log" 2>&1 || true
+        ./run.sh -m tools.check_smoke --run "$RUN/smoke/$m" --out "$RUN/smoke/$m/smoke_report.json" || { echo "SMOKE_FAILED $m"; false; }
+        touch "$RUN/smoke/$m/SMOKE_OK"
+    done
+fi
 
 step "6/7 Train $MODELS ($STEPS steps, batch $BATCH, parallel=$PARALLEL)"
 NM=$(echo $MODELS | wc -w)

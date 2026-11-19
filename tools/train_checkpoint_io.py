@@ -63,7 +63,7 @@ def stage_run(run, stage, final=False):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
     checkpoints = {}
-    for model in ('M0', 'M1-noH', 'M1'):
+    for model in ('M0', 'M1-noH', 'M1', 'M-star'):
         root = run / model / 'checkpoints'
         if not root.exists():
             continue

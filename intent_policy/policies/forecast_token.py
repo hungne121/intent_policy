@@ -189,6 +189,94 @@ class ForecastEncoder(nn.Module):
         return self.mlp(torch.cat([x.flatten(1), flag], dim=1))[:, None]
 
 
+class _PreLNLayer(nn.Module):
+    """Pre-LN transformer encoder layer with GELU (Xiong et al. 2020 "On Layer Normalization in the Transformer
+    Architecture"; Hendrycks & Gimpel 2016 GELU): x + MHA(LN(x)); x + FFN(LN(x)). Records the share of FFN hidden units
+    that stay inactive (|post-activation| <= eps over every token of the batch) for the dead-unit diagnostic."""
+
+    def __init__(self, d: int, n_heads: int, ff: int, dropout: float, activation: str):
+        super().__init__()
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.attn = nn.MultiheadAttention(d, n_heads, dropout=dropout, batch_first=True)
+        self.lin1, self.lin2 = nn.Linear(d, ff), nn.Linear(ff, d)
+        self.act = nn.GELU() if activation == 'gelu' else nn.ReLU()
+        self.drop = nn.Dropout(dropout)
+        self.last_hidden: Tensor | None = None
+
+    def forward(self, x: Tensor) -> Tensor:
+        y = self.ln1(x)
+        x = x + self.drop(self.attn(y, y, y, need_weights=False)[0])
+        h = self.act(self.lin1(self.ln2(x)))
+        self.last_hidden = h.detach()
+        return x + self.drop(self.lin2(self.drop(h)))
+
+
+class StructuredForecastEncoder(nn.Module):
+    """M* structured ManiCast conditioning (19/QĐ-HL III.1): one token per (horizon k, joint j),
+    e_kj = LayerNorm(W [Ĥ_kj, r_kj, v_kj, valid] + E_time[k] + E_joint[j]), then a Pre-LN GELU transformer encoder over
+    the H x J tokens; z_H (B, H*J, D) are extra tokens of the ACT encoder. Input features = forecast_features (the
+    same normalisation / TCP-relative / velocity as M1), validity flag appended to every token (invalid -> zero
+    features + flag 0). Statistics, FK and the diagnostics API are those of ForecastEncoder."""
+
+    def __init__(self, dim_model: int, cfg: dict):
+        super().__init__()
+        self.H, self.J, self.dt = int(cfg['horizons']), int(cfg['joints']), float(cfg['dt_s'])
+        self.n_tokens = self.H * self.J
+        self.key, self.valid_key, self.state_key = cfg['key'], cfg['valid_key'], 'observation.state'
+        self.fk = TcpFK(cfg['fk_chain'])
+        for n, k in (('pos_mean', 3), ('pos_std', 3), ('q_mean', 6), ('q_std', 6)):
+            self.register_buffer(n, torch.ones(k) if n.endswith('std') else torch.zeros(k))
+        self.register_buffer('stats_set', torch.zeros((), dtype=torch.bool))
+        n_layers, n_heads = int(cfg.get('n_layers', 2)), int(cfg.get('n_heads', 4))
+        act, p = cfg.get('activation', 'gelu'), float(cfg.get('dropout', 0.1))
+        if act not in ('gelu', 'relu'):
+            raise ValueError(f'forecast activation {act!r}')
+        self.inp = nn.Linear(10, dim_model)
+        self.e_time = nn.Parameter(torch.randn(self.H, 1, dim_model) * 0.02)
+        self.e_joint = nn.Parameter(torch.randn(1, self.J, dim_model) * 0.02)
+        self.ln_in = nn.LayerNorm(dim_model)
+        self.layers = nn.ModuleList(_PreLNLayer(dim_model, n_heads, int(cfg.get('hidden_dim', 256)) * 2, p, act)
+                                    for _ in range(n_layers))
+        self.ln_out = nn.LayerNorm(dim_model)
+
+    set_stats = ForecastEncoder.set_stats
+    qpos = ForecastEncoder.qpos
+
+    def features(self, batch: dict) -> tuple[Tensor, Tensor]:
+        if not bool(self.stats_set):
+            raise RuntimeError('forecast statistics not set (train: set_stats from the training split)')
+        state = batch[self.state_key]
+        b = state.shape[0]
+        fc = batch[self.key].float().reshape(b, self.H, self.J, 3)
+        valid = batch[self.valid_key].float().reshape(b)
+        return forecast_features(fc, valid, self.fk(self.qpos(state)), self.pos_mean, self.pos_std, self.dt), valid
+
+    def forward(self, batch: dict) -> Tensor:
+        x, valid = self.features(batch)
+        flag = (valid > 0.5).to(x.dtype)[:, None, None, None].expand(-1, self.H, self.J, 1)
+        x = torch.cat([x, flag], dim=-1)                                       # (B, H, J, 10)
+        e = self.inp(x) + self.e_time + self.e_joint
+        z = self.ln_in(e).flatten(1, 2)
+        for layer in self.layers:
+            z = layer(z)
+        return self.ln_out(z)
+
+    @torch.no_grad()
+    def dead_unit_ratio(self) -> float:
+        """Share of FFN hidden units (all layers) with |activation| <= 1e-6 on every token of the last forward batch."""
+        dead = [(l.last_hidden.abs().amax((0, 1)) <= 1e-6).float().mean().item() for l in self.layers if l.last_hidden is not None]
+        return float(np.mean(dead)) if dead else float('nan')
+
+
+def make_forecast_encoder(dim_model: int, cfg: dict) -> nn.Module:
+    arch = cfg.get('arch', 'mlp_flatten')
+    if arch == 'structured_transformer':
+        return StructuredForecastEncoder(dim_model, cfg)
+    if arch == 'mlp_flatten':
+        return ForecastEncoder(dim_model, cfg)
+    raise ValueError(f'forecast arch {arch!r}')
+
+
 def forecast_position_stats(forecast: np.ndarray, valid: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Per-axis mean / std of the valid forecasts (N, 180) of the training split."""
     f = np.asarray(forecast, np.float64)[np.asarray(valid).reshape(-1) > 0.5].reshape(-1, 3)

@@ -1,0 +1,68 @@
+# M* — ACT + structured ManiCast conditioning + KL isolation + decision-aware action loss (19/QĐ-HL, 19/11/2026).
+# One unified policy for the 10 tasks and N1 / N5 / N6; no task rule inside the policy. Every network / optimiser
+# field = m1.yaml (same ACT, 60k steps, data, split, budget: configs/policy/train_m0m1.yaml), so M* vs M1 differs only
+# in the three switches below (architecture conditioning, KL isolation, decision-aware loss) -> later ablation.
+# Spec: docs/ho_so/03_train/QD-HL-19_phuong_phap_M_star.md; roadmap docs/lo_trinh/BUOC_3_phuong_phap_M2_M3.md.
+type: hri_act
+train_data:
+  dataset: D_forecast
+  cameras: [front_oblique, overhead_oblique, wrist]
+action_mode: continuous
+use_intent: false
+use_forecast: true
+chunk_size: 40
+n_action_steps: 1
+temporal_ensemble_coeff: null
+vision_backbone: resnet18
+pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+dim_model: 256
+n_heads: 8
+dim_feedforward: 1024
+n_encoder_layers: 4
+n_decoder_layers: 1
+use_vae: true
+kl_weight: 10.0
+dropout: 0.1
+optimizer_lr: 1.0e-4
+optimizer_lr_backbone: 1.0e-5
+optimizer_weight_decay: 1.0e-4
+forecast_key: observation.human_forecast
+forecast_valid_key: observation.forecast_valid
+forecast_horizons: 10
+forecast_joints: 6
+forecast_dt_s: 0.1
+forecast_hidden_dim: 256
+
+# --- switch 1: architecture conditioning (19/QĐ-HL III.1). mlp_flatten = M1.
+forecast_arch: structured_transformer     # structured_transformer | mlp_flatten
+forecast_n_layers: 2
+forecast_n_heads: 4
+forecast_activation: gelu                 # gelu | relu
+forecast_dropout: 0.1
+# --- switch 2: KL isolation (III.2). false: the forecast tokens are not in the CVAE encoder, so dKL/d(forecast) = 0.
+forecast_in_cvae: false
+# --- switch 3: decision-aware action loss (III.3): w_t = 1 + alpha * m_t, L = sum w L1 / sum w (+ kl_weight x KL).
+# alpha = 0 or enabled = false gives LeRobot's uniform masked L1. Windows = P1 decisive windows (17/QĐ-HL) with the
+# spans of 19/QĐ-HL III.3: onset +1 s, switch +-1 s, pre-commit 1 s before, N5 fault [start, end + 1 s].
+decision_loss:
+  enabled: true
+  alpha: 2.0
+  event_windows:
+    onset:            {events: [human_motion_onset, forecast_follow_started, forecast_continuous_follow, forecast_handover_prep], t_before: 0.0, t_after: 1.0}
+    target_selection: {events: [pick_start, forecast_prep, forecast_route_update, phase_basis_forecast, forecast_commit], t_before: 0.0, t_after: 1.0}
+    pre_commit:       {events: [forecast_commit, pointing_confirmed, observed_cloth_target, target_observed], t_before: 1.0, t_after: 0.0}
+    switch:           {events: [human_intention_change, switch_observed], t_before: 1.0, t_after: 1.0}
+    fault_recovery:   {t_after: 1.0}
+
+# Training-time diagnostics and stop rule (19/QĐ-HL items 7-8). Thresholds are engineering values (no literature
+# source): they only detect a dead branch, they never tune the model.
+diagnostics:
+  every_steps: 500                        # sensitivity / attention / dead units on a fixed validation batch
+  batch: 64                               # decision-window frames (32) + other frames (32) of the val split
+  stop:
+    grad_zero_below: 1.0e-10              # forecast-encoder grad norm
+    grad_zero_log_rows: 10                # ... for this many consecutive log rows (log_every = 100 steps)
+    zh_var_below: 1.0e-8                  # variance of z_H over the diagnostic batch
+    zh_var_diag_rows: 3
+    dead_unit_above: 0.9                  # share of inactive FFN units
+    dead_unit_diag_rows: 3

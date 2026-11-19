@@ -240,7 +240,11 @@ class HRIACTPolicy(ACTPolicy):
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, dict]:
         if self.config.action_mode == 'continuous':
             self._set_intent(batch)
-            return super().forward(self._with_intent(batch))
+            batch = self._with_intent(batch)
+            dl = self.config.decision_loss
+            if dl and dl.get('enabled') and 'decision_mask' in batch and self.training:
+                return self._forward_decision(batch, float(dl['alpha']))
+            return super().forward(batch)
         actions_hat, (mu, log_sigma_x2), latent = self._run_act(batch)
         logits = self.restricted_head(latent)                                   # (B, S, 9)
         key = self.config.restricted_label_key
@@ -262,6 +266,80 @@ class HRIACTPolicy(ACTPolicy):
             loss = loss + kld * self.config.kl_weight
             info['kld_loss'] = kld.item()
         return loss, info
+
+    def _forward_decision(self, batch: dict, alpha: float) -> tuple[Tensor, dict]:
+        """M* decision-aware action loss (19/QĐ-HL III.3): L = sum_t w_t a_t / sum_t w_t / (chunk x dims) + kl_weight x KL
+        with w_t = 1 + alpha m_t and a_t = the masked L1 sum of sample t (batch['decision_mask'] (B,) in {0, 1}).
+        alpha = 0 gives exactly LeRobot's masked L1 (same normaliser: valid steps x action dims of the whole batch)."""
+        if self.config.image_features:
+            batch = dict(batch)
+            batch[OBS_IMAGES] = [batch[key] for key in self.config.image_features]
+        actions_hat, (mu, log_sigma_x2) = self.model(batch)
+        err = (batch[ACTION] - actions_hat).abs()
+        valid = (~batch['action_is_pad']).unsqueeze(-1).to(err.dtype)
+        a = (err * valid).sum((1, 2))                                              # (B,)
+        w = 1.0 + alpha * batch['decision_mask'].reshape(-1).to(err.dtype)
+        n_valid = (valid.sum() * err.shape[-1]).clamp_min(1)
+        l1 = (w * a).sum() / w.sum() * (len(a) / n_valid)
+        plain = a.sum() / n_valid
+        info = {'l1_loss': plain.item(), 'weighted_l1_loss': l1.item(), 'decision_frac': batch['decision_mask'].float().mean().item()}
+        loss = l1
+        if self.config.use_vae and log_sigma_x2 is not None:
+            kld = (-0.5 * (1 + log_sigma_x2 - mu.pow(2) - log_sigma_x2.exp())).sum(-1).mean()
+            info['kld_loss'] = kld.item()
+            loss = loss + kld * self.config.kl_weight
+        return loss, info
+
+    @torch.no_grad()
+    def forecast_diagnostics(self, batch: dict, shuffle_perm: Tensor) -> dict:
+        """Forecast-branch diagnostics on one preprocessed batch (19/QĐ-HL item 7), eval mode, z = 0 (ACT inference):
+        z_H variance (over the batch, mean over tokens x dims) and its mean |value|, dead-unit ratio of the encoder FFN,
+        decoder cross-attention mass on the forecast tokens vs their uniform share, and the action change (mean |delta| of
+        the normalised chunk) when the forecast is replaced by another sample's (`shuffle_perm`, true-vs-shuffled) or
+        masked (valid = 0). Sensitivity > 0 shows the output depends on the forecast; it does not show it is right."""
+        fe = self.forecast_encoder
+        was = self.training
+        self.eval()
+        out = {}
+        b = dict(batch)
+        if self.config.image_features:
+            b[OBS_IMAGES] = [b[k] for k in self.config.image_features]
+        attn = {}
+
+        def pre(mod, args, kwargs):
+            kwargs = dict(kwargs, need_weights=True)
+            return args, kwargs
+
+        def post(mod, args, kwargs, output):
+            attn['w'] = output[1]
+        layer = self.model.decoder.layers[-1].multihead_attn
+        h1, h2 = layer.register_forward_pre_hook(pre, with_kwargs=True), layer.register_forward_hook(post, with_kwargs=True)
+        try:
+            act_true, _ = self.model(b)
+        finally:
+            h1.remove(), h2.remove()
+        z = fe(b)
+        out['zh_var'] = float(z.var(0, unbiased=False).mean())
+        out['zh_abs_mean'] = float(z.abs().mean())
+        if hasattr(fe, 'dead_unit_ratio'):
+            out['dead_unit_ratio'] = fe.dead_unit_ratio()
+        else:                                                                       # M1 MLP: ReLU after the first Linear
+            x, valid = fe.features(b)
+            pre_act = fe.mlp[0](torch.cat([x.flatten(1), (valid > 0.5).to(x.dtype)[:, None]], 1))
+            out['dead_unit_ratio'] = float((pre_act.max(0).values <= 0).float().mean())
+        w = attn['w']                                                               # (B, chunk, S)
+        n_1d = 1 + bool(self.config.robot_state_feature) + bool(self.config.env_state_feature)
+        n_f = fe.n_tokens
+        out['attn_mass_forecast'] = float(w[..., n_1d:n_1d + n_f].sum(-1).mean())
+        out['attn_uniform_share'] = n_f / w.shape[-1]
+        fk, vk = self.config.forecast_key, self.config.forecast_valid_key
+        for name, alt in (('shuffled', dict(b, **{fk: b[fk][shuffle_perm], vk: b[vk][shuffle_perm]})),
+                          ('masked', dict(b, **{fk: torch.zeros_like(b[fk]), vk: torch.zeros_like(b[vk])}))):
+            act, _ = self.model(alt)
+            ok = (~b['action_is_pad']).unsqueeze(-1).to(act.dtype)
+            out[f'sens_{name}'] = float(((act - act_true).abs() * ok).sum() / (ok.sum() * act.shape[-1]).clamp_min(1))
+        self.train(was)
+        return out
 
     # ------------------------------------------------------------------ inference
     @torch.no_grad()
