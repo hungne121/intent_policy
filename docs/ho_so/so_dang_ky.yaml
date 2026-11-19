@@ -2874,3 +2874,16 @@ van_ban:
     can_cu: [QD-KT-10, QD-HL-24, QD-HL-12]
     noi_luu: docs/ho_so/03_train/QD-HL-25_danh_gia_day_du_M0_vs_M_star_RunPod.md
 
+
+  - so: QD-HL-26
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-20 00:42"
+    ban_hanh: người dùng
+    trich_yeu: "Kế hoạch tổng thể sau 40 seed (chat 20/11): Phase 1 audit task success thấp (manifest 1.290 episode, phân tích cặp, taxonomy failure, ưu tiên I2 > I3 > C2 > W > C1/C3/I1), Phase 2 phương án cải thiện (hội tụ M0 20k–60k, dữ liệu, ACT/DAgger/CR-DAgger/AWAC), Phase 3 cải thiện + regression, Phase 4 chuẩn hoá 10 metric (TSync u/tau chưa duyệt), Phase 5 final eval, Phase 6 hồ sơ; go/no-go cuối mỗi phase. Agent hiểu: hiện chỉ làm Phase 1 trên dữ liệu có sẵn, không train, không tạo pod."
+    pham_vi: [M0, M_star, audit, eval]
+    chu_de: [train, danh_gia]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-25, QD-KT-17, QD-KT-18]
+    noi_luu: docs/ho_so/03_train/QD-HL-26_ke_hoach_tong_the_sau_40_seed.md
