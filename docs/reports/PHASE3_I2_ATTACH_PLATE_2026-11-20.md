@@ -37,3 +37,8 @@ Video (overhead, 3 plate): `outputs/diag/phase3_1120/pilot_i2_video/video/I2_cor
 
 ### Việc chưa quyết (không có hướng dẫn của người dùng)
 Dải tiêm 0,5–0,95 s và dwell 0–0,4 s; frame `injected_early_lift` mask khỏi loss hay cắt bỏ; tỉ lệ trộn dữ liệu cũ/corrective; chỉ 1 lần recover/ep vì tiêm 1 lần.
+
+## Bổ sung 20/11/2026 04:28 — người nghiêng khi nghỉ (29/QĐ-HL)
+Video v1 có người nghiêng 20° khi không làm gì, thẳng khi chỉ tay. Nguyên nhân đo được: tay buông cách vai 0,609 m, vượt tầm với cho phép 0,513 m (độ dài tay × `reach_margin` 0,88), nên `human_v3.lean_needed` nghiêng thân 20,4° (tay trái) / 20,0° (tay phải) ở tư thế nghỉ.
+Sửa: cờ `scene.human.rest_lean_free` (mặc định false = hành vi cũ, dữ liệu và kết quả đã chốt không đổi). Khi true, góc nghiêng chỉ tính phần vượt mức tư thế nghỉ đã cần. Chỉ bật trong pilot Phase 3. Kết quả: góc nghiêng 0° suốt episode (seed 300820, 300821); pilot 20 seed vẫn 20/20 thành công, physics_valid 13/20 cho cả hai biến thể.
+Video mới: `outputs/diag/phase3_1120/pilot_i2_video_restfree/video/`. Chưa kiểm ảnh hưởng của lean lên forecast ManiCast; chưa áp dụng cho dữ liệu train/eval.

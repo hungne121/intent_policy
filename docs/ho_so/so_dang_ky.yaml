@@ -2913,3 +2913,16 @@ van_ban:
     trang_thai: hieu_luc
     can_cu: [QD-HL-26, QD-HL-27, QD-KT-18]
     noi_luu: docs/ho_so/03_train/QD-HL-28_phase3_corrective_expert_pilot_laptop.md
+
+  - so: QD-HL-29
+    loai: QĐ
+    hm: [HL, DL]
+    cap: 2
+    ngay: "2026-11-20 05:00"
+    ban_hanh: người dùng
+    trich_yeu: "Tư thế nghỉ của người không nghiêng thân (chat 20/11, xem video pilot I2): tay buông vượt reach_margin nên lean 20 độ khi nghỉ; thêm cờ scene.human.rest_lean_free (mặc định false, giữ dữ liệu cũ), chỉ bật cho pilot Phase 3."
+    pham_vi: [I2, eval]
+    chu_de: [du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-28]
+    noi_luu: docs/ho_so/03_train/QD-HL-29_tu_the_nghi_khong_nghieng_pilot.md

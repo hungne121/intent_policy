@@ -70,6 +70,7 @@ class HumanV3:
         self.idle = 'l' if self.active == 'r' else 'r'
         self.max_lean = np.radians(float(cfg.get('max_lean_deg', 60.)))
         self.lean_rate = float(cfg.get('lean_rate_deg_s', 40.)); self.lean_dt = float(cfg.get('lean_dt_s', .05))
+        self.rest_lean_free = bool(cfg.get('rest_lean_free', False))   # 29/QĐ-HL: no lean for the resting arm
         self.reach_margin = float(cfg.get('reach_margin', .9)); self.max_extension = float(cfg.get('max_extension', .95))
         self.hang_deg = float(cfg.get('hang_deg', 78.))                   # rest: arms hanging, this far down from the T-pose
         self._lean_prev = 0.
@@ -243,8 +244,12 @@ class HumanV3:
         swivel_offsets = swivel
         # waist lean fallback (rate limited): rotate the upper body about Spine1 when the palm is out of reach
         theta, axis = self.lean_needed(k, palm, self.active)
+        if self.rest_lean_free:        # 29/QĐ-HL: only the lean beyond what the hanging arm itself needs
+            theta = max(0., theta - self.lean_needed(k, self.palm_of(self.base, self.active), self.active)[0])
         if idle_palm is not None:      # 56/QĐ-DL: lean for the farther hand (as human_body_v2.pose); C3 brushing hand
             th2, ax2 = self.lean_needed(k, np.asarray(idle_palm, float), self.idle)
+            if self.rest_lean_free:
+                th2 = max(0., th2 - self.lean_needed(k, self.palm_of(self.base, self.idle), self.idle)[0])
             if th2 > theta: theta, axis = th2, ax2
         step = np.radians(self.lean_rate) * self.lean_dt
         theta = float(np.clip(theta, self._lean_prev - step, self._lean_prev + step))

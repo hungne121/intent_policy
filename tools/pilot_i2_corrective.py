@@ -14,9 +14,10 @@ from intent_policy.experts.i2_corrective_expert import make
 from tools.preview import CFG
 
 
-def run(seed, variant, mode, pred, out=None):
+def run(seed, variant, mode, pred, out=None, rest_lean_free=False):
     sc = scenario('I2')
     scene, positions, xml, info = sc.build(seed)
+    scene['human']['rest_lean_free'] = rest_lean_free     # 29/QĐ-HL (pilot only)
     ep = Episode('I2', mode, seed, scene, positions, xml, pred, out=out, max_ticks=sc.MAX_TICKS,
                  review_camera=CFG['review_camera'], review_hw=CFG['review_hw'], variant='nominal',
                  name_suffix=f'corrective_{variant}_{seed}_')
@@ -40,11 +41,12 @@ def main():
     p.add_argument('--mode', default='forecast')
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--video', action='store_true')
+    p.add_argument('--rest-lean-free', action='store_true', help='29/QĐ-HL: resting human does not lean')
     a = p.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     pred = load_predictor()
     for seed in a.seeds:
-        info, s = run(seed, a.variant, a.mode, pred, out=a.out / 'video' if a.video else None)
+        info, s = run(seed, a.variant, a.mode, pred, out=a.out / 'video' if a.video else None, rest_lean_free=a.rest_lean_free)
         viol = {k: v.get('category') for k, v in s.get('contact_classes', {}).items() if v.get('violation')}
         row = dict(variant=a.variant, seed=seed, plate=info['plate'], success=s['success'], reason=s['failure_reason'],
                    physics_valid=s.get('physics_valid'), robot_limits_ok=s.get('robot_limits_ok'), violations=viol,
