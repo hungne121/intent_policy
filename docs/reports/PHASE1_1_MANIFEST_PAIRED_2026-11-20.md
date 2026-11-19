@@ -22,9 +22,7 @@ Công cụ: `tools/audit_phase1.py`; dữ liệu thô: `outputs/diag/phase1_1120
 | W1 linger | 30 | 21 | 4 | 3 | 2 | 1,00 |
 | W2 | 40 | 32 | 0 | 2 | 6 | 0,29 |
 
-M* với M1-noH (chỉ M1-noH / chỉ M*): C2 2 / 24 (p<0,001); I1 0 / 20 (p<0,001); I2 6 / 18 (M* so với M1-noH: M1-noH hơn ở I2 với 18 cặp chỉ M1-noH so với 6 cặp chỉ M*; p 0,023); I3 nominal 2 / 15 (p 0,002); I3 switch_before 1 / 15 (p<0,001). M0 với M1-noH: C2 18 / 0, I1 20 / 0 (p<0,001); I2 16 / 6 (p 0,053).
-
-(Chiều cột "chỉ" trong dòng M* vs M1-noH ở I2: 18 là số seed chỉ M1-noH thành công, 6 là số seed chỉ M* thành công.)
+M* với M1-noH (chỉ M1-noH / chỉ M*): C2 2 / 24 (p<0,001); I1 0 / 20 (p<0,001); I2: 18 seed chỉ M1-noH thành công, 6 seed chỉ M* thành công (p 0,023, M1-noH hơn); I3 nominal 2 / 15 (p 0,002); I3 switch_before 1 / 15 (p<0,001). M0 với M1-noH: C2 18 / 0, I1 20 / 0 (p<0,001); I2 16 / 6 (p 0,053).
 
 ## Kết luận 1.1
 1. **I2 là điểm yếu thật của M\*:** 23 seed M0 thành công mà M* thất bại, chỉ 1 chiều ngược lại; chênh lệch nằm trong cùng tập seed nên không do lấy mẫu. Cả M0 lẫn M1-noH đều hơn M*.

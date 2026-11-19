@@ -1,841 +1,406 @@
-% Tài liệu tham khảo in theo kiểu IEEE (biblatex-ieee), đánh số theo thứ tự trích dẫn đầu tiên.
-% Các loại mục thường dùng: @article (tạp chí), @inproceedings (hội nghị), @book, @thesis,
-% @online (trang web, ghi url và urldate), @standard.
-% Các mục arXiv năm 2026 là preprint chưa qua bình duyệt; kiểm tra lại phiên bản trước khi nộp.
-
-% ----------------------------------------------------------------
-% Học bắt chước và chính sách thao tác
-% ----------------------------------------------------------------
-@inproceedings{zhao2023act,
-  title     = {Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware},
-  author    = {Zhao, Tony Z. and Kumar, Vikash and Levine, Sergey and Finn, Chelsea},
-  booktitle = {Proceedings of Robotics: Science and Systems (RSS)},
-  year      = {2023}
-}
-
-@inproceedings{chi2023diffusion,
-  title     = {Diffusion Policy: Visuomotor Policy Learning via Action Diffusion},
-  author    = {Chi, Cheng and Feng, Siyuan and Du, Yilun and Xu, Zhenjia and Cousineau, Eric and Burchfiel, Benjamin and Song, Shuran},
-  booktitle = {Proceedings of Robotics: Science and Systems (RSS)},
-  year      = {2023}
-}
-
-@inproceedings{brohan2023rt1,
-  title     = {{RT-1}: Robotics Transformer for Real-World Control at Scale},
-  author    = {Brohan, Anthony and Brown, Noah and Carbajal, Justice and Chebotar, Yevgen and others},
-  booktitle = {Proceedings of Robotics: Science and Systems (RSS)},
-  year      = {2023}
-}
-
-@inproceedings{octo2024,
-  title     = {Octo: An Open-Source Generalist Robot Policy},
-  author    = {{Octo Model Team} and Ghosh, Dibya and Walke, Homer and Pertsch, Karl and Black, Kevin and Mees, Oier and others},
-  booktitle = {Proceedings of Robotics: Science and Systems (RSS)},
-  year      = {2024}
-}
-
-@inproceedings{cadene2026lerobot,
-  title     = {{LeRobot}: An Open-Source Library for End-to-End Robot Learning},
-  author    = {Cadene, Remi and Aliberts, Simon and Capuano, Francesco and Aractingi, Michel and others},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2026},
-  note      = {arXiv:2602.22818}
-}
-
-@inproceedings{bharadhwaj2024roboagent,
-  title     = {{RoboAgent}: Generalization and Efficiency in Robot Manipulation via Semantic Augmentations and Action Chunking},
-  author    = {Bharadhwaj, Homanga and Vakil, Jay and Sharma, Mohit and Gupta, Abhinav and Tulsiani, Shubham and Kumar, Vikash},
-  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
-  year      = {2024}
-}
-
-@inproceedings{reuss2023beso,
-  title     = {Goal-Conditioned Imitation Learning using Score-based Diffusion Policies},
-  author    = {Reuss, Moritz and Li, Maximilian and Jia, Xiaogang and Lioutikov, Rudolf},
-  booktitle = {Proceedings of Robotics: Science and Systems (RSS)},
-  year      = {2023}
-}
-
-@inproceedings{haldar2024baku,
-  title     = {{BAKU}: An Efficient Transformer for Multi-Task Policy Learning},
-  author    = {Haldar, Siddhant and Peng, Zhuoran and Pinto, Lerrel},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2024}
-}
-
-@inproceedings{ross2011dagger,
-  title     = {A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning},
-  author    = {Ross, St{\'e}phane and Gordon, Geoffrey and Bagnell, Drew},
-  booktitle = {Proceedings of the International Conference on Artificial Intelligence and Statistics (AISTATS)},
-  pages     = {627--635},
-  year      = {2011}
-}
-
-@inproceedings{laskey2017dart,
-  title     = {{DART}: Noise Injection for Robust Imitation Learning},
-  author    = {Laskey, Michael and Lee, Jonathan and Fox, Roy and Dragan, Anca and Goldberg, Ken},
-  booktitle = {Conference on Robot Learning (CoRL)},
-  year      = {2017}
-}
-
-% ----------------------------------------------------------------
-% Thành phần mạng và điều kiện hóa
-% ----------------------------------------------------------------
-@inproceedings{vaswani2017attention,
-  title     = {Attention Is All You Need},
-  author    = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, {\L}ukasz and Polosukhin, Illia},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2017}
-}
-
-@inproceedings{carion2020detr,
-  title     = {End-to-End Object Detection with Transformers},
-  author    = {Carion, Nicolas and Massa, Francisco and Synnaeve, Gabriel and Usunier, Nicolas and Kirillov, Alexander and Zagoruyko, Sergey},
-  booktitle = {European Conference on Computer Vision (ECCV)},
-  year      = {2020}
-}
-
-@inproceedings{sohn2015cvae,
-  title     = {Learning Structured Output Representation using Deep Conditional Generative Models},
-  author    = {Sohn, Kihyuk and Lee, Honglak and Yan, Xinchen},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2015}
-}
-
-@inproceedings{he2016resnet,
-  title     = {Deep Residual Learning for Image Recognition},
-  author    = {He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
-  booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-  pages     = {770--778},
-  year      = {2016}
-}
-
-@inproceedings{perez2018film,
-  title     = {{FiLM}: Visual Reasoning with a General Conditioning Layer},
-  author    = {Perez, Ethan and Strub, Florian and de Vries, Harm and Dumoulin, Vincent and Courville, Aaron},
-  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
-  year      = {2018}
-}
-
-@misc{ho2022cfg,
-  title         = {Classifier-Free Diffusion Guidance},
-  author        = {Ho, Jonathan and Salimans, Tim},
-  year          = {2022},
-  eprinttype    = {arxiv},
-  eprint        = {2207.12598}
-}
-
-@inproceedings{tancik2020fourier,
-  title     = {Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains},
-  author    = {Tancik, Matthew and Srinivasan, Pratul P. and Mildenhall, Ben and Fridovich-Keil, Sara and Raghavan, Nithin and Singhal, Utkarsh and Ramamoorthi, Ravi and Barron, Jonathan T. and Ng, Ren},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2020}
-}
-
-@inproceedings{guo2017calibration,
-  title     = {On Calibration of Modern Neural Networks},
-  author    = {Guo, Chuan and Pleiss, Geoff and Sun, Yu and Weinberger, Kilian Q.},
-  booktitle = {Proceedings of the International Conference on Machine Learning (ICML)},
-  pages     = {1321--1330},
-  year      = {2017}
-}
-
-@article{savitzky1964,
-  title   = {Smoothing and Differentiation of Data by Simplified Least Squares Procedures},
-  author  = {Savitzky, Abraham and Golay, Marcel J. E.},
-  journal = {Analytical Chemistry},
-  volume  = {36},
-  number  = {8},
-  pages   = {1627--1639},
-  year    = {1964}
-}
-
-% ----------------------------------------------------------------
-% Ý định người, dự đoán chuyển động, cộng tác
-% ----------------------------------------------------------------
-@article{losey2018review,
-  title   = {A Review of Intent Detection, Arbitration, and Communication Aspects of Shared Control for Physical Human--Robot Interaction},
-  author  = {Losey, Dylan P. and McDonald, Craig G. and Battaglia, Edoardo and O'Malley, Marcia K.},
-  journal = {Applied Mechanics Reviews},
-  volume  = {70},
-  number  = {1},
-  pages   = {010804},
-  year    = {2018}
-}
-
-@article{hoffman2007cost,
-  title   = {Cost-Based Anticipatory Action Selection for Human--Robot Fluency},
-  author  = {Hoffman, Guy and Breazeal, Cynthia},
-  journal = {IEEE Transactions on Robotics},
-  volume  = {23},
-  number  = {5},
-  pages   = {952--961},
-  year    = {2007}
-}
-
-@inproceedings{huang2016anticipatory,
-  title     = {Anticipatory Robot Control for Efficient Human-Robot Collaboration},
-  author    = {Huang, Chien-Ming and Mutlu, Bilge},
-  booktitle = {ACM/IEEE International Conference on Human-Robot Interaction (HRI)},
-  pages     = {83--90},
-  year      = {2016}
-}
-
-@inproceedings{perezdarpino2015fast,
-  title     = {Fast Target Prediction of Human Reaching Motion for Cooperative Human-Robot Manipulation Tasks using Time Series Classification},
-  author    = {P{\'e}rez-D'Arpino, Claudia and Shah, Julie A.},
-  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
-  pages     = {6175--6182},
-  year      = {2015}
-}
-
-@inproceedings{mainprice2013human,
-  title     = {Human-Robot Collaborative Manipulation Planning using Early Prediction of Human Motion},
-  author    = {Mainprice, Jim and Berenson, Dmitry},
-  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
-  pages     = {299--306},
-  year      = {2013}
-}
-
-@article{koppula2016anticipating,
-  title   = {Anticipating Human Activities Using Object Affordances for Reactive Robotic Response},
-  author  = {Koppula, Hema S. and Saxena, Ashutosh},
-  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
-  volume  = {38},
-  number  = {1},
-  pages   = {14--29},
-  year    = {2016}
-}
-
-@inproceedings{amor2014interaction,
-  title     = {Interaction Primitives for Human-Robot Cooperation Tasks},
-  author    = {Ben Amor, Heni and Neumann, Gerhard and Kamthe, Sanket and Kroemer, Oliver and Peters, Jan},
-  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
-  pages     = {2831--2837},
-  year      = {2014}
-}
-
-@inproceedings{dragan2013legibility,
-  title     = {Legibility and Predictability of Robot Motion},
-  author    = {Dragan, Anca D. and Lee, Kenton C. T. and Srinivasa, Siddhartha S.},
-  booktitle = {ACM/IEEE International Conference on Human-Robot Interaction (HRI)},
-  pages     = {301--308},
-  year      = {2013}
-}
-
-@article{nickel2007pointing,
-  title   = {Visual Recognition of Pointing Gestures for Human--Robot Interaction},
-  author  = {Nickel, Kai and Stiefelhagen, Rainer},
-  journal = {Image and Vision Computing},
-  volume  = {25},
-  number  = {12},
-  pages   = {1875--1884},
-  year    = {2007}
-}
-
-@article{ortenzi2021handovers,
-  title   = {Object Handovers: A Review for Robotics},
-  author  = {Ortenzi, Valerio and Cosgun, Akansel and Pardi, Tommaso and Chan, Wesley P. and Croft, Elizabeth and Kuli{\'c}, Dana},
-  journal = {IEEE Transactions on Robotics},
-  volume  = {37},
-  number  = {6},
-  pages   = {1855--1873},
-  year    = {2021}
-}
-
-@inproceedings{grauman2022ego4d,
-  title     = {{Ego4D}: Around the World in 3,000 Hours of Egocentric Video},
-  author    = {Grauman, Kristen and Westbury, Andrew and Byrne, Eugene and Chavis, Zachary and others},
-  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  year      = {2022}
-}
-
-@article{damen2022epic,
-  title   = {Rescaling Egocentric Vision: Collection, Pipeline and Challenges for {EPIC-KITCHENS-100}},
-  author  = {Damen, Dima and Doughty, Hazel and Farinella, Giovanni Maria and Furnari, Antonino and others},
-  journal = {International Journal of Computer Vision},
-  volume  = {130},
-  pages   = {33--55},
-  year    = {2022}
-}
-
-@article{furnari2021rulstm,
-  title   = {Rolling-Unrolling {LSTMs} for Action Anticipation from First-Person Video},
-  author  = {Furnari, Antonino and Farinella, Giovanni Maria},
-  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
-  volume  = {43},
-  number  = {11},
-  pages   = {4021--4036},
-  year    = {2021}
-}
-
-@inproceedings{guo2023simlpe,
-  title     = {Back to {MLP}: A Simple Baseline for Human Motion Prediction},
-  author    = {Guo, Wen and Du, Yuming and Shen, Xi and Lepetit, Vincent and Alameda-Pineda, Xavier and Moreno-Noguer, Francesc},
-  booktitle = {IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
-  year      = {2023}
-}
-
-@article{scholler2020cvm,
-  title   = {What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction},
-  author  = {Sch{\"o}ller, Christoph and Aravantinos, Vincent and Lay, Florian and Knoll, Alois},
-  journal = {IEEE Robotics and Automation Letters},
-  volume  = {5},
-  number  = {2},
-  pages   = {1696--1703},
-  year    = {2020}
-}
-
-@inproceedings{kedia2023manicast,
-  title     = {{ManiCast}: Collaborative Manipulation with Cost-Aware Human Forecasting},
-  author    = {Kedia, Kushal and Dan, Prithwish and Bhardwaj, Atiksh and Choudhury, Sanjiban},
-  booktitle = {Conference on Robot Learning (CoRL)},
-  year      = {2023}
-}
-
-@inproceedings{kedia2024interact,
-  title     = {{InteRACT}: Transformer Models for Human Intent Prediction Conditioned on Robot Actions},
-  author    = {Kedia, Kushal and Bhardwaj, Atiksh and Dan, Prithwish and Choudhury, Sanjiban},
-  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
-  year      = {2024}
-}
-
-@misc{zhang2020mediapipe,
-  title         = {{MediaPipe Hands}: On-device Real-time Hand Tracking},
-  author        = {Zhang, Fan and Bazarevsky, Valentin and Vakunov, Andrey and Tkachenka, Andrei and Sung, George and Chang, Chuo-Ling and Grundmann, Matthias},
-  year          = {2020},
-  eprinttype    = {arxiv},
-  eprint        = {2006.10214}
-}
-
-% ----------------------------------------------------------------
-% Benchmark, chỉ số và an toàn HRI
-% ----------------------------------------------------------------
-@misc{liu2026hribench,
-  title         = {{HRIBench}: Benchmarking Interaction-Centric Human-Robot Collaboration},
-  author        = {Liu, Chang and Zhang, Jiawei and Zhang, Tao and Wang, Ye and Zhou, Hongyu and Jin, Qin},
-  year          = {2026},
-  eprinttype    = {arxiv},
-  eprint        = {2607.13056}
-}
-
-@misc{xu2026learning,
-  title         = {Learning to Assist: Collaborative {VLAs} for Implicit Human-Robot Collaboration},
-  author        = {Xu, Leo and Li, Letian and Cuellar, Alex and Hagenow, Michael},
-  year          = {2026},
-  eprinttype    = {arxiv},
-  eprint        = {2606.12475}
-}
-
-@article{hoffman2019fluency,
-  title   = {Evaluating Fluency in Human--Robot Collaboration},
-  author  = {Hoffman, Guy},
-  journal = {IEEE Transactions on Human-Machine Systems},
-  volume  = {49},
-  number  = {3},
-  pages   = {209--218},
-  year    = {2019}
-}
-
-@article{lasota2017survey,
-  title   = {A Survey of Methods for Safe Human-Robot Interaction},
-  author  = {Lasota, Przemyslaw A. and Fong, Terrence and Shah, Julie A.},
-  journal = {Foundations and Trends in Robotics},
-  volume  = {5},
-  number  = {4},
-  pages   = {261--349},
-  year    = {2017}
-}
-
-@manual{iso15066,
-  title        = {Robots and Robotic Devices --- Collaborative Robots},
-  organization = {International Organization for Standardization},
-  note         = {ISO/TS 15066:2016},
-  address      = {Geneva, Switzerland},
-  year         = {2016}
-}
-
-% ----------------------------------------------------------------
-% Mô phỏng và mô hình người
-% ----------------------------------------------------------------
-@inproceedings{todorov2012mujoco,
-  title     = {{MuJoCo}: A Physics Engine for Model-Based Control},
-  author    = {Todorov, Emanuel and Erez, Tom and Tassa, Yuval},
-  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
-  pages     = {5026--5033},
-  year      = {2012}
-}
-
-@misc{zhu2020robosuite,
-  title         = {robosuite: A Modular Simulation Framework and Benchmark for Robot Learning},
-  author        = {Zhu, Yuke and Wong, Josiah and Mandlekar, Ajay and Mart{\'i}n-Mart{\'i}n, Roberto},
-  year          = {2020},
-  eprinttype    = {arxiv},
-  eprint        = {2009.12293}
-}
-
-@inproceedings{liu2023libero,
-  title     = {{LIBERO}: Benchmarking Knowledge Transfer for Lifelong Robot Learning},
-  author    = {Liu, Bo and Zhu, Yifeng and Gao, Chongkai and Feng, Yihao and Liu, Qiang and Zhu, Yuke and Stone, Peter},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track},
-  year      = {2023}
-}
-
-@inproceedings{li2021igibson,
-  title     = {{iGibson 2.0}: Object-Centric Simulation for Robot Learning of Everyday Household Tasks},
-  author    = {Li, Chengshu and Xia, Fei and Mart{\'i}n-Mart{\'i}n, Roberto and Lingelbach, Michael and others},
-  booktitle = {Conference on Robot Learning (CoRL)},
-  year      = {2021}
-}
-
-@misc{wen2025hymotion,
-  title         = {{HY-Motion 1.0}: Scaling Flow Matching Models for Text-To-Motion Generation},
-  author        = {Wen, Yuxin and Shuai, Qing and Kang, Di and Li, Jing and others},
-  year          = {2025},
-  eprinttype    = {arxiv},
-  eprint        = {2512.23464}
-}
-
-@article{romero2017mano,
-  title   = {Embodied Hands: Modeling and Capturing Hands and Bodies Together},
-  author  = {Romero, Javier and Tzionas, Dimitrios and Black, Michael J.},
-  journal = {ACM Transactions on Graphics},
-  volume  = {36},
-  number  = {6},
-  pages   = {245:1--245:17},
-  year    = {2017}
-}
-
-@article{flash1985minjerk,
-  title   = {The Coordination of Arm Movements: An Experimentally Confirmed Mathematical Model},
-  author  = {Flash, Tamar and Hogan, Neville},
-  journal = {Journal of Neuroscience},
-  volume  = {5},
-  number  = {7},
-  pages   = {1688--1703},
-  year    = {1985}
-}
-
-% ===================================================================
-% Bổ sung 23/10/2026 — chỉ các nguồn đã duyệt (docs/references.md).
-% Preprint chưa phản biện được ghi rõ trong trường note và chỉ dùng cho dữ liệu / công cụ, không làm cơ sở lý thuyết.
-% ===================================================================
-@article{baker2009inverse,
-  author  = {Baker, Chris L. and Saxe, Rebecca and Tenenbaum, Joshua B.},
-  title   = {Action Understanding as Inverse Planning},
-  journal = {Cognition}, volume = {113}, number = {3}, pages = {329--349}, year = {2009},
-  doi     = {10.1016/j.cognition.2009.07.005}
-}
-@article{javdani2018shared,
-  author  = {Javdani, Shervin and Admoni, Henny and Pellegrinelli, Stefania and Srinivasa, Siddhartha S. and Bagnell, J. Andrew},
-  title   = {Shared Autonomy via Hindsight Optimization for Teleoperation and Collaboration},
-  journal = {The International Journal of Robotics Research}, volume = {37}, number = {7}, pages = {717--742}, year = {2018},
-  doi     = {10.1177/0278364918776060}
-}
-@article{rabiner1989hmm,
-  author  = {Rabiner, Lawrence R.},
-  title   = {A Tutorial on Hidden {Markov} Models and Selected Applications in Speech Recognition},
-  journal = {Proceedings of the IEEE}, volume = {77}, number = {2}, pages = {257--286}, year = {1989}
-}
-@inproceedings{hafner2019planet,
-  author    = {Hafner, Danijar and Lillicrap, Timothy and Fischer, Ian and Villegas, Ruben and Ha, David and Lee, Honglak and Davidson, James},
-  title     = {Learning Latent Dynamics for Planning from Pixels},
-  booktitle = {International Conference on Machine Learning (ICML)}, year = {2019}
-}
-@inproceedings{hafner2021dreamerv2,
-  author    = {Hafner, Danijar and Lillicrap, Timothy and Norouzi, Mohammad and Ba, Jimmy},
-  title     = {Mastering {Atari} with Discrete World Models},
-  booktitle = {International Conference on Learning Representations (ICLR)}, year = {2021}
-}
-@inproceedings{assran2023ijepa,
-  author    = {Assran, Mahmoud and Duval, Quentin and Misra, Ishan and Bojanowski, Piotr and Vincent, Pascal and Rabbat, Michael and LeCun, Yann and Ballas, Nicolas},
-  title     = {Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture},
-  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, year = {2023}
-}
-@inproceedings{bardes2022vicreg,
-  author    = {Bardes, Adrien and Ponce, Jean and LeCun, Yann},
-  title     = {{VICReg}: Variance-Invariance-Covariance Regularization for Self-Supervised Learning},
-  booktitle = {International Conference on Learning Representations (ICLR)}, year = {2022}
-}
-@inproceedings{vandenoord2017vqvae,
-  author    = {van den Oord, Aaron and Vinyals, Oriol and Kavukcuoglu, Koray},
-  title     = {Neural Discrete Representation Learning},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)}, year = {2017}
-}
-@article{bialek2001predictability,
-  author  = {Bialek, William and Nemenman, Ilya and Tishby, Naftali},
-  title   = {Predictability, Complexity, and Learning},
-  journal = {Neural Computation}, volume = {13}, number = {11}, pages = {2409--2463}, year = {2001}
-}
-@inproceedings{alemi2017vib,
-  author    = {Alemi, Alexander A. and Fischer, Ian and Dillon, Joshua V. and Murphy, Kevin},
-  title     = {Deep Variational Information Bottleneck},
-  booktitle = {International Conference on Learning Representations (ICLR)}, year = {2017}
-}
-@inproceedings{zhang2021dbc,
-  author    = {Zhang, Amy and McAllister, Rowan and Calandra, Roberto and Gal, Yarin and Levine, Sergey},
-  title     = {Learning Invariant Representations for Reinforcement Learning without Reconstruction},
-  booktitle = {International Conference on Learning Representations (ICLR)}, year = {2021}
-}
-@inproceedings{lee2020ceb,
-  author    = {Lee, Kuang-Huei and Fischer, Ian and Liu, Anthony and Guo, Yijie and Lee, Honglak and Canny, John and Guadarrama, Sergio},
-  title     = {Predictive Information Accelerates Learning in {RL}},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)}, year = {2020}
-}
-@inproceedings{wen2020copycat,
-  author    = {Wen, Chuan and Lin, Jierui and Darrell, Trevor and Jayaraman, Dinesh and Gao, Yang},
-  title     = {Fighting Copycat Agents in Behavioral Cloning from Observation Histories},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)}, year = {2020}
-}
-@inproceedings{tobin2017domain,
-  author    = {Tobin, Josh and Fong, Rachel and Ray, Alex and Schneider, Jonas and Zaremba, Wojciech and Abbeel, Pieter},
-  title     = {Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World},
-  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, year = {2017}
-}
-@inproceedings{laplaza2022context,
-  author    = {Laplaza, Javier and Moreno-Noguer, Francesc and Sanfeliu, Alberto},
-  title     = {Context and Intention Aware {3D} Human Body Motion Prediction using an Attention Deep Learning Model in Handover Tasks},
-  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, pages = {4743--4748}, year = {2022}
-}
-@article{botzer2009onset,
-  author  = {Botzer, Lior and Karniel, Amir},
-  title   = {A Simple and Accurate Onset Detection Method for a Measured Bell-Shaped Speed Profile},
-  journal = {Frontiers in Neuroscience}, volume = {3}, pages = {61}, year = {2009}
-}
-@inproceedings{cho2014gru,
-  author    = {Cho, Kyunghyun and van Merri{\"e}nboer, Bart and Gulcehre, Caglar and Bahdanau, Dzmitry and Bougares, Fethi and Schwenk, Holger and Bengio, Yoshua},
-  title     = {Learning Phrase Representations using {RNN} Encoder--Decoder for Statistical Machine Translation},
-  booktitle = {Conference on Empirical Methods in Natural Language Processing (EMNLP)}, year = {2014}
-}
-@inproceedings{liu2024groundingdino,
-  author    = {Liu, Shilong and Zeng, Zhaoyang and Ren, Tianhe and Li, Feng and Zhang, Hao and Yang, Jie and Jiang, Qing and Li, Chunyuan and Yang, Jianwei and Su, Hang and Zhu, Jun and Zhang, Lei},
-  title     = {Grounding {DINO}: Marrying {DINO} with Grounded Pre-Training for Open-Set Object Detection},
-  booktitle = {European Conference on Computer Vision (ECCV)}, year = {2024}
-}
-@inproceedings{wang2025moge2,
-  author    = {Wang, Ruicheng and Xu, Sicheng and Dong, Yue and Deng, Yu and Xiang, Jianfeng and Lv, Zelong and Sun, Guangzhong and Tong, Xin and Yang, Jiaolong},
-  title     = {{MoGe-2}: Accurate Monocular Geometry with Metric Scale and Sharp Details},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)}, year = {2025}
-}
-@inproceedings{bochkovskii2025depthpro,
-  author    = {Bochkovskii, Aleksei and Delaunoy, Ama{\"e}l and Germain, Hugo and Santos, Marcel and Zhou, Yichao and Richter, Stephan R. and Koltun, Vladlen},
-  title     = {Depth Pro: Sharp Monocular Metric Depth in Less Than a Second},
-  booktitle = {International Conference on Learning Representations (ICLR)}, year = {2025}
-}
-@inproceedings{xu2022vitpose,
-  author    = {Xu, Yufei and Zhang, Jing and Zhang, Qiming and Tao, Dacheng},
-  title     = {{ViTPose}: Simple Vision Transformer Baselines for Human Pose Estimation},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)}, year = {2022}
-}
-@inproceedings{nakamura2023deepoint,
-  author    = {Nakamura, Shu and Kawanishi, Yasutomo and Nobuhara, Shohei and Nishino, Ko},
-  title     = {{DeePoint}: Visual Pointing Recognition and Direction Estimation},
-  booktitle = {IEEE/CVF International Conference on Computer Vision (ICCV)}, year = {2023}
-}
-@techreport{jiang2024rtmw,
-  author      = {Jiang, Tao and Xie, Xinchen and Li, Yining},
-  title       = {{RTMW}: Real-Time Multi-Person {2D} and {3D} Whole-body Pose Estimation},
-  institution = {arXiv:2407.08634}, year = {2024},
-  note        = {Báo cáo kỹ thuật, chưa qua phản biện; dùng như công cụ}
-}
-@misc{song2026habit,
-  author = {Song, Jaehwi and others},
-  title  = {{HABIT}: Human-Aware Behavior and Interaction Training Dataset for Robot Manipulation},
-  year   = {2026}, howpublished = {arXiv:2606.31682},
-  note   = {Preprint; dữ liệu công khai tại huggingface.co/datasets/configinc/HABIT (CC-BY-4.0)}
-}
-@misc{huang2026jepahmm,
-  author = {Huang, Yongchao},
-  title  = {Your Probabilistic {JEPA} Is Secretly a Hidden {Markov} Model: A State-Space Interpretation of Joint-Embedding Predictive Learning},
-  year   = {2026}, howpublished = {arXiv:2608.13621},
-  note   = {Preprint chưa phản biện; không dùng làm cơ sở lý thuyết}
-}
-@misc{balestriero2025lejepa,
-  author = {Balestriero, Randall and LeCun, Yann},
-  title  = {{LeJEPA}: Provable and Scalable Self-Supervised Learning Without the Heuristics},
-  year   = {2025}, howpublished = {arXiv:2511.08544},
-  note   = {Preprint; dùng như công cụ (SIGReg)}
-}
-
-% ---------------------------------------------------------------- chương 2 viết lại (24/10/2026); nơi đăng đã kiểm, docs/references.md
-@inproceedings{kim2024openvla,
-  title     = {{OpenVLA}: An Open-Source Vision-Language-Action Model},
-  author    = {Kim, Moo Jin and Pertsch, Karl and Karamcheti, Siddharth and Xiao, Ted and Balakrishna, Ashwin and Nair, Suraj and Rafailov, Rafael and Foster, Ethan and Lam, Grace and Sanketi, Pannag and Vuong, Quan and Kollar, Thomas and Burchfiel, Benjamin and Tedrake, Russ and Sadigh, Dorsa and Levine, Sergey and Liang, Percy and Finn, Chelsea},
-  booktitle = {Conference on Robot Learning (CoRL)},
-  series    = {PMLR},
-  volume    = {270},
-  year      = {2024}
-}
-
-@misc{black2024pi0,
-  title         = {$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control},
-  author        = {Black, Kevin and others},
-  year          = {2024},
-  eprinttype    = {arxiv},
-  eprint        = {2410.24164},
-  note          = {Preprint}
-}
-
-@misc{nvidia2025gr00t,
-  title         = {{GR00T N1}: An Open Foundation Model for Generalist Humanoid Robots},
-  author        = {{NVIDIA}},
-  year          = {2025},
-  eprinttype    = {arxiv},
-  eprint        = {2503.14734},
-  note          = {Preprint}
-}
-
-@inproceedings{dehaan2019causal,
-  title     = {Causal Confusion in Imitation Learning},
-  author    = {de Haan, Pim and Jayaraman, Dinesh and Levine, Sergey},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  volume    = {32},
-  year      = {2019}
-}
-
-@inproceedings{wang2025steering,
-  title     = {Inference-Time Policy Steering through Human Interactions},
-  author    = {Wang, Yanwei and others},
-  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
-  year      = {2025}
-}
-
-@article{onnasch2021taxonomy,
-  title   = {A Taxonomy to Structure and Analyze Human--Robot Interaction},
-  author  = {Onnasch, Linda and Roesler, Eileen},
-  journal = {International Journal of Social Robotics},
-  volume  = {13},
-  number  = {4},
-  pages   = {833--849},
-  year    = {2021}
-}
-
-@article{givan2003equivalence,
-  title   = {Equivalence Notions and Model Minimization in {Markov} Decision Processes},
-  author  = {Givan, Robert and Dean, Thomas and Greig, Matthew},
-  journal = {Artificial Intelligence},
-  volume  = {147},
-  number  = {1--2},
-  pages   = {163--223},
-  year    = {2003}
-}
-
-@inproceedings{ferns2004metrics,
-  title     = {Metrics for Finite {Markov} Decision Processes},
-  author    = {Ferns, Norman and Panangaden, Prakash and Precup, Doina},
-  booktitle = {Conference on Uncertainty in Artificial Intelligence (UAI)},
-  year      = {2004}
-}
-
-@inproceedings{grimm2020value,
-  title     = {The Value Equivalence Principle for Model-Based Reinforcement Learning},
-  author    = {Grimm, Christopher and Barreto, Andr{\'e} and Singh, Satinder and Silver, David},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  volume    = {33},
-  year      = {2020}
-}
-
-@article{johansson2001eyehand,
-  title   = {Eye--Hand Coordination in Object Manipulation},
-  author  = {Johansson, Roland S. and Westling, G{\"o}ran and B{\"a}ckstr{\"o}m, Anders and Flanagan, J. Randall},
-  journal = {Journal of Neuroscience},
-  volume  = {21},
-  number  = {17},
-  pages   = {6917--6932},
-  year    = {2001}
-}
-
-@inproceedings{ziebart2008maxent,
-  title     = {Maximum Entropy Inverse Reinforcement Learning},
-  author    = {Ziebart, Brian D. and Maas, Andrew and Bagnell, J. Andrew and Dey, Anind K.},
-  booktitle = {AAAI Conference on Artificial Intelligence},
-  pages     = {1433--1438},
-  year      = {2008}
-}
-
-@article{astrom1965optimal,
-  title   = {Optimal Control of {Markov} Processes with Incomplete State Information},
-  author  = {{\AA}str{\"o}m, Karl Johan},
-  journal = {Journal of Mathematical Analysis and Applications},
-  volume  = {10},
-  pages   = {174--205},
-  year    = {1965}
-}
-
-@article{kaelbling1998planning,
-  title   = {Planning and Acting in Partially Observable Stochastic Domains},
-  author  = {Kaelbling, Leslie Pack and Littman, Michael L. and Cassandra, Anthony R.},
-  journal = {Artificial Intelligence},
-  volume  = {101},
-  number  = {1--2},
-  pages   = {99--134},
-  year    = {1998}
-}
-
-@article{ong2010momdp,
-  title   = {Planning under Uncertainty for Robotic Tasks with Mixed Observability},
-  author  = {Ong, Sylvie C. W. and Png, Shao Wei and Hsu, David and Lee, Wee Sun},
-  journal = {The International Journal of Robotics Research},
-  year    = {2010}
-}
-
-@inproceedings{littman1995learning,
-  title     = {Learning Policies for Partially Observable Environments: Scaling Up},
-  author    = {Littman, Michael L. and Cassandra, Anthony R. and Kaelbling, Leslie Pack},
-  booktitle = {International Conference on Machine Learning (ICML)},
-  pages     = {362--370},
-  year      = {1995}
-}
-
-@article{dragan2013blending,
-  title   = {A Policy-Blending Formalism for Shared Control},
-  author  = {Dragan, Anca D. and Srinivasa, Siddhartha S.},
-  journal = {The International Journal of Robotics Research},
-  volume  = {32},
-  number  = {7},
-  pages   = {790--805},
-  year    = {2013}
-}
-
-@article{fox2011sticky,
-  title   = {A Sticky {HDP-HMM} with Application to Speaker Diarization},
-  author  = {Fox, Emily B. and Sudderth, Erik B. and Jordan, Michael I. and Willsky, Alan S.},
-  journal = {The Annals of Applied Statistics},
-  volume  = {5},
-  number  = {2A},
-  pages   = {1020--1056},
-  year    = {2011}
-}
-
-@article{fearnhead2007online,
-  title   = {On-Line Inference for Multiple Changepoint Problems},
-  author  = {Fearnhead, Paul and Liu, Zhen},
-  journal = {Journal of the Royal Statistical Society: Series B (Statistical Methodology)},
-  volume  = {69},
-  number  = {4},
-  pages   = {589--605},
-  year    = {2007}
-}
-
-@inproceedings{bengio1995iohmm,
-  title     = {An Input Output {HMM} Architecture},
-  author    = {Bengio, Yoshua and Frasconi, Paolo},
-  booktitle = {Advances in Neural Information Processing Systems (NIPS)},
-  volume    = {7},
-  pages     = {427--434},
-  year      = {1995}
-}
-
-@inproceedings{locatello2019challenging,
-  title     = {Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations},
-  author    = {Locatello, Francesco and Bauer, Stefan and Lucic, Mario and R{\"a}tsch, Gunnar and Gelly, Sylvain and Sch{\"o}lkopf, Bernhard and Bachem, Olivier},
-  booktitle = {International Conference on Machine Learning (ICML)},
-  series    = {PMLR},
-  volume    = {97},
-  pages     = {4114--4124},
-  year      = {2019}
-}
-
-@inproceedings{zhao2020tnt,
-  title     = {{TNT}: Target-driveN Trajectory Prediction},
-  author    = {Zhao, Hang and Gao, Jiyang and others},
-  booktitle = {Conference on Robot Learning (CoRL)},
-  series    = {PMLR},
-  volume    = {155},
-  pages     = {895--904},
-  year      = {2020}
-}
-
-@inproceedings{zaheer2017deepsets,
-  title     = {Deep Sets},
-  author    = {Zaheer, Manzil and Kottur, Satwik and Ravanbakhsh, Siamak and Poczos, Barnabas and Salakhutdinov, Ruslan and Smola, Alexander},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  volume    = {30},
-  pages     = {3391--3401},
-  year      = {2017}
-}
-
-@article{wald1945sequential,
-  title   = {Sequential Tests of Statistical Hypotheses},
-  author  = {Wald, Abraham},
-  journal = {The Annals of Mathematical Statistics},
-  volume  = {16},
-  number  = {2},
-  pages   = {117--186},
-  year    = {1945}
-}
-
-@article{torr2000mlesac,
-  title   = {{MLESAC}: A New Robust Estimator with Application to Estimating Image Geometry},
-  author  = {Torr, Philip H. S. and Zisserman, Andrew},
-  journal = {Computer Vision and Image Understanding},
-  volume  = {78},
-  number  = {1},
-  pages   = {138--156},
-  year    = {2000}
-}
-
-@inproceedings{bowman2016generating,
-  title     = {Generating Sentences from a Continuous Space},
-  author    = {Bowman, Samuel R. and Vilnis, Luke and Vinyals, Oriol and Dai, Andrew and Jozefowicz, Rafal and Bengio, Samy},
-  booktitle = {Conference on Computational Natural Language Learning (CoNLL)},
-  pages     = {10--21},
-  year      = {2016}
-}
-
-@inproceedings{chen2017vlae,
-  title     = {Variational Lossy Autoencoder},
-  author    = {Chen, Xi and Kingma, Diederik P. and Salimans, Tim and Duan, Yan and Dhariwal, Prafulla and Schulman, John and Sutskever, Ilya and Abbeel, Pieter},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2017}
-}
-
-@article{bardes2024vjepa,
-  title   = {Revisiting Feature Prediction for Learning Visual Representations from Video},
-  author  = {Bardes, Adrien and Garrido, Quentin and Ponce, Jean and Chen, Xinlei and Rabbat, Michael and LeCun, Yann and Assran, Mahmoud and Ballas, Nicolas},
-  journal = {Transactions on Machine Learning Research (TMLR)},
-  year    = {2024}
-}
-
-@inproceedings{abdelfattah2024sjepa,
-  title     = {{S-JEPA}: A Joint Embedding Predictive Architecture for Skeletal Action Recognition},
-  author    = {Abdelfattah, Mohamed and Alahi, Alexandre},
-  booktitle = {European Conference on Computer Vision (ECCV)},
-  year      = {2024}
-}
-
-@inproceedings{sampieri2022chico,
-  title     = {Pose Forecasting in Industrial Human-Robot Collaboration},
-  author    = {Sampieri, Alessio and others},
-  booktitle = {European Conference on Computer Vision (ECCV)},
-  year      = {2022}
-}
-
-@inproceedings{wiederhold2023hoh,
-  title     = {{HOH}: Markerless Multimodal Human-Object-Human Handover Dataset with Large Object Count},
-  author    = {Wiederhold, Noah and Megyeri, Ava and Paris, DiMaggio and Banerjee, Sean and Banerjee, Natasha Kholgade},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track},
-  year      = {2023}
-}
-
-@inproceedings{chao2022handoversim,
-  title     = {{HandoverSim}: A Simulation Framework and Benchmark for Human-to-Robot Object Handovers},
-  author    = {Chao, Yu-Wei and Paxton, Chris and Xiang, Yu and Yang, Wei and Sundaralingam, Balakumar and Chen, Tao and Murali, Adithyavairavan and Cakmak, Maya and Fox, Dieter},
-  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
-  pages     = {6941--6947},
-  year      = {2022}
-}
-
-@inproceedings{puig2024habitat3,
-  title     = {Habitat 3.0: A Co-Habitat for Humans, Avatars and Robots},
-  author    = {Puig, Xavier and Undersander, Eric and Szot, Andrew and others},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2024}
-}
-
-@inproceedings{steinfeld2006metrics,
-  title     = {Common Metrics for Human-Robot Interaction},
-  author    = {Steinfeld, Aaron and Fong, Terrence and Kaber, David and Lewis, Michael and Scholtz, Jean and Schultz, Alan and Goodrich, Michael},
-  booktitle = {ACM SIGCHI/SIGART Conference on Human-Robot Interaction (HRI)},
-  year      = {2006}
+% TỰ SINH từ Zotero bởi zotero_sync.py, mỗi lần build sẽ ghi đè.
+% Sửa tài liệu trong Zotero, không sửa file này.
+
+@article{acemoglu2020cwithrobot,
+	title = {Competing with Robots: Firm-Level Evidence from France},
+	volume = {110},
+	issn = {2574-0768, 2574-0776},
+	url = {https://pubs.aeaweb.org/doi/10.1257/pandp.20201003},
+	doi = {10.1257/pandp.20201003},
+	shorttitle = {Competing with Robots},
+	abstract = {We study the firm-level implications of robot adoption in France. Of 55,390 firms in our sample, 598 adopted robots between 2010 and 2015, but these firms accounted for 20 percent of manufacturing employment. Adopters experienced significant declines in labor shares, the share of production workers in employment, and increases in value added and productivity. They expand their overall employment as well. However, this expansion comes at the expense of competitors, leading to an overall negative association between adoption and employment. Robot adoption has a large impact on the labor share because adopters are larger and grow faster than their competitors.},
+	pages = {383--388},
+	journaltitle = {{AEA} Papers and Proceedings},
+	shortjournal = {{AEA} Papers and Proceedings},
+	author = {Acemoglu, Daron and Lelarge, Claire and Restrepo, Pascual},
+	urldate = {2026-11-13},
+	date = {2020-05-01},
+	langid = {english},
+}
+
+@article{montini2024indust,
+	title = {An industrial human-robot collaboration case study for workers’ well-being},
+	volume = {130},
+	issn = {22128271},
+	url = {https://linkinghub.elsevier.com/retrieve/pii/S221282712401343X},
+	doi = {10.1016/j.procir.2024.10.186},
+	pages = {924--929},
+	journaltitle = {Procedia {CIRP}},
+	shortjournal = {Procedia {CIRP}},
+	author = {Montini, Elias and Cutrona, Vincenzo and Dell’Oca, Samuele and Bettoni, Andrea and Landolfi, Giuseppe and Rocco, Paolo and Carpanzano, Emanuele},
+	urldate = {2026-11-13},
+	date = {2024},
+	langid = {english},
+}
+
+@article{ricciardi2025daVinci,
+	title = {The {COMPARE} Study: Comparing Perioperative Outcomes of Oncologic Minimally Invasive Laparoscopic, da Vinci Robotic, and Open Procedures: A Systematic Review and Meta-analysis of the Evidence},
+	volume = {281},
+	issn = {0003-4932, 1528-1140},
+	url = {https://journals.lww.com/10.1097/SLA.0000000000006572},
+	doi = {10.1097/SLA.0000000000006572},
+	shorttitle = {The {COMPARE} Study},
+	abstract = {Objective:
+              To assess 30-day outcomes of da Vinci robotic-assisted ({dV}-{RAS}) versus laparoscopic or video-assisted thoracoscopic​​​​​ (lap/{VATS}) or open oncologic surgery.
+            
+            
+              Background:
+              Complex procedures in deep/narrow spaces especially benefit from {dV}-{RAS}. Prior procedure-specific comparisons are not generalizable.
+            
+            
+              Methods:
+              {PubMed}, Scopus, and {EMBASE} were systematically searched (latest: November 17, 2023) following Preferred Reporting Items for Systematic Reviews and Meta-Analyses and {PROSPERO} (Reg\#{CRD}42023466759). Randomized, prospective, and database studies were pooled as odds ratios ({ORs}) or mean differences ({MDs}) in R using fixed effects or random effects (heterogeneity significant). {ROBINS}-I/{RoB} 2 were used to assess bias.
+            
+            
+              Results:
+              
+                Of 56,314 unique references over 12 years from 22 countries, 230 studies (34 randomized, 74 prospective, and 122 database) comparing {dV}-{RAS} to lap/{VATS} or open surgery across 7 procedures, 4 specialties, representing 1,194,559 {dV}-{RAS}; 1,095,936 lap/{VATS} and 1,625,320 open cases were included. Operative time for {dV}-{RAS} was longer than lap/{VATS} [{MD}: 17.73 minutes (9.80, 25.67),
+                P
+                {\textless} 0.01] and open surgery [{MD}: 40.92 minutes (28.83, 53.00),
+                P
+                {\textless} 0.01], whereas hospital stay was shorter [lap/{VATS} {MD}: -0.51 days (-0.64, -0.38),
+                P
+                {\textless} 0.01; open {MD}: -1.85 days (-2.09, -1.62),
+                P
+                {\textless} 0.01] and blood loss was less versus open [{MD}: -293.44 {mL} (-359.53, -227.35)]. There were fewer {dV}-{RAS} conversions [{OR}: 0.44 (0.40, 0.49),
+                P
+                {\textless} 0.01], transfusions [{OR}: 0.79 (0.72, 0.88),
+                P
+                {\textless} 0.01], postoperative complications [{OR}: 0.90 (0.84, 0.96),
+                P
+                {\textless} 0.01], readmissions [{OR}: 0.91 (0.83, 0.99),
+                P
+                = 0.04], and deaths [{OR}: 0.86 (0.81, 0.92),
+                P
+                {\textless} 0.01] versus lap/{VATS}, and fewer transfusions [{OR}: 0.25 (0.21, 0.30),
+                P
+                {\textless} 0.01], postoperative complications [{OR}: 0.56 (0.52, 0.61),
+                P
+                {\textless} 0.01], readmissions [{OR}: 0.71 (0.63, 0.81),
+                P
+                {\textless} 0.01], operations [{OR}: 0.89 (0.81, 0.97),
+                P
+                {\textless} 0.01], and deaths [{OR}: 0.54 (0.47, 0.63),
+                P
+                {\textless} 0.01] versus open surgery. Blood loss [{MD}:- 12.26 {mL} (-29.44, 4.91),
+                P
+                = 0.16] and operations [{OR}: 1.03 (0.95, 1.11),
+                P
+                = 0.48] were similar for {dV}-{RAS} and lap/{VATS}. There was significant heterogeneity.
+              
+            
+            
+              Conclusions:
+              Da Vinci-{RAS} confers benefits across oncological procedures and study designs. These results provide clinical evidence to multispecialty-care decision-makers considering {dV}-{RAS}.},
+	pages = {748--763},
+	number = {5},
+	journaltitle = {Annals of Surgery},
+	author = {Ricciardi, Rocco and Seshadri-Kreaden, Usha and Yankovsky, Ana and Dahl, Douglas and Auchincloss, Hugh and Patel, Neera M. and Hebert, April E. and Wright, Valena},
+	urldate = {2026-11-13},
+	date = {2025-05},
+	langid = {english},
+}
+
+@article{tingting2024assistedpatients,
+	title = {Effect of Upper Robot‐Assisted Training on Upper Limb Motor, Daily Life Activities, and Muscular Tone in Patients With Stroke: A Systematic Review and Meta‐Analysis},
+	volume = {14},
+	issn = {2162-3279, 2162-3279},
+	url = {https://onlinelibrary.wiley.com/doi/10.1002/brb3.70117},
+	doi = {10.1002/brb3.70117},
+	shorttitle = {Effect of Upper Robot‐Assisted Training on Upper Limb Motor, Daily Life Activities, and Muscular Tone in Patients With Stroke},
+	abstract = {{ABSTRACT}
+            
+              Background
+              Upper limb rehabilitation robot is a relatively new technology, but its effectiveness remains debatable due to the inconsistent results of clinical trials. This article intends to assess how upper limb rehabilitation robots help the functional recovery of stroke patients.
+            
+            
+              Methods
+              {PubMed}, Embase, Cochrane Library, and Web of Science databases were searched for eligible studies to explore the effect of upper limb rehabilitation robots on upper limb motor function, muscle tone, and daily living activities.
+            
+            
+              Results
+              Eighteen trials with 573 stroke patients met the inclusion criteria. The results showed that compared to conventional rehabilitation training, patients who received upper limb robotic therapy ({RT}) had significantly improved Fugl‐Meyer Upper Extremity Motor Assessment ({FMA}‐{UE}) scores (weighted mean differences [{WMD}]: 5.27, 95\% confidence intervals [{CI}]: 3.36, 7.17), Action Research Arm Test ({ARAT}) scores ({WMD}: 4.07, 95\% {CI}: −4.14, 12.28), Modified Barthel Index ({MBI}) scores ({WMD}: 9.55, 95\% {CI}: 6.37, 12.73), and modified Ashworth Scale ({MAS}) scores ({WMD}: −0.28, 95\% {CI}: −0.50, 0.06), with no significant heterogeneity.
+            
+            
+              Conclusions
+              Upper limb robot–assisted training is superior to conventional training in terms of improving upper limb motor impairment, ability to perform daily living activities, and muscle tone recovery, which supports the application of robots in clinical practice.},
+	pages = {e70117},
+	number = {11},
+	journaltitle = {Brain and Behavior},
+	shortjournal = {Brain and Behavior},
+	author = {Su, Tingting and Wang, Mengting and Chen, Zhouyang and Feng, Liang},
+	urldate = {2026-11-13},
+	date = {2024-11},
+	langid = {english},
+}
+
+@article{fahimeh2025companion,
+	title = {Wired for companionship: a meta-analysis on social robots filling the void of loneliness in later life},
+	volume = {65},
+	rights = {https://creativecommons.org/licenses/by/4.0/},
+	issn = {0016-9013, 1758-5341},
+	url = {https://academic.oup.com/gerontologist/article/doi/10.1093/geront/gnaf219/8268528},
+	doi = {10.1093/geront/gnaf219},
+	shorttitle = {Wired for companionship},
+	abstract = {Abstract
+            
+              Background and objectives
+              Loneliness is a significant public health concern affecting over a quarter of older adults worldwide. Emerging research suggests that artificial intelligence ({AI})-enabled social robots may offer a viable alternative for providing a new form of social support and reducing loneliness. This meta-analysis evaluates the effectiveness of {AI}-enabled social robots in reducing loneliness among older adults and examines the conditions under which these interventions are most effective.
+            
+            
+              Research Design and Methods
+              A systematic search was conducted through October 2024. Effect sizes from 19 studies (N = 1,083) were synthesized using robust variance estimation ({RVE}) in meta-regression. Moderation analyses examined how social robots’ effectiveness differs by contextual factors such as participants’ backgrounds and studies’ characteristics.
+            
+            
+              Results
+              Our findings indicated that social robots significantly reduced loneliness among older adults. However, studies with control groups indicate a higher effect size. Moreover, greater reductions in loneliness are observed among individuals in institutional settings compared to those living independently. In addition, stronger intervention effects reported in Japan and Turkey than in the United States. However, age, cognitive status, robot type, duration of intervention, and year of publication did not significantly influence intervention effectiveness.
+            
+            
+              Discussion and Implications
+              Findings underscore the potential of social robots as an effective and scalable approach for addressing loneliness among older adults, particularly within institutional care environments. Policymakers, gerontologists, and care providers should consider integrating {AI}-enabled social robots into existing care frameworks, emphasizing culturally sensitive and inclusive implementation strategies.},
+	pages = {gnaf219},
+	number = {12},
+	journaltitle = {The Gerontologist},
+	author = {Mehrabi, Fahimeh and Ghezelbash, Akram},
+	editor = {Heyn,, Patricia C},
+	urldate = {2026-11-13},
+	date = {2025-11-10},
+	langid = {english},
+}
+
+@article{alex2025service,
+	title = {Human Versus Robot: Comparing Service Agents in Hospitality Settings—Insights From a Field Study},
+	volume = {34},
+	issn = {1086-1718, 1099-1697},
+	url = {https://onlinelibrary.wiley.com/doi/10.1002/jsc.2637},
+	doi = {10.1002/jsc.2637},
+	shorttitle = {Human Versus Robot},
+	abstract = {{ABSTRACT}
+            The hospitality industry is facing personnel challenges, including personnel shortages and high staff turnover, asking practitioners to explore service robots to enhance competitiveness. While prior academic studies have primarily relied on hypothetical or conceptual research, there remains a pressing need for real‐life field studies to assess the practical impacts of service robots in hospitality. This study examines the comparative effects of human and robotic service agents at the touchpoint of information provision in a real‐world hotel setting. Using a field experiment with 200 participants, where both service agents (human and robot) were simultaneously available, we assess service agent's impact on guests' experience of hospitality, satisfaction, and revisiting intentions. The findings reveal indifferent effects between human and robotic agents, challenging assumptions that robots negatively impact guest experiences. Contrary to debates suggesting that human agents are superior in hospitality roles, our results indicate that service robots can effectively complement human staff, reducing demand for frontline personnel and lowering operational costs without diminishing guest satisfaction. This study highlights the potential of integrating robotic agents into the hospitality frontline, particularly for routine tasks like information provision. We acknowledge limitations, including the focus on a single touchpoint, and call for broader research across diverse guest interactions and touchpoints. Future studies should also explore the underlying factors influencing guests' choice of service agents. These findings offer practical implications for tackling labor shortages while maintaining service quality, providing actionable insights for the hospitality industry in the context of digital transformation.},
+	pages = {559--575},
+	number = {4},
+	journaltitle = {Strategic Change},
+	shortjournal = {Strategic Change},
+	author = {Schmidt, Alexander Lennart and Koerten, Klaas and Tuomi, Aarni and El‐Manstrly, Dahlia and Wiegerink, Karoline},
+	urldate = {2026-11-13},
+	date = {2025-07},
+	langid = {english},
+}
+
+@article{valen2024uncomserv,
+	title = {Metaperception benefits of service robots in uncomfortable service encounters},
+	volume = {105},
+	issn = {02615177},
+	url = {https://linkinghub.elsevier.com/retrieve/pii/S026151772400058X},
+	doi = {10.1016/j.tourman.2024.104939},
+	pages = {104939},
+	journaltitle = {Tourism Management},
+	shortjournal = {Tourism Management},
+	author = {Pitardi, Valentina and Wirtz, Jochen and Paluch, Stefanie and Kunz, Werner H.},
+	urldate = {2026-11-13},
+	date = {2024-12},
+	langid = {english},
+}
+
+@article{aki2024delive,
+	title = {A scenario-based feasibility analysis of autonomous robot deliveries},
+	volume = {79},
+	issn = {23521465},
+	url = {https://linkinghub.elsevier.com/retrieve/pii/S2352146524001558},
+	doi = {10.1016/j.trpro.2024.03.012},
+	pages = {76--83},
+	journaltitle = {Transportation Research Procedia},
+	shortjournal = {Transportation Research Procedia},
+	author = {Qureshi, Ali Gul and Taniguchi, Eiichi},
+	urldate = {2026-11-13},
+	date = {2024},
+	langid = {english},
+}
+
+@article{fuku2024fukushima,
+	title = {Development and Application of Robotics for Decommissioning of Fukushima Daiichi {NPS} by {IRID}},
+	volume = {36},
+	issn = {1883-8049, 0915-3942},
+	url = {https://www.fujipress.jp/jrm/rb/robot003600010009},
+	doi = {10.20965/jrm.2024.p0009},
+	abstract = {The most challenging task in the decommissioning of the Fukushima Daiichi Nuclear Power Station is to retrieve molten and solidified fuel debris, including in reactor internals. The International Research Institute for Nuclear Decommissioning ({IRID}) has developed various robots that can investigate the interior of a primary containment vessel ({PCV}) to clarify where fuel debris has accumulated and how it has formed. The scenarios of each unit caused by the accident are different; therefore, {IRID} has developed robots to satisfy the requirements of each unit. The robots can be categorized into three types: non-submersible robots driving through air, submersible robots swimming underwater, and investigation robots with arms that can extend to enter the {PCV}. This review focuses on the technological development of robots based on their functionality. Most of the robotic technology is acquired and utilized based on the results of subsidy projects for countermeasures for decommissioning and contaminated water granted by the Japanese government.},
+	pages = {9--20},
+	number = {1},
+	journaltitle = {Journal of Robotics and Mechatronics},
+	shortjournal = {{JRM}},
+	author = {Okuzumi, Naoaki and Matsuzaki, Kenji and Okada, Satoshi and {Editorial Office}},
+	urldate = {2026-11-13},
+	date = {2024-02-20},
+	langid = {english},
+}
+
+@article{michiel2023drone,
+	title = {Drones reduce the treatment-free interval in search and rescue operations with telemedical support – A randomized controlled trial},
+	volume = {66},
+	issn = {07356757},
+	url = {https://linkinghub.elsevier.com/retrieve/pii/S0735675723000244},
+	doi = {10.1016/j.ajem.2023.01.020},
+	pages = {40--44},
+	journaltitle = {The American Journal of Emergency Medicine},
+	shortjournal = {The American Journal of Emergency Medicine},
+	author = {Van Veelen, Michiel Jan and Roveri, Giulia and Voegele, Anna and Dal Cappello, Tomas and Masè, Michela and Falla, Marika and Regli, Ivo Beat and Mejia-Aguilar, Abraham and Mayrgündter, Sebastian and Strapazzon, Giacomo},
+	urldate = {2026-11-13},
+	date = {2023-04},
+	langid = {english},
+}
+
+@article{toma2018rescue,
+	title = {A real‐time field experiment on search and rescue operations assisted by unmanned aerial vehicles},
+	volume = {35},
+	rights = {http://onlinelibrary.wiley.com/{termsAndConditions}\#vor},
+	issn = {1556-4959, 1556-4967},
+	url = {https://onlinelibrary.wiley.com/doi/10.1002/rob.21784},
+	doi = {10.1002/rob.21784},
+	abstract = {Abstract
+            This paper reports on the performance of a novel system for supporting search and rescue activities, known as {SARUAV} (search and rescue unmanned aerial vehicle), in a field experiment during which a real‐world search scenario was simulated. The experiment took place on March 2–3, 2017, at two sites located in southwestern Poland. Three groups acted in the experiment: (1) {SARUAV} and unmanned aerial vehicle ({UAV}) operators, (2) ground searchers, and (3) participants who simulated being lost. In the uncomplicated topography without snow cover, the system identified the lost persons, and ground searchers found them 31 min after the {SARUAV} report had been disseminated. In the mountainous area covered with snow, one person was found within 9 min after searchers received the {SARUAV} report; however, the other two persons were not identified by {SARUAV}. The field experiment served as a proof of concept of the {SARUAV} system, confirmed its potential in person identification studies, and helped to identify numerous scientific and technical problems that need to be solved to develop a mature version of the system.},
+	pages = {906--920},
+	number = {6},
+	journaltitle = {Journal of Field Robotics},
+	shortjournal = {Journal of Field Robotics},
+	author = {Niedzielski, Tomasz and Jurecka, Mirosława and Miziński, Bartłomiej and Remisz, Joanna and Ślopek, Jacek and Spallek, Waldemar and Witek‐Kasprzak, Matylda and Kasprzak, Łukasz and Świerczyńska‐Chlaściak, Małgorzata},
+	urldate = {2026-11-13},
+	date = {2018-09},
+	langid = {english},
+}
+
+@report{nasa2024mars,
+	title = {After Three Years on Mars, {NASA}'s Ingenuity Helicopter Mission Ends},
+	url = {https://www.nasa.gov/news-release/after-three-years-on-mars-nasas-ingenuity-helicopter-mission-ends/?utm_source=chatgpt.com},
+	author = {{NASA / Jet Propulsion Laboratory}},
+	date = {2024},
+}
+
+@report{nasa2023autonav,
+	title = {Perseverance's {AutoNav} Leads the Way},
+	url = {https://science.nasa.gov/resource/perseverances-autonav-leads-the-way/?utm_source=chatgpt.com},
+	author = {{NASA / Jet Propulsion Laboratory}},
+}
+
+@article{jan2024common,
+	title = {Commonsense knowledge in cognitive robotics: a systematic literature review},
+	volume = {11},
+	issn = {2296-9144},
+	url = {https://www.frontiersin.org/articles/10.3389/frobt.2024.1328934/full},
+	doi = {10.3389/frobt.2024.1328934},
+	shorttitle = {Commonsense knowledge in cognitive robotics},
+	abstract = {One of the big challenges in robotics is the generalization necessary for performing unknown tasks in unknown environments on unknown objects. For us humans, this challenge is simplified by the commonsense knowledge we can access. For cognitive robotics, representing and acquiring commonsense knowledge is a relevant problem, so we perform a systematic literature review to investigate the current state of commonsense knowledge exploitation in cognitive robotics. For this review, we combine a keyword search on six search engines with a snowballing search on six related reviews, resulting in 2,048 distinct publications. After applying pre-defined inclusion and exclusion criteria, we analyse the remaining 52 publications. Our focus lies on the use cases and domains for which commonsense knowledge is employed, the commonsense aspects that are considered, the datasets/resources used as sources for commonsense knowledge and the methods for evaluating these approaches. Additionally, we discovered a divide in terminology between research from the knowledge representation and reasoning and the cognitive robotics community. This divide is investigated by looking at the extensive review performed by Zech et al. (The International Journal of Robotics Research, 2019, 38, 518–562), with whom we have no overlapping publications despite the similar goals.},
+	pages = {1328934},
+	journaltitle = {Frontiers in Robotics and {AI}},
+	shortjournal = {Front. Robot. {AI}},
+	author = {Töberg, Jan-Philipp and Ngonga Ngomo, Axel-Cyrille and Beetz, Michael and Cimiano, Philipp},
+	urldate = {2026-11-13},
+	date = {2024-02-29},
+}
+
+@inproceedings{claire2025preserv,
+	location = {Eindhoven, Netherlands},
+	title = {Preserving Sense of Agency: User Preferences for Robot Autonomy and User Control across Household Tasks},
+	rights = {https://doi.org/10.15223/policy-029},
+	isbn = {979-8-3315-8771-0},
+	url = {https://ieeexplore.ieee.org/document/11217640/},
+	doi = {10.1109/RO-MAN63969.2025.11217640},
+	shorttitle = {Preserving Sense of Agency},
+	eventtitle = {2025 34th {IEEE} International Conference on Robot and Human Interactive Communication ({RO}-{MAN})},
+	pages = {1595--1602},
+	booktitle = {2025 34th {IEEE} International Conference on Robot and Human Interactive Communication ({RO}-{MAN})},
+	publisher = {{IEEE}},
+	author = {Yang, Claire and Patel, Heer and Kleiman-Weiner, Max and Cakmak, Maya},
+	urldate = {2026-11-13},
+	date = {2025-08-25},
+}
+
+@article{hai2023adative,
+	title = {Adaptive and intelligent robot task planning for home service: A review},
+	volume = {117},
+	issn = {09521976},
+	url = {https://linkinghub.elsevier.com/retrieve/pii/S095219762200608X},
+	doi = {10.1016/j.engappai.2022.105618},
+	shorttitle = {Adaptive and intelligent robot task planning for home service},
+	pages = {105618},
+	journaltitle = {Engineering Applications of Artificial Intelligence},
+	shortjournal = {Engineering Applications of Artificial Intelligence},
+	author = {Li, Haizhen and Ding, Xilun},
+	urldate = {2026-11-13},
+	date = {2023-01},
+	langid = {english},
+}
+
+@article{amal2024physically,
+	title = {Physically Assistive Robots: A Systematic Review of Mobile and Manipulator Robots That Physically Assist People with Disabilities},
+	volume = {7},
+	rights = {http://creativecommons.org/licenses/by/4.0/},
+	issn = {2573-5144},
+	url = {https://www.annualreviews.org/content/journals/10.1146/annurev-control-062823-024352},
+	doi = {10.1146/annurev-control-062823-024352},
+	shorttitle = {Physically Assistive Robots},
+	abstract = {More than 1 billion people in the world are estimated to experience significant disability. These disabilities can impact people's ability to independently conduct activities of daily living, including ambulating, eating, dressing, taking care of personal hygiene, and more. Mobile and manipulator robots, which can move about human environments and physically interact with objects and people, have the potential to assist people with disabilities in activities of daily living. Although the vision of physically assistive robots has motivated research across subfields of robotics for decades, such robots have only recently become feasible in terms of capabilities, safety, and price. More and more research involves end-to-end robotic systems that interact with people with disabilities in real-world settings. In this article, we survey papers about physically assistive robots intended for people with disabilities from top conferences and journals in robotics, human–computer interactions, and accessible technology, to identify the general trends and research methodologies. We then dive into three specific research themes—interaction interfaces, levels of autonomy, and adaptation—and present frameworks for how these themes manifest across physically assistive robot research. We conclude with directions for future research.},
+	pages = {123--147},
+	number = {1},
+	journaltitle = {Annual Review of Control, Robotics, and Autonomous Systems},
+	author = {Nanavati, Amal and Ranganeni, Vinitha and Cakmak, Maya},
+	urldate = {2026-11-13},
+	date = {2024-07-10},
+	langid = {english},
+}
+
+@article{ahmed2024hrcompanion,
+	title = {Human–Robot Companionship: Current Trends and Future Agenda},
+	volume = {16},
+	issn = {1875-4791, 1875-4805},
+	url = {https://link.springer.com/10.1007/s12369-024-01160-y},
+	doi = {10.1007/s12369-024-01160-y},
+	shorttitle = {Human–Robot Companionship},
+	abstract = {Abstract
+            The field of robotics has grown exponentially over the years, especially the social aspect, which has enabled robots to interact with humans meaningfully. Robots are now used in many domains, such as manufacturing, healthcare, education, entertainment, rehabilitation, etc. Along with their widespread usage in many real-life environments, robots have been used as companions to humans. With the increased amount of research done on human–robot companionship ({HRC}), it is important to understand how this domain is developing, in which direction, and what the future might hold. There is also a need to understand the influencing factors and what kind of empirical results are in the literature. To address these questions, we conducted a systematic literature review and analyzed a final number of 134 relevant articles. The findings suggest that anthropomorphic and zoomorphic robots are more popular as human companions, while there is a lack of interest in functional and caricatured robots. Also, human-like and animal-like features are implemented more in companion robots. Studies rarely exploit the mobility available in these robots in companionship scenarios, especially in outdoor settings. In addition to that, co-existence and co-performance-based implementation with humans have been observed rarely. Based on the results, we propose a future research agenda that includes thematic, theoretical, methodological, and technological agendas. This study will help us understand the current state and usage of robotic companions which will then potentially aid in determining how {HRC} can be leveraged and integrated more seamlessly into human lives for better effectiveness.},
+	pages = {1809--1860},
+	number = {8},
+	journaltitle = {International Journal of Social Robotics},
+	shortjournal = {Int J of Soc Robotics},
+	author = {Ahmed, Eshtiak and Buruk, Oğuz ‘Oz’ and Hamari, Juho},
+	urldate = {2026-11-13},
+	date = {2024-08},
+	langid = {english},
+}
+
+@article{szy2023lab,
+	title = {An autonomous laboratory for the accelerated synthesis of inorganic materials},
+	volume = {624},
+	issn = {0028-0836, 1476-4687},
+	url = {https://www.nature.com/articles/s41586-023-06734-w},
+	doi = {10.1038/s41586-023-06734-w},
+	abstract = {Abstract
+            
+              To close the gap between the rates of computational screening and experimental realization of novel materials
+              1,2
+              , we introduce the A-Lab, an autonomous laboratory for the solid-state synthesis of inorganic powders. This platform uses computations, historical data from the literature, machine learning ({ML}) and active learning to plan and interpret the outcomes of experiments performed using robotics. Over 17 days of continuous operation, the A-Lab realized 36 compounds from a set of 57 targets including a variety of oxides and phosphates that were identified using large-scale ab initio phase-stability data from the Materials Project and Google {DeepMind}. Synthesis recipes were proposed by natural-language models trained on the literature and optimized using an active-learning approach grounded in thermodynamics. Analysis of the failed syntheses provides direct and actionable suggestions to improve current techniques for materials screening and synthesis design. The high success rate demonstrates the effectiveness of artificial-intelligence-driven platforms for autonomous materials synthesis and motivates further integration of computations, historical knowledge and robotics.},
+	pages = {86--91},
+	number = {7990},
+	journaltitle = {Nature},
+	shortjournal = {Nature},
+	author = {Szymanski, Nathan J. and Rendy, Bernardus and Fei, Yuxing and Kumar, Rishi E. and He, Tanjin and Milsted, David and {McDermott}, Matthew J. and Gallant, Max and Cubuk, Ekin Dogus and Merchant, Amil and Kim, Haegyeom and Jain, Anubhav and Bartel, Christopher J. and Persson, Kristin and Zeng, Yan and Ceder, Gerbrand},
+	urldate = {2026-11-13},
+	date = {2023-12-07},
+	langid = {english},
+}
+
+@article{petzoldt2022imple,
+	title = {Implementation and Evaluation of Dynamic Task Allocation for Human–Robot Collaboration in Assembly},
+	volume = {12},
+	issn = {2076-3417},
+	url = {https://www.mdpi.com/2076-3417/12/24/12645},
+	doi = {10.3390/app122412645},
+	abstract = {Human–robot collaboration is becoming increasingly important in industrial assembly. In view of high cost pressure, resulting productivity requirements, and the trend towards human-centered automation in the context of Industry 5.0, a reasonable allocation of individual assembly tasks to humans or robots is of central importance. Therefore, this article presents a new approach for dynamic task allocation, its integration into an intuitive block-based process planning framework, and its evaluation in comparison to both manual assembly and static task allocation. For evaluation, a systematic methodology for comprehensive assessment of task allocation approaches is developed, followed by a corresponding user study. The results of the study show for the dynamic task allocation on the one hand a higher fluency in the human–robot collaboration with good adaptation to process delays, and on the other hand a reduction in the cycle time for assembly processes with sufficiently high degrees of parallelism. Based on the study results, we draw conclusions regarding assembly scenarios in which manual assembly or collaborative assembly with static or dynamic task allocation is most appropriate. Finally, we discuss the implications for process planning when using the proposed task allocation framework.},
+	pages = {12645},
+	number = {24},
+	journaltitle = {Applied Sciences},
+	shortjournal = {Applied Sciences},
+	author = {Petzoldt, Christoph and Niermann, Dario and Maack, Emily and Sontopski, Marius and Vur, Burak and Freitag, Michael},
+	urldate = {2026-11-14},
+	date = {2022-12-09},
+	langid = {english},
 }

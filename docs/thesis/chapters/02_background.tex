@@ -2,400 +2,74 @@
 \chapter[CƠ SỞ LÝ THUYẾT VÀ CÁC NGHIÊN CỨU LIÊN QUAN]{CƠ SỞ LÝ THUYẾT\\VÀ CÁC NGHIÊN CỨU LIÊN QUAN}
 \label{chap:background}
 
-Chương này đưa ra những cơ sở lý thuyết được triển khai trong khóa luận, bao gồm: chính sách học bắt chước và những hạn chế của nó khi có người trong cảnh; khái niệm ý định người và lợi ích của việc dự đoán ý định trong cộng tác; lý thuyết ra quyết định khi ý định chưa chắc chắn; mô hình Markov ẩn và bộ lọc Bayes; các vấn đề nảy sinh khi một chính sách sử dụng ý định \emph{dự đoán} cùng các nền tảng để xử lý chúng; và các bộ dữ liệu, benchmark cho tương tác người -- robot.
-
-Cần nói rõ ngay từ đầu phạm vi của các luận điểm. Khóa luận \emph{không} đề xuất một chính sách robot tốt hơn các chính sách đang có. Luận điểm của khóa luận mang tính ứng dụng: thông tin ý định dự đoán cải thiện một chính sách có sẵn như thế nào, chính sách gặp vấn đề gì khi ý định dự đoán sai, ai sửa được sai sót đó, và cần đo những điều này bằng một bộ dữ liệu như thế nào. Vì vậy, các hạn chế của chính sách được trình bày dưới đây chỉ là những hạn chế liên quan trực tiếp tới các luận điểm đó.
-
-% =====================================================================================================
-\section{Chính sách học bắt chước cho thao tác robot}
-\label{sec:bg-act}
-
-\subsection{Định nghĩa và bối cảnh}
-
-Học bắt chước (imitation learning) huấn luyện một chính sách điều khiển robot từ các lượt trình diễn của chuyên gia, thay vì lập trình từng hành vi bằng tay hoặc thiết kế hàm thưởng cho học tăng cường. Cách làm này phù hợp với thao tác vật, nơi hành vi mong muốn dễ trình diễn nhưng khó mô tả bằng công thức.
-
-Trước khi đi vào các dạng chính sách cụ thể, chúng ta cần thiết lập bài toán. Giả sử ở mỗi bước $t$ robot nhận quan sát $o_t$ (ảnh camera, trạng thái khớp) và thực hiện hành động $a_t$. Chuyên gia hành động theo một chính sách chưa biết $\pi_E(a\mid o)$ và sinh ra tập trình diễn $\mathcal{D}=\{(o_t,a_t)\}$. \textbf{Nhân bản hành vi} (behavior cloning) học chính sách $\pi_\theta$ bằng học có giám sát:
-\begin{equation}
-  \theta^\ast=\arg\min_\theta\;\mathbb{E}_{(o,a)\sim\mathcal{D}}\big[\ell(\pi_\theta(o),a)\big],
-  \label{eq:bc}
-\end{equation}
-trong đó $\ell$ là hàm mất mát giữa hành động dự đoán và hành động của chuyên gia. Khi $\ell$ là âm log-likelihood, \eqref{eq:bc} chính là ước lượng hợp lý cực đại của $\pi_E$; khi $\ell$ là sai số L1, nó tương ứng với một likelihood Laplace.
-
-\subsection{Hạn chế cơ bản: lệch phân phối}
-
-Chính sách chỉ được học trên phân phối trạng thái mà chuyên gia đi qua. Khi chạy, một lỗi nhỏ đưa robot tới trạng thái mà chuyên gia chưa từng gặp, nơi chính sách không được huấn luyện, và lỗi tiếp tục tích lũy. Ross và cộng sự~\cite{ross2011dagger} phân tích rằng với sai số $\epsilon$ mỗi bước, sai số kỳ vọng của nhân bản hành vi trên một episode dài $T$ có thể tăng theo bậc $T^2\epsilon$. Để khắc phục hạn chế này, các tác giả đề xuất DAgger: lặp lại việc chạy chính sách, hỏi chuyên gia hành động đúng tại chính các trạng thái mà chính sách đi tới, rồi thêm vào dữ liệu; nhờ vậy sai số chỉ tăng tuyến tính theo $T$. Một cách khác không cần hỏi chuyên gia lúc chạy là DART~\cite{laskey2017dart}: bơm nhiễu vào hành động của chuyên gia ngay khi trình diễn, để dữ liệu chứa sẵn các trạng thái lệch cùng hành động phục hồi tương ứng. Ý tưởng của DART sẽ được dùng lại ở Mục~\ref{sec:bg-problems} cho một loại lệch khác: lệch của \emph{ý định dự đoán}.
-
-\subsection{Các dạng chính sách hiện nay}
-
-Các chính sách thao tác hiện nay có chung một dạng: một mạng nhận quan sát gần nhất, có thể kèm một câu lệnh $\ell$, và sinh ra một \emph{đoạn} hành động,
-\begin{equation}
-  \hat a_{t:t+k}\sim\pi_\theta\big(\,\cdot\mid o_{t-h:t},\,\ell\big),
-  \label{eq:policy-form}
-\end{equation}
-trong đó $h$ là số frame lịch sử (thường bằng 0 hoặc rất nhỏ) và $k$ là độ dài đoạn hành động. Chúng khác nhau chủ yếu ở cách biểu diễn phân phối hành động và ở quy mô dữ liệu.
-
-\textbf{ACT} (Action Chunking with Transformers)~\cite{zhao2023act} dự đoán một đoạn $k$ hành động từ $o_t$ và một biến tiềm ẩn $z$. Biến $z$ do bộ mã hóa của một CVAE~\cite{sohn2015cvae} suy ra từ chính đoạn hành động thật khi huấn luyện, để mô hình hóa sự khác nhau giữa các lần trình diễn. Hàm mất mát gồm sai số tái tạo L1 và một số hạng KL kéo phân phối của $z$ về tiên nghiệm chuẩn:
-\begin{equation}
-  \mathcal{L}_{\text{ACT}}=\big\|\hat{a}_{t:t+k}-a_{t:t+k}\big\|_1+\beta\,\mathrm{KL}\big(q_\phi(z\mid a_{t:t+k},o_t)\,\big\|\,\mathcal{N}(0,I)\big),
-  \label{eq:act}
-\end{equation}
-trong đó $q_\phi$ là bộ mã hóa và $\beta$ là trọng số. Khi suy luận không có đoạn hành động thật, nên $z$ được đặt bằng $0$, tức trung bình của tiên nghiệm. Phân đoạn hành động làm giảm số lần ra quyết định trên một episode, qua đó giảm lỗi tích lũy. Khóa luận dùng ACT của thư viện LeRobot~\cite{cadene2026lerobot} với $k=40$ (2\,s ở 20\,Hz).
-
-\textbf{Diffusion Policy}~\cite{chi2023diffusion} biểu diễn phân phối đoạn hành động bằng một quá trình khử nhiễu, nên biểu diễn được phân phối có nhiều mode. \textbf{Các chính sách Transformer quy mô lớn} như RT-1~\cite{brohan2023rt1} và Octo~\cite{octo2024} được huấn luyện trên dữ liệu của nhiều robot và nhiều nhiệm vụ. \textbf{Mô hình thị giác -- ngôn ngữ -- hành động} (vision-language-action, VLA) dựng chính sách trên một mô hình thị giác -- ngôn ngữ đã huấn luyện trước: OpenVLA~\cite{kim2024openvla} có 7 tỉ tham số và được huấn luyện trên 970\,000 trình diễn thật; $\pi_0$~\cite{black2024pi0} sinh hành động bằng flow matching; GR00T N1~\cite{nvidia2025gr00t} ghép một mô-đun thị giác -- ngôn ngữ với một Transformer khuếch tán sinh hành động và huấn luyện chung hai phần.
-
-Khóa luận chọn ACT vì ba lý do. Thứ nhất, ACT nhỏ, huấn luyện được trên phần cứng của khóa luận. Thứ hai, ACT là chính sách nền phổ biến trong các so sánh. Thứ ba, câu hỏi của khóa luận là về \emph{thông tin đầu vào} (ý định), không phụ thuộc vào kiến trúc cụ thể: mọi hạn chế dưới đây xuất phát từ dạng chung~\eqref{eq:policy-form}, nên áp dụng cho cả các họ chính sách còn lại.
-
-\subsection{Hạn chế khi có người trong cảnh}
-\label{sec:bg-act-weak}
-
-Mục này chỉ phân tích những hạn chế mà khóa luận nhắm tới. Đó đều là hạn chế về \emph{thông tin} của dạng~\eqref{eq:policy-form} khi một phần trạng thái quan trọng, ý định của người, không nằm trong quan sát hiện tại.
-
-\paragraph{W1. Ý định là biến ẩn, không nằm trong frame hiện tại.} Xét tình huống người chỉ vào một trong bốn hộp rồi rút tay về. Từ lúc đó, frame hiện tại không còn dấu vết nào của lệnh. Một chính sách với $h=0$ không thể biết người đã chỉ hộp nào: nó hoặc dừng lại, hoặc đoán. Đây là bài toán quan sát một phần, được phân tích hình thức ở Mục~\ref{sec:bg-bayes}.
-
-\paragraph{W2. Ở đầu cử chỉ, cùng một quan sát có nhiều đáp án.} Khi tay người mới bắt đầu nâng lên, nhiều đích còn khả năng như nhau. Với mất mát L1 trong~\eqref{eq:act}, có thể thấy điều gì xảy ra qua một ví dụ đơn giản. Giả sử với cùng một quan sát, chuyên gia đi tới hộp ở $y=+0.2$\,m trong một nửa số lần trình diễn và tới hộp ở $y=-0.2$\,m trong nửa còn lại. Sai số L1 kỳ vọng của một dự đoán $\hat y$ là
-\begin{equation}
-  \tfrac12\,|\hat y-0.2|+\tfrac12\,|\hat y+0.2|,
-\end{equation}
-và nó bằng $0.2$ với \emph{mọi} $\hat y\in[-0.2,0.2]$. Nghiệm tối ưu không duy nhất: chính sách có thể đi thẳng vào khoảng giữa hai hộp mà không bị phạt thêm. Với $z=0$, đầu ra không được quyết định bởi bất kỳ bằng chứng nào về mode nào đúng. Diffusion Policy chọn một mode ngẫu nhiên, nên tránh được đi vào giữa, nhưng lựa chọn đó cũng không dựa trên bằng chứng. Cả hai đều thiếu cơ chế ``đi theo hướng chung của các đích còn khả năng, rồi rẽ khi bằng chứng đủ'', là cơ chế mà lý thuyết ra quyết định ở Mục~\ref{sec:bg-bayes} đề xuất.
-
-\paragraph{W3. Thêm lịch sử thô không phải lời giải.} Cách tự nhiên để chữa W1 là tăng $h$. Tuy nhiên, Wen và cộng sự~\cite{wen2020copycat} chỉ ra hiện tượng \emph{copycat}: chính sách nhìn lịch sử học cách đoán lại hành động trước đó của chuyên gia, vì hành động tương quan mạnh theo thời gian, thay vì phản ứng với quan sát mới. De Haan và cộng sự~\cite{dehaan2019causal} mô tả hiện tượng tổng quát hơn là \emph{nhầm lẫn nhân quả} (causal confusion): cho chính sách thêm thông tin có thể làm nó \emph{kém đi}, vì nó bám vào một tín hiệu tương quan với hành động của chuyên gia nhưng không phải là nguyên nhân của hành động đó. Với robot cộng tác, hệ quả là robot tiếp tục đi về hướng cũ khi người đã đổi ý.
-
-\paragraph{W4. Thời điểm phản hồi bị khóa theo thời điểm trong dữ liệu.} Chính sách học bắt chước học cả \emph{khi nào} chuyên gia hành động. Nếu chuyên gia chỉ đi khi lệnh đã rõ, chính sách cũng vậy. Muốn robot đi sớm hơn, dữ liệu phải chứa hành động sớm, và chính sách phải có đủ thông tin để hành động sớm một cách có cơ sở. Câu hỏi thứ nhất của khóa luận, qua so sánh ba chính sách A, B, D ở Chương~\ref{chap:experiments}, tách hai yếu tố này: B được học từ dữ liệu phản hồi sớm nhưng không có thông tin ý định, còn D có cả hai.
-
-\paragraph{Các hướng nghiên cứu gần đây.} Cộng đồng đã bắt đầu đưa người vào dữ liệu của chính sách. HABIT~\cite{song2026habit} thu hơn 10\,000 episode thao tác hai tay có người tham gia và báo cáo rằng tinh chỉnh các VLA ($\pi_{0.5}$, GR00T) trên dữ liệu này cải thiện các hành vi phối hợp theo vai. Xu và cộng sự~\cite{xu2026learning} huấn luyện VLA cho cộng tác ngầm, khi người không ra lệnh tường minh. Wang và cộng sự~\cite{wang2025steering} dùng tương tác của người lúc chạy để lái việc lấy mẫu của một chính sách sinh đã huấn luyện, thay vì tinh chỉnh lại nó. Hai công trình đầu là bản preprint. Các hướng này cho thấy dữ liệu có người giúp ích, nhưng ý định vẫn \emph{ngầm} trong điểm ảnh hoặc do người cung cấp trực tiếp. Khóa luận đi theo hướng bổ sung: đưa ý định \emph{dự đoán} vào chính sách dưới dạng tường minh, để đo được ý định đó giúp gì, sai thì sao, và chính sách có thật sự dùng nó hay không.
-
-% =====================================================================================================
-\section{Ý định người trong cộng tác người -- robot}
-\label{sec:bg-intent}
-
-\subsection{Khái niệm và phân loại}
-
-Khi robot làm việc trong không gian chung với con người, hành động tốt nhất của robot không còn chỉ phụ thuộc vào trạng thái của cảnh, mà còn phụ thuộc vào điều người \emph{sắp} làm. Losey và cộng sự~\cite{losey2018review} chia bài toán ý định trong điều khiển chia sẻ thành ba phần: \emph{phát hiện} ý định của người, \emph{phân xử} giữa ý định của người và hành động của robot, và \emph{truyền đạt} ngược lại cho người. Khóa luận tập trung vào hai phần đầu.
-
-Sự đa dạng của các tình huống tương tác làm các nghiên cứu khó so sánh với nhau. Để khắc phục điều này, Onnasch và Roesler~\cite{onnasch2021taxonomy} đề xuất một hệ phân loại tương tác người -- robot theo các thuộc tính chung. Ở mức nhiệm vụ, HABIT~\cite{song2026habit} chia tình huống theo ba vai của người: Supervisor (người chỉ dẫn, robot thực hiện), Collaborator (hai bên cùng làm một việc) và Coworker (mỗi bên một việc trong không gian chung). HRIBench~\cite{liu2026hribench}, một bản preprint, chia tương tự thành Instructor, Collaborator và Intruder.
-
-Trong khóa luận, \emph{ý định} được định nghĩa theo hành động của robot. Ý định là một cặp
-\begin{equation}
-  g=(r,k),\qquad r\in\mathcal{R},\quad k\in\{1,\dots,K\}\cup\{\varnothing\},
-  \label{eq:intent-def}
-\end{equation}
-trong đó $k$ là con trỏ tới một trong $K$ đối tượng thấy được trên bàn, $\varnothing$ là ``không có đích'', và $r$ là quan hệ giữa người và đối tượng, ví dụ ``robot nên làm trên vật $k$'' hay ``tay người sắp vào vùng $k$''. Hai ý định chỉ cần được phân biệt khi chúng làm thay đổi hành động tốt nhất của robot. Đây là nguyên lý gộp trạng thái theo bisimulation~\cite{givan2003equivalence,ferns2004metrics} và theo tương đương giá trị (value equivalence)~\cite{grimm2020value}: một mô hình chỉ cần đúng ở những gì ảnh hưởng tới quyết định. Nhờ vậy, không gian ý định nhỏ, có nghĩa, và không phụ thuộc vào cách chia vùng của một cảnh cụ thể.
-
-\subsection{Dự đoán ý định giúp phối hợp như thế nào}
-
-Nhiều nghiên cứu cho thấy robot đoán trước được người thì phối hợp tốt hơn robot chỉ phản ứng:
-\begin{itemize}
-  \item Hoffman và Breazeal~\cite{hoffman2007cost} chọn hành động theo kỳ vọng về bước tiếp theo của người, làm cộng tác trôi chảy hơn;
-  \item Huang và Mutlu~\cite{huang2016anticipatory} dùng hướng nhìn để dự đoán vật người sắp yêu cầu, rút ngắn thời gian hoàn thành;
-  \item Pérez-D'Arpino và Shah~\cite{perezdarpino2015fast} đoán đúng đích của chuyển động vươn tay khoảng 70\% sau một phần ba quỹ đạo;
-  \item Mainprice và Berenson~\cite{mainprice2013human} dùng dự đoán sớm chuyển động người để lập kế hoạch tránh vùng người sắp chiếm; Koppula và Saxena~\cite{koppula2016anticipating} dự đoán hoạt động sắp tới từ khả năng tương tác của vật;
-  \item ManiCast~\cite{kedia2023manicast} học dự báo chuyển động người theo chi phí của nhiệm vụ cộng tác; InteRACT~\cite{kedia2024interact} dự đoán ý định của người có điều kiện theo hành động tương lai của robot, huấn luyện trước trên dữ liệu người -- người rồi tinh chỉnh trên dữ liệu người -- robot.
-\end{itemize}
-
-Để đo ``phối hợp tốt hơn'' một cách khách quan, Hoffman~\cite{hoffman2019fluency} hệ thống hóa các chỉ số của sự \textbf{trôi chảy} (fluency) trong cộng tác. Gọi $T$ là tổng thời gian thực hiện nhiệm vụ. Các chỉ số chính được tính như tỉ lệ thời gian:
-\begin{equation}
-  \text{H-IDLE}=\frac{T_{\text{người chờ}}}{T},\quad
-  \text{R-IDLE}=\frac{T_{\text{robot chờ}}}{T},\quad
-  \text{C-ACT}=\frac{T_{\text{cả hai cùng hoạt động}}}{T},\quad
-  \text{F-DEL}=\frac{T_{\text{chờ giữa hai lượt}}}{T},
-  \label{eq:fluency}
-\end{equation}
-trong đó độ trễ chức năng F-DEL đo khoảng chờ giữa lúc một bên xong việc và lúc bên kia bắt đầu. Các chỉ số này đo trực tiếp lợi ích mà khóa luận kỳ vọng ở câu hỏi thứ nhất: nếu robot biết sớm người muốn gì, người phải chờ ít hơn và hai bên làm song song nhiều hơn. Vì vậy, khóa luận ưu tiên nhóm chỉ số thời gian, còn tỉ lệ hoàn thành nhiệm vụ là chỉ số phụ.
-
-\subsection{Tín hiệu sớm của ý định}
-
-Ý định lộ ra qua nhiều tín hiệu với độ sớm khác nhau. Chuyển động tay là bằng chứng liên tục về đích~\cite{perezdarpino2015fast}. Hướng chỉ tay cho bằng chứng mạnh khi cử chỉ đã hình thành~\cite{nickel2007pointing,nakamura2023deepoint}. Hướng nhìn thường tới đích \emph{trước} tay: trong thao tác vật, mắt dẫn tay tới các điểm quan trọng của hành động~\cite{johansson2001eyehand}, và hướng nhìn đã được dùng để đoán trước yêu cầu của người~\cite{huang2016anticipatory}. Ở chiều ngược lại, Dragan và cộng sự~\cite{dragan2013legibility} chỉ ra rằng người quan sát suy ra đích từ chuyển động đúng theo cách mà mô hình lập kế hoạch ngược ở Mục~\ref{sec:bg-bayes} mô tả. Điều này cho phép dùng một khung chung cho mọi tín hiệu: mỗi tín hiệu là một nguồn bằng chứng về $g$, và bằng chứng được tích lũy theo thời gian.
-
-% =====================================================================================================
-\section{Suy luận ý định và ra quyết định khi chưa chắc chắn}
-\label{sec:bg-bayes}
-
-\subsection{Hiểu hành động bằng lập kế hoạch ngược}
-
-Con người hiểu hành động của người khác như thế nào? Baker, Saxe và Tenenbaum~\cite{baker2009inverse} đề xuất rằng người quan sát giả định người hành động gần hợp lý để đạt một mục tiêu, rồi suy ngược mục tiêu từ hành động, gọi là \textbf{lập kế hoạch ngược} (inverse planning). Với chuyển động quan sát được $s_{1:t}$ và mục tiêu $g$, niềm tin về mục tiêu được cập nhật theo định lý Bayes:
-\begin{equation}
-  P(g\mid s_{1:t})\;\propto\;P(s_{1:t}\mid g)\,P(g),
-  \label{eq:inverse-planning}
-\end{equation}
-trong đó $P(g)$ là tiên nghiệm về mục tiêu, với robot cộng tác thì đến từ quy trình nhiệm vụ, và $P(s_{1:t}\mid g)$ đánh giá chuyển động quan sát được hợp lý tới đâu nếu mục tiêu là $g$. Ba thí nghiệm tâm lý học trong~\cite{baker2009inverse} cho thấy suy luận của người quan sát khớp với mô hình này.
-
-Mô hình ``gần hợp lý'' thường dùng là \textbf{Boltzmann-rational}: xác suất của một bước chuyển động tỉ lệ với mũ của mức nó đưa người tới gần mục tiêu,
-\begin{equation}
-  P(s_{t}\mid s_{t-1},g)\;\propto\;\exp\!\big(\beta\,[V_g(s_t)-V_g(s_{t-1})]\big),
-  \label{eq:boltzmann}
-\end{equation}
-trong đó $V_g$ là giá trị (âm của chi phí còn lại) khi mục tiêu là $g$, và $\beta\ge0$ là mức ``hợp lý'': $\beta=0$ nghĩa là chuyển động không nói gì về mục tiêu, $\beta\to\infty$ nghĩa là người luôn đi đường tối ưu. Nguyên lý entropy cực đại~\cite{ziebart2008maxent} cho dạng này một cơ sở: trong các phân phối khớp với hành vi quan sát được, đó là phân phối ít giả định nhất. Ziebart và cộng sự dùng chính dạng này để suy điểm đến từ một phần quỹ đạo.
-
-Dạng~\eqref{eq:boltzmann} chỉ có nghĩa xác suất khi vế phải được \emph{chuẩn hóa} trên mọi $s_t$ có thể. Với chuyển động liên tục, điều này không tự nhiên đúng. Xét bước dời $\Delta p=p_t-p_{t-1}$ của bàn tay và lấy $V_k(p)=-\|c_k-p\|$, với $c_k$ là vị trí đối tượng $k$. Với bước nhỏ, $V_k(p_t)-V_k(p_{t-1})\approx u_k^\top\Delta p$, trong đó $u_k$ là vector đơn vị từ tay tới $c_k$. Khi đó $\exp(\beta\,u_k^\top\Delta p)$ không tích phân được trên $\mathbb{R}^3$. Nếu nhân thêm một tiên nghiệm Gauss cho độ dời, ta có
-\begin{equation}
-  P(\Delta p\mid k)\;\propto\;\mathcal{N}(\Delta p;0,\sigma^2 I)\,e^{\beta\,u_k^\top\Delta p}
-  \;=\;\mathcal{N}\big(\Delta p;\;\beta\sigma^2u_k,\;\sigma^2 I\big),
-  \label{eq:boltzmann-gauss}
-\end{equation}
-nhờ phép bù bình phương: $-\frac{\|\Delta p\|^2}{2\sigma^2}+\beta u_k^\top\Delta p=-\frac{\|\Delta p-\beta\sigma^2u_k\|^2}{2\sigma^2}+\frac{\beta^2\sigma^2}{2}$, và vì $\|u_k\|=1$ nên hằng số $\frac{\beta^2\sigma^2}{2}$ không phụ thuộc $k$. Kết quả~\eqref{eq:boltzmann-gauss} có ba tính chất quan trọng:
-\begin{itemize}
-  \item nó là một mật độ đã chuẩn hóa, nên likelihood của cả chuỗi quan sát có nghĩa và học được bằng cực đại likelihood;
-  \item hằng số chuẩn hóa giống nhau với mọi đích, nên so sánh giữa các đích không bị lệch;
-  \item ý nghĩa trực quan rõ ràng: dưới đích $k$, tay trôi về phía $k$ với vận tốc trung bình tỉ lệ $\beta\sigma^2$, quanh đó là nhiễu Gauss.
-\end{itemize}
-Dạng này được dùng làm nền cho mô hình phát xạ ở Chương~\ref{chap:method}.
-
-\subsection{Quá trình quyết định Markov quan sát một phần}
-
-Khi một phần trạng thái không quan sát được, bài toán ra quyết định là một \textbf{quá trình quyết định Markov quan sát một phần} (POMDP)~\cite{astrom1965optimal,kaelbling1998planning}. Tác tử không biết trạng thái $s_t$, nên giữ một \emph{niềm tin} (belief) $b_t(s)=P(s_t=s\mid o_{1:t},a_{1:t-1})$. Niềm tin được cập nhật đệ quy. Áp dụng định lý Bayes cho quan sát mới $o_t$ rồi lấy tổng theo trạng thái trước $s$ với giả định Markov, ta có
-\begin{equation}
-  b_{t}(s')\;=\;\frac{P(o_{t}\mid s')\sum_{s}P(s'\mid s,a_{t-1})\,b_{t-1}(s)}{\sum_{s''}P(o_{t}\mid s'')\sum_{s}P(s''\mid s,a_{t-1})\,b_{t-1}(s)},
-  \label{eq:belief-update}
-\end{equation}
-trong đó $P(s'\mid s,a)$ là mô hình chuyển trạng thái và $P(o\mid s')$ là mô hình quan sát. Kết quả kinh điển là niềm tin là một thống kê đủ của toàn bộ lịch sử: ``because the belief state is a sufficient statistic, the optimal policy is the solution of a continuous space belief MDP''~\cite[§3.4]{kaelbling1998planning}.
-
-Trong bài toán của khóa luận, phần lớn trạng thái (vị trí vật, trạng thái robot) quan sát được, chỉ có ý định $g$ là ẩn. Ong và cộng sự~\cite{ong2010momdp} gọi đây là POMDP \emph{quan sát hỗn hợp} (MOMDP) và chỉ ra rằng chỉ cần giữ niềm tin trên phần ẩn. Gọi $x_t$ là phần quan sát được. Hệ quả cho chính sách là
-\begin{equation}
-  \pi^\star(a_t\mid o_{1:t})\;=\;\pi^\star\big(a_t\mid x_t,\,b_t(g)\big).
-  \label{eq:belief-policy}
-\end{equation}
-Phương trình~\eqref{eq:belief-policy} giải thích W1 và W3 cùng một lúc. Chính sách chỉ có $x_t$ thì \emph{thiếu} $b_t$. Chính sách có toàn bộ lịch sử thô thì \emph{thừa} thông tin, và phần thừa là chỗ cho copycat và nhầm lẫn nhân quả. Giao diện đúng là $b_t$, không hơn, không kém. Cần lưu ý đây là kết quả \emph{dưới giả định} $x_t$ quan sát đủ và mô hình đúng. Với ACT nhìn điểm ảnh, vật có lúc bị che, và một bộ dự đoán không hoàn hảo, nó là một giả định cần kiểm chứng, không phải một định lý.
-
-\subsection{Hành động khi chưa chắc mục tiêu}
-
-Giải chính xác một POMDP rất tốn kém. Xấp xỉ \textbf{QMDP}~\cite{littman1995learning} giả định rằng sau bước hiện tại mọi bất định sẽ biến mất, nên giá trị của một hành động là trung bình theo niềm tin của giá trị khi trạng thái đã biết. Javdani và cộng sự~\cite{javdani2018shared} dùng cùng ý tưởng, dưới tên hindsight optimization, cho hỗ trợ người:
-\begin{equation}
-  a^\ast=\arg\min_a\;\sum_g b(g)\,Q_g(s,a),
-  \label{eq:hindsight}
-\end{equation}
-trong đó $Q_g(s,a)$ là chi phí còn lại nếu thực hiện $a$ khi mục tiêu là $g$. Để thấy hành vi của~\eqref{eq:hindsight}, xét bốn hộp xếp thành hàng và niềm tin $b=(0.45,\,0.45,\,0.05,\,0.05)$. Hai hộp đầu chiếm 90\% xác suất, nên hành động cực tiểu chi phí kỳ vọng là đi về phía chung của hai hộp đó, chưa cam kết hộp nào; khi bằng chứng làm niềm tin dồn về một hộp, hành động rẽ theo. Trong thí nghiệm của Javdani và cộng sự, cách này đạt mục tiêu nhanh hơn và giảm thời gian người chờ so với ``đoán xong mới làm''. Đây chính là cơ chế mà W2 thiếu. Hạn chế của QMDP là nó không bao giờ chọn hành động chỉ để thu thêm thông tin, vì nó giả định bất định sẽ tự biến mất; với robot cộng tác, nơi thông tin đến từ người chứ không từ hành động của robot, hạn chế này ít quan trọng.
-
-Một câu hỏi liên quan là \textbf{phân xử}: robot nên tin dự đoán của mình tới đâu. Dragan và Srinivasa~\cite{dragan2013blending} hình thức hóa điều khiển chia sẻ như việc trộn hành động của người và của robot theo một hàm phân xử, và nghiên cứu người dùng của họ cho thấy mức trộn nên phụ thuộc vào độ tin của robot vào dự đoán. Hai kết quả trên cho khóa luận hai yêu cầu: (1) chính sách nên nhận \emph{phân phối} niềm tin, không phải một nhãn cứng; (2) độ tin của phân phối đó phải \emph{đáng tin}, tức được hiệu chỉnh tốt, vì nó quyết định robot cam kết tới đâu.
-
-% =====================================================================================================
-\section{Mô hình Markov ẩn và lọc Bayes}
-\label{sec:bg-hmm}
-
-\subsection{Mô hình Markov ẩn và thuật toán tiến}
-
-\textbf{Mô hình Markov ẩn} (HMM)~\cite{rabiner1989hmm} mô tả một chuỗi trạng thái ẩn rời rạc $z_t\in\{1,\dots,N\}$ sinh ra chuỗi quan sát $x_t$. Mô hình gồm ba thành phần:
-\begin{itemize}
-  \item phân phối ban đầu $\pi_i=P(z_1=i)$;
-  \item ma trận chuyển $A_{ij}=P(z_t=j\mid z_{t-1}=i)$;
-  \item mô hình phát xạ (emission) $P(x_t\mid z_t)$.
-\end{itemize}
-Bài toán \emph{lọc} là tính niềm tin về trạng thái hiện tại chỉ từ các quan sát tới lúc $t$, $b_t(j)=P(z_t=j\mid x_{1:t})$. Thuật toán tiến (forward) tính nó đệ quy qua hai bước:
-\begin{equation}
-  b^-_t(j)=\sum_i A_{ij}\,b_{t-1}(i),\qquad
-  b_t(j)=\frac{P(x_t\mid z_t=j)\,b^-_t(j)}{\sum_{j'}P(x_t\mid z_t=j')\,b^-_t(j')}.
-  \label{eq:forward}
-\end{equation}
-Bước thứ nhất \emph{dự đoán} trạng thái theo động học; bước thứ hai \emph{cập nhật} theo bằng chứng mới. Đây là trường hợp riêng của~\eqref{eq:belief-update} khi trạng thái ẩn không phụ thuộc hành động của robot. Mẫu số của bước cập nhật là $P(x_t\mid x_{1:t-1})$, nên tích các mẫu số theo thời gian chính là likelihood của cả chuỗi:
-\begin{equation}
-  P(x_{1:T})=\prod_{t=1}^{T}\sum_{j}P(x_t\mid z_t=j)\,b^-_t(j).
-  \label{eq:hmm-likelihood}
-\end{equation}
-Từ đây có hai tính chất hữu ích. Thứ nhất, các tham số của HMM học được bằng cách cực đại~\eqref{eq:hmm-likelihood} mà không cần nhãn trạng thái (thuật toán Baum -- Welch~\cite{rabiner1989hmm}, hoặc lấy gradient trực tiếp qua~\eqref{eq:forward}). Thứ hai, khi một quan sát bị thiếu, ví dụ tay bị che, chỉ cần bỏ bước cập nhật và giữ bước dự đoán: đây là cách xử lý dữ liệu thiếu chính xác của mô hình, không cần mẹo.
-
-\subsection{Ý định được giữ, đôi khi đổi}
-
-Ý định của người thường giữ nguyên một thời gian rồi mới đổi. Ma trận chuyển dạng ``giữ hoặc chọn lại'' mô tả điều đó:
-\begin{equation}
-  A=(1-h)\,I+h\,\mathbf{1}\,\pi_{\text{wf}}^\top
-  \quad\Rightarrow\quad
-  b^-_t=(1-h)\,b_{t-1}+h\,\pi_{\text{wf}},
-  \label{eq:sticky}
-\end{equation}
-trong đó $h$ là xác suất người đổi ý mỗi bước (hazard) và $\pi_{\text{wf}}$ là phân phối của ý định mới, lấy từ quy trình nhiệm vụ (workflow). Fox và cộng sự~\cite{fox2011sticky} chỉ ra rằng thiếu thiên hướng tự giữ trạng thái làm HMM chia chuỗi quá vụn, và thêm một tham số giữ trạng thái khắc phục được điều đó. Mô hình điểm đổi trực tuyến~\cite{fearnhead2007online} dùng cùng ý tưởng hazard để lọc chính xác khi các đoạn có độ dài không biết trước.
-
-Từ~\eqref{eq:sticky} suy ra một tính chất quan trọng. Vì $b_{t-1}(g)\le1$, niềm tin dự đoán cho bất kỳ ý định $g$ nào thỏa
-\begin{equation}
-  b^-_t(g)\;\le\;(1-h)+h\,\pi_{\text{wf}}(g)\;=\;1-h\,\big(1-\pi_{\text{wf}}(g)\big)\;<\;1 .
-  \label{eq:sticky-ceiling}
-\end{equation}
-Nói cách khác, với $h>0$ mô hình không bao giờ chắc tuyệt đối trước khi xem bằng chứng mới, và luôn còn khả năng đổi ý. $h$ điều khiển một đánh đổi liên quan trực tiếp tới câu hỏi thứ hai của khóa luận: $h$ nhỏ thì nhớ lâu nhưng chậm nhận ra người đổi ý; $h$ lớn thì nhạy nhưng hay quên.
-
-\subsection{Hạn chế của giả định độc lập và phát xạ có điều kiện}
-
-HMM chuẩn giả định các quan sát độc lập với nhau khi biết trạng thái ẩn. Với chuyển động người, giả định này sai: hai frame liên tiếp của bàn tay gần như trùng nhau. Hệ quả có thể thấy rõ trong không gian log-odds. Gọi $\lambda_t=\log\frac{b_t(g^\star)}{b_t(g')}$ là log-odds giữa hai ý định. Bỏ qua bước chuyển, mỗi bước cập nhật cộng thêm
-\begin{equation}
-  \lambda_t=\lambda_{t-1}+\log\frac{P(x_t\mid g^\star)}{P(x_t\mid g')}.
-  \label{eq:logodds}
-\end{equation}
-Nếu người giữ yên một tư thế chỉ tay trong 20 frame, mô hình giả định độc lập sẽ cộng cùng một bằng chứng 20 lần, và tự tin quá nhanh, dù thực chất chỉ có một lần chỉ tay. Để khắc phục, \textbf{input-output HMM}~\cite{bengio1995iohmm} cho phát xạ và chuyển trạng thái phụ thuộc vào đầu vào. Với khóa luận, phát xạ được điều kiện theo quan sát trước, $P(x_t\mid z_t,x_{t-1})$, nên chỉ phần \emph{thay đổi mới} mới được tính là bằng chứng.
-
-\subsection{Bộ lọc học được và khả năng nhận dạng}
-
-Khi quan sát là ảnh hay tập điểm, phát xạ không viết được hoàn toàn bằng tay. Các mô hình thế giới học được thay nó bằng mạng nơ-ron và giữ cấu trúc lọc: PlaNet~\cite{hafner2019planet} dùng một mô hình không gian trạng thái hồi quy, DreamerV2~\cite{hafner2021dreamerv2} dùng biến ẩn rời rạc. Trạng thái ẩn của chúng tóm tắt được quá khứ nhưng không mang nghĩa ``người muốn vật nào''. Đây không phải lỗi cài đặt. Locatello và cộng sự~\cite{locatello2019challenging} chứng minh rằng không có thiên kiến quy nạp trên cả mô hình lẫn dữ liệu thì học không giám sát không thể bảo đảm tách đúng các yếu tố mong muốn. Vì vậy, muốn trạng thái ẩn \emph{là} ý định, cấu trúc phải được đưa vào mô hình: trạng thái là con trỏ tới một đối tượng thấy được như trong~\eqref{eq:intent-def}, và phát xạ có dạng hợp lý~\eqref{eq:boltzmann-gauss}. TNT~\cite{zhao2020tnt} cho một bằng chứng thực nghiệm cùng chiều trong dự đoán quỹ đạo: dùng một tập trạng thái đích tường minh cho kết quả tốt hơn các phương pháp coi ý định là biến ẩn rồi lấy mẫu lúc chạy. Để bất biến với thứ tự các đối tượng và chạy được với số đối tượng thay đổi, các thành phần tính trên đối tượng dùng kiến trúc trên tập hợp~\cite{zaheer2017deepsets}.
-
-% =====================================================================================================
-\section{Các vấn đề khi chính sách dùng ý định dự đoán}
-\label{sec:bg-problems}
-
-Đưa ý định dự đoán vào chính sách không chỉ đem lại lợi ích. Mục này phân tích sáu vấn đề có thể gặp. Với mỗi vấn đề, chúng tôi nêu nền tảng lý thuyết dùng để phân tích và xử lý nó. Các vấn đề này là nội dung của câu hỏi thứ hai của khóa luận.
-
-\subsection{Dự đoán sai và tự tin quá mức}
-
-Một bộ dự đoán nói ``90\%'' nhưng chỉ đúng 60\% sẽ làm robot cam kết sai chỗ. Guo và cộng sự~\cite{guo2017calibration} chỉ ra rằng các mạng nơ-ron hiện đại thường hiệu chỉnh kém, và đo mức lệch bằng \textbf{sai số hiệu chỉnh kỳ vọng}:
-\begin{equation}
-  \mathrm{ECE}=\sum_{m=1}^{M}\frac{|B_m|}{n}\,\big|\,\mathrm{acc}(B_m)-\mathrm{conf}(B_m)\,\big|,
-  \label{eq:ece}
-\end{equation}
-trong đó $n$ dự đoán được chia thành $M$ nhóm $B_m$ theo độ tin, $\mathrm{acc}(B_m)$ là tỉ lệ đúng và $\mathrm{conf}(B_m)$ là độ tin trung bình của nhóm. Với một bộ lọc Bayes, niềm tin là xác suất hậu nghiệm thật \emph{nếu mô hình đúng}. Vì vậy, hiệu chỉnh kém là dấu hiệu trực tiếp của mô hình phát xạ sai dạng, và chỉ ra chỗ cần sửa.
-
-Câu hỏi đi kèm là cần bao nhiêu bằng chứng thì mới chắc. Lấy kỳ vọng của~\eqref{eq:logodds} khi ý định thật là $g^\star$, mỗi bước log-odds tăng trung bình một lượng bằng phân kỳ KL giữa hai mô hình phát xạ, $D_t=\mathrm{KL}\big(P(x_t\mid g^\star)\,\|\,P(x_t\mid g')\big)\ge0$. Theo kiểm định tỉ số tuần tự~\cite{wald1945sequential}, muốn đạt độ tin $1-\alpha$, tức log-odds đạt $\log\frac{1-\alpha}{\alpha}$, thì số bước cần xấp xỉ là thời điểm đầu tiên thỏa
-\begin{equation}
-  \sum_{s\le t}D_s\;\ge\;\log\frac{1-\alpha}{\alpha}-\log\frac{b_0(g^\star)}{b_0(g')}.
-  \label{eq:sprt}
-\end{equation}
-Ví dụ, với tiên nghiệm đều và $\alpha=0.05$, vế phải là $\log 19\approx2.94$; nếu mỗi frame cho trung bình $0.1$ nats bằng chứng thì cần khoảng 30 frame, tức 3\,s ở 10\,Hz. Nếu quy trình nhiệm vụ cho tiên nghiệm gấp đôi về phía đích đúng, vế phải giảm còn $2.94-\log2\approx2.25$, tương ứng khoảng 23 frame. Phương trình~\eqref{eq:sprt} cho ba hệ quả kiểm chứng được:
-\begin{itemize}
-  \item hai đích gần nhau cho phát xạ gần giống nhau, $D_t$ nhỏ, nên cần nhiều frame hơn;
-  \item tiên nghiệm tốt từ quy trình nhiệm vụ làm giảm số frame cần;
-  \item không mô hình nào chắc được trước khi người cử động, vì khi đó $D_t\approx0$. Điều này đặt giới hạn cho mọi luận điểm về ``dự đoán sớm''.
-\end{itemize}
-
-\subsection{Người đổi ý}
-
-Người có thể chỉ hộp này rồi đổi sang hộp khác. Với~\eqref{eq:sticky}, tính chất~\eqref{eq:sticky-ceiling} bảo đảm niềm tin luôn còn chỗ để chuyển sang đích mới. Cùng phép tính~\eqref{eq:sprt} cho biết thời gian để niềm tin chuyển sang đích mới, với tiên nghiệm là niềm tin ngay trước lúc người đổi ý. Mô hình điểm đổi~\cite{fearnhead2007online} cho phép học $h$ từ dữ liệu thay vì đặt bằng tay.
-
-\subsection{Nhiễu nhận thức}
-
-Trên dữ liệu thật, keypoint 3D ước lượng từ video có nhiễu đuôi dày: phần lớn frame lệch vài centimet, nhưng có frame lệch hàng chục centimet do lỗi depth hay nhầm khớp (số đo cụ thể ở Chương~\ref{chap:experiments}). Với phát xạ Gauss~\eqref{eq:boltzmann-gauss}, một frame như vậy là một bằng chứng cực lớn. Chẳng hạn, với $\sigma=2$\,cm, một bước nhảy sai $0.5$\,m có log-likelihood cỡ $-\frac{0.5^2}{2\cdot0.02^2}\approx-312$ nats, và chỉ một khác biệt nhỏ về hướng giữa hai đích cũng làm log-odds trong~\eqref{eq:logodds} nhảy hàng chục tới hàng trăm nats. Cách xử lý chuẩn trong thị giác máy tính là mô hình likelihood gồm phần inlier và phần ngoại lai, như MLESAC~\cite{torr2000mlesac}:
-\begin{equation}
-  P(x\mid g)=(1-\epsilon)\,P_{\text{inlier}}(x\mid g)+\epsilon\,P_{\text{out}}(x),
-  \label{eq:robust}
-\end{equation}
-trong đó $\epsilon$ là tỉ lệ ngoại lai. Phần ngoại lai không phụ thuộc $g$, nên khi một frame là ngoại lai, cả tử và mẫu của tỉ số trong~\eqref{eq:logodds} đều bị phần này chi phối, và frame đó gần như không mang bằng chứng. MLESAC dùng phân phối đều cho ngoại lai; khóa luận dùng một Gauss rộng học được để phát xạ vẫn là mật độ chuẩn hóa trên toàn không gian.
-
-\subsection{Chính sách bỏ qua, hoặc lệ thuộc quá mức vào ý định}
-
-Đưa ý định vào đầu vào không bảo đảm chính sách dùng nó. Nếu ảnh đã đủ để bắt chước phần lớn hành động, chính sách có thể bỏ qua kênh ý định. Ngược lại, nó có thể bám vào kênh ý định như một lối tắt và bỏ qua những gì người đang làm. Cả hai là biến thể của nhầm lẫn nhân quả~\cite{dehaan2019causal}. Một hiện tượng tương tự đã được biết trong các mô hình biến ẩn có bộ giải mã mạnh: bộ giải mã tự giải thích được dữ liệu nên bỏ qua biến ẩn~\cite{bowman2016generating,chen2017vlae}. Cách kiểm đáng tin là can thiệp: \emph{hoán đổi} hoặc \emph{loại bỏ} ý định đưa vào, rồi đo hành vi thay đổi thế nào. Đây là nội dung của RQ1.1.
-
-\subsection{Lệch phân phối của niềm tin}
-
-Khi huấn luyện, chính sách thấy niềm tin tính trên dữ liệu trình diễn; khi chạy, nó thấy niềm tin của bộ dự đoán trên người mới, có thể sai hoặc trễ. Đây là lệch phân phối cùng loại với lệch trạng thái của nhân bản hành vi~\cite{ross2011dagger}, nhưng xảy ra ở kênh đầu vào ý định. Cách xử lý theo tinh thần DART~\cite{laskey2017dart} là làm nhiễu niềm tin một cách có kiểm soát khi sinh dữ liệu (đổi đích, làm phẳng, làm trễ), để chính sách thấy cả những niềm tin lệch và hành động phục hồi tương ứng. Ngoài ra, niềm tin dùng khi huấn luyện phải được tính trên những episode mà bộ dự đoán chưa thấy, để không lạc quan hơn lúc chạy.
-
-\subsection{Ai sửa sai: bộ dự đoán hay chính sách}
-
-Khi ý định dự đoán sai, có hai cơ chế sửa. Cơ chế thứ nhất là \emph{bộ dự đoán tự sửa}: bằng chứng mới đi vào~\eqref{eq:forward} và kéo niềm tin về đích đúng. Với một bộ lọc Bayes, thời gian tự sửa dự đoán được từ~\eqref{eq:sprt}: nếu niềm tin bị đặt sai với độ tin $c$ cho đích sai, log-odds ban đầu của đích đúng là khoảng $-\log\frac{c}{1-c}$, và bộ lọc cần tích lũy đủ bằng chứng để bù phần này. Cơ chế thứ hai là \emph{chính sách sửa}: một chính sách vòng kín thấy người vẫn làm khác dự đoán và điều chỉnh hành động. Điều này chỉ xảy ra nếu dữ liệu huấn luyện có những tình huống như vậy (mục trên). Điều khiển chia sẻ đã có tiền lệ cho câu hỏi này dưới dạng phân xử theo độ tin~\cite{dragan2013blending}. Khóa luận tách hai cơ chế bằng thí nghiệm: làm sai niềm tin có kiểm soát, rồi đo riêng thời gian niềm tin tự quay về đích đúng và khả năng chính sách phục hồi khi niềm tin bị giữ sai.
-
-% =====================================================================================================
-\section{Học biểu diễn bằng dự đoán}
-\label{sec:bg-predictive}
-
-Phát xạ hợp lý~\eqref{eq:boltzmann-gauss} chỉ dùng tín hiệu của từng bước. Một số khác biệt giữa các ý định chỉ lộ ra ở hệ quả xa hơn: vật nào được nhấc, ai cầm nó, nó đi đâu. Học biểu diễn bằng dự đoán cho loại tín hiệu dài hạn này. Kiến trúc dự đoán nhúng chung (JEPA) dự đoán \emph{biểu diễn} của phần đích từ phần ngữ cảnh, thay vì dự đoán điểm ảnh~\cite{assran2023ijepa}:
-\begin{equation}
-  \mathcal{L}_{\text{JEPA}}=\big\|\,g_\phi\big(f_\theta(x_{\text{ctx}}),\,c\big)-\mathrm{sg}\big(\bar f(x_{\text{tgt}})\big)\big\|,
-  \label{eq:jepa}
-\end{equation}
-trong đó $f_\theta$ là bộ mã hóa, $g_\phi$ là bộ dự đoán, $c$ mô tả phần đích, $\bar f$ là bộ mã hóa đích và $\mathrm{sg}$ là phép dừng gradient. Vì không phải tái tạo chi tiết, biểu diễn tập trung vào phần dự đoán được. Với video, V-JEPA~\cite{bardes2024vjepa} cho thấy dự đoán trong không gian đặc trưng tốt hơn dự đoán điểm ảnh khi đánh giá với bộ mã hóa đóng băng, và giảm ít hơn khi bớt nhãn. Với skeleton, S-JEPA~\cite{abdelfattah2024sjepa} lập luận rằng tái tạo tọa độ khớp tốn năng lực vào những tọa độ có thể nhiễu, và dự đoán biểu diễn thay vào đó cho kết quả tốt hơn. Cả hai kết quả phù hợp với dữ liệu keypoint ước lượng của khóa luận.
-
-Nếu chỉ cực tiểu hóa~\eqref{eq:jepa}, có một lời giải tầm thường: mọi đầu vào cho cùng một biểu diễn. VICReg~\cite{bardes2022vicreg} chống sụp bằng cách giữ phương sai của từng chiều trên một ngưỡng và giảm hiệp phương sai giữa các chiều. Khi trạng thái là mã rời rạc~\cite{vandenoord2017vqvae}, có thêm một kiểu sụp là chỉ vài mã được dùng. Với $\bar p$ là phân phối gán mã trung bình trên một batch và $p_n$ là phân phối gán mã của mẫu $n$,
-\begin{equation}
-  \mathcal{L}_{\text{state}}=\lambda_{\text{occ}}\,\mathrm{KL}\big(\bar p\,\big\|\,\mathcal{U}\big)
-  +\lambda_{\text{ent}}\,\frac{1}{B}\sum_n H\big(p_n\big)
-  \label{eq:state-reg}
-\end{equation}
-buộc toàn batch dùng đủ các mã (số hạng thứ nhất) và từng mẫu gán mã dứt khoát (số hạng thứ hai). Cuối cùng, không phải mọi thông tin của quá khứ đều có ích cho tương lai: thông tin dự đoán~\cite{bialek2001predictability} và nút thắt thông tin~\cite{alemi2017vib} cho nguyên lý chỉ giữ phần dự đoán được. Một preprint gần đây~\cite{huang2026jepahmm} phân tích hình thức mối liên hệ giữa JEPA xác suất và HMM. Bài chỉ thử nghiệm trên dữ liệu tổng hợp, nên khóa luận chỉ dẫn nó như một cầu nối giữa hai hướng, không làm cơ sở lý thuyết.
-
-% =====================================================================================================
-\section{Nhận thức người và vật từ video}
-\label{sec:bg-perception}
-
-Mô hình ý định nhận đầu vào là tập điểm và vật trong không gian 3D. Để có đầu vào đó từ video, cần ba loại công cụ có sẵn trọng số công khai:
-\begin{itemize}
-  \item \textbf{Keypoint toàn thân 2D.} Bộ COCO-WholeBody gồm 133 điểm, trong đó 21 điểm cho mỗi bàn tay. ViTPose~\cite{xu2022vitpose} là một mô hình đã qua phản biện cho bài toán này. Khóa luận dùng RTMW~\cite{jiang2024rtmw} vì chạy nhanh, và ghi rõ RTMW là một báo cáo kỹ thuật.
-  \item \textbf{Depth đơn mắt có thang mét.} HABIT chỉ có ảnh RGB, không có thông số camera. Depth Pro~\cite{bochkovskii2025depthpro} và MoGe-2~\cite{wang2025moge2} ước lượng depth theo mét và cả tiêu cự từ một ảnh.
-  \item \textbf{Phát hiện vật theo tên.} Grounding DINO~\cite{liu2024groundingdino} phát hiện vật theo câu mô tả, không cần huấn luyện riêng cho từng loại vật.
-\end{itemize}
-Để đánh giá thời điểm, cần xác định onset của chuyển động. Botzer và Karniel~\cite{botzer2009onset} cho thấy cách đặt ngưỡng tốc độ mà nhiều nghiên cứu dùng là đơn giản nhưng không chính xác.
-
-% =====================================================================================================
-\section{Benchmark và bộ dữ liệu cho tương tác người -- robot}
-\label{sec:bg-benchmark}
-
-\subsection{Hiện trạng}
-
-Bảng~\ref{tab:bg-datasets} tóm tắt các nguồn dữ liệu và benchmark gần với bài toán của khóa luận. Chúng chia thành bốn nhóm.
-
-\begin{table}[H]
-  \centering
-  \caption{Các bộ dữ liệu và benchmark liên quan, theo những gì khóa luận cần}
-  \label{tab:bg-datasets}
-  \small
-  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.4cm}@{}}
-    \toprule
-    Nguồn & Loại & Nội dung & Thiếu với khóa luận \\
-    \midrule
-    HABIT~\cite{song2026habit} & thật & 10\,000+ episode robot hai tay có người, ba vai & không có nhãn ý định tường minh, không có depth \\
-    CoMaD / InteRACT~\cite{kedia2024interact} & thật (mocap) & cộng tác người -- người và người -- robot trong việc nhà & không có tình huống ý định sai \\
-    CHICO~\cite{sampieri2022chico} & thật & 20 người cùng cobot, 7 hành động công nghiệp, 226 va chạm & dự đoán tư thế, không phải đích \\
-    HOH~\cite{wiederhold2023hoh} & thật & 2\,720 lần trao vật giữa hai người, 136 vật & không có robot \\
-    HandoverSim~\cite{chao2022handoversim} & mô phỏng & trao vật người -- robot, người điều khiển bằng mocap & một loại tương tác, người không đổi ý \\
-    Habitat 3.0~\cite{puig2024habitat3} & mô phỏng & người ảo và robot trong nhà, có người thật điều khiển & điều hướng và sắp xếp, không phải thao tác trên bàn \\
-    Ego4D, EPIC-KITCHENS~\cite{grauman2022ego4d,damen2022epic} & thật & video góc nhìn thứ nhất, dự đoán hành động sắp tới & không có robot, góc nhìn khác \\
-    robosuite, LIBERO~\cite{zhu2020robosuite,liu2023libero} & mô phỏng & benchmark thao tác cho chính sách học & không có người \\
-    HRIBench~\cite{liu2026hribench} & mô phỏng & chia vai, chỉ số đồng bộ, phản hồi, an toàn & preprint \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
+\section{Phối hợp hành động trong HRC}
 
 \begin{itemize}
-  \item \textbf{Dữ liệu người -- robot thật} (HABIT, CoMaD) có người thật nhưng không được thiết kế để kiểm ý định: không có nhãn đích, không có tình huống mơ hồ có chủ đích, không có ý định sai.
-  \item \textbf{Dữ liệu chuyển động người} (CHICO, HOH, Ego4D, EPIC-KITCHENS) phục vụ dự đoán chuyển động hay hành động của người, không đánh giá chính sách robot.
-  \item \textbf{Mô phỏng có người} (HandoverSim, Habitat 3.0) cho phép đánh giá lặp lại được. HandoverSim báo cáo kết quả các baseline trong mô phỏng tương quan với đánh giá thật; Habitat 3.0 cho thấy đánh giá với người ảo cho thứ tự gần đúng của các chính sách khi đánh giá với người thật. Tuy nhiên, người ảo trong các benchmark này không ra hiệu mơ hồ và không đổi ý.
-  \item \textbf{Benchmark thao tác} (robosuite, LIBERO) là chuẩn để so sánh các chính sách học bắt chước, nhưng không có người.
+    \item HRC được xem xét dưới góc độ Joint Action, trong đó các hành động phụ thuộc lẫn nhau và cần phối hợp theo không gian, thời gian.
+    \href{https://doi.org/10.1016/j.tics.2005.12.009}{Sebanz et al. (2006)}.
+
+    \item Dựa trên sự khác biệt về vai trò, quan hệ phụ thuộc và yêu cầu phối hợp, nghiên cứu giới hạn phạm vi vào ba dạng nhiệm vụ tương tác.
+    \href{https://arxiv.org/abs/2607.13056}{HRIBench -- Liu et al. (2026)}.
 \end{itemize}
 
-\subsection{Nguyên tắc đo trong tương tác người -- robot}
 
-Thiếu một bộ chỉ số chung làm các nghiên cứu tương tác người -- robot khó so sánh. Để khắc phục điều này, Steinfeld và cộng sự~\cite{steinfeld2006metrics} đề xuất một bộ chỉ số chung cho tương tác hướng nhiệm vụ. Hoffman~\cite{hoffman2019fluency} bổ sung các chỉ số trôi chảy cho cộng tác~\eqref{eq:fluency}. Về an toàn, ISO/TS 15066~\cite{iso15066} quy định các giới hạn cho robot cộng tác, và Lasota và cộng sự~\cite{lasota2017survey} tổng quan các phương pháp an toàn, trong đó có dự đoán người. Ba nguồn này cho bộ khung đo của khóa luận: chỉ số thời gian (chính), chỉ số đúng đích, và chỉ số an toàn.
+\section{Đồng bộ tiến độ và hành động có tính dự kiến}
 
-\subsection{Yêu cầu của một benchmark có yếu tố ý định}
-
-Tổng hợp các mục trước, một benchmark muốn trả lời ba câu hỏi của khóa luận cần thỏa sáu yêu cầu:
-\begin{enumerate}
-  \item \textbf{Mơ hồ có chủ đích.} Có các đích đủ gần nhau để quan sát giống nhau trong một khoảng thời gian. Theo~\eqref{eq:sprt}, chỉ khi đó mới đo được lợi ích của dự đoán sớm và cái giá của dự đoán sai.
-  \item \textbf{Nhãn ý định có thời điểm.} Mỗi episode ghi đích, lúc cử chỉ bắt đầu (onset) và lúc ý định rõ (clear), để đo độ sớm và độ trễ phản hồi theo~\eqref{eq:fluency}.
-  \item \textbf{Tình huống ý định sai và đổi ý.} Có người đổi ý thật, và có phép làm sai niềm tin có kiểm soát, để tách việc bộ dự đoán tự sửa với việc chính sách sửa (Mục~\ref{sec:bg-problems}).
-  \item \textbf{Chia vai theo một hệ phân loại.} Các tình huống được gắn với vai (chỉ dẫn, cộng tác, làm việc cạnh nhau) để kết quả so sánh được với các nghiên cứu khác~\cite{onnasch2021taxonomy,song2026habit}.
-  \item \textbf{Đánh giá ghép cặp.} Mọi chính sách chạy trên cùng các episode và cùng hạt giống ngẫu nhiên, để so sánh bằng khác biệt ghép cặp và khoảng tin cậy thay vì so các trung bình rời.
-  \item \textbf{Mô phỏng và thật.} Mô phỏng cho quy mô và khả năng kiểm soát; dữ liệu thật để kiểm xem kết luận còn đúng không. Kết quả mô phỏng quá tốt phải được kiểm lại trên dữ liệu thật, vì người mô phỏng có thể để lộ ý định theo cách người thật không làm. Khoảng cách mô phỏng -- thật được thu hẹp bằng ngẫu nhiên hóa miền~\cite{tobin2017domain} và bằng đầu vào không phụ thuộc điểm ảnh (token trong hệ tọa độ bàn).
-\end{enumerate}
-Bộ dữ liệu của khóa luận được xây theo đúng sáu yêu cầu này: đa số episode trong mô phỏng để có quy mô và khả năng kiểm soát, và khoảng 100 episode thật để kiểm chứng.
-
-% =====================================================================================================
-\section{Thiết lập cốt lõi: từ vấn đề tới thành phần của hệ thống}
-\label{sec:bg-limitations}
-
-Nếu gom các phân tích trên lại, điều gì thực sự là cốt lõi của bài toán? Cốt lõi nằm ở chỗ chính sách cần đúng \emph{một loại} thông tin mà nó không tự có, là niềm tin về ý định~\eqref{eq:belief-policy}, và thông tin đó phải \emph{đáng tin} theo nghĩa xác suất. Từ đó suy ra ba thiết lập cốt lõi của khóa luận:
 \begin{itemize}
-  \item \textbf{Giao diện là niềm tin, không phải lịch sử thô hay nhãn cứng}, vì niềm tin là thống kê đủ dưới giả định MOMDP, tránh được copycat, và cho phép hành động theo phân phối như~\eqref{eq:hindsight}.
-  \item \textbf{Niềm tin được tính bằng một bộ lọc Bayes có cấu trúc}: trạng thái là con trỏ tới đối tượng, phát xạ là mô hình hợp lý đã chuẩn hóa, có điều kiện theo bước trước và chịu được ngoại lai, chuyển trạng thái có hazard. Nhờ vậy, mỗi tham số có nghĩa, và khi kết quả xấu thì biết thành phần nào phải sửa.
-  \item \textbf{Đánh giá bằng can thiệp và bằng chỉ số của cộng tác}: hoán đổi hay làm sai niềm tin để kiểm chính sách có dùng nó không và ai sửa sai; đo bằng các chỉ số trôi chảy trên một benchmark có mơ hồ và có ý định sai.
+    \item Hiệu quả cộng tác được xem xét qua thời gian chờ, hoạt động đồng thời và thời gian hoàn thành nhiệm vụ, thay vì chỉ tỷ lệ thành công.
+    \href{https://doi.org/10.1109/THMS.2019.2904558}{Hoffman (2019)}.
+
+    \item Hành động có tính dự kiến giúp robot chuẩn bị trước những công đoạn có thể thực hiện song song, nhưng phải cân nhắc độ chắc chắn và rủi ro của quyết định sớm.
+    \href{https://doi.org/10.1145/1228716.1228718}{Hoffman \& Breazeal (2007)}.
 \end{itemize}
 
-\begin{table}[H]
-  \centering
-  \caption{Vấn đề, cơ sở lý thuyết và thành phần tương ứng trong khóa luận}
-  \label{tab:bg-limitations}
-  \small
-  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.8cm}@{}}
-    \toprule
-    Vấn đề & Cơ sở lý thuyết & Trong khóa luận \\
-    \midrule
-    W1 ý định không nằm trong frame & POMDP, niềm tin là thống kê đủ~\cite{kaelbling1998planning,ong2010momdp} & chính sách nhận $b_t(g)$ \\
-    W2 nhiều đáp án ở đầu cử chỉ & QMDP, hindsight optimization~\cite{littman1995learning,javdani2018shared} & expert và chính sách hành động theo phân phối \\
-    W3 lịch sử thô gây copycat & copycat, nhầm lẫn nhân quả~\cite{wen2020copycat,dehaan2019causal} & lịch sử chỉ đi qua $b_t$ \\
-    W4 thời điểm phản hồi & chỉ số trôi chảy~\cite{hoffman2019fluency} & so sánh A, B, D \\
-    ý định cần có nghĩa & bisimulation, khả năng nhận dạng~\cite{givan2003equivalence,locatello2019challenging} & $g=(r,k)$, $k$ trỏ tới đối tượng \\
-    suy ý định từ chuyển động & lập kế hoạch ngược, Boltzmann-rational~\cite{baker2009inverse,ziebart2008maxent} & phát xạ hợp lý có chuẩn hóa~\eqref{eq:boltzmann-gauss} \\
-    quan sát tương quan & input-output HMM~\cite{bengio1995iohmm} & phát xạ có điều kiện theo bước trước \\
-    người đổi ý & hazard, điểm đổi~\cite{fox2011sticky,fearnhead2007online} & ma trận chuyển~\eqref{eq:sticky} \\
-    nhiễu nhận thức đuôi dày & likelihood inlier -- ngoại lai~\cite{torr2000mlesac} & phát xạ~\eqref{eq:robust} \\
-    tự tin quá mức & hiệu chỉnh, kiểm định tuần tự~\cite{guo2017calibration,wald1945sequential} & đo ECE, số frame cần~\eqref{eq:sprt} \\
-    chính sách bỏ qua ý định & can thiệp nhân quả~\cite{dehaan2019causal} & hoán đổi / loại bỏ ý định (RQ1.1) \\
-    lệch phân phối niềm tin & DAgger, DART~\cite{ross2011dagger,laskey2017dart} & làm nhiễu niềm tin khi sinh demo \\
-    ai sửa sai & lọc Bayes, phân xử theo độ tin~\cite{dragan2013blending} & làm sai niềm tin có kiểm soát \\
-    benchmark có yếu tố ý định & chỉ số chung, trôi chảy, an toàn~\cite{steinfeld2006metrics,hoffman2019fluency,iso15066} & dataset mô phỏng + khoảng 100 episode thật \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
 
-Bảng~\ref{tab:bg-limitations} tóm tắt mạch của chương. Khóa luận không cần một chính sách mới. Nó cần đưa đúng loại thông tin vào một chính sách có sẵn, tính thông tin đó bằng một bộ lọc có cơ sở để biết khi nào nó đúng và khi nào nó sai, và đo kết quả bằng các chỉ số của cộng tác trên một benchmark được thiết kế để làm lộ cả lợi ích lẫn rủi ro. Chương~\ref{chap:method} trình bày hệ thống theo đúng mạch này.
+\section{Suy luận ý định và dự đoán chuyển động người}
+
+\begin{itemize}
+    \item Ý định có thể được suy ra trước khi hành động hoàn tất từ các tín hiệu quan sát, nhưng thời điểm nhận biết phụ thuộc vào tính phân biệt của tín hiệu.
+    \href{https://arxiv.org/abs/2502.11752}{Khanna et al. (2025)}.
+
+    \item Dự đoán chuyển động cung cấp quỹ đạo tương lai, trong khi việc xác định mục tiêu hoặc hành động có ý nghĩa nhiệm vụ còn cần thông tin ngữ cảnh.
+    \href{https://arxiv.org/abs/2604.03065}{Bulanti et al. (2026)}.
+
+    \item ManiCast cho thấy dự đoán cần ưu tiên những chuyển động có ảnh hưởng đến quyết định robot, thay vì chỉ giảm sai số quỹ đạo trung bình.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{Kedia et al. (2023)}.
+\end{itemize}
+
+
+\section{Học chính sách hành động cộng tác từ trình diễn}
+
+\begin{itemize}
+    \item Học bắt chước cho phép robot tiếp thu hành vi chuyên gia từ trình diễn khi khó mô tả đầy đủ các quy tắc điều khiển.
+    \href{https://doi.org/10.1016/j.robot.2008.10.024}{Argall et al. (2009)}.
+
+    \item ACT học các chuỗi hành động liên tục từ quan sát, cung cấp nền tảng cho chính sách thao tác robot.
+    \href{https://roboticsproceedings.org/rss19/p016.html}{Zhao et al. (2023)}.
+
+    \item Hành vi phối hợp cũng có thể được học trực tiếp từ trình diễn cộng tác, không nhất thiết cần biểu diễn ý định tường minh.
+    \href{https://arxiv.org/abs/2305.12171}{Ng et al. -- Diffusion Co-Policy}.
+
+    \item Tuy nhiên, chính sách học từ trình diễn có thể hỗ trợ sai thời điểm khi action chunk vượt qua giai đoạn chuyển tiếp của nhiệm vụ.
+    \href{https://arxiv.org/abs/2606.12475}{Xu et al. (2026)}.
+
+    \item Sai số của chính sách có thể tích lũy trong quá trình thực thi, đòi hỏi bổ sung dữ liệu từ các trạng thái robot tự gặp phải.
+    \href{https://proceedings.mlr.press/v15/ross11a.html}{Ross et al. (2011) -- DAgger}.
+\end{itemize}
+
+
+\section{Tổng hợp và khoảng trống nghiên cứu}
+
+\begin{itemize}
+    \item Các nghiên cứu đã chứng minh tiềm năng của dự đoán chuyển động trong lập kế hoạch và học hành vi cộng tác từ trình diễn, nhưng chưa trực tiếp xác lập hiệu quả của việc đưa dự đoán ManiCast vào một chính sách ACT để học phối hợp theo tiến độ.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{ManiCast};
+    \href{https://roboticsproceedings.org/rss19/p016.html}{ACT};
+    \href{https://arxiv.org/abs/2305.12171}{Diffusion Co-Policy}.
+
+    \item Vấn đề nghiên cứu 1: Học khai thác dự đoán chuyển động để robot hành động sớm có ích, giảm thời gian người chờ và thời gian nhiệm vụ.
+    \href{https://doi.org/10.1145/1228716.1228718}{Hoffman \& Breazeal (2007)}.
+
+    \item Vấn đề nghiên cứu 2: Học điều chỉnh hành động khi dự đoán không phù hợp với quan sát thực tế, hướng đến duy trì khả năng hoàn thành nhiệm vụ khi dự đoán sai hoặc người đổi ý.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{ManiCast};
+    \href{https://proceedings.mlr.press/v15/ross11a.html}{DAgger}.
+\end{itemize}

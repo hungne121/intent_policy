@@ -10,16 +10,3 @@
 % Giữ giọng văn trung tính; điều riêng tư ghi ở LỜI NÓI ĐẦU.
 \frontpage{TÓM TẮT}
 
-Các chính sách học bắt chước như ACT điều khiển tay máy chính xác khi robot làm việc một mình. Khi robot làm việc cùng con người, robot còn phải hiểu người muốn gì và phản hồi đúng lúc. ACT ra quyết định từ một frame, nên không nhớ những gì người đã ra hiệu, không đoán được đích trước khi cử chỉ kết thúc, và không biết tay người đang tới hay đang lùi. Các bộ nhận biết ý định phổ biến lại là bộ nhận dạng lệnh: chúng chỉ cho kết quả khi người đã ra hiệu đủ rõ.
-
-Khóa luận đề xuất mô hình ý định PIF (Predictive Intent Filter) để bổ sung cho ACT ba thứ còn thiếu: bộ nhớ, dự đoán sớm và tín hiệu chuyển động. PIF giữ một phân phối niềm tin trên các cặp (quan hệ, đối tượng), cập nhật đệ quy theo cấu trúc lọc của mô hình Markov ẩn với xác suất giữ ý định học được. PIF được huấn luyện bằng cách dự đoán tương lai của các đối tượng và tay người, không cần nhãn ý định. Bộ dự đoán chỉ thấy frame hiện tại, nên mọi thông tin về quá khứ buộc phải đi qua niềm tin.
-
-Đầu vào của PIF là token người (11 khớp), token đối tượng và token robot trong hệ tọa độ bàn, dùng chung cho mô phỏng, dữ liệu người thật và hệ thật. Khóa luận làm trên dữ liệu người thật HABIT trước, với ba task thuộc ba vai tương tác. Một pipeline nhận thức chuyển video RGB thành token 3D, với các mô hình đã công bố được chọn bằng số đo.
-
-Các kết quả chính đến thời điểm viết:
-\begin{itemize}
-  \item pipeline nhận thức đạt sai số khoảng cách giữa hai hộp kề nhau có trung vị 0.58\,cm, so với mốc đo từ động học robot;
-  \item luật suy nhãn cho ba task HABIT được kiểm chứng trên video, với ngưỡng tay kẹp đo từ dữ liệu, và các giới hạn của dữ liệu được chỉ rõ;
-  \item mô hình PIF được cài đặt đầy đủ cùng 21 kiểm thử tự động; dữ liệu mô phỏng 559 episode được bổ sung các trường cần cho PIF. Kết quả huấn luyện PIF đang chờ dữ liệu.
-\end{itemize}
-Các kết quả này tạo nền cho việc đánh giá PIF trên người thật, rồi nối PIF vào ACT để trả lời câu hỏi thông tin ý định có giúp robot phản hồi sớm và chính xác hơn hay không.
