@@ -1,4 +1,4 @@
-# Đối chiếu hồ sơ — 19/11/2026 20:02
+# Đối chiếu hồ sơ — 19/11/2026 20:03
 
 Sinh tự động bởi `./run.sh scripts/ho_so.py kiem`. Mục A, B cần người dùng xem; mục C–F là việc của agent.
 
@@ -37,7 +37,7 @@ Thứ tự áp dụng theo quy chế §6: cấp cao trước, cùng cấp thì v
 
 ## C. Lỗi sổ
 
-- `QD-HL-24` sửa `QD-HL-23` nhưng `QD-HL-23` còn ghi `hieu_luc` (phải là da_sua)
+- Không có.
 
 ## D. Cảnh báo
 

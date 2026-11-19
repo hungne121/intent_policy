@@ -2807,6 +2807,5 @@ van_ban:
     chu_de: [train, policy_test]
     trang_thai: hieu_luc
     can_cu: [QD-HL-19, QD-HL-20, QD-HL-21, QD-HL-22, QD-HL-23]
-    sua: [QD-HL-23]
     noi_luu: docs/ho_so/03_train/QD-HL-24_chot_uu_tien_sau_M_star_60k.md
 

@@ -1,7 +1,7 @@
 # 24/QĐ-HL — Quyết định: chốt ưu tiên sau M* 60k, wrong commit, ba mức success (19/11/2026)
 
 **Ban hành:** người dùng (dán vào chat), 19/11/2026 19:5x. **Ghi:** agent, 2026-11-19 20:00. **Cấp:** 2. **Phiên bản:** 1.
-**Căn cứ:** 19/QĐ-HL đến 23/QĐ-HL. **Sửa:** 23/QĐ-HL (cụ thể hoá; N5 vẫn chưa duyệt).
+**Căn cứ:** 19/QĐ-HL đến 23/QĐ-HL. **Cụ thể hoá** 23/QĐ-HL (không thay thế; N5 vẫn chưa duyệt).
 
 ## Toàn văn (người dùng ban hành, giữ nguyên nội dung)
 
