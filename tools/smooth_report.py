@@ -58,12 +58,41 @@ def mt(r):
                 disrupted=m.get('disrupted'), t_dis=m.get('t_disruption'), t_rec=m.get('t_recovery'), recovered=m.get('recovered'))
 
 
+def levels(r):
+    """24/QĐ-HL: task success; physics-valid success (and physics_valid); safety-valid success (and no distance violation, no human-robot contact)."""
+    m = r['metrics']
+    t = bool(r['success']); p = t and bool(r['physics_valid'])
+    return dict(task=t, physics=p, safety=p and not m.get('safety_distance_violation') and not m.get('human_robot_contact'))
+
+
+_INFO = {}
+
+
+def commit_check(r):
+    """24/QĐ-HL wrong commit, version 1. Commit boundary = a robot_grasp (the object is attached: the operation cannot be revised
+    without a release), never the final success. Valid label only where the scenario fixes it without the episode outcome:
+      I3 nominal: intended item = scenario info A (scenarios.i3.build(seed)); C1: the k-th grasp must be the cup of the k-th required step.
+    Returns (n_commits, n_wrong, None) or None when no valid label exists (I2: commit = the placement, not logged; N6: the time of the
+    change of mind is not logged, so the intended target at the commit time is not defined)."""
+    grasps = [e for e in r.get('events') or [] if e.get('event') == 'robot_grasp' and e.get('object')]
+    if r['task'] == 'I3' and r['variant'] == 'nominal':
+        key = r['seed']
+        if key not in _INFO:
+            from intent_policy.scenarios import scenario
+            _INFO[key] = scenario('I3').build(r['seed'], 'nominal')[3]['A']
+        return len(grasps), sum(g['object'] != _INFO[key] for g in grasps[:1]), None
+    if r['task'] == 'C1' and r['variant'] == 'nominal':
+        steps = [x.replace('cloth_under_', '') for x in r['metrics'].get('steps_required') or []]
+        return len(grasps[:len(steps)]), sum(g['object'] != steps[k] for k, g in enumerate(grasps[:len(steps)])), None
+    return None
+
+
 runs = {}
 for x in a.run:
     lab, d = x.split('=', 1)
     runs[lab] = (d, load(d))
 keys = sorted({k[:2] + (k[3],) for _, (d, R) in runs.items() for k in R}, key=str)
-L = ['| task / variant / fault | model | n | success | CT s (mean of successes) | useful onset s | response s | AM s | idle s | path m | RMS jerk m/s³ | min dist m | dist. violations | contacts | disrupted | recovered | t_recovery − t_disruption s |', '|' + '---|' * 17]
+L = ['| task / variant / fault | model | n | task success | physics-valid success | safety-valid success | CT s (mean of successes) | useful onset s | response s | AM s | idle s | path m | RMS jerk m/s³ | min dist m | dist. violations | contacts | wrong commit (wrong / commits) | disrupted | recovered | t_recovery − t_disruption s |', '|' + '---|' * 20]
 for key in keys:
     for lab, (d, R) in runs.items():
         eps = [r for k, r in R.items() if (k[0], k[1], k[3]) == key]
@@ -72,9 +101,13 @@ for key in keys:
         ks = [(r, kin(traj(d, r), r), mt(r)) for r in eps]
         succ = [r for r, _, _ in ks if r['success']]
         rec = [(m['t_rec'] - m['t_dis']) for _, _, m in ks if m['t_rec'] is not None and m['t_dis'] is not None]
-        L.append(f"| {key[0]} {key[1]} {key[2] or ''} | {lab} | {len(eps)} | {len(succ)}/{len(eps)} | {f(mean([r['ct_s'] for r in succ]))} | {f(med([m['useful'] for _, _, m in ks]))} | {f(med([m['resp'] for _, _, m in ks]), 2)} | {f(med([m['am'] for _, _, m in ks]))} | "
+        lv = [levels(r) for r in eps]
+        cc = [commit_check(r) for r in eps]
+        cc = [c for c in cc if c is not None]
+        wc = f"{sum(c[1] for c in cc)} / {sum(c[0] for c in cc)}" if cc else 'n/a'
+        L.append(f"| {key[0]} {key[1]} {key[2] or ''} | {lab} | {len(eps)} | {sum(v['task'] for v in lv)}/{len(eps)} | {sum(v['physics'] for v in lv)}/{len(eps)} | {sum(v['safety'] for v in lv)}/{len(eps)} | {f(mean([r['ct_s'] for r in succ]))} | {f(med([m['useful'] for _, _, m in ks]))} | {f(med([m['resp'] for _, _, m in ks]), 2)} | {f(med([m['am'] for _, _, m in ks]))} | "
                  f"{f(med([k['idle'] for _, k, _ in ks]))} | {f(med([k['path'] for _, k, _ in ks]), 2)} | {f(med([k['jerk'] for _, k, _ in ks]), 1)} | {f(min([r['min_robot_person_m'] for r in eps if r['min_robot_person_m'] is not None], default=None), 3)} | "
-                 f"{sum(m['viol'] for _, _, m in ks)}/{len(eps)} | {sum(m['contact'] for _, _, m in ks)}/{len(eps)} | {sum(bool(m['disrupted']) for _, _, m in ks)}/{len(eps)} | {sum(bool(m['recovered']) for _, _, m in ks)}/{len(eps)} | {f(med(rec), 2)} |")
+                 f"{sum(m['viol'] for _, _, m in ks)}/{len(eps)} | {sum(m['contact'] for _, _, m in ks)}/{len(eps)} | {wc} | {sum(bool(m['disrupted']) for _, _, m in ks)}/{len(eps)} | {sum(bool(m['recovered']) for _, _, m in ks)}/{len(eps)} | {f(med(rec), 2)} |")
 txt = '\n'.join(L) + '\n'
 if a.ref:
     txt += f'\n## Paired against {a.ref} (same task / variant / seed / fault)\n\n| task / variant | model | pairs | success {a.ref} | success model | CT difference (both succeed) s | seeds model-only success | seeds ref-only success |\n|---|---|---|---|---|---|---|---|\n'

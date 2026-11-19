@@ -42,6 +42,9 @@ for (t, s), d in sorted(by.items()):
 n = len(by)
 p = 2 * sum(math.comb(sum(disc), k) for k in range(0, min(disc) + 1)) * 0.5 ** sum(disc) if sum(disc) else 1.0
 S = ['| task | n | success true | success masked |', '|---|---|---|---|'] + [f'| {t} | {v[0]} | {v[1]} | {v[2]} |' for t, v in per.items()] + [f'| all | {n} | {n_t} | {n_m} |']
+lv = lambda c: (sum(by[k][c]['success'] for k in by), sum(by[k][c]['success'] and bool(by[k][c]['physics_valid']) for k in by),
+                sum(by[k][c]['success'] and bool(by[k][c]['physics_valid']) and not by[k][c]['metrics'].get('safety_distance_violation') and not by[k][c]['metrics'].get('human_robot_contact') for k in by))
+S.append('\nThree levels (24/QĐ-HL), true: task success %d, physics-valid success %d, safety-valid success %d; masked: %d, %d, %d (of %d).' % (*lv('true'), *lv('masked'), len(by)))
 S.append(f'\nPaired discordant seeds: true-only success {disc[0]}, masked-only success {disc[1]}; exact sign test two-sided p = {p:.4f} (n = {n} pairs, 4 tasks pooled; timeouts counted as failures).')
 # execution check
 chk = []

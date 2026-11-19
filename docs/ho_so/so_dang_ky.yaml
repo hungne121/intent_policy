@@ -2335,7 +2335,7 @@ van_ban:
     trich_yeu: "Khoá 8 metric theo Slide_HRI_English_v10_Learning.pdf slide 10: TSync = |t_R,ready − t_H,ready|, CT = t_success − t_start (chỉ episode thành công), HCS = N_safe / N (không contact người–robot và không vi phạm khoảng cách an toàn), CSR = N_success / N, Rsp = t_response − t_trigger, OC = n_ordered / n_required, DSR = N_recovered / N_disrupted, CFR = N_contactfree / N; TSync, CT, HCS trọng tâm; n/a không đổi thành 0; không loại episode thất bại khỏi CSR / HCS / CFR; mẫu số DSR chỉ episode có disruption; sự kiện ready / response phát hiện từ trạng thái mô phỏng, không dùng cờ expert; ghi 'HRIBench-style metrics adapted for this project; not an exact reproduction of HRIBench.'"
     pham_vi: [tat_ca, M0, M1-noH, M1, M2, M3]
     chu_de: [danh_gia]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     can_cu: [QD-KT-05, QD-KT-06, QD-KT-09]
     noi_luu: docs/ho_so/04_policy_test/QD-KT-10_khoa_8_metric_slide10.md
 
@@ -2579,9 +2579,23 @@ van_ban:
     trich_yeu: "Chốt (chat): mọi đo đạc đánh giá, trừ phần liên quan môi trường mô phỏng và thu dữ liệu, đều dùng chỉ số HRIBench. Agent áp dụng: bảng đánh giá chính của policy chỉ gồm 8 metric của 10/QĐ-KT (TSync, CT, HCS, CSR, Rsp, OC, DSR, CFR) qua tools/benchmark_report.py, ghi HRIBench-style; các số tự đặt (jerk, thời gian đứng yên, đường đi, success ba mức, useful onset, phần dịch theo forecast) chỉ còn là chẩn đoán phụ, không dùng kết luận / so sánh; ngoại lệ: số đo môi trường mô phỏng và thu dữ liệu."
     pham_vi: [policy_test, M_star, M0, M1-noH, M1]
     chu_de: [policy_test]
-    trang_thai: hieu_luc
+    trang_thai: da_sua
     can_cu: [QD-KT-10, QD-HL-25]
     noi_luu: docs/ho_so/04_policy_test/QD-KT-16_chi_so_danh_gia_chuan_HRIBench.md
+
+  - so: QD-KT-17
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-19 20:50"
+    ban_hanh: người dùng
+    trich_yeu: "Chuẩn hoá benchmark theo 10 metric chính thức của HRIBench (arXiv:2607.13056): CSR, CT, IR; TSync, Rsp, OC; CFR, HCS, CIR, DSR; dùng duy nhất để đánh giá và so sánh M*, M0, M1-noH. Yêu cầu: đọc bài báo, Appendix A và mã evaluator chính thức, trích nguồn từng công thức; không tự chế công thức / ngưỡng rồi gắn tên HRIBench, metric chưa xác minh phải báo rõ; cùng định nghĩa và điều kiện chấm cho ba model; physics / contact / safety giữ ở mức kiểm tra kỹ thuật, không đưa chỉ số tự thiết kế vào bảng benchmark; không nới physics; metric không áp dụng ghi N/A không chấm 0; giữ kết quả và log cũ, bảng mới ghi phiên bản evaluator; không test split, không công bố chính thức trước khi xác minh công thức và khoá evaluator. Ưu tiên đối chiếu M* 60k với M0 / M1-noH bằng metric đã xác minh; không train mới. GHI CHÚ agent 20:50: bản arXiv v1 (PDF 11 trang và HTML) không có Appendix A-H và không có link evaluator, công thức 10 metric chưa xác minh được."
+    pham_vi: [policy_test, M_star, M0, M1-noH]
+    chu_de: [policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-10, QD-KT-16, QD-HL-25]
+    sua: [QD-KT-10, QD-KT-16]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-17_chuan_hoa_benchmark_theo_HRIBench_10_metric.md
 
   - so: BC-HL-02
     loai: BC
