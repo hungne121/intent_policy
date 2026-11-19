@@ -1,0 +1,16 @@
+% Tín hiệu train của PIF: lỗi dự đoán theo từng mã -> posterior hindsight (dùng tương lai) -> chưng cất vào niềm tin nhân quả.
+\begin{tikzpicture}[node distance=5mm and 6mm]
+  \node[blk, minimum width=30mm] (lp) {$L_{\text{pred}}(Z)$ cho mọi $Z=(r,k)$\\[-1pt]{\figs lỗi dự đoán tương lai (Hình~\ref{fig:pif-arch})}};
+  \node[part, right=8mm of lp, minimum width=34mm] (w) {Posterior hindsight\\[-1pt]{\figs $w(Z)=\mathrm{softmax}_Z\!\left(-L_{\text{pred}}(Z)/T\right)$}\\[-2pt]{\figs $T$: $1\to0.1$; tách gradient}};
+  \node[blk2, right=17mm of w, minimum width=26mm] (b) {Niềm tin nhân quả\\[-1pt]{\figs $b_t(r,k)$, chỉ dùng $\le t$}};
+  \draw[arr] (lp) -- (w);
+  \draw[arr] (w) -- node[lab, above] {$\mathcal{L}_{\text{filter}}=$} node[lab, below] {$\mathrm{KL}(w\,\|\,b_t)$} (b);
+
+  \node[done, below=7mm of lp, minimum width=30mm] (l1) {$\mathcal{L}_{\text{predict}}=\sum_Z w(Z)\,L_{\text{pred}}(Z)$\\[-1pt]{\figs EM mềm: mã giải thích tốt}\\[-2pt]{\figs nhất được học nhiều nhất}};
+  \node[done, below=7mm of w, minimum width=34mm] (l2) {Chống sụp mã $r$\\[-1pt]{\figs $\lambda_{\text{occ}}\mathrm{KL}(\bar p(r)\,\|\,\mathcal{U})+\lambda_{\text{ent}}\,\overline{H(p(r))}$}};
+  \node[done, below=7mm of b, minimum width=26mm] (l3) {Chống sụp biểu diễn\\[-1pt]{\figs SIGReg trên $\mathbf{e}_t,\mathbf{o}_t$}\\[-2pt]{\figs + nén $\beta\,\mathrm{KL}(b_t\|\mathcal{U})$}};
+  \draw[arr] (lp) -- (l1);
+  \draw[arr] (w) -- (l2);
+  \draw[arr] (b) -- (l3);
+  \node[lab, below=3mm of l2] (tot) {$\mathcal{L}=\mathcal{L}_{\text{predict}}+\lambda_f\mathcal{L}_{\text{filter}}+\lambda_s\mathcal{L}_{\text{SIGReg}}+\mathcal{L}_{\text{state}}+\beta\mathcal{L}_{\text{KL}}$\quad (không dùng nhãn ý định)};
+\end{tikzpicture}

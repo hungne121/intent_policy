@@ -1,0 +1,75 @@
+% !TEX root = ../main.tex
+\chapter[CƠ SỞ LÝ THUYẾT VÀ CÁC NGHIÊN CỨU LIÊN QUAN]{CƠ SỞ LÝ THUYẾT\\VÀ CÁC NGHIÊN CỨU LIÊN QUAN}
+\label{chap:background}
+
+\section{Phối hợp hành động trong HRC}
+
+\begin{itemize}
+    \item HRC được xem xét dưới góc độ Joint Action, trong đó các hành động phụ thuộc lẫn nhau và cần phối hợp theo không gian, thời gian.
+    \href{https://doi.org/10.1016/j.tics.2005.12.009}{Sebanz et al. (2006)}.
+
+    \item Dựa trên sự khác biệt về vai trò, quan hệ phụ thuộc và yêu cầu phối hợp, nghiên cứu giới hạn phạm vi vào ba dạng nhiệm vụ tương tác.
+    \href{https://arxiv.org/abs/2607.13056}{HRIBench -- Liu et al. (2026)}.
+\end{itemize}
+
+
+\section{Đồng bộ tiến độ và hành động có tính dự kiến}
+
+\begin{itemize}
+    \item Hiệu quả cộng tác được xem xét qua thời gian chờ, hoạt động đồng thời và thời gian hoàn thành nhiệm vụ, thay vì chỉ tỷ lệ thành công.
+    \href{https://doi.org/10.1109/THMS.2019.2904558}{Hoffman (2019)}.
+
+    \item Hành động có tính dự kiến giúp robot chuẩn bị trước những công đoạn có thể thực hiện song song, nhưng phải cân nhắc độ chắc chắn và rủi ro của quyết định sớm.
+    \href{https://doi.org/10.1145/1228716.1228718}{Hoffman \& Breazeal (2007)}.
+\end{itemize}
+
+
+\section{Suy luận ý định và dự đoán chuyển động người}
+
+\begin{itemize}
+    \item Ý định có thể được suy ra trước khi hành động hoàn tất từ các tín hiệu quan sát, nhưng thời điểm nhận biết phụ thuộc vào tính phân biệt của tín hiệu.
+    \href{https://arxiv.org/abs/2502.11752}{Khanna et al. (2025)}.
+
+    \item Dự đoán chuyển động cung cấp quỹ đạo tương lai, trong khi việc xác định mục tiêu hoặc hành động có ý nghĩa nhiệm vụ còn cần thông tin ngữ cảnh.
+    \href{https://arxiv.org/abs/2604.03065}{Bulanti et al. (2026)}.
+
+    \item ManiCast cho thấy dự đoán cần ưu tiên những chuyển động có ảnh hưởng đến quyết định robot, thay vì chỉ giảm sai số quỹ đạo trung bình.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{Kedia et al. (2023)}.
+\end{itemize}
+
+
+\section{Học chính sách hành động cộng tác từ trình diễn}
+
+\begin{itemize}
+    \item Học bắt chước cho phép robot tiếp thu hành vi chuyên gia từ trình diễn khi khó mô tả đầy đủ các quy tắc điều khiển.
+    \href{https://doi.org/10.1016/j.robot.2008.10.024}{Argall et al. (2009)}.
+
+    \item ACT học các chuỗi hành động liên tục từ quan sát, cung cấp nền tảng cho chính sách thao tác robot.
+    \href{https://roboticsproceedings.org/rss19/p016.html}{Zhao et al. (2023)}.
+
+    \item Hành vi phối hợp cũng có thể được học trực tiếp từ trình diễn cộng tác, không nhất thiết cần biểu diễn ý định tường minh.
+    \href{https://arxiv.org/abs/2305.12171}{Ng et al. -- Diffusion Co-Policy}.
+
+    \item Tuy nhiên, chính sách học từ trình diễn có thể hỗ trợ sai thời điểm khi action chunk vượt qua giai đoạn chuyển tiếp của nhiệm vụ.
+    \href{https://arxiv.org/abs/2606.12475}{Xu et al. (2026)}.
+
+    \item Sai số của chính sách có thể tích lũy trong quá trình thực thi, đòi hỏi bổ sung dữ liệu từ các trạng thái robot tự gặp phải.
+    \href{https://proceedings.mlr.press/v15/ross11a.html}{Ross et al. (2011) -- DAgger}.
+\end{itemize}
+
+
+\section{Tổng hợp và khoảng trống nghiên cứu}
+
+\begin{itemize}
+    \item Các nghiên cứu đã chứng minh tiềm năng của dự đoán chuyển động trong lập kế hoạch và học hành vi cộng tác từ trình diễn, nhưng chưa trực tiếp xác lập hiệu quả của việc đưa dự đoán ManiCast vào một chính sách ACT để học phối hợp theo tiến độ.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{ManiCast};
+    \href{https://roboticsproceedings.org/rss19/p016.html}{ACT};
+    \href{https://arxiv.org/abs/2305.12171}{Diffusion Co-Policy}.
+
+    \item Vấn đề nghiên cứu 1: Học khai thác dự đoán chuyển động để robot hành động sớm có ích, giảm thời gian người chờ và thời gian nhiệm vụ.
+    \href{https://doi.org/10.1145/1228716.1228718}{Hoffman \& Breazeal (2007)}.
+
+    \item Vấn đề nghiên cứu 2: Học điều chỉnh hành động khi dự đoán không phù hợp với quan sát thực tế, hướng đến duy trì khả năng hoàn thành nhiệm vụ khi dự đoán sai hoặc người đổi ý.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{ManiCast};
+    \href{https://proceedings.mlr.press/v15/ross11a.html}{DAgger}.
+\end{itemize}

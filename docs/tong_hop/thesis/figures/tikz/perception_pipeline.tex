@@ -1,0 +1,24 @@
+% Pipeline nhận thức HABIT: bước 1 (nặng, mỗi frame), bước 2 (nhẹ, mỗi episode). Mỗi model chọn theo tên trong config.
+\begin{tikzpicture}[node distance=4mm and 6mm]
+  \node[blk, minimum width=20mm, minimum height=12mm] (vid) {Video\\[-1pt]{\figs front\_view}\\[-2pt]{\figs 640$\times$480, 10\,Hz}};
+  \node[done, right=9mm of vid, yshift=11mm, minimum width=36mm] (pose) {Keypoint 2D \textbf{RTMW}\\[-1pt]{\figs 133 điểm whole-body + score}};
+  \node[done, right=9mm of vid, minimum width=36mm] (depth) {Depth \textbf{MoGe-2} ViT-S\\[-1pt]{\figs depth mét + tiêu cự, 1.4\,s/frame}};
+  \node[done, right=9mm of vid, yshift=-11mm, minimum width=36mm] (det) {Vật \textbf{Grounding DINO}\\[-1pt]{\figs theo tên vật của task}};
+  \draw[arr] (vid.east) -- ++(4mm,0) |- (pose.west);
+  \draw[arr] (vid) -- (depth);
+  \draw[arr] (vid.east) -- ++(4mm,0) |- (det.west);
+  \node[grp, fit=(pose)(depth)(det), label={[lab]north:\textbf{Bước 1: trích xuất} (nặng, mỗi frame)}] (g1) {};
+
+  \node[blk, right=7mm of g1, minimum width=24mm, minimum height=26mm] (raw) {Kết quả thô\\[2pt]{\figs keypoint, score}\\{\figs depth tại keypoint}\\{\figs hộp vật + depth}\\{\figs mẫu điểm mặt bàn}};
+  \draw[arr] (g1) -- (raw);
+
+  \node[done, below=12mm of g1.south west, anchor=north west, minimum width=26mm] (plane) {Mặt bàn\\[-1pt]{\figs RANSAC + bình phương}\\[-2pt]{\figs tối thiểu $\to$ hệ bàn}};
+  \node[done, right=4mm of plane, minimum width=24mm] (lift3d) {Nâng lên 3D\\[-1pt]{\figs chiếu ngược qua}\\[-2pt]{\figs tiêu cự, tâm ảnh}};
+  \node[done, right=4mm of lift3d, minimum width=26mm] (trk) {Tracking\\[-1pt]{\figs đúng số vật theo task}\\[-2pt]{\figs (ghép Hungarian)}};
+  \node[done, right=4mm of trk, minimum width=24mm] (hold) {\textit{holding}\\[-1pt]{\figs gripper đóng (parquet)}\\[-2pt]{\figs + vật gần gripper}};
+  \node[grp, fit=(plane)(lift3d)(trk)(hold), label={[lab]south:\textbf{Bước 2: dựng token} (nhẹ, vài giây mỗi episode; đổi tham số không phải chạy lại bước 1)}] (g2) {};
+  \draw[arr] (raw.south) |- ($(g2.north east)+(-8mm,3mm)$) -- ($(g2.north east)+(-8mm,0)$);
+  \draw[arr] (plane) -- (lift3d);
+  \draw[arr] (lift3d) -- (trk);
+  \draw[arr] (trk) -- (hold);
+\end{tikzpicture}

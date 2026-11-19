@@ -1,0 +1,19 @@
+% Độ chính xác 3D: khoảng cách hai hộp kề nhau ước lượng bằng MoGe-2 (mức 3) so với mốc động học robot, 20 episode S8789.
+% Số liệu: docs/reports/PIF_P1/depth_check_moge2_L3.json (pif.perception.tools depth-check).
+\begin{tikzpicture}
+  \begin{axis}[width=13cm, height=5.2cm, xlabel={episode (thứ tự trong 20 episode trải đều S8789, buổi 260414)},
+      ylabel={khoảng cách (m)}, ymin=0.22, ymax=0.29, xmin=0.5, xmax=20.5, xtick={1,5,10,15,20},
+      legend style={font=\figs, at={(0.5,1.03)}, anchor=south, legend columns=4, draw=none},
+      tick label style={font=\figs}, label style={font=\figf}, grid=major, grid style={black!10}]
+    \addplot[only marks, mark=*, mark size=1.6pt, cBlue] coordinates {
+      (1,0.25)(2,0.252)(3,0.252)(4,0.251)(5,0.269)(6,0.244)(7,0.248)(8,0.255)(9,0.277)(10,0.259)
+      (11,0.254)(12,0.255)(13,0.243)(14,0.252)(15,0.24)(16,0.242)(17,0.267)(18,0.253)(19,0.262)(20,0.26)};
+    \addlegendentry{hộp 1--2 ước lượng}
+    \addplot[only marks, mark=square*, mark size=1.5pt, cPart] coordinates {
+      (1,0.259)(2,0.248)(3,0.241)(4,0.244)(5,0.255)(6,0.232)(7,0.241)(8,0.251)(9,0.265)(10,0.253)
+      (11,0.243)(12,0.248)(13,0.258)(14,0.267)(15,0.257)(16,0.254)(17,0.259)(18,0.253)(19,0.256)(20,0.255)};
+    \addlegendentry{hộp 3--4 ước lượng}
+    \addplot[cBlue, dashed, line width=0.8pt, domain=0.5:20.5] {0.2478}; \addlegendentry{mốc 1--2: 0.248}
+    \addplot[cPart, dashed, line width=0.8pt, domain=0.5:20.5] {0.2570}; \addlegendentry{mốc 3--4: 0.257}
+  \end{axis}
+\end{tikzpicture}

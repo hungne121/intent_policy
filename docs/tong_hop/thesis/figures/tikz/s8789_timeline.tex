@@ -1,0 +1,21 @@
+% Dòng thời gian một episode S8789 (số liệu ep 2700, Hình 4-x): người chờ, robot kẹp bánh, người chỉ hộp, robot mang và thả.
+\begin{tikzpicture}[x=5mm, y=7mm]
+  \draw[-{Stealth}] (0,0) -- (26.5,0) node[right, lab] {$t$ (s)};
+  \foreach \s in {0,5,10,15,20,25} {\draw (\s,0.1) -- (\s,-0.1) node[below, lab] {\s};}
+  % người
+  \node[lab, anchor=east] at (-0.3,2.6) {Người};
+  \fill[cTodoBg, draw=cTodo] (0,2.3) rectangle (19.2,2.9); \node[lab] at (9.6,2.6) {đứng chờ};
+  \fill[cPartBg, draw=cPart] (19.2,2.3) rectangle (21.5,2.9); \node[lab] at (20.35,2.6) {chỉ};
+  % robot
+  \node[lab, anchor=east] at (-0.3,1.4) {Robot};
+  \fill[cTodoBg, draw=cTodo] (0,1.1) rectangle (13.2,1.7); \node[lab] at (6.6,1.4) {tới đĩa};
+  \fill[cBlueBg, draw=cBlue] (13.2,1.1) rectangle (17.2,1.7); \node[lab] at (15.2,1.4) {kẹp bánh};
+  \fill[cPurpleBg, draw=cPurple] (17.2,1.1) rectangle (21.5,1.7); \node[lab] at (19.35,1.4) {mang tới hộp};
+  % mốc
+  \foreach \x/\n in {17.2/kẹp, 18.5/rời đĩa, 21.5/thả} {\draw[dashed] (\x,0) -- (\x,3.3); \node[lab, above] at (\x,3.3) {\n};}
+  % cửa sổ đánh giá
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, cDone, line width=0.8pt] (0,-0.75) -- (18.5,-0.75)
+     node[midway, below=4pt, lab, text=cDone] {đánh giá dự đoán sớm: trước khi robot rời đĩa (chưa lộ đáp án)};
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, cPart, line width=0.8pt] (18.5,-0.75) -- (21.5,-0.75)
+     node[midway, below=14pt, lab, text=cPart] {đáp án lộ qua chuyển động robot};
+\end{tikzpicture}

@@ -1,0 +1,121 @@
+% !TEX root = ../main.tex
+\chapter[DỮ LIỆU, THÍ NGHIỆM VÀ KẾT QUẢ]{DỮ LIỆU, THÍ NGHIỆM\\VÀ KẾT QUẢ}
+\label{chap:experiments}
+
+
+\chapter{Thiết kế thực nghiệm và đánh giá}
+
+\section{Môi trường mô phỏng và xây dựng nhiệm vụ}
+
+\begin{itemize}
+    \item Xây dựng môi trường HRC trên MuJoCo với mô hình robot, con người, vật thể và các ràng buộc vật lý.
+
+    \item Tổ chức các nhiệm vụ theo ba nhóm quan hệ tương tác đã xác định, gồm người hướng dẫn, cộng tác và làm việc đồng thời.
+
+    \item Mỗi nhiệm vụ có điều kiện hoàn thành, các mốc phối hợp và những ràng buộc an toàn riêng.
+
+    \item Sử dụng các kịch bản có thể kiểm soát để đánh giá riêng hiệu quả dự đoán, sự phối hợp và khả năng thích nghi.
+    \href{https://arxiv.org/abs/2607.13056}{HRIBench -- Liu et al. (2026)}.
+\end{itemize}
+
+
+\section{Xây dựng dữ liệu trình diễn}
+
+\begin{itemize}
+    \item Xây dựng bộ điều khiển chuyên gia tạo các hành động robot phù hợp với nhiệm vụ và ràng buộc vật lý.
+
+    \item Tạo các trình diễn có và không sử dụng dự đoán dưới điều kiện so sánh tương đương.
+
+    \item Thu thập đồng bộ quan sát, dự đoán chuyển động người, hành động robot và những sự kiện liên quan đến tiến độ nhiệm vụ.
+
+    \item Bổ sung các tình huống dự đoán sai và thay đổi ý định để phục vụ huấn luyện khả năng thích nghi.
+
+    \item Phân chia dữ liệu huấn luyện, kiểm định và kiểm tra nhằm hạn chế trùng lặp quỹ đạo và đánh giá khả năng tổng quát hóa.
+\end{itemize}
+
+
+\section{Thiết lập huấn luyện và các phương pháp đối chứng}
+
+\begin{itemize}
+    \item Baseline 1: Chính sách ACT sử dụng quan sát hiện tại, không có thông tin dự đoán.
+
+    \item Baseline 2: Chính sách ACT sử dụng quan sát và lịch sử chuyển động người.
+
+    \item Baseline 3: Chính sách ACT được bổ sung trực tiếp đầu vào ManiCast với mục tiêu học thông thường.
+
+    \item Phương pháp đề xuất: ACT có điều kiện bởi dự đoán, kết hợp cơ chế học phối hợp và giảm phụ thuộc vào forecast không đáng tin.
+
+    \item Sử dụng cùng các điều kiện mô phỏng, dữ liệu kiểm tra và giao thức đánh giá để so sánh các chính sách.
+\end{itemize}
+
+
+\section{Chỉ số đánh giá}
+
+\begin{itemize}
+    \item Đánh giá hiệu quả phối hợp qua thời gian bắt đầu hành động hữu ích, thời gian người chờ và thời gian hoàn thành nhiệm vụ.
+
+    \item Đánh giá khả năng thực hiện nhiệm vụ qua tỷ lệ thành công, sai lệch thao tác và các trường hợp vi phạm ràng buộc vật lý.
+
+    \item Đánh giá tác động của dự đoán qua sự khác biệt hành động giữa các chính sách có và không có forecast.
+
+    \item Đánh giá khả năng thích nghi qua tỷ lệ hoàn thành khi dự đoán sai, số lần cam kết sai và thời gian hoặc quãng đường sửa hành động.
+
+    \item Xác định chỉ số đồng bộ phù hợp với cấu trúc phụ thuộc của từng nhiệm vụ, tránh sử dụng một định nghĩa thời điểm sẵn sàng cho mọi kịch bản.
+\end{itemize}
+
+
+\section{Đánh giá hành động có tính dự kiến}
+
+\begin{itemize}
+    \item So sánh thời điểm bắt đầu hành động của robot khi sử dụng quan sát và khi sử dụng dự đoán chuyển động.
+
+    \item Kiểm tra liệu hành động sớm hơn có giảm thời gian người chờ và thời gian hoàn thành nhiệm vụ hay không.
+
+    \item Phân tích những nhiệm vụ mà thời gian di chuyển riêng của robot chiếm ưu thế, làm hạn chế lợi ích của dự đoán.
+
+    \item Đánh giá vai trò của các cơ chế học ưu tiên quyết định bằng cách loại bỏ từng thành phần.
+\end{itemize}
+
+
+\section{Đánh giá khi dự đoán không chính xác}
+
+\begin{itemize}
+    \item Kiểm tra chính sách với các trường hợp forecast sai vị trí, sai thời gian hoặc sai mục tiêu.
+
+    \item So sánh khả năng hoàn thành nhiệm vụ giữa chính sách ghép trực tiếp ManiCast và chính sách được huấn luyện để xử lý dự đoán không đáng tin.
+
+    \item Đánh giá hành vi robot khi forecast mâu thuẫn với quan sát mới, đặc biệt khả năng giảm cam kết sai và điều chỉnh chuyển động.
+
+    \item Kiểm tra riêng hiệu quả khi forecast bị thiếu để xác định mức độ phụ thuộc của chính sách vào đầu vào dự đoán.
+\end{itemize}
+
+
+\section{Đánh giá khi con người thay đổi ý định}
+
+\begin{itemize}
+    \item Xây dựng các kịch bản thay đổi ý định trước thời điểm robot cam kết thực hiện hành động phụ thuộc mục tiêu.
+
+    \item Xây dựng các kịch bản thay đổi ý định sau thời điểm robot đã bắt đầu hành động phụ thuộc mục tiêu.
+
+    \item Đánh giá khả năng cập nhật mục tiêu, sửa quỹ đạo và hoàn thành nhiệm vụ trong những trạng thái còn khả thi.
+
+    \item Phân tích riêng các tình huống không thể phục hồi an toàn hoặc không thể bảo toàn mục tiêu ban đầu.
+\end{itemize}
+
+
+\section{Nghiên cứu loại bỏ thành phần}
+
+\begin{itemize}
+    \item Loại bỏ thông tin dự đoán để xác định lợi ích của forecast so với lịch sử quan sát.
+
+    \item Loại bỏ cơ chế học ưu tiên quyết định để kiểm tra ảnh hưởng đến thời điểm hành động và tiến độ nhiệm vụ.
+
+    \item Loại bỏ cơ chế điều chỉnh mức ảnh hưởng của forecast để kiểm tra độ nhạy với dự đoán sai.
+
+    \item Loại bỏ dữ liệu phục hồi để đánh giá vai trò của huấn luyện trên các trạng thái lệch khỏi trình diễn danh định.
+
+    \item Khảo sát ảnh hưởng của độ dài action chunk và tần suất cập nhật đối với tính liên tục và khả năng phản ứng.
+\end{itemize}
+
+
+

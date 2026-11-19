@@ -1,0 +1,126 @@
+% !TEX root = ../main.tex
+\chapter[Phương pháp học chính sách hành động có nhận biết ý định]{Phương pháp học chính sách hành động có nhận biết ý định}
+\label{chap:method}
+
+
+% Các cơ chế học dưới đây là nội dung dự kiến triển khai,
+% chưa được coi là thuật toán đã kiểm chứng.
+
+%\chapter{Phương pháp học chính sách hành động có nhận biết ý định}
+
+\section{Phát biểu bài toán}
+
+\begin{itemize}
+    \item Xét robot cộng tác với con người trong các nhiệm vụ có quan hệ phụ thuộc về hành động, thời điểm hoặc không gian làm việc.
+
+    \item Mục tiêu là học một chính sách hành động thống nhất, có khả năng sử dụng quan sát và dự đoán chuyển động người để lựa chọn hành động robot.
+
+    \item Chính sách hướng đến giảm thời gian người chờ và thời gian hoàn thành nhiệm vụ, đồng thời duy trì tỷ lệ thành công và các ràng buộc an toàn.
+
+    \item Hai vấn đề học chính là khai thác dự đoán để phối hợp chủ động và giảm phụ thuộc vào dự đoán khi thông tin không chính xác.
+\end{itemize}
+
+
+\section{Biểu diễn trạng thái và thông tin dự đoán}
+
+\begin{itemize}
+    \item Trạng thái đầu vào gồm quan sát người, robot, vật thể, tiến độ nhiệm vụ và lịch sử quan sát liên quan.
+
+    \item ManiCast cung cấp quỹ đạo dự đoán chuyển động người trong khoảng thời gian ngắn, gồm nhiều bước tương lai và các khớp thân trên.
+    \href{https://proceedings.mlr.press/v229/kedia23a.html}{Kedia et al. (2023)}.
+
+    \item Chính sách sử dụng toàn bộ diễn biến quỹ đạo để học thông tin về hướng chuyển động, vị trí tương tác và thời điểm có thể xảy ra sự kiện.
+
+    \item Quan sát hiện tại và quỹ đạo dự đoán được biểu diễn riêng trước khi kết hợp trong mạng sinh hành động.
+\end{itemize}
+
+
+\section{Kiến trúc chính sách hành động}
+
+\begin{itemize}
+    \item Sử dụng ACT làm nền tảng học chuỗi hành động robot từ các trình diễn cộng tác.
+    \href{https://roboticsproceedings.org/rss19/p016.html}{Zhao et al. (2023)}.
+
+    \item Bổ sung bộ mã hóa dự đoán chuyển động để đưa thông tin tương lai của người vào quá trình sinh action chunk.
+
+    \item Nghiên cứu cơ chế kết hợp quan sát và dự đoán sao cho thông tin dự đoán tác động trực tiếp đến đầu ra hành động của chính sách.
+
+    \item Duy trì đường thông tin quan sát để chính sách vẫn có khả năng thực hiện nhiệm vụ khi dự đoán thiếu hoặc không đáng tin cậy.
+\end{itemize}
+
+
+\section{Học hành động cộng tác có tính dự kiến}
+
+\begin{itemize}
+    \item Các trình diễn cung cấp hành động robot phù hợp với tiến độ nhiệm vụ và những thông tin dự đoán khả dụng tại thời điểm quyết định.
+
+    \item Chính sách được huấn luyện để học mối quan hệ giữa chuyển động người dự kiến và thời điểm bắt đầu hành động hữu ích của robot.
+
+    \item Nghiên cứu việc ưu tiên các thời điểm bắt đầu, chuẩn bị và chuyển tiếp hành động trong mục tiêu học bắt chước.
+
+    \item Xem xét mục tiêu học phản ánh sự khác biệt giữa hành động có và không có dự đoán tại những thời điểm có ảnh hưởng đến tiến độ cộng tác.
+
+    \item Đánh giá liệu các thay đổi ở hành động do dự đoán tạo ra có thực sự làm giảm thời gian chờ và thời gian nhiệm vụ hay không.
+\end{itemize}
+
+
+\section{Học sử dụng dự đoán dưới bất định}
+
+\begin{itemize}
+    \item Dự đoán chuyển động có thể sai mục tiêu, sai thời điểm hoặc không còn phù hợp với những quan sát mới.
+
+    \item Nghiên cứu biểu diễn độ nhất quán giữa dự đoán trước đó và chuyển động người đã quan sát được.
+
+    \item Bổ sung cơ chế học điều chỉnh mức ảnh hưởng của dự đoán đến action chunk theo những thông tin về độ phù hợp và độ bất định.
+
+    \item Huấn luyện chính sách với dự đoán đúng, dự đoán thiếu và những sai lệch có kiểm soát để hạn chế phụ thuộc vào một dạng đầu vào duy nhất.
+
+    \item Nghiên cứu các mục tiêu học giúp chính sách thay đổi hành động khi dự đoán có ích và hạn chế thay đổi không cần thiết khi dự đoán bị nhiễu.
+\end{itemize}
+
+
+\section{Học điều chỉnh và phục hồi hành động}
+
+\begin{itemize}
+    \item Khi người thay đổi ý định, chính sách cần cập nhật hành động theo trạng thái thực tế thay vì tiếp tục phụ thuộc vào quỹ đạo dự đoán cũ.
+
+    \item Phân biệt thay đổi ý định trước và sau thời điểm robot thực hiện hành động khó đảo ngược.
+
+    \item Bổ sung các trình diễn sửa hành động từ những trạng thái robot có thể gặp phải sau quyết định không phù hợp.
+
+    \item Nghiên cứu thu thập dữ liệu từ các trạng thái do policy tự tạo ra theo nguyên lý DAgger.
+    \href{https://proceedings.mlr.press/v15/ross11a.html}{Ross et al. (2011)}.
+
+    \item Xem xét ảnh hưởng của action chunk và tần suất cập nhật chính sách đến khả năng phản ứng trước thay đổi của người.
+    \href{https://arxiv.org/abs/2606.00537}{PACE -- Nie et al. (2026)}.
+\end{itemize}
+
+
+\section{Mục tiêu học và quy trình huấn luyện}
+
+\begin{itemize}
+    \item Giữ mục tiêu học hành động từ trình diễn của ACT làm thành phần huấn luyện cơ sở.
+
+    \item Nghiên cứu bổ sung trọng số hoặc mục tiêu giám sát đối với những quyết định có ảnh hưởng lớn đến tiến độ cộng tác.
+
+    \item Nghiên cứu mục tiêu học sự phụ thuộc có chọn lọc giữa forecast và hành động robot khi dự đoán phù hợp hoặc không phù hợp.
+
+    \item Huấn luyện từ hành vi danh định đến các trường hợp dự đoán sai, sau đó bổ sung dữ liệu phục hồi từ quá trình thực thi chính sách.
+
+    \item Đánh giá riêng đóng góp của từng cơ chế học để lựa chọn cấu hình phương pháp cuối cùng.
+\end{itemize}
+
+
+\section{Thực thi chính sách và các ràng buộc vật lý}
+
+\begin{itemize}
+    \item Chính sách sinh các chuỗi hành động liên tục và cập nhật theo quan sát mới trong quá trình thực thi.
+
+    \item Các ràng buộc về giới hạn khớp, va chạm và tiếp xúc được kiểm tra trong môi trường vật lý, không phụ thuộc hoàn toàn vào dự đoán người.
+
+    \item Đánh giá ảnh hưởng của chu kỳ dự đoán, chu kỳ chính sách và độ dài action chunk đến thời điểm robot phản ứng.
+
+    \item Phân biệt khả năng điều chỉnh hành động của chính sách với khả năng bảo đảm an toàn của hệ thống thực thi.
+\end{itemize}
+
+
