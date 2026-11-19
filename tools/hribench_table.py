@@ -27,24 +27,7 @@ GRID = [(u, t) for u in (0.25, 0.5, 1.0) for t in (0.5, 1.0, 2.0)]
 rng = np.random.default_rng(0)
 
 
-def tsync_event(rec, u, tau):
-    m = rec.get('metrics') or {}
-    req = m.get('steps_required') or []
-    done = {s: t for s, t in (m.get('steps_done') or [])}
-    need = [s for s in req if not (s in done and done[s] <= 0.1)]
-    if not need:
-        return None, 0
-    by = {q.get('step'): q for q in (m.get('rounds') or [])}
-    sc, measurable = [], 0
-    for s in need:
-        q = by.get(s)
-        tr, th = (q or {}).get('t_R_ready'), (q or {}).get('t_H_ready')
-        if tr is None or th is None:
-            sc.append(0.0)
-        else:
-            measurable += 1
-            sc.append(math.exp(-max(tr - th - u, 0.0) / tau))
-    return float(np.mean(sc)), measurable
+from intent_policy.benchmark.tsync import tsync_event  # noqa: E402
 
 
 def wilson(k, n):
