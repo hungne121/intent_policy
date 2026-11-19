@@ -2900,3 +2900,16 @@ van_ban:
     trang_thai: hieu_luc
     can_cu: [QD-HL-26]
     noi_luu: docs/ho_so/03_train/QD-HL-27_probe_phase2_checkpoint_va_n_action_steps.md
+
+  - so: QD-HL-28
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-20 04:00"
+    ban_hanh: người dùng
+    trich_yeu: "Sau Phase 1/2/4 một phần (chat 20/11): Phase 3 duyệt thiết kế corrective expert + pilot laptop (chưa training, chưa pod): xác minh attach I2, phân tích plate, expert replay, expert I2 timing variation + recovery, corrective I3 switch_before, video so sánh; TSync v2 duyệt thiết kế/unit test (chưa khoá công thức); DSR giữ N/A; IR duyệt dạng Project Idle Ratio (diagnostic); giữ 1.290 episode, n_action_steps=10, ckpt 60k; sao lưu commit local."
+    pham_vi: [I2, I3, M_star, eval]
+    chu_de: [train, danh_gia, du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-26, QD-HL-27, QD-KT-18]
+    noi_luu: docs/ho_so/03_train/QD-HL-28_phase3_corrective_expert_pilot_laptop.md
