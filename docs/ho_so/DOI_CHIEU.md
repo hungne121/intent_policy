@@ -1,8 +1,8 @@
-# Đối chiếu hồ sơ — 19/11/2026 20:47
+# Đối chiếu hồ sơ — 19/11/2026 21:13
 
 Sinh tự động bởi `./run.sh scripts/ho_so.py kiem`. Mục A, B cần người dùng xem; mục C–F là việc của agent.
 
-Sổ có 213 văn bản; 127 đang hiệu lực; 13 chờ quyết.
+Sổ có 214 văn bản; 128 đang hiệu lực; 12 chờ quyết.
 
 ## A. Chờ người dùng quyết
 
@@ -18,7 +18,6 @@ Sổ có 213 văn bản; 127 đang hiệu lực; 13 chờ quyết.
 - **03/TTr-VH** (06/11/2026 02:30, 13 ngày): CLAUDE.md và đầu PIF vẫn gọi docs/sim/PIPELINE_v6.md là 'việc đang làm', trong khi việc hiện tại là bộ 10 task (v9 / v10 / v10b). Đề xuất viết hướng dẫn chạy mới cho bộ 10 task và chuyển PIPELINE_v6 sang lưu trữ.
 - **08/TTr-DL** (14/11/2026 20:55, 5 ngày): Môi trường mô phỏng có ràng buộc vật lý và an toàn: người v3 22 khớp dựng từ keypoints HY-Motion (rot6d không khớp FK), capsule va chạm thật, da liền 22 xương, phát lại toàn thân clip + IK tay làm việc; dừng an toàn robot; kiểm nghiệm I1 trước khi thay hẳn.
 - **03/TTr-HL** (18/11/2026 07:50, 1 ngày): Chốt tạm 7 điểm bước 2: tên M0 / M1-noH / M1 theo 07/QĐ-HL; K = 40 @ 20 Hz, execution horizon 1 và 10 bước; lấy mẫu cân bằng theo task, N1 / N5 / N6 tỉ lệ tự nhiên đợt 1; test closed-loop seed 300900–300999 không thu; N5 dùng tập A có được; pilot 7 task (W1 / W2 sau, W3 để sau); pilot train là đợt 1 của kế hoạch người dùng, BB dữ liệu lập để người dùng ký.
-- **04/TTr-KT** (19/11/2026 21:05, 0 ngày): Đề xuất TSync theo cửa sổ sự kiện (MAD-TN, Isaacson et al. 2020): s_i = exp(-e_i / tau_i), e_i = max(l_i - Delta_i, 0, Delta_i - u_i), TSync = trung bình s_i, sự kiện không xảy ra chấm 0; tên báo cáo 'HRIBench-inspired, event-based implementation (MAD-TN grounded)', không gọi official. Chưa tìm được công thức TSync chính thức (arXiv v1 thiếu Appendix A, chưa thấy evaluator của tác giả). Còn thiếu: cặp sự kiện từng task, cửa sổ [l, u] và tau khoá trước khi xem kết quả, quy tắc N/A. Chờ người dùng duyệt; chưa có hiệu lực.
 
 ## B. Cùng chủ đề còn hiệu lực nhưng chưa liên kết (có thể xung đột)
 
