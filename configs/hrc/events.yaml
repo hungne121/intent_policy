@@ -1,0 +1,123 @@
+# Human-facing event detector (09/QĐ-KT P0) + scoring-only metric events (10/11/QĐ-KT). Read by intent_policy/shared/events.py.
+# Detector version below (= events.DETECTOR_VERSION); bump it on ANY change of a definition / parameter (11/QĐ-KT).
+version: hrc-events-1.2
+changelog:
+  - version: hrc-events-1.2
+    date: "2026-11-19 03:2x"
+    decision: "15/QĐ-KT A (C4 detector 1.2); spec docs/reports/DETECTOR_1_2_2026-11-19.md"
+    published: "before any model is scored with it (15/QĐ-KT A8: never mix 1.1 and 1.2 results)"
+    changes:
+      - "C4 part_on_palm: second physical state (ii). The robot has let go of part i (gripper empty) and the part rests
+        on the supported palm: centre over the human_palm_support footprint, hand-part <= grasp_gap_m, part speed
+        (mj_objectVelocity, body CoM) <= grasp_gap_m / close_s, all for rest_ticks consecutive physics ticks.
+        State (i) (robot still holds it, 1.1 rule) unchanged. Task spec: docs/intent_act/KICH_BAN_10_TASK.md C4
+        'đặt lên lòng bàn tay, buông, rút'."
+      - "new parameter C4 part_on_palm.rest_ticks: 4"
+      - "human_cue part_on_palm logs path: held (i) | released (ii)"
+      - "scoring: scenarios/c4.py check() (15/QĐ-KT A5): C4 complete only if the person grasped every part and let it
+        go, the robot holding nothing"
+      - "all other tasks: unchanged"
+  - version: hrc-events-1.1
+    date: "2026-11-18 22:5x"
+    decision: 12/QĐ-KT A1-A4
+    changes: ["I1 robot_prepared, C2 brush_presented, C4 part_on_palm, W2/W3 robot_claims: tolerances from geometry +
+      task semantics (1.0: expert precision); I2/I3 cues; verified distances"]
+  - version: hrc-events-1.0
+    date: "2026-11-18"
+    decision: 09/QĐ-KT P0, 10-11/QĐ-KT
+    changes: ["first detector: the person reacts to world-state predicates instead of expert flags"]
+# The scripted person reacts only to these predicates of the CURRENT world state (robot TCP / velocity / gripper /
+# held object, object poses, dust marks, the person's own palm). Same detector for the expert and every policy.
+#
+# Sources
+#  M  = measured on the expert, frozen pre-change package (git f40772a), tools.collect N1 val 300800-300802,
+#       observed + forecast, outputs/diag/event_detector_1118/ds_before + measure.py: the expert's world state at the
+#       tick it raised the old flag. Margin rule (one rule for all): mean + 3 sd of that value, rounded UP to the next
+#       1 mm (distances) / 0.01 m/s (speeds). Values in MEASUREMENTS.md.
+#  S  = unchanged scenario literal (moved here from intent_policy/scenarios/*.py, same value, same date of origin).
+#  G  = scene geometry (cited file).
+
+I1:
+  robot_prepared:                       # old: i1_expert ep.robot_prepared. 1.1 (12/QĐ-KT A1-A3): geometry, not expert precision
+    decel_m_s2: 1.0                     # station controller.work_accel_m_s2: speed bound sqrt(2 a xy_tol) = can stop aligned
+    grasp_dz_m: 0.024                   # station controller.grasp_dz_m: lowest TCP height of "over the cup" (grasp height)
+    rest_z_m: 0.82                      # i1_expert home z: above it the robot is resting, not prepared
+                                        # xy_tol = (gripper opening now - cup diameter from the scene model) / 2 (8.5 mm open)
+                                        # 1.0 (measured, expert precision, replaced): xy 5 mm, z +-3 mm, v 0.14 m/s
+I2:
+  cake_moves_to_plate:                  # S: scenarios/i2.py (unchanged)
+    approach_step_m: 0.001
+    tcp_z_min_m: 0.72
+I3:
+  robot_at_neutral: {tcp_dist_m: 0.025}           # S: scenarios/i3.py
+  robot_heads_to_cake: {near_m: 0.03, approach_m: 0.025}   # S: scenarios/i3.py
+C1:
+  robot_at_neutral: {tcp_dist_m: 0.03}            # S: scenarios/c1.py
+  cup_lifted_clear: {cup_z_min_m: 0.77}           # S: scenarios/c1.py
+  cup_returned: {cup_xy_m: 0.03, cup_z_max_m: 0.71, tcp_cup_min_m: 0.13}   # S: scenarios/c1.py
+C2:
+  robot_left_shelf: {tcp_y_min_m: -0.02, tcp_z_min_m: 0.74}   # S: scenarios/c2.py (the human's hold condition)
+  brush_presented:                      # old: expert phase 'present_cloth' + set-point speed < 0.005. 1.1 (12/QĐ-KT):
+    zone_m: 0.02                        # G: smallest bristle half-extent (scenarios/c2.py BRISTLE_HALF): HANDOVER inside the block
+    reach_s: 1.4                        # S: the person's reach-back moves 0.7 + 0.3 + 0.4 s (scenarios/c2.py): v <= zone / reach
+    still_ticks: 4                      # S: scenarios/c2.py presented()
+                                        # 1.0 (measured, replaced): 4 mm, 0.01 m/s
+C4:
+  part_on_palm:                         # old: c4_expert ep.delivered + expert-side grasp. 1.1 (12/QĐ-KT A1-A4):
+    grasp_gap_m: 0.01                   # S: episode.HUMAN_GRASP_GAP_M (68/QĐ-DL B.1): the hand can close on an object this near
+    close_s: 0.4                        # S: scenarios/c4.py grip move 0.4 s: v <= gap / close time (part stays in the hand's reach)
+    support_half_xy_m: [0.04, 0.06]     # G: configs/scene/common.yaml palm_support half size (fallback if no support geom)
+                                        # 1.0 (measured, replaced): |part - (palm + PART_ON_PALM)| 2 mm, v 0.11 m/s
+                                        # 1.2 (15/QĐ-KT A2): state (ii) after the robot let go, the PART's own speed
+                                        #   <= grasp_gap_m / close_s (same bound: it stays in the hand's capture
+                                        #   while the hand closes), with the same grasp / support conditions, for:
+    rest_ticks: 4                       # S: the stability window of the other handover cue (C2 brush_presented
+                                        #   still_ticks 4, scenarios/c2.py presented()) = 0.2 s. G check: under the
+                                        #   speed bound a falling part (a = g) is slow for 2 x 0.025 / 9.81 = 5 ms
+                                        #   < 1 tick (50 ms), so >= 2 ticks already rejects free flight / a bounce
+  robot_clear: {tcp_above_palm_m: 0.12}           # S: scenarios/c4.py
+W1:
+  robot_in_tray: {tcp_xy_m: 0.11, tcp_z_max_m: 0.76}   # S: scenarios/w1.py (person yields while true)
+W2:
+  robot_in_tray: {tcp_xy_m: 0.10, tcp_z_max_m: 0.78, inclusive: true}   # S: scenarios/w2.py (yield until
+                                                        #    "xy > 0.10 or z > 0.78", i.e. while xy <= 0.10 and z <= 0.78)
+  robot_claims: &claims                 # old: predictive_avoidance ep.claimed. 1.1 (12/QĐ-KT A1-A3):
+    rest_z_m: 0.82                      # w2 / w3 expert HOME z: above it the robot rests
+    decel_m_s2: 1.0                     # station controller.work_accel_m_s2: speed <= sqrt(2 a half size)
+                                        # xy: TCP over the object footprint (half size from the scene model); open fingers wider
+                                        # than the object. 1.0 (measured, replaced): xy 2 mm, z <= TRAVEL_Z + 1 mm
+W3:
+  robot_claims: *claims
+
+# ---------------------------------------------------------------------------------------------- SCORING ONLY
+# 10/QĐ-KT rule 7: metric events (MetricTracker in events.py). Never read by the person. Map: EVENT_MAP.md.
+metric:
+  version: metric-events-1.1
+  hand_still_max_m_s: 0.08              # M: person's hand speed while it waits / offers (I1 wait_robot, C1 wait_cup_clear,
+                                        #    C2 wait_robot_grip + hold_obj, C4 wait_part; first 3 ticks of a wait skipped):
+                                        #    0.0050 +- 0.0219 m/s (n 3745, max 0.21) -> 0.0708 -> 0.08 m/s
+  point_onset_min: 0.001               # S: scenarios/i2.py / i3.py emit point_at once the gesture strength > 0.001
+  point_complete_min: 0.95              # S: scenarios/i2.py withdrawal rule "strength > .95" (gesture fully formed)
+  c4_palm_receive_xy_m: 0.011           # M: C4 palm xy - receive point (socket xy - 2 cm in y) while waiting for the part
+                                        #    0.4 +- 3.4 mm (n 1604, max 51) -> 10.5 -> 11 mm
+  safety:                               # 11/QĐ-KT C2 / C5; declared 18/11/2026 21:4x BEFORE any model evaluation with it
+    distmax_m: 10.0                     # mj_geomDistance search bound >> station size (2 m): no pair is cut off (test_events)
+    static_thresholds_m: [0.0, 0.04, 0.08]   # sensitivity only: 0 = contact; 0.04 expert_keep_clear, 0.08 trial clearance
+                                        # (56/QĐ-DL design values, NOT ISO); the rule is S_p(t) (events.py SafetyAudit)
+    hand_geom_words: [R_Wrist_fingers, R_Wrist_palm]   # the person's active (right) hand: palm + fingers capsules
+    robot_finger_bodies: [finger]       # gripper finger links (sus2f_finger_l/r_link)
+    close_interaction:                  # exempt pairs = finger links / exchanged object  x  hand / exchanged object
+      C2:
+        reason: brush handover (to the robot, and back to the person)
+        objects: [cloth]
+        grasp_geom: cloth_handle        # G: scenarios/c2.py handle geom (the robot pinches the handle; ROBOT_GRIP_OFF
+                                        #    0.11 m is in the brush frame, which turns with the hand)
+        robot_grip_dz_m: 0.024          # G: station grasp_dz_m
+        robot_approach_m: 0.064         # G: c2_expert final approach 0.06 m above the grasp + goto tol 0.004
+        hand_object_m: 0.055            # G: |PALM_TO_CLOTH| 0.051 (scenarios/c2.py) + goto tol 0.004
+      C4:
+        reason: part handed onto the open palm
+        objects: [part0, part1, part2]
+        robot_grip_dz_m: 0.024          # G: station grasp_dz_m
+        robot_approach_m: 0.044         # G: c4_expert final approach 0.04 m above the hand-over pose + goto tol 0.004
+        hand_object_m: 0.058            # G: PART_ON_PALM 0.054 (scenarios/c4.py) + goto tol 0.004

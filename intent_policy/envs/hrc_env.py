@@ -24,11 +24,12 @@ Evaluator-side additions a policy cannot provide (reported, not part of the poli
     graspable body: the physics validator reads `ep.phase` (grasp-drop rule) and `robot_selection` (intended finger
     contact) exactly as the expert's `close_on` / `open_gripper` set them;
   * `robot_grasp` event when the env attaches an object (the expert's close_on emits it; I3 check reads it);
-  * human hand-shake flags that the scripted human waits on and that only the expert sets: I1 `robot_prepared`,
-    C2 `wiped` / 'present_cloth', C4 `delivered` (+ the human grasp of the handed part). Each is set from the
-    observable world state at the moment the expert would set it;
-  * expert FSM-only fields read by success(): I1 ep.phase 'done', I2 selected = the plate the person chose (the
-    scenario's evaluator-only plan, as I2 `check` uses), I3 phase 'done'. The world-state predicates are unchanged.
+  * NO human hand-shake substitutes (09/QĐ-KT P0): the scripted human reacts only to intent_policy/shared/events.py
+    (current robot / object state, parameters configs/hrc/events.yaml), the same detector as in collection. The
+    moments the person reacted are the `human_cue` events of the episode (reported as `human_cues`);
+  * ground truth for SCORING ONLY (never read by the human): expert FSM-only fields read by success(): I1 ep.phase
+    'done', I2 selected = the plate the person chose (the scenario's evaluator-only plan, as I2 `check` uses), I3
+    phase 'done'. The world-state predicates are unchanged.
 Termination: the scenario's human is done and the task predicate has held for `success_hold_ticks` (Episode.run lets
 the scene settle 12 ticks after the robot ends); truncation at the scenario's MAX_TICKS (= collection time limit).
 """
@@ -42,10 +43,11 @@ from pathlib import Path
 import gymnasium as gym
 import numpy as np
 import yaml
-from intent_policy.shared.sim_env import ROOT, DT, TRAVEL_Z, GRASP_DZ
+from intent_policy.shared.sim_env import ROOT, DT
 
 CFG = yaml.safe_load((ROOT / 'configs/hrc/collection.yaml').read_text())
 STATE_DIM, FORECAST_DIM = 13, 10 * 6 * 3
+POLICY_TRIGGERS = ('hand_speed_above_still_bound',)       # n5.policy_trigger (15/QĐ-HL rules 1-3, amends 14/QĐ-HL 22)
 _PREDICTOR = None
 
 
@@ -78,11 +80,8 @@ class HRCEnvConfig:
     allowed_splits: list = field(default_factory=lambda: ['val'])   # 12/QĐ-HL: never test seeds now
     success_hold_ticks: int = 12               # Episode.run: 12 settle ticks after the robot ends
     onset_speed_m_s: float = 0.01              # CartesianFollower arrival tol 0.5 mm per 0.05 s tick
-    i1_prepared_tol_m: float = 0.02            # design value: TCP above a remaining cup at travel height
-    c4_handover_tol_m: float = 0.02            # design value: TCP at palm + part-on-palm + grasp offset
-    c2_wipe_radius_m: float = 0.035            # c2_expert: wipe marks have a 35 mm effect radius
-    c2_present_speed_m_s: float = 0.005        # scenarios/c2 presented(): controller speed < 0.005
     selection_radius_m: float = 0.06           # design value: graspable body nearest the TCP while closing
+    fault_type: str | None = None              # N5 only (14/QĐ-HL P3): spatial_fault / temporal_fault / direction_fault; reset options override
 
 
 class HRCEnv(gym.Env):
@@ -95,8 +94,7 @@ class HRCEnv(gym.Env):
         self.cameras, self.image_hw = list(CFG['cameras']), tuple(CFG['image_hw'])
         self.allowed_splits = list(c.allowed_splits)
         self.hold_ticks, self.onset_speed = int(c.success_hold_ticks), float(c.onset_speed_m_s)
-        self.tol = dict(i1=c.i1_prepared_tol_m, c4=c.c4_handover_tol_m, c2_wipe=c.c2_wipe_radius_m,
-                        c2_speed=c.c2_present_speed_m_s, select=c.selection_radius_m)
+        self.tol = dict(select=c.selection_radius_m)
         h, w = self.image_hw
         self.observation_space = gym.spaces.Dict({
             'pixels': gym.spaces.Dict({c: gym.spaces.Box(0, 255, (h, w, 3), np.uint8) for c in self.cameras}),
@@ -104,8 +102,10 @@ class HRCEnv(gym.Env):
             'human_forecast': gym.spaces.Box(-np.inf, np.inf, (FORECAST_DIM,), np.float32),
             'forecast_valid': gym.spaces.Box(0, 1, (1,), np.float32)})
         self.action_space = gym.spaces.Box(-np.inf, np.inf, (7,), np.float32)
+        self.fault_type = c.fault_type
         self.ep = None
         self._obs = None
+        self.injector, self.fault_trace, self.fault_case, self.hand_motion_bound = None, [], None, None
 
     @property
     def max_episode_steps(self):
@@ -116,6 +116,7 @@ class HRCEnv(gym.Env):
         super().reset(seed=seed)
         options = options or {}
         self.task, self.variant = options.get('task', self.task), options.get('variant', self.variant)
+        self.fault_type = options.get('fault_type', self.cfg.fault_type)
         if seed is None:
             raise ValueError('HRCEnv needs an explicit seed (the scenario is drawn from it)')
         split = next((k for k, (lo, hi) in CFG['splits'].items() if lo <= int(seed) <= hi), None)
@@ -169,17 +170,35 @@ class HRCEnv(gym.Env):
         scene, positions, xml, info = sc.build(seed, self.variant) if hasattr(sc, 'VARIANTS') else sc.build(seed)
         use_variation = CFG['groups'][self.group].get('variation', True)
         variation = sample_variation(seed, task_cfg('n1', self.task)) if use_variation else None
+        # 14/QĐ-HL P3 (21-22): N5 gets the injector of the collection (same FaultSpec / sample_fault for the same
+        # task, fault_type, seed); N1 / N6 / PREVIEW keep injector=None. Fault type comes from the env config / CLI.
+        self.injector, self.fault_trace, self.fault_case, self.hand_motion_bound = None, [], None, None
+        if self.group == 'N5':
+            from intent_policy.shared.forecast_fault import FaultInjector, sample_fault
+            if self.fault_type not in CFG['groups']['N5']['fault_types']:
+                raise ValueError(f"group N5 needs fault_type in {CFG['groups']['N5']['fault_types']}, got {self.fault_type!r}")
+            n5 = task_cfg('n5', self.task)
+            if n5.get('policy_trigger') not in POLICY_TRIGGERS:
+                raise ValueError(f"configs/hrc/collection.yaml n5.policy_trigger must be one of {POLICY_TRIGGERS}")
+            ts = n5['policy_trigger_speed']
+            self.hand_motion_bound = float(yaml.safe_load((ROOT / ts['file']).read_text())[ts['section']][ts['key']])
+            n5 = dict(n5, generator_version=n5['policy_generator_version'])   # 16/QĐ-HL: policy eval = v2
+            self.injector = FaultInjector(sample_fault(self.fault_type, seed, n5), n5)
+            self.fault_case = dict(task=self.task, variant=self.variant, fault_type=self.fault_type, seed=int(seed),
+                                   group='N5', trigger=n5['policy_trigger'], generator_version=n5['generator_version'], hand_motion_bound_m_s=self.hand_motion_bound)
+        elif self.fault_type is not None:
+            raise ValueError(f'fault_type {self.fault_type!r} only with group N5 (got {self.group})')
         self.wall0 = time.time()
         ep = Episode(self.task, 'forecast', seed, scene, positions, xml, predictor(), out=None,
                      max_ticks=sc.MAX_TICKS, review_camera=CFG['review_camera'], review_hw=CFG['review_hw'],
-                     recorder=None, variant=info.get('variant', 'nominal'), injector=None, variation=variation)
+                     recorder=None, variant=info.get('variant', 'nominal'), injector=self.injector, variation=variation)
         self.ep, self.info = ep, info
         self.expert = expert_class(self.task)(ep)         # scoring only, run() never called
         ep.event('task_active', **{k + '_evaluator_only': v for k, v in info.items() if k != 'variant'})
         ep.phase = 'policy'
-        # hand-shake state the human scripts read (set by the experts' run() in collection)
-        ep.robot_prepared, ep.coaster_down = False, [False] * 3          # I1
-        ep.wiped, ep.delivered, ep.claimed = {}, None, None              # C2, C4, W2 / W3
+        from intent_policy.shared.events import detector
+        detector(ep).ep._metric_tracker.info = dict(info)      # scoring-only tracker starts before the first tick
+        # 09/QĐ-KT: no hand-shake flags; the human reads intent_policy/shared/events.py (as in collection)
         human = sc.human(ep, info)
         if variation:
             from intent_policy.shared.variation import timed_human
@@ -188,7 +207,6 @@ class HRCEnv(gym.Env):
         self.human, self.last_frame = human, None
         self.streak, self.streak_start, self.finished = 0, None, False
         self.clip = {'joint_limit_ticks': 0, 'joint_speed_ticks': 0}
-        self.handshakes = []
         self._attached_prev = None
         if not self._advance_human():
             raise RuntimeError(f'{self.task} seed {seed}: human failed before the first tick')
@@ -208,7 +226,37 @@ class HRCEnv(gym.Env):
         if self.last_frame is None:
             raise RuntimeError('human script yielded nothing')
         ep.apply_human(self.last_frame)
+        self._mark_forecast_use()
         return True
+
+    def _mark_forecast_use(self):
+        """N5 trigger for a policy (15/QĐ-HL 1-3): onset of MEANINGFUL human motion, causal. Tick n is a motion tick when
+        the OBSERVED hand speed (episode.hand_speed, from the observed history only) exceeds the measured still-hand
+        bound events.yaml metric.hand_still_max_m_s (n5.policy_trigger_speed). The injector counts an onset after
+        n5.rearm_s of non-motion ticks (a still period) and starts the fault n5.delay_s later, reading the flag at tick
+        n+1 (episode.py:287 `used_last_tick`). No expert-read flag, no forecast-valid condition, no robot motion, no
+        future / human plan. The flag is written into ep.forecast_use_ticks only as the carrier the injector reads."""
+        ep = self.ep
+        if self.injector is None:
+            return
+        mc = ep.manicast
+        used = bool(ep.hand_speed > self.hand_motion_bound)
+        if used:
+            ep.forecast_use_ticks.add(ep.tick)
+        viol = {v['t']: v['checks'] for v in self.injector.log['violations']}
+        chk = viol.get(round(ep.t, 3)) if mc.fault_strength > 0 else None
+        w = ep.wrist_index()
+        self.raw_forecast_flat = None if mc.raw_forecast is None or not mc.valid else np.asarray(mc.raw_forecast, np.float32).reshape(-1)
+        raw = None if mc.raw_forecast is None or not mc.valid else mc.raw_forecast[-1, w]
+        eff = None if not mc.valid else mc.forecast[-1, w]
+        self.fault_trace.append(dict(
+            tick=ep.tick, t=round(ep.t, 3), forecast_valid=bool(mc.valid), used=used, human_phase=ep.human_phase,
+            checks_pass=None if mc.fault_strength <= 0 else chk is None, checks_failed=chk, hand_speed=round(float(ep.hand_speed), 4),
+            strength=round(float(mc.fault_strength), 4),
+            raw_wrist_1s=None if raw is None else np.round(raw, 4).tolist(),
+            eff_wrist_1s=None if eff is None else np.round(eff, 4).tolist(),
+            wrist_dev_1s_m=None if raw is None or eff is None else round(float(np.linalg.norm(eff - raw)), 4),
+            max_joint_dev_m=None if raw is None or not mc.valid else round(float(np.abs(mc.forecast - mc.raw_forecast).max()), 4)))
 
     def _close_episode(self):
         if self.ep is not None and not self.finished:
@@ -244,55 +292,12 @@ class HRCEnv(gym.Env):
         if np.any(np.abs(arm - self.ep.d.qpos[env.qids]) > vmax + 1e-12):
             self.clip['joint_speed_ticks'] += 1
 
-    def _tcp_speed(self):
-        tr = self.ep.trace
-        return 0. if len(tr) < 2 else float(np.linalg.norm(np.subtract(tr[-1]['tcp'], tr[-2]['tcp']))) / DT
-
     def _after_step(self):
         ep = self.ep
         att = ep.attached_name()
         if att is not None and att != self._attached_prev:
             ep.event('robot_grasp', object=att)
         self._attached_prev = att
-        getattr(self, f'_handshake_{self.task}', lambda: None)()
-
-    def _handshake_I1(self):
-        from intent_policy.scenarios.i1 import CUPS
-        ep = self.ep
-        tcp = ep.tcp()
-        free = [c for c in CUPS if np.linalg.norm(ep.pos(c)[:2] - ep.initial[c][:2]) < .02]
-        prepared = ep.attached_name() is None and abs(tcp[2] - TRAVEL_Z) < self.tol['i1'] and any(
-            np.linalg.norm(tcp[:2] - ep.pos(c)[:2]) < self.tol['i1'] for c in free)
-        if prepared and not ep.robot_prepared:
-            self.handshakes.append({'t': round(ep.t, 2), 'flag': 'robot_prepared'})
-        ep.robot_prepared = bool(prepared)
-
-    def _handshake_C4(self):
-        from intent_policy.experts.c4_expert import PART_ON_PALM
-        ep = self.ep
-        for i in range(3):
-            part = f'part{i}'
-            if ep.human_phase != f'wait_part_{i}' or ep.attached_name() != part or ep.delivered == i:
-                continue
-            palm = np.asarray(ep.pose['palm'], float)
-            if np.linalg.norm(ep.tcp() - (palm + [0, 0, PART_ON_PALM + GRASP_DZ])) < self.tol['c4']:
-                ep.human_grasp(part); ep.delivered = i
-                self.handshakes.append({'t': round(ep.t, 2), 'flag': f'delivered_{i}'})
-
-    def _handshake_C2(self):
-        from intent_policy.shared.episode import dirt_geoms
-        ep = self.ep
-        for obj in ('cup', 'clock'):
-            if obj in ep.wiped or obj not in ep.held_by_human:
-                continue
-            xy = ep.initial[obj][:2]
-            if not any(ep.m.geom_rgba[g, 3] > 0 and np.linalg.norm(ep.m.geom_pos[g, :2] - xy) < self.tol['c2_wipe']
-                       for g in dirt_geoms(ep.m)):
-                ep.wiped[obj] = True
-                self.handshakes.append({'t': round(ep.t, 2), 'flag': f'wiped_{obj}'})
-        if (ep.attached_name() == 'cloth' and ep.human_phase == 'wait_cloth'
-                and self._tcp_speed() < self.tol['c2_speed']):
-            ep.phase = 'present_cloth'
 
     # ------------------------------------------------------------------ scoring
     def _expert_success(self):
@@ -326,6 +331,8 @@ class HRCEnv(gym.Env):
             reason = 'time_limit'
         extra = {'reading': self.expert.reading, 'human_plan_evaluator_only': dict(self.info)}
         s = ep.finish(ok, reason, extra)
+        from intent_policy.shared.events import metric_record
+        metrics = metric_record(ep, bool(s['success']), round(self.streak_start or ep.t, 3), s)   # 10/QĐ-KT, scoring only
         s.pop('_arrays', None)
         self.finished = True
         ticks = round(s['duration_s'] * CFG['fps'])
@@ -350,7 +357,11 @@ class HRCEnv(gym.Env):
                    onset_speed_m_s=self.onset_speed,
                    first_robot_grasp_s=next((e['t'] for e in ep.events if e.get('event') == 'robot_grasp'), None),
                    forecast_valid_ratio=round(float(np.mean(valid)), 4) if valid else None,
-                   env_clipping=self.clip, handshakes=self.handshakes,
+                   env_clipping=self.clip,
+                   human_cues=[e for e in ep.events if e.get('event') == 'human_cue'], metrics=metrics,
                    events=[e for e in ep.events if e.get('event') in ('robot_grasp', 'human_grasp', 'human_reach_timeout')],
                    wall_s=round(time.time() - self.wall0, 1))
+        if self.injector is not None:                      # 14/QĐ-HL P3 24: case, schedule, checks; per-tick log -> runner
+            rec['fault'] = dict(self.fault_case, **self.injector.summary())
+            rec['fault_trace'] = self.fault_trace
         return json.loads(json.dumps(rec, default=lambda o: o.tolist() if isinstance(o, np.ndarray) else str(o)))

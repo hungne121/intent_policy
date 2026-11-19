@@ -2,6 +2,7 @@
 puts one can in each receiving tray (Cowork). The person waits while the robot works inside a tray (observable)."""
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import shift_decor
 from intent_policy.shared.episode import hold, carry, move
@@ -45,7 +46,7 @@ def human(ep, info):
     for i, tray in enumerate(info['plan']):
         dx, dy = CAKE_SLOTS[tray][used[tray]]; used[tray] += 1
         dest = np.array([TRAY_X[tray] + dx, TRAY_Y - .035 + dy, CAKE_Z])
-        yield from hold(cur, until=lambda: not (np.linalg.norm(ep.tcp()[:2] - [TRAY_X[tray], TRAY_Y]) < .11 and ep.tcp()[2] < .76), phase=f'yield_{i}')
+        yield from hold(cur, until=lambda: not detector(ep).w_robot_in_tray([TRAY_X[tray], TRAY_Y]), phase=f'yield_{i}')
         cur = yield from carry(ep, f'cake{i}', dest, cur, dz=.035, lift=.13, reach_s=.9, carry_s=1.0, lower_s=.45, phase=f'cake{i}')   # 55/QĐ-DL: carry over the 7 cm cans
         ep.event('cake_placed', cake=i, tray=tray)
         if info.get('variant') == 'linger_in_tray':     # straighten the cakes: the hand stays over this tray

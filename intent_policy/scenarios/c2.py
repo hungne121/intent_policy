@@ -4,6 +4,7 @@ under the bristle footprint (visual proxy). The brush body keeps the builder nam
 import xml.etree.ElementTree as ET
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import apply_station, GRASP_DZ, STATION
 from intent_policy.shared.episode import hold, move, hy_motion, dirt_geoms, marks_left
@@ -74,9 +75,14 @@ def sweep_dust(ep):
     return n
 
 
+def world_tick(ep):
+    """World rule (Episode.step, every tick, expert and policy alike): the bristles wipe the dust."""
+    sweep_dust(ep)
+
 
 def human(ep, info):
     order = info['order']
+    det = detector(ep)
     home = ep.human.hanging_palm(ep.human.active)
     # 16/11: shape the reaching paths with a HY-Motion clip (as I1 does) instead of pure straight moves
     try:
@@ -96,7 +102,7 @@ def human(ep, info):
     yield from move(above, raised, .6, shape='grasp', phase='lift_cloth')
     offer = HANDOVER - PALM_TO_CLOTH                  # handle towards the robot
     yield from move(raised, offer, 1.2, shape='grasp', phase='offer_cloth')
-    yield from hold(offer, until=lambda: ep.attached_name() == 'cloth', shape='grasp', phase='wait_robot_grip')
+    yield from hold(offer, until=det.until('robot_holds_brush', det.c2_robot_holds_brush), shape='grasp', phase='wait_robot_grip')
     ep.human_release('cloth'); ep.event('handover_complete')
     back = offer + [0, -.08, .02]                     # draw the hand back, away from the gripper, before rising
     yield from move(offer, back, .4, shape='relaxed', shape_from='grasp', phase='withdraw')
@@ -116,7 +122,8 @@ def human(ep, info):
         up = top + [0, -.20, .28]   # kept: lower holds (14/16 cm, 18/24 cm tried 16/11) bring the robot elbow inside the keep-clear distance of the hand
         yield from move(top, up, 1.2, shape='grasp', phase=f'lift_{obj}'); ep.event('object_lifted', object=obj)
         # Hold the object up until the robot has wiped and withdrawn from the shelf region.
-        yield from hold(up, until=lambda: ep.wiped.get(obj) and ep.tcp()[1] > -.02 and ep.tcp()[2] > .74,
+        # 09/QĐ-KT: the area under the object is visibly clean (no dust mark left) and the robot has left the shelf
+        yield from hold(up, until=det.until('area_clean', lambda: det.c2_area_clean(obj) and det.c2_robot_left_shelf(), object=obj),
                         shape='grasp', phase=f'hold_{obj}')
         yield from move(up, top, 1.2, shape='grasp', phase=f'replace_{obj}')
         # closed-loop set-down: the waist lean is rate-limited, so the reached palm differs between pick-up and
@@ -133,19 +140,20 @@ def human(ep, info):
         cur = top + [0, 0, .06]
     yield from move(cur, home, .8, lift=.04, shape='relaxed', phase='rest')
     # Receive the cloth back once the robot presents it.
-    # reach once the robot has stopped presenting the brush (observable: present phase, TCP still)
+    # reach once the robot has stopped presenting the brush (observable: brush held at the handover point, TCP
+    # still; 09/QĐ-KT events.yaml C2 brush_presented)
     still = [0]
     def presented():
-        still[0] = still[0] + 1 if ep.phase == 'present_cloth' and ep.controller.speed < .005 else 0
-        return still[0] >= 4
-    yield from hold(home, until=presented, phase='wait_cloth')
+        still[0] = still[0] + 1 if det.c2_brush_presented() else 0
+        return still[0] >= det.p['brush_presented']['still_ticks']
+    yield from hold(home, until=det.until('brush_presented', presented), phase='wait_cloth')
     recv = ep.pos('cloth') - PALM_TO_CLOTH            # over the brush where the robot actually presents it
     yield from move(home, recv + [0, -.06, .06], .7, lift=.04, shape='grasp', shape_from='relaxed', phase='reach_cloth_back')
     yield from move(recv + [0, -.06, .06], recv + [0, 0, .06], .3, lift=.04, shape='grasp', shape_from='relaxed', phase='reach_cloth_back')
     yield from move(recv + [0, 0, .06], recv, .4, shape='grasp', phase='reach_cloth_back')
     yield from ep.settle_hand({'palm': recv, 'progress': 1., 'shape': 'grasp', 'phase': 'reach_cloth_back'})   # 68/QĐ-DL B.1
     ep.human_grasp('cloth'); ep.event('human_holds_cloth')
-    yield from hold(recv, until=lambda: ep.attached_name() is None, shape='grasp', phase='wait_robot_release')
+    yield from hold(recv, until=det.until('robot_released', det.c2_robot_released), shape='grasp', phase='wait_robot_release')
     # put the brush back on its stand, then rest (55/QĐ-DL: carrying it down to the hanging hand bent the wrist into it)
     stand = ep.initial['cloth'] - PALM_TO_CLOTH
     yield from move(recv, stand + [0, 0, .05], 1.0, lift=.03, shape='grasp', phase='take_cloth')

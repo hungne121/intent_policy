@@ -33,7 +33,6 @@ class Expert(BaseExpert):
 
     def run(self):
         ep = self.ep
-        ep.claimed = None
         yield from self.avoid.run(self)
         yield from ep.goto(HOME, 'home')
         ep.phase = 'done'

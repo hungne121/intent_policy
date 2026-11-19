@@ -434,7 +434,7 @@ class PredictiveAvoider:
             if plan.kind == 'op':
                 if cur_key != plan.op.key:
                     self.step = 0
-                    ep.claimed = plan.op.claim
+                    self.claim = plan.op.claim          # avoider state; the person reads events.py (09/QĐ-KT)
                     ep.event('robot_claims', op=plan.op.key, claim=plan.op.claim)
                     # leave a low pose vertically before heading for another operation
                     if self.current is not None and ep.tcp()[2] < plan.op.steps[0]['xyz'][2] - .02 and plan.op.steps[0]['kind'] == 'move':
@@ -457,7 +457,7 @@ class PredictiveAvoider:
                 if self.current is not None and self.current.kind != 'op':
                     self.current = None
                 yield self.smooth_stop('avoid_wait' if plan.kind == 'wait' else 'avoid_stop')
-        ep.claimed = None
+        self.claim = None
 
     def grip(self):
         return self.ep.grip_closed if self.ep.attached_name() is not None else self.ep.grip_open
@@ -512,4 +512,4 @@ class PredictiveAvoider:
 
     def finish(self, plan):
         self.ep.event('op_done', op=plan.op.key)
-        self.current = None; self.step = 0; self.ep.claimed = None
+        self.current = None; self.step = 0; self.claim = None

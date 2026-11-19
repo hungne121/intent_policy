@@ -34,6 +34,15 @@ import numpy as np
 
 from intent_policy.shared.sim_env import HORIZONS, DT, INTENT
 
+GEN_V1 = 'v1_collection_hrc-ds-0.5'                # generator that produced the collected N5 data
+GEN_V2 = 'v2_continuous_eval_2026-11-19'           # continuous generator for policy eval (16/QĐ-HL)
+GENERATORS = {GEN_V1: 1, GEN_V2: 2}
+
+
+class FaultConfigError(RuntimeError):
+    """Generator v2 could not emit a forecast that passes the locked validator (16/QĐ-HL 7): never emit an invalid one."""
+
+
 FAULT_TYPES = ('spatial_fault', 'temporal_fault', 'direction_fault')
 ARMS = {'l': (0, 2, 4), 'r': (1, 3, 5)}          # (shoulder, elbow, wrist) indices in JOINTS order
 
@@ -99,12 +108,22 @@ class FaultInjector:
         self.spec = spec
         self.rearm_ticks = max(1, int(round(float(cfg['rearm_s']) / DT)))
         self.bone_tol, self.start_tol, self.jump_tol = (float(cfg['checks'][k]) for k in ('bone_tol_m', 'start_tol_m', 'jump_tol_m'))
+        # 16/QĐ-HL: generator version. 1 = the generator of the collected N5 data (unchanged); 2 = continuous generator
+        # (policy closed loop, tools / eval): same schedule and parameters, elbow hint / time-warp / offset slew, strict checks.
+        self.gen_name = str(cfg.get('generator_version', GEN_V1))
+        if self.gen_name not in GENERATORS:
+            raise ValueError(f'n5.generator_version must be one of {list(GENERATORS)}, got {self.gen_name!r}')
+        self.gen = GENERATORS[self.gen_name]
+        self._v2_prev = None
         self.onsets, self._still, self._moving = [], self.rearm_ticks, False
         self.start = self.end = None
         self.arm = None
         self._last_offset = None
         self.log = {'active_ticks': 0, 'max_strength': 0., 'max_wrist_shift_1s_m': 0., 'clamped_ticks': 0,
                     'max_bone_dev_m': 0., 'max_start_err_m': 0., 'max_jump_m': 0., 'violations': []}
+        if self.gen == 2:
+            self.log.update({'decay_ticks': 0, 'slew_limited_ticks': 0, 'start_clipped_ticks': 0,
+                             'min_wrist_shift_ratio': None, 'min_wrist_shift_ratio_target': None})
 
     # ------------------------------------------------------------------ schedule
     def _track_onsets(self, t, used):
@@ -129,6 +148,13 @@ class FaultInjector:
         return self.log['active_ticks'] > 0
 
     # ------------------------------------------------------------------ fault forms
+    def _bones(self, rawj, s_i, e_i, w_i, l1, l2):
+        """v1: bone lengths of the observed pose. v2: those of the raw forecast at this horizon, so that zero fault means
+        zero offset (the locked bone check is relative to the raw forecast's own deviation)."""
+        if self.gen == 1:
+            return l1, l2
+        return float(np.linalg.norm(rawj[e_i] - rawj[s_i])), float(np.linalg.norm(rawj[w_i] - rawj[e_i]))
+
     def _spatial(self, raw, cur, k, arm):
         s_i, e_i, w_i = ARMS[arm]
         phi = np.radians(self.spec.direction_deg)
@@ -137,7 +163,9 @@ class FaultInjector:
         l1 = float(np.linalg.norm(cur[e_i] - cur[s_i])); l2 = float(np.linalg.norm(cur[w_i] - cur[e_i]))
         for j, h in enumerate(HORIZONS):
             w = raw[j, w_i] + k * dvec * h / HORIZONS[-1]
-            out[j, e_i], out[j, w_i], c = solve_elbow(raw[j, s_i], w, l1, l2, raw[j, e_i]); clamped += c
+            hint = raw[j, e_i] + (0.5 * (w - raw[j, w_i]) if self.gen == 2 else 0.)   # v2: elbow follows half the wrist shift
+            a1, a2 = self._bones(raw[j], s_i, e_i, w_i, l1, l2)
+            out[j, e_i], out[j, w_i], c = solve_elbow(raw[j, s_i], w, a1, a2, hint); clamped += c
         return out, clamped
 
     def _temporal(self, raw, cur, k, arm):
@@ -148,9 +176,12 @@ class FaultInjector:
         l1 = float(np.linalg.norm(cur[e_i] - cur[s_i])); l2 = float(np.linalg.norm(cur[w_i] - cur[e_i]))
         for j, h in enumerate(HORIZONS):
             q = h * scale
+            if self.gen == 2:        # v2: the 0.1 s step stays on the observed pose; the 1 s progress is still `scale`
+                q = h - (1. - scale) * max(h - HORIZONS[0], 0.) / (HORIZONS[-1] - HORIZONS[0])
             for jt in (s_i, e_i, w_i):
                 out[j, jt] = [np.interp(q, times, traj[:, jt, a]) for a in range(3)]
-            out[j, e_i], out[j, w_i], c = solve_elbow(out[j, s_i], out[j, w_i], l1, l2, out[j, e_i]); clamped += c
+            a1, a2 = self._bones(raw[j], s_i, e_i, w_i, l1, l2)
+            out[j, e_i], out[j, w_i], c = solve_elbow(out[j, s_i], out[j, w_i], a1, a2, out[j, e_i]); clamped += c
         return out, clamped
 
     def _direction(self, raw, cur, k, arm, t):
@@ -168,6 +199,8 @@ class FaultInjector:
         expert read the forecast (hand moving) on the previous tick."""
         self._track_onsets(t, bool(used_last_tick))
         k = self.strength(t)
+        if self.gen == 2:
+            return self._apply_v2(raw, current, t, k, arm)
         if raw is None or k <= 0.:
             self._last_offset = None if raw is None else np.zeros_like(raw)
             return raw, 0.
@@ -182,6 +215,57 @@ class FaultInjector:
         else:
             eff, clamped = self._direction(raw, cur, k, self.arm, t)
         self._check(raw, eff, cur, t, clamped)
+        return eff, k
+
+    def _apply_v2(self, raw, current, t, k, arm):
+        prev = self._v2_prev
+        decay = k <= 0. and raw is not None and prev is not None and float(np.abs(prev).max()) > 1e-6
+        if raw is None or (k <= 0. and not decay):
+            self._last_offset = None if raw is None else np.zeros_like(raw); self._v2_prev = None
+            return raw, 0.
+        raw = np.asarray(raw, float); cur = np.asarray(current, float)
+        if self.arm is None:
+            self.arm = arm
+        s_i, e_i, w_i = ARMS[self.arm]
+        if decay:
+            target = raw.copy(); clamped = 0; self.log['decay_ticks'] += 1
+        else:
+            f = self.spec.fault_type
+            if f == 'spatial_fault':
+                target, clamped = self._spatial(raw, cur, k, self.arm)
+            elif f == 'temporal_fault':
+                target, clamped = self._temporal(raw, cur, k, self.arm)
+            else:
+                target, clamped = self._direction(raw, cur, k, self.arm, t)
+        off = target - raw
+        if not decay and self.spec.fault_type == 'spatial_fault' and k > 0.5:      # severity before slew / start limits
+            r0 = float(np.linalg.norm(off[-1, w_i]) / max(k * self.spec.amplitude_m, 1e-9))
+            m0 = self.log['min_wrist_shift_ratio_target']
+            self.log['min_wrist_shift_ratio_target'] = r0 if m0 is None else min(m0, r0)
+        lim = 0.9 * self.jump_tol
+        base = np.zeros_like(raw) if prev is None else prev
+        d = off - base; n = np.linalg.norm(d, axis=2, keepdims=True)
+        if bool((n > lim).any()):                                   # slew limit: offset change per tick <= 0.9 jump_tol
+            self.log['slew_limited_ticks'] += 1
+            off = base + d * np.minimum(1., lim / np.maximum(n, 1e-12))
+        start_lim = 0.9 * self.start_tol
+        n0 = np.linalg.norm(off[0], axis=1, keepdims=True)
+        if bool((n0 > start_lim).any()):                            # 0.1 s step stays on the observed pose
+            self.log['start_clipped_ticks'] += 1
+            off[0] = off[0] * np.minimum(1., start_lim / np.maximum(n0, 1e-12))
+        eff = raw + off
+        for j in range(len(HORIZONS)):                              # raw bone lengths again with the wrist fixed
+            a1, a2 = self._bones(raw[j], s_i, e_i, w_i, 0., 0.)
+            eff[j, e_i], eff[j, w_i], c = solve_elbow(eff[j, s_i], eff[j, w_i], a1, a2, eff[j, e_i]); clamped += c
+        e_off = eff[:, e_i] - raw[:, e_i]                           # elbow continuity: the circle projection may not
+        be = np.zeros_like(e_off) if prev is None else prev[:, e_i]  # undo the slew limit (the validator still judges bones)
+        de = e_off - be; ne = np.linalg.norm(de, axis=1, keepdims=True)
+        eff[:, e_i] = raw[:, e_i] + be + de * np.minimum(1., lim / np.maximum(ne, 1e-12))
+        self._v2_prev = eff - raw
+        self._check(raw, eff, cur, t, clamped)
+        if not decay and self.spec.fault_type == 'spatial_fault' and k > 0.5:
+            r = float(np.linalg.norm((eff - raw)[-1, w_i]) / max(k * self.spec.amplitude_m, 1e-9))
+            m = self.log['min_wrist_shift_ratio']; self.log['min_wrist_shift_ratio'] = r if m is None else min(m, r)
         return eff, k
 
     def _check(self, raw, eff, cur, t, clamped):
@@ -214,9 +298,11 @@ class FaultInjector:
             bad.append(f'jump {jump:.3f}')
         if bad and len(lg['violations']) < 20:
             lg['violations'].append({'t': round(t, 3), 'checks': bad})
+        if bad and self.gen == 2:
+            raise FaultConfigError(f'N5 generator v2 cannot meet the locked validator at t={t:.3f} ({bad}); not emitting')
 
     def summary(self):
-        return {'fault_type': self.spec.fault_type, 'fault_parameters': self.spec.to_dict(),
+        return {'fault_type': self.spec.fault_type, 'generator_version': self.gen_name, 'fault_parameters': self.spec.to_dict(),
                 'fault_start': None if self.start is None else round(self.start, 3),
                 'fault_end': None if self.end is None else round(self.end, 3),
                 'fault_applied': self.applied, 'fault_arm': self.arm, 'use_onsets_s': [round(x, 3) for x in self.onsets[:8]],

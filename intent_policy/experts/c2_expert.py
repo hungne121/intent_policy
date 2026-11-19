@@ -6,7 +6,7 @@ import numpy as np
 
 from intent_policy.experts.base_expert import BaseExpert
 from intent_policy.scenarios.c2 import (HANDOVER, PALM_TO_CLOTH, ROBOT_GRIP_OFF, BRISTLE_HALF, SPOTS, STANDBY,
-                                         SHELF_FLOOR, TOOL_YAW_DEG, sweep_dust)
+                                         SHELF_FLOOR, TOOL_YAW_DEG)
 from intent_policy.shared.sim_env import TRAVEL_Z, GRIP_CLOSED, GRASP_DZ, STATION
 from intent_policy.shared.episode import marks_left
 from intent_policy.shared.forecast_planner import FOLLOW_KEEP_CLEAR, SAFETY_BAND
@@ -21,7 +21,7 @@ class Expert(BaseExpert):
 
     def run(self):
         ep = self.ep
-        ep.wiped = {}
+        self.wiped = {}          # expert FSM only; the person reads the dust marks (events.py, 09/QĐ-KT)
         # 1. take the cloth where the human offers it (observed cloth pose; forecast of the offering hand in Intent)
         if self.forecast_mode:
             # 16/11 (user): the robot must be ready when the person is. Start as soon as the forecast says the hand is
@@ -59,7 +59,7 @@ class Expert(BaseExpert):
                 return all(ep.pos(o)[2] < ep.initial[o][2] + .02 for o in ('cup', 'clock'))
             def lifted():
                 for o in ('cup', 'clock'):
-                    if o not in ep.wiped and ep.pos(o)[2] > ep.initial[o][2] + .07: return o
+                    if o not in self.wiped and ep.pos(o)[2] > ep.initial[o][2] + .07: return o
                 return None
             if self.forecast_mode:
                 # FOLLOW reading: while the hand is free, wait at the robot-side standoff (y +0.10, z 0.74; bristles at
@@ -69,7 +69,7 @@ class Expert(BaseExpert):
                 # (the person keeps clear); the stop / back-off rule applies only while it is moving
                 hover, resting = None, False
                 while lifted() is None:
-                    cand = {o: ep.pos(o) for o in ('cup', 'clock') if o not in ep.wiped} if hand_free() else {}
+                    cand = {o: ep.pos(o) for o in ('cup', 'clock') if o not in self.wiped} if hand_free() else {}
                     h = self.plan.nearest(cand)
                     if h is not None and h != hover:
                         hover, resting = h, False; ep.event('forecast_prep', object=h)
@@ -106,9 +106,8 @@ class Expert(BaseExpert):
                 # Wipe marks have a 35 mm effect radius; reaching within 12 mm is
                 # sufficient and avoids freezing against the shelf's IK boundary.
                 for cmd in ep.goto(np.r_[s + ROBOT_GRIP_OFF, wipe_z], 'wipe', GRIP_CLOSED, tol=.012):
-                    sweep_dust(ep); yield cmd
-                sweep_dust(ep)
-            ep.wiped[obj] = True; ep.event('wipe_end', object=obj, marks_left=marks_left(ep))
+                    yield cmd
+            self.wiped[obj] = True; ep.event('wipe_end', object=obj, marks_left=marks_left(ep))
             yield from ep.goto(np.r_[spots[-1] + ROBOT_GRIP_OFF, .74], 'lift', GRIP_CLOSED)
             yield from ep.goto(STANDBY, 'retreat', GRIP_CLOSED)
         # 3. return the cloth: present it at the handover point and release when the human holds it

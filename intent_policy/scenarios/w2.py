@@ -2,6 +2,7 @@
 puts each into its colour tray; a block the robot holds or is over (observable claim) is skipped."""
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import shift_decor
 from intent_policy.shared.episode import hold, carry, move
@@ -49,15 +50,16 @@ def free_slot(ep, c, prefer, moving=None):
 def human(ep, info):
     home = ep.human.hanging_palm(ep.human.active)
     cur = home
+    det = detector(ep)
     yield from hold(home, .8, phase='idle')
     for i in info['order']:
         b = f'block{i}'
-        if ep.attached_name() == b or getattr(ep, 'claimed', None) == b:
+        if det.w_robot_claims(b, [f'block{j}' for j in range(6)]):
             ep.event('human_skips_claimed', block=b); continue
         if ep.pos(b)[2] > .70 or np.linalg.norm(ep.pos(b)[:2] - TRAY[color(i)]) < .07 or ep.pos(b)[1] > PERSON_REACH_Y:
             continue                                    # sorted already, or on the robot's side of the table
         dest = np.r_[free_slot(ep, color(i), TRAY_SLOTS, b), BLOCK_Z]
-        yield from hold(cur, until=lambda: np.linalg.norm(ep.tcp()[:2] - dest[:2]) > .10 or ep.tcp()[2] > .78, phase='yield')
+        yield from hold(cur, until=lambda: not det.w_robot_in_tray(dest), phase='yield')
         cur = yield from carry(ep, b, dest, cur, dz=.03, lift=.07, reach_s=.9, carry_s=.9, lower_s=.4, phase=f'block{i}')
     yield from move(cur, home, .9, lift=.04, phase='rest')
     yield from hold(home, 1.0, phase='done')

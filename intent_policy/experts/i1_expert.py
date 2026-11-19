@@ -25,15 +25,15 @@ class Expert(BaseExpert):
 
     def run(self):
         ep = self.ep
-        ep.robot_prepared = False; ep.coaster_down = [False] * 3
+        ep.coaster_down = [False] * 3
         remaining = list(CUPS)
         for r in range(3):
             cup = min(remaining, key=lambda c: np.linalg.norm(ep.pos(c)[:2] - ep.tcp()[:2])); remaining.remove(cup)
             co = f'coaster{2 - r}'
             yield from ep.goto(np.r_[ep.pos(cup)[:2], TRAVEL_Z], 'approach')
-            ep.robot_prepared = True; ep.event('robot_prepared', cup=cup)
+            ep.event('robot_prepared', cup=cup)      # log only: the person reads events.py, not this (09/QĐ-KT)
             yield from ep.wait(lambda: ep.hand_speed > .05, 'wait_hand_motion')     # observable cue
-            ep.robot_prepared = False; ep.event('hand_motion_observed', round=r)
+            ep.event('hand_motion_observed', round=r)
             yield from ep.pick(cup)
             yield from ep.goto(np.r_[ep.tcp()[:2], FOLLOW_Z], 'lift', GRIP_CLOSED)
             ep.event('robot_holds_cup', cup=cup)

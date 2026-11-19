@@ -122,9 +122,15 @@ class Expert(BaseExpert):
         # handing the part onto the open palm is a deliberate close approach (as C2): no wait-for-hand rule
         yield from ep.goto(lambda: np.r_[palm()[:2], palm()[2] + PART_ON_PALM + GRASP_DZ + .04], 'move', GRIP_CLOSED, keep_clear=0., until=lost)
         if lost(): return (yield from self.drop_choice(target))
-        yield from ep.goto(lambda: np.r_[palm()[:2], palm()[2] + PART_ON_PALM + GRASP_DZ], 'lower', GRIP_CLOSED, keep_clear=0., until=lost)
-        if lost(): return (yield from self.drop_choice(target))
-        ep.human_grasp(part); ep.delivered = target
+        taken = lambda: part in ep.held_by_human
+        yield from ep.goto(lambda: np.r_[palm()[:2], palm()[2] + PART_ON_PALM + GRASP_DZ], 'lower', GRIP_CLOSED, keep_clear=0.,
+                           until=lambda: taken() or lost())
+        if not taken() and lost(): return (yield from self.drop_choice(target))
+        # 09/QĐ-KT: the person closes its hand on the part itself (events.py C4 part_on_palm); open once it holds it
+        # (observable: the hand closed on the part), as c2_expert waits for the person's release (timeout 40 ticks)
+        yield from ep.wait(taken, 'wait_human_grasp', GRIP_CLOSED, timeout=40)
+        if not taken():
+            ep.event('human_grasp_timeout', socket=target)
         yield from ep.open_gripper(); ep.event('handover_complete', socket=target)
         retreat = np.r_[ep.tcp()[:2], STATION['task_tuning']['C4']['handover_z_m']]
         yield from ep.goto(retreat, 'retreat', keep_clear=0.)
@@ -132,7 +138,6 @@ class Expert(BaseExpert):
 
     def run(self):
         ep = self.ep
-        ep.delivered = None
         done = set()
         yield from ep.goto(np.array([.28, .12, TRAVEL_Z]), 'prepare')
         while len(done) < 3:

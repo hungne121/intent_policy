@@ -5,6 +5,7 @@ import copy
 import xml.etree.ElementTree as ET
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import base, build_scene_xml, align_robot_station
 from intent_policy.shared.sim_env import STATION, connected_human
 from intent_policy.shared.episode import hold, move, wipe_marks, marks_left
@@ -84,7 +85,7 @@ def human(ep, info):
     yield from ep.settle_hand({'palm': handle, 'progress': 1., 'shape': 'grasp', 'phase': 'reach_handle',   # 68/QĐ-DL B.1
                                'idle_palm': idle, 'idle_shape': 'grasp'})
     ep.human_grasp('tray'); ep.event('human_grasp_handle')
-    yield from hold(handle, until=lambda: ep.attached_name() == 'tray', shape='grasp', idle_palm=idle, idle_shape='grasp', phase='wait_robot_handle')
+    yield from hold(handle, until=detector(ep).until('robot_holds_tray', detector(ep).c3_robot_holds_tray), shape='grasp', idle_palm=idle, idle_shape='grasp', phase='wait_robot_handle')
     yield from hold(handle, .3, shape='grasp', idle_palm=idle, idle_shape='grasp', phase='wait_robot_handle')
     ep.event('lift_onset')
     for f in move(handle, handle + [0, 0, LIFT], 1.4, shape='grasp', phase='lift'):

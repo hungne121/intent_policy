@@ -2,6 +2,7 @@
 items the robot has claimed; the robot packs into its own box."""
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import shift_decor
 from intent_policy.shared.episode import hold, carry, move
@@ -56,7 +57,7 @@ def human(ep, info):
     yield from hold(home, .8, phase='idle')
     for i in info['order']:
         it = f'item{i}'
-        if packed(ep, i) or ep.attached_name() == it or getattr(ep, 'claimed', None) == it or ep.pos(it)[1] > PERSON_REACH_Y:
+        if packed(ep, i) or detector(ep).w_robot_claims(it, [f'item{j}' for j in range(6)]) or ep.pos(it)[1] > PERSON_REACH_Y:
             continue                                    # done, claimed by the robot, or on the robot's side
         dest = np.r_[BOX['human'] + SLOTS[n], ITEM_Z]; n += 1
         cur = yield from carry(ep, it, dest, cur, dz=.03, lift=.08, reach_s=.9, carry_s=1.0, lower_s=.45, phase=it,

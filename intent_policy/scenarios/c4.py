@@ -2,6 +2,7 @@
 the robot and installs it (Collaborator)."""
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.episode import hold, move
 
@@ -74,6 +75,7 @@ def build(seed, variant='nominal'):
 
 
 def human(ep, info):
+    det = detector(ep)
     home = ep.human.hanging_palm(ep.human.active)
     cur = home
     recv_at = lambda k: np.array([SOCKETS[k][0], SOCKETS[k][1] - .02, .62 + PALM_DZ])
@@ -94,13 +96,19 @@ def human(ep, info):
             for f in move(cur, recv, 1.4, lift=.05, shape='offer', shape_from='relaxed', phase=f'reach_{i}'):
                 yield {**f, 'palm_up': f['progress']}
         ep.event('palm_up', socket=i)
-        yield from hold(recv, until=lambda: getattr(ep, 'delivered', None) == i, shape='offer', palm_up=1., phase=f'wait_part_{i}')
         part = f'part{i}'
+        # 09/QĐ-KT: the person closes the hand once it SEES / feels the part resting on its palm (events.yaml C4
+        # part_on_palm); the grasp is the person's action (it used to be done by the expert). 1.2 (15/QĐ-KT A2): the
+        # robot may still hold it (i) or have let go of it onto the palm (ii); the log says which.
+        yield from hold(recv, until=det.until('part_on_palm', lambda: det.c4_part_on_palm(i, ep.pose['palm']),
+                                              detail=lambda: det.c4_path(i), socket=i),
+                        shape='offer', palm_up=1., phase=f'wait_part_{i}')
+        ep.human_grasp(part)
         for f in move(recv, recv, .4, shape='grasp', shape_from='offer', phase=f'grip_{i}'):
             yield {**f, 'palm_up': 1.}
         # Keep the actual handover transform; teleporting into the fingers caused an impulse.
         ep.event('human_holds_part', part=part)
-        yield from hold(recv, until=lambda: ep.attached_name() is None and ep.tcp()[2] > recv[2] + .12, shape='grasp', palm_up=1., phase=f'wait_robot_clear_{i}')
+        yield from hold(recv, until=det.until('robot_clear', lambda: det.c4_robot_clear(recv), socket=i), shape='grasp', palm_up=1., phase=f'wait_robot_clear_{i}')
         # 56/QĐ-DL: the wrist turns palm-down carrying the part round the thumb side (pronation), so it ends under
         # the palm; it used to stay above the turned hand, which then had to go into the table to seat it and
         # knocked it off when lifting.
@@ -136,3 +144,17 @@ def human(ep, info):
 
 def human_done(ep):
     return ep.human_phase == 'done'
+
+
+def check(ep, info):
+    """Evaluator only, after c4_expert.success() (parts seated in their sockets, robot holding nothing). 15/QĐ-KT A5:
+    C4 is complete only if the PERSON took every part (ep.human_grasp, the shared grasp: a weld that needs the hand
+    within HUMAN_GRASP_GAP_M of the part) and let it go into its socket. A part the robot seated itself does not count."""
+    taken = {e.get('object') for e in ep.events if e.get('event') == 'human_grasp'}
+    for i in sorted(SOCKETS):
+        part = f'part{i}'
+        if part not in taken:
+            return False, 'part_not_taken_by_person'
+        if part in ep.held_by_human:
+            return False, 'part_still_in_hand'
+    return True, None

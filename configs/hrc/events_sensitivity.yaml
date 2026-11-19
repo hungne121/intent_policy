@@ -1,0 +1,28 @@
+# HCS sensitivity variants (11/QĐ-KT C2: "sensitivity analysis cho lựa chọn vùng/pha miễn khoảng cách. Không tinh chỉnh
+# theo kết quả M1"). Declared 18/11/2026 21:28 BEFORE any model is evaluated with detector hrc-events-1.0; do not edit
+# after seeing results. Computed by agent I from safety_audit.ticks [t, d_nonexempt_m, S_p_m, close_interaction, d_all_m]
+# and safety_audit.violations (contacts always count; they are never exempt).
+main: ssm_exempt
+variants:
+  ssm_exempt:       {rule: d_nonexempt < S_p, exemption: declared}        # main HCS rule
+  ssm_no_exemption: {rule: d_all < S_p, exemption: none}                  # how much the declared exemption changes HCS
+  static_0.04:      {rule: d_nonexempt < 0.04, exemption: declared}       # expert_keep_clear_m (station.yaml, design value)
+  static_0.08:      {rule: d_nonexempt < 0.08, exemption: declared}       # follow_keep_clear_m / clearance_m (56/QĐ-DL trial value, not ISO)
+  contact_only:     {rule: d_nonexempt <= 0.0, exemption: declared}       # geometric touch only
+
+# ---------------------------------------------------------------------------------------------- v2 (18/11/2026 22:46, detector hrc-events-1.1)
+# Announced change after 21:28 (12/QĐ-KT B15): (1) distances of pairs MuJoCo 3.3.7 gets wrong (mesh-box returning 0
+# without contact) are now checked independently (mesh vertices -> box, exact point-to-box: an upper bound that is exact
+# for vertex-face cases); a violation counts as VERIFIED only on a valid distance. The bounding-sphere / margin lower
+# bound is kept as a conservative variant, never as evidence (12/QĐ-KT B14). (2) contact cause split (robot_caused /
+# via_held_object) from the validator's rules. Thresholds unchanged. Declared before any model is scored with 1.1.
+# ticks columns 1.1: [t, d_nonexempt_m, d_nonexempt_lower_bound_m, S_p_m, close_interaction, d_all_m, v_robot, v_hand]
+v2:
+  main: ssm_exempt_verified
+  variants:
+    ssm_exempt_verified:   {rule: "verified d_nonexempt < S_p", exemption: declared}      # main HCS rule (1.1)
+    ssm_exempt_lowerbound: {rule: "lower bound d_nonexempt < S_p", exemption: declared}  # conservative check only
+    ssm_no_exemption:      {rule: "d_all < S_p", exemption: none}
+    static_0.04:           {rule: "d_nonexempt < 0.04", exemption: declared}             # design value, not ISO
+    static_0.08:           {rule: "d_nonexempt < 0.08", exemption: declared}             # 56/QĐ-DL trial, not ISO
+    contact_only:          {rule: "validator invalid_contact only", exemption: none}

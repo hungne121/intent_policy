@@ -4,6 +4,7 @@ clip `i2_point_plate` (reach 2.2 s), keeps pointing until the robot visibly carr
 plate, then withdraws (contingent, logged). 12/11 user update; seed 300106 is the middle-plate review seed."""
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import ROOT, DT, apply_station, smooth, smooth_motion_path, motion_deviation
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, clip_id
@@ -43,9 +44,9 @@ def human(ep, info):
         strength = out
         # contingent withdrawal: the cake is carried towards the chosen plate (observable robot progress)
         tcp = ep.tcp()
-        if (withdraw_tick is None and prev_tcp is not None and ep.attached_name() == 'cake' and strength > .95
-                and np.linalg.norm(prev_tcp[:2] - plate[:2]) - np.linalg.norm(tcp[:2] - plate[:2]) > .001 and tcp[2] > .72):
+        if withdraw_tick is None and strength > .95 and detector(ep).i2_cake_moves_to(plate, prev_tcp):
             withdraw_tick = tick; ep.event('human_withdraw_after_robot_direction')
+            ep.event('human_cue', cue='cake_moves_to_plate')
         prev_tcp = tcp
         phase = 'point'
         if withdraw_tick is not None:

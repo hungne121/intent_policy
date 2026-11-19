@@ -46,15 +46,22 @@ def main():
     p.add_argument('--tasks', nargs='+', required=True)
     p.add_argument('--variants', nargs='+', default=['nominal'])
     p.add_argument('--group', default='N1', help='collection group of the variation (N1 nominal; N6 for switch_*)')
+    p.add_argument('--fault-type', default=None, choices=[None, *CFG['groups']['N5']['fault_types']],
+                   help='with --group N5 (14/QĐ-HL P3): forecast fault injected into the policy forecast tensor')
     p.add_argument('--seeds', nargs='+', type=int, default=None)
     p.add_argument('--start-seed', type=int, default=CFG['splits']['val'][0])
     p.add_argument('--n-seeds', type=int, default=1)
     p.add_argument('--n-action-steps', nargs='+', type=int, default=[1])
+    p.add_argument('--forecast-condition', nargs='+', default=['true'], choices=['true', 'masked'],
+                   help='20/QĐ-HL: run every episode under each condition (paired by seed); masked = forecast 0, valid 0')
+    p.add_argument('--trace', action='store_true', help='20/QĐ-HL 5: save raw chunks (true / masked / executed), executed actions and TCP per episode')
     p.add_argument('--video', type=int, default=0, help='overhead review video for the first K seeds per task')
     p.add_argument('--device', default=None)
     p.add_argument('--out', type=Path, default=None)
     a = p.parse_args()
 
+    if (a.group == 'N5') != (a.fault_type is not None):
+        raise SystemExit('--group N5 needs --fault-type, and --fault-type needs --group N5')
     seeds = a.seeds or list(range(a.start_seed, a.start_seed + a.n_seeds))
     lo, hi = CFG['splits']['val']
     bad = [s for s in seeds if not lo <= s <= hi]
@@ -71,7 +78,7 @@ def main():
     import torch
     from intent_policy.envs import HRCEnv, HRCEnvConfig
     from intent_policy.eval.runner import load_policy, evaluate
-    env = HRCEnv(a.tasks[0], a.variants[0], HRCEnvConfig(group=a.group))
+    env = HRCEnv(a.tasks[0], a.variants[0], HRCEnvConfig(group=a.group, fault_type=a.fault_type))
     rows, summary = [], []
     for ck in a.checkpoint:
         for n in a.n_action_steps:
@@ -79,11 +86,14 @@ def main():
             tags = dict(model=meta['model'], step=meta['step'], n_action_steps=meta['n_action_steps'],
                         checkpoint=meta['path'], best_val_l1=meta['best_val_l1'])
             log(f'loaded {tags}')
-            run = out / f"{meta['model']}_step{meta['step']}_n{meta['n_action_steps']}"
-            info = evaluate(policy, pre, post, env, a.tasks, a.variants, seeds, run, tags, a.video, log)
-            summary.append(dict(tags, per_task=info['per_task'], aggregated=info['aggregated']))
-            for key, m in info['per_task'].items():
-                rows.append(dict(model=meta['model'], step=meta['step'], n_action_steps=n, task=key, metrics=m))
+            run0 = out / f"{meta['model']}_step{meta['step']}_n{meta['n_action_steps']}"
+            for cond in a.forecast_condition:
+                run = run0 if cond == 'true' and a.forecast_condition == ['true'] else run0 / f'forecast_{cond}'
+                info = evaluate(policy, pre, post, env, a.tasks, a.variants, seeds, run, dict(tags, forecast_condition=cond), a.video, log,
+                                a.fault_type, cond, (run / 'trajectories') if a.trace else None)
+                summary.append(dict(tags, forecast_condition=cond, per_task=info['per_task'], aggregated=info['aggregated']))
+                for key, m in info['per_task'].items():
+                    rows.append(dict(model=meta['model'] + ('' if len(a.forecast_condition) == 1 else f'[{cond}]'), step=meta['step'], n_action_steps=n, task=key, metrics=m))
             del policy, pre, post
             gc.collect()
             if torch.cuda.is_available():

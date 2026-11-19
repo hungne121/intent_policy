@@ -7,6 +7,7 @@ visibly heads for A with an empty gripper, then withdraws. Variants (14/11): `no
 import xml.etree.ElementTree as ET
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import ROOT, DT, STATION, apply_station, smooth, smooth_motion_path, motion_deviation
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, clip_id
@@ -100,20 +101,21 @@ def human(ep, info):
     ep.human.set_active('r')
     cmds, holds = _clip_commands(ep, info)
     clock, started, released, hold_start = 0, False, set(), {}
+    det = detector(ep)
     tick = 0
     while True:
         # the person starts once the robot stands at the neutral point (observable)
-        if not started and np.linalg.norm(ep.tcp() - MIDPOINT) < .025:
-            started = True; ep.event('robot_neutral_ready')
+        if not started and det.i3_robot_at_neutral():
+            started = True; ep.event('robot_neutral_ready'); ep.event('human_cue', cue='robot_at_neutral')
         if started:
             tgt = holds.get(clock)
             if tgt is not None and clock not in released:
                 # keep pointing until the robot visibly heads for THIS cake with an empty gripper (cap 8 s)
-                dist = float(np.linalg.norm(ep.tcp()[:2] - ep.initial[tgt][:2]))
-                hold_start.setdefault(clock, (dist, tick))
+                hold_start.setdefault(clock, (det.tcp_xy_dist(ep.initial[tgt]), tick))
                 d0, t0 = hold_start[clock]
-                if (dist < max(.03, d0 - .025) and ep.attached_name() is None) or tick - t0 > 160:
+                if det.i3_robot_heads_to(ep.initial[tgt], d0) or tick - t0 > 160:
                     released.add(clock); ep.event('human_withdraw_after_robot_toward_' + tgt, timed_out=tick - t0 > 160)
+                    ep.event('human_cue', cue='robot_heads_to_cake', cake=tgt, timed_out=tick - t0 > 160)
             if tgt is None or clock in released:
                 clock += 1
         palm, point, strength = cmds[min(clock, len(cmds) - 1)]

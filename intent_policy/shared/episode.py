@@ -65,6 +65,7 @@ class Episode:
         self.m, self.d = self.env.model, self.env.data
         self.initial = {k: np.array(v, float) for k, v in positions.items()}
         self.max_ticks = int(max_ticks)
+        self.world_tick = self._scenario_world_tick(task)   # world rules shared by expert and policy (optional per scenario)
         self.tick = 0
         self.history, self.kp, self.pose = [], None, None
         self.palm_history = []                          # reached active palm, last 5 ticks (settle_hand)
@@ -377,6 +378,14 @@ class Episode:
         if retreat:
             yield from self.goto(np.r_[xyz[:2], above_z], 'retreat')
 
+    @staticmethod
+    def _scenario_world_tick(task):
+        try:
+            from intent_policy.scenarios import scenario
+            return getattr(scenario(task), 'world_tick', None)
+        except ImportError:
+            return None
+
     # ---------------------------------------------------------------- stepping
     def step(self, command):
         command = np.asarray(command, float)
@@ -386,6 +395,8 @@ class Episode:
         self.env.step(command)
         self._sync_idle_hand_objects(self.m, self.d)
         mujoco.mj_forward(self.m, self.d)
+        if self.world_tick is not None:
+            self.world_tick(self)                       # world rule, runs every tick for expert and policy alike
         self.validator.audit_geometry()
         self.validator.audit_robot()
         f = self.forecast_available()

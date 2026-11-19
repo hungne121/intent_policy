@@ -8,6 +8,7 @@ import numpy as np
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import apply_station
 from intent_policy.shared.episode import hold, move, hy_motion
+from intent_policy.shared.events import detector
 
 TASK, MAX_TICKS = 'I1', 1400
 CUPS = {'cup0': (.24, .08), 'cup1': (.30, .16), 'cup2': (.36, .08)}
@@ -16,6 +17,7 @@ CUP_Z = .665
 COASTER_T = .006
 SOURCE = np.array([.52, -.28])     # coaster stack on the table
 HOLD_DZ = .045                     # palm centre above the held coaster
+PLATE_XY, PLATE_HALF = np.array([.30, .12]), np.array([.11, .09])   # cup plate (decor_plate_visual): cups not served yet
 
 
 def build(seed):
@@ -25,8 +27,8 @@ def build(seed):
     for i in range(3):              # stack at the person's right; coaster2 on top is taken first
         positions[f'coaster{i}'] = (SOURCE[0], SOURCE[1], .623 + i * COASTER_T)
     root = ET.fromstring(apply_station(scene, xml))
-    ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size='.11 .09 .001',
-                  pos='.30 .12 .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
+    ET.SubElement(root.find('worldbody'), 'geom', name='decor_plate_visual', type='box', size=f'{PLATE_HALF[0]} {PLATE_HALF[1]} .001',
+                  pos=f'{PLATE_XY[0]} {PLATE_XY[1]} .621', rgba='0.70 0.82 0.95 1', contype='0', conaffinity='0')
     order = [int(i) for i in np.random.default_rng(seed).permutation(3)]
     return scene, positions, ET.tostring(root, encoding='unicode'), {'spot_order': order}
 
@@ -42,10 +44,13 @@ def human(ep, info):
     carry_shape = segs[1] if len(segs) > 1 else reach_shape
     back_shape = segs[-1] if len(segs) > 2 else None
     cur = rest
+    det = detector(ep)
+    ep.coaster_down = [False] * 3               # the person's own record (read by the I1 expert, not by the person)
     yield from hold(rest, 1.0, phase='idle')
     for r, spot in enumerate(order):
         co = f'coaster{2 - r}'
-        yield from hold(cur, until=lambda: ep.robot_prepared, phase=f'wait_robot_{r}')
+        # 09/QĐ-KT: the person starts once it SEES the robot prepared over a cup (events.yaml I1 robot_prepared)
+        yield from hold(cur, until=det.until('robot_prepared', det.i1_robot_prepared, round=r), phase=f'wait_robot_{r}')
         yield from hold(cur, float(rng.uniform(.3, 1.2)), phase=f'free_pause_{r}')
         ep.event('human_motion_onset', round=r)
         top = ep.pos(co) + [0, 0, HOLD_DZ]

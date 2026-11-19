@@ -6,6 +6,7 @@ round starts after the cup is back on the cloth and the gripper has left."""
 import xml.etree.ElementTree as ET
 import numpy as np
 
+from intent_policy.shared.events import detector
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import DT, smooth, apply_station, connected_human
 
@@ -37,12 +38,13 @@ def build(seed):
 
 
 def human(ep, info):
+    det = detector(ep)
     for r, side in enumerate(info['order']):
         cup, cloth = 'cup' + side, 'cloth' + side
         target = ep.initial[cup]
         home = ep.human.hanging_palm(ep.human.active)
         ep.event('human_wait_neutral', round=r)
-        while np.linalg.norm(ep.tcp() - NEUTRAL) >= .03:
+        while not det.c1_robot_at_neutral():
             yield {'palm': home, 'shape': 'grasp', 'shape_from': 'relaxed', 'progress': 0., 'phase': 'wait_neutral'}
         # commanded palm positions throughout, as in the reviewed version: the reach-limited real palm differs at
         # the far tray and must not enter the spread offset (16/11 port fix)
@@ -73,7 +75,7 @@ def human(ep, info):
         held = np.array([target[0], -.27, .77]); n = int(round(.7 / DT))
         for i in range(1, n + 1):
             yield {'palm': grip + (held - grip) * smooth(i / n), 'shape': 'grasp', 'progress': 1., 'phase': 'lift_cloth'}
-        while ep.pos(cup)[2] <= .77:
+        while not det.c1_cup_lifted_clear(cup):
             yield {'palm': held, 'shape': 'grasp', 'progress': 1., 'phase': 'wait_cup_clear'}
         hand_offset = ep.pos(cloth)[:2] - held[:2]
         spread = np.array([target[0] - hand_offset[0], target[1] - hand_offset[1], .680])
@@ -100,8 +102,7 @@ def human(ep, info):
         n = int(round(1.0 / DT))
         for i in range(1, n + 1):
             yield {'palm': up + (home - up) * smooth(i / n), 'shape': 'relaxed', 'phase': 'withdraw'}
-        while not (np.linalg.norm(ep.pos(cup)[:2] - target[:2]) < .03 and ep.pos(cup)[2] < .71 and ep.attached_name() is None
-                   and np.linalg.norm(ep.tcp() - ep.pos(cup)) > .13):
+        while not det.c1_cup_returned(cup, target):
             yield {'palm': home, 'shape': 'relaxed', 'phase': 'wait_cup_return'}
     while True:
         yield {'palm': ep.human.hanging_palm(ep.human.active), 'shape': 'relaxed', 'phase': 'done'}

@@ -58,6 +58,18 @@ n1:
 # N5 forecast faults (shared/forecast_fault.py)
 n5:
   trigger: forecast_use              # fault after the k-th onset of the expert reading the forecast (hand moving)
+  # 15/QĐ-HL (19/11) rules 1-3 (amends 14/QĐ-HL 22): trigger of a POLICY rollout = onset of MEANINGFUL human motion, causal:
+  # observed hand speed above the measured still-hand bound after a still period (rearm_s below). No expert-read flag,
+  # no forecast-valid condition, no robot motion. 0.03 m/s (station.yaml) is the planner's "moves" bound, not used here.
+  # 16/QĐ-HL: generator_version v1 = generator of the collected N5 data (kept reproducible; collection uses it);
+  # v2 = continuous generator (elbow hint, 0.1 s-anchored time warp, offset slew 0.9 x jump_tol, strict validator); a NEW N5
+  # version, not equivalent to v1 (docs/reports/N5_INJECTOR_2026-11-19.md). HRCEnv policy eval sets policy_generator_version.
+  generator_version: v1_collection_hrc-ds-0.5          # generator that produced the collected N5 data
+  policy_generator_version: v2_continuous_eval_2026-11-19
+  policy_trigger: hand_speed_above_still_bound
+  policy_trigger_speed: {file: configs/hrc/events.yaml, section: metric, key: hand_still_max_m_s}
+  # source: events.yaml metric.hand_still_max_m_s 0.08 m/s = mean + 3 sd of the person's hand speed while it waits / offers
+  # (0.0050 +- 0.0219, n 3745, max 0.21). Alternative not used: the scripted human's goal-directed-reach phase event.
   onset_index: [0, 0]                 # pilot: first use; widen per task once use counts are measured
   rearm_s: 0.3                        # this long without forecast reads before a new use onset counts
   delay_s: [0.0, 0.2]
