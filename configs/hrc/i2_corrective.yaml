@@ -1,0 +1,19 @@
+# I2 corrective expert — PILOT (28/QĐ-HL Phase 3 items 4, 6; 20/11/2026). Not used for training until the user approves
+# the pilot videos + dataset. Parameters are measured, not tuned for a result:
+#  - attach of the expert: 1.00 s after the close command on all 40 validation seeds, symmetric finger contact, lift 0.05 s
+#    later (outputs/diag/phase3_1120/i2_attach, tools/probe_i2_attach.py)
+#  - early-lift hold of the failing policies: first bad close of M* I2 failures hold median 0.90 s, M0 0.82-0.90 s
+#    (docs/reports/PHASE3_I2_ATTACH_PLATE_2026-11-20.md) -> injected hold range [0.5, 0.95] s (< 1.0 s = before attach)
+variants:
+  original:               # reference: same as the collected I2 expert (no dwell, no injection)
+    early_lift_hold_s: null
+    dwell_after_attach_s: [0.0, 0.0]
+  nominal_dwell:          # valid timing variation only: the lift stays gated on the observed attach
+    early_lift_hold_s: null
+    dwell_after_attach_s: [0.0, 0.4]
+  recover:                # injected policy-like early lift, then expert recovery from the observed object state
+    early_lift_hold_s: [0.5, 0.95]
+    dwell_after_attach_s: [0.0, 0.4]
+perturb_lift_z: 0.72      # TCP height reached by the injected early lift (cake not attached stays on its source)
+recover_open_ticks: 15    # 0.75 s open before re-descending
+max_attempts: 3
