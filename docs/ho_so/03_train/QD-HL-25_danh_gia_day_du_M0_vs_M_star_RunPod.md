@@ -12,3 +12,6 @@
 3. **Task đầy đủ** = I1, I2, I3, C1, C2, C3, W1, W2 (nominal, nhóm N1) và I3 `switch_before_commit`, `switch_after_commit` (N6, đã duyệt ở 24/QĐ-HL). **Không** C4 (tạm dừng: detector 1.2 chưa nghiệm thu, 24/QĐ-HL), **không** W3 (thiếu dữ liệu, chưa train), **không** N5 (chưa duyệt).
 4. **Seed:** val 300820–300829 (10 seed; chưa dùng cho việc nào khác; không chạm test 300900–300999).
 5. **RunPod:** một pod GPU, nhiều tiến trình song song; xong thì tải về, xác nhận rồi xoá pod.
+
+## Ghi chú mở rộng (19/11/2026 22:1x, sau phản hồi "so sơ sài vậy")
+Lượt 1 (10 seed 300820–300829, 8 task nominal + I3 đổi ý, 300 episode) đã xong. Người dùng nhận xét lượt 1 sơ sài; agent mở rộng thêm **30 seed validation mới 300830–300859** cho cả ba model (M0, M1-noH, M*), cùng các điều kiện của lượt 1 và thêm biến thể W1 `linger_in_tray` (đã thuộc N1 trong `collection.yaml`). Vẫn không C4 (tạm dừng, 24/QĐ-HL), không W3 (chưa có dữ liệu train), không N5 (chưa duyệt), không test split. Bảng cuối gộp 40 seed (10 + 30).

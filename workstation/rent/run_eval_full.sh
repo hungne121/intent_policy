@@ -10,7 +10,7 @@ exec >>"$LOG" 2>&1
 trap 'echo "EVAL_FAILED line $LINENO"' ERR
 step() { echo; echo "===== [$(date '+%F %T')] $*"; }
 VENV=/workspace/venv; SEEDS="${SEEDS:-300820 300821 300822 300823 300824 300825 300826 300827 300828 300829}"
-OUT="$ROOT/outputs/eval_full_$(date +%F)"; CK=/workspace/ckpt; mkdir -p "$OUT" "$CK"
+OUT="$ROOT/outputs/eval_full_${TAG:-$(date +%F)}"; CK=/workspace/ckpt; mkdir -p "$OUT" "$CK"
 CPUS=$(python3 -c "import os; q=open('/sys/fs/cgroup/cpu.max').read().split() if os.path.exists('/sys/fs/cgroup/cpu.max') else ['max']; print(int(int(q[0])/int(q[1])) if q[0]!='max' else os.cpu_count())")
 NW="${NW:-$(( CPUS / 2 > 18 ? 18 : CPUS / 2 ))}"; [ "$NW" -ge 2 ] || NW=2
 step "1/4 env (the training recipe: torch cu128, lerobot 64b2317 --no-deps, mujoco 3.3.7, torchcodec); cpus $CPUS workers $NW"; nvidia-smi --query-gpu=name,memory.total --format=csv
@@ -42,12 +42,13 @@ for T in C2 W1 W2 I1 C1 C3 I2 I3; do for M in M0 M1noH Mstar; do
 done; done
 for M in M0 M1noH Mstar; do
   ck=$M0; [ "$M" = M1noH ] && ck=$MN; [ "$M" = Mstar ] && ck=$MS
+  echo "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 ./run.sh -m tools.eval_policy --checkpoint $ck --n-action-steps 10 --trace --tasks W1 --variants linger_in_tray --seeds $SEEDS --out $OUT/${M}_W1_linger > $OUT/${M}_W1_linger.log 2>&1; echo done ${M}_W1_linger \$(date +%T)" >> "$JOBS"
   echo "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 ./run.sh -m tools.eval_policy --checkpoint $ck --n-action-steps 10 --trace --group N6 --tasks I3 --variants switch_before_commit switch_after_commit --seeds $SEEDS --out $OUT/${M}_I3_N6 > $OUT/${M}_I3_N6.log 2>&1; echo done ${M}_I3_N6 \$(date +%T)" >> "$JOBS"
 done
 wc -l "$JOBS"
 xargs -P "$NW" -I{} bash -c '{}' < "$JOBS"
 step "4/4 results"
-for d in "$OUT"/*/; do [ -f "$d/m0_step60000_n10/episodes.jsonl" ] || ls "$d" | head -2; done | head -2
+true
 n=$(cat "$OUT"/*/*/episodes.jsonl | wc -l); echo "episodes written: $n"
 TAR="$ROOT/eval_full_$(date +%F).tar.gz"; tar czf "$TAR" -C "$ROOT/outputs" "$(basename "$OUT")" run_eval_full.log 2>/dev/null || tar czf "$TAR" -C "$ROOT/outputs" "$(basename "$OUT")"
 ls -la "$TAR"; echo "EVAL_DONE $TAR"
