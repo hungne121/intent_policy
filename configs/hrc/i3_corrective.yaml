@@ -2,7 +2,13 @@
 # Start states come from measured policy failures on switch_before_commit (docs/reports/PHASE3_I3_SWITCH_BEFORE_2026-11-20.md):
 #  S1: close without attach when the person changes mind (5/14 M* failures: no attach), hold < 1.0 s (attach needs 1.00 s)
 #  S2: attach of a third cake next to the true target (6/14 M* failures); the expert returns it by the existing return_* phases
+open_ticks: 15            # 0.75 s open in place after the injected close (as I2 recover_open_ticks)
 variants:
   original: {inject: null}
   s1_close_at_first_target: {inject: s1_close_at_first_target, hold_s: [0.5, 0.95]}
   s2_wrong_neighbour: {inject: s2_wrong_neighbour}
+  fixed:                  # 30/QĐ-HL item 1: lift straight up before moving sideways after an unattached re-selection
+    inject: null
+    safe_switch_lift: true
+  s1_fixed: {inject: s1_close_at_first_target, hold_s: [0.5, 0.95], safe_switch_lift: true}
+  s2_fixed: {inject: s2_wrong_neighbour, safe_switch_lift: true}

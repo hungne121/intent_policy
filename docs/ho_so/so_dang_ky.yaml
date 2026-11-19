@@ -2926,3 +2926,16 @@ van_ban:
     trang_thai: hieu_luc
     can_cu: [QD-HL-28]
     noi_luu: docs/ho_so/03_train/QD-HL-29_tu_the_nghi_khong_nghieng_pilot.md
+
+  - so: QD-HL-30
+    loai: QĐ
+    hm: [HL, DL, KT]
+    cap: 2
+    ngay: "2026-11-20 05:12"
+    ban_hanh: người dùng
+    trich_yeu: "Sau phân nhóm task (chat 20/11): sửa expert I3 switch_before (A moved), hoàn thiện corrective S1/S2, xác minh physics_valid C2 và I2 plate0 (không nới tiêu chuẩn), audit C2 + I3 switch_after + I3 nominal, giữ ckpt 60k/n_action_steps=10; đề xuất dataset corrective + fine-tune IL có đối chứng (không RL); chưa final eval/thesis; Phase 4 TSync v2/IR sau."
+    pham_vi: [I2, I3, C2, M0, M_star]
+    chu_de: [train, danh_gia, du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-28, QD-HL-29]
+    noi_luu: docs/ho_so/03_train/QD-HL-30_sua_expert_i3_audit_C2_I3_corrective.md

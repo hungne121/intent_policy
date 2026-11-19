@@ -19,7 +19,7 @@ def run(seed, variant, mode, pred, out=None, rest_lean_free=True, task_variant='
     ep = Episode('I3', mode, seed, scene, positions, xml, pred, out=out, max_ticks=sc.MAX_TICKS, review_camera=CFG['review_camera'],
                  review_hw=CFG['review_hw'], variant=task_variant, name_suffix=f'corrective_{variant}_{seed}_')
     ex = expert_class('I3')(ep); spec = SPEC[variant]
-    ex.inject = spec['inject']
+    ex.inject = spec['inject']; ex.safe_switch_lift = bool(spec.get('safe_switch_lift', False)); ex.inject_open_ticks = int(yaml.safe_load((ROOT / 'configs/hrc/i3_corrective.yaml').read_text())['open_ticks'])
     if spec.get('hold_s'):
         ex.inject_hold_ticks = int(round(float(np.random.default_rng(seed + 7919).uniform(*spec['hold_s'])) / 0.05))
     ep.event('task_active', **{k + '_evaluator_only': v for k, v in info.items() if k != 'variant'})

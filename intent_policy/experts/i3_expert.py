@@ -27,6 +27,8 @@ class Expert(BaseExpert):
     task, reading = 'I3', 'follow'
     inject = None            # 28/QĐ-HL pilot only (configs/hrc/i3_corrective.yaml): None = collected-data behaviour
     inject_hold_ticks = 0
+    inject_open_ticks = 15   # configs/hrc/i3_corrective.yaml open_ticks
+    safe_switch_lift = False  # 30/QĐ-HL pilot: lift straight up before moving sideways after an unattached re-selection
 
     def set_phase(self, phase, **kw):
         self.phase = phase; self.stage_start = self.ep.tick
@@ -135,7 +137,11 @@ class Expert(BaseExpert):
                         self._s2_done = self._s2_active = self._s2_recover = True
                         ep.event('injected_wrong_commit', true_target=decided, committed=self.selected)
                     self.source_pos = current[self.selected].copy()
-                    clear_samples = 0; self.set_phase('wait_hand_clear', switched_from=old)
+                    clear_samples = 0
+                    if self.safe_switch_lift and ep.tcp()[2] < .74:
+                        self._clear_goal = np.r_[ep.tcp()[:2], .78]; self.set_phase('clear_up', switched_from=old)
+                    else:
+                        self.set_phase('wait_hand_clear', switched_from=old)
             # observed-state recovery of an injected wrong commit: the cake in the gripper is not the last confirmed ray target
             if (getattr(self, '_s2_recover', False) and self.selected is not None and ep.attached_name() == self.selected
                     and last_confirmation not in (None, self.selected) and self.phase in ('lift', 'move_plate')):
@@ -159,16 +165,30 @@ class Expert(BaseExpert):
                     advance = ep.tick - self.stage_start + 1 >= COUNT_PHASES[self.phase]
                 elif self.phase != 'close':
                     advance = ep.reached(goal)
+            elif self.phase == 'clear_up':
+                cmd = ep.command_to(self._clear_goal, 'clear_up', GRIP_OPEN)
+                if ep.reached(self._clear_goal):
+                    clear_samples = 0; self.set_phase('wait_hand_clear')
             elif self.phase == 'inject_close':
                 cmd = ep.hold(GRIP_CLOSED)
                 if ep.tick - self.stage_start + 1 >= self.inject_hold_ticks:
-                    after = getattr(self, '_after_inject', None)
-                    if after is not None:
-                        self._after_inject = None; new, old = after
-                        self.selected = new; self.source_pos = current[new].copy(); clear_samples = 0
-                        self.set_phase('wait_hand_clear', switched_from=old)
+                    self.set_phase('inject_open' if self.safe_switch_lift else 'inject_resume')
+            elif self.phase == 'inject_open':      # open in place before any motion (the cake is partly squeezed)
+                cmd = ep.hold(GRIP_OPEN)
+                if ep.tick - self.stage_start + 1 >= self.inject_open_ticks:
+                    self.set_phase('inject_resume')
+            elif self.phase == 'inject_resume':
+                cmd = ep.hold(GRIP_OPEN)
+                after = getattr(self, '_after_inject', None)
+                if after is not None:
+                    self._after_inject = None; new, old = after
+                    self.selected = new; self.source_pos = current[new].copy(); clear_samples = 0
+                    if self.safe_switch_lift and ep.tcp()[2] < .74:
+                        self._clear_goal = np.r_[ep.tcp()[:2], .78]; self.set_phase('clear_up', switched_from=old)
                     else:
-                        self.set_phase('hold_switch')
+                        self.set_phase('wait_hand_clear', switched_from=old)
+                else:
+                    self.set_phase('hold_switch')
             elif self.phase == 'hold_switch':
                 cmd = ep.command_to(hold_goal, 'hold_switch', GRIP_OPEN)
             elif self.phase == 'wait_new_cue':
