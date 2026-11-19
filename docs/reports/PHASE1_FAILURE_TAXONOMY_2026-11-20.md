@@ -49,3 +49,6 @@ Cờ `physics_valid = false` xuất hiện ở **695/900 episode thành công** 
 ## Go / no-go cho Phase 1
 - **Đã đủ để chẩn đoán cơ chế** cho I2 (nhấc sớm + không recovery), I3 (sau-nắm, không recovery sau đổi ý), P5 (chưa đổi hướng).
 - **Chưa đủ để kết luận nguyên nhân gốc:** thiếu expert replay, forecast GT, trạng thái vật. Đề xuất **go có điều kiện** sang Phase 2 cho phần không cần GPU (kiểm dữ liệu I2: phân bố hold theo đĩa, vai trò cue người), và chạy một thí nghiệm **can thiệp inference** cho I2 (n_action_steps = 1 và hold bắt buộc) khi có RAM/GPU và được duyệt.
+
+## Đính chính 20/11/2026 04:14 (28/QĐ-HL)
+Dòng "M* 11/14 gắp A" ở mục I3 switch_before_commit đếm **lần đóng gripper đầu tiên ở khay A**, không phải lần attach. Theo event `robot_grasp`, không ca nào của M* gắp A trước (0/14). Số đúng và phân loại: xem `PHASE3_I3_SWITCH_BEFORE_2026-11-20.md`. Kết luận "chưa kịp đổi hướng trước khi gắp" không còn được ủng hộ.
