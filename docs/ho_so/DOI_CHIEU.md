@@ -1,8 +1,8 @@
-# Đối chiếu hồ sơ — 19/11/2026 20:27
+# Đối chiếu hồ sơ — 19/11/2026 20:28
 
 Sinh tự động bởi `./run.sh scripts/ho_so.py kiem`. Mục A, B cần người dùng xem; mục C–F là việc của agent.
 
-Sổ có 210 văn bản; 125 đang hiệu lực; 12 chờ quyết.
+Sổ có 211 văn bản; 126 đang hiệu lực; 12 chờ quyết.
 
 ## A. Chờ người dùng quyết
 

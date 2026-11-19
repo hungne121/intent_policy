@@ -2570,6 +2570,19 @@ van_ban:
     can_cu: [QD-KT-12, QD-KT-13, QD-KT-14, QD-HL-13, BC-KT-04]
     noi_luu: docs/ho_so/04_policy_test/QD-KT-15_benchmark_readiness_C4_detector12.md
 
+  - so: QD-KT-16
+    loai: QĐ
+    hm: [KT]
+    cap: 2
+    ngay: "2026-11-19 20:35"
+    ban_hanh: người dùng
+    trich_yeu: "Chốt (chat): mọi đo đạc đánh giá, trừ phần liên quan môi trường mô phỏng và thu dữ liệu, đều dùng chỉ số HRIBench. Agent áp dụng: bảng đánh giá chính của policy chỉ gồm 8 metric của 10/QĐ-KT (TSync, CT, HCS, CSR, Rsp, OC, DSR, CFR) qua tools/benchmark_report.py, ghi HRIBench-style; các số tự đặt (jerk, thời gian đứng yên, đường đi, success ba mức, useful onset, phần dịch theo forecast) chỉ còn là chẩn đoán phụ, không dùng kết luận / so sánh; ngoại lệ: số đo môi trường mô phỏng và thu dữ liệu."
+    pham_vi: [policy_test, M_star, M0, M1-noH, M1]
+    chu_de: [policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-KT-10, QD-HL-25]
+    noi_luu: docs/ho_so/04_policy_test/QD-KT-16_chi_so_danh_gia_chuan_HRIBench.md
+
   - so: BC-HL-02
     loai: BC
     hm: [HL, KT]
