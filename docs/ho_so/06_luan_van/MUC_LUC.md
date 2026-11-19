@@ -1,6 +1,6 @@
 # Luận văn — mục lục (LV)
 
-Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 19/11/2026 19:42. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
+Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 19/11/2026 20:02. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
 Tra nhanh: `./run.sh scripts/ho_so.py tra --hm LV` (thêm `--pham-vi <task>` để lọc theo task).
 
 ## Đang hiệu lực

@@ -2796,3 +2796,17 @@ van_ban:
     can_cu: [QD-HL-21, QD-HL-22, QD-HL-16]
     noi_luu: docs/ho_so/03_train/QD-HL-23_danh_gia_claim_tuong_tac_muot_va_doi_y.md
 
+  - so: QD-HL-24
+    loai: QĐ
+    hm: [HL]
+    cap: 2
+    ngay: "2026-11-19 20:00"
+    ban_hanh: người dùng
+    trich_yeu: "Chốt ưu tiên sau M* 60k: ưu tiên 1 đánh giá 60k (không train thêm, không sửa model); duyệt so mượt / sớm C1-I3-I2, N6 đổi ý trên I3, audit dữ liệu + failure trace C2 (chưa duyệt fine-tune); chưa duyệt N5, C4 (tạm dừng), forecast dropout / fallback, benchmark test chính thức, retrain, đổi n_action_steps; ablation chờ kết quả 60k; commit code ưu tiên ngay sau backup. Ba yêu cầu: (1) không xoá pod trước khi xác nhận backup đủ checkpoint, config, optimizer / scheduler state, mã / commit hash, normalization stats, log, manifest dữ liệu và đọc lại được; (2) wrong commit = hành động vượt ranh giới cam kết định nghĩa trước, theo mục tiêu không phù hợp intent thực lúc đó; phân biệt wrong initial direction (còn sửa được); chỉ tính khi nhãn mục tiêu hợp lệ; ranh giới commit theo affordance từng thao tác, không theo success cuối; (3) báo riêng task success, physics-valid success, safety-valid success. Muốn xem báo cáo 60k (M* so M1-noH và M0 cùng seed: thời gian chờ, completion time) trước khi quyết định train thêm."
+    pham_vi: [M_star, M1-noH, M0, C1, I3, I2, C2, policy_test, train]
+    chu_de: [train, policy_test]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-19, QD-HL-20, QD-HL-21, QD-HL-22, QD-HL-23]
+    sua: [QD-HL-23]
+    noi_luu: docs/ho_so/03_train/QD-HL-24_chot_uu_tien_sau_M_star_60k.md
+
