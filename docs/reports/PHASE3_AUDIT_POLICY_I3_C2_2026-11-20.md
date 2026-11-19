@@ -24,7 +24,7 @@ Vậy M* hơn M0 ở phần thao tác chủ yếu qua: (a) 3/7 thất bại củ
 |---|---|---|
 | M* 60k | 12/20 | 8 |
 | M0 50k | 5/20 | 15 |
-Lý do duy nhất do bộ kiểm trả về: \`dust_objects_or_brush\` (cup và clock về chỗ ±2 cm, dust marks còn 0, khăn về giá ±3 cm, không còn vật bị gắp). Tôi tách từng điều kiện từ vị trí cuối (không chụp được \`marks_left\`, nên "bụi" chỉ suy ra khi mọi điều kiện vị trí khác đạt):
+Lý do duy nhất do bộ kiểm trả về: `dust_objects_or_brush` (cup và clock về chỗ ±2 cm, dust marks còn 0, khăn về giá ±3 cm, không còn vật bị gắp). Tôi tách từng điều kiện từ vị trí cuối (không chụp được `marks_left`, nên "bụi" chỉ suy ra khi mọi điều kiện vị trí khác đạt):
 | model | cốc chưa về | khăn chưa về giá | cả hai |
 |---|---|---|---|
 | M* (8 ca) | 8 | 7 | 7 |
