@@ -25,10 +25,16 @@ PROJECT = np.array([0., .27, 0.])            # pointing hand -> cake row (i3_col
 
 class Expert(BaseExpert):
     task, reading = 'I3', 'follow'
+    inject = None            # 28/QĐ-HL pilot only (configs/hrc/i3_corrective.yaml): None = collected-data behaviour
+    inject_hold_ticks = 0
 
     def set_phase(self, phase, **kw):
         self.phase = phase; self.stage_start = self.ep.tick
         self.ep.event('phase', phase=phase, item=self.selected, **kw)
+
+    def wrong_neighbour(self, current, true_target, old):
+        others = [c for c in CAKES if c not in (true_target, old)]
+        return min(others, key=lambda c: float(np.linalg.norm(current[c][:2] - current[true_target][:2])))
 
     def targets(self, current):
         xy = current[self.selected][:2]; src = self.source_pos[:2]
@@ -92,7 +98,12 @@ class Expert(BaseExpert):
                     if ep.attached_name() is not None and self.phase in ('lift', 'move_plate', 'lower_plate'):
                         pending = None; self.set_phase('return_above')
                     elif ep.attached_name() is None and self.phase in ('wait_hand_clear', 'approach', 'descend', 'close'):
-                        hold_goal = np.r_[ep.tcp()[:2], .78]; self.set_phase('hold_switch')
+                        hold_goal = np.r_[ep.tcp()[:2], .78]
+                        if self.inject == 's1_close_at_first_target' and not getattr(self, '_s1_done', False):
+                            self._s1_done = True; ep.event('injected_close_after_switch', ticks=self.inject_hold_ticks)
+                            self.set_phase('inject_close')
+                        else:
+                            self.set_phase('hold_switch')
                     else:
                         switch_pending = False
             prev_wrist = wrist.copy()
@@ -100,18 +111,36 @@ class Expert(BaseExpert):
             if switch_pending and last_confirmation not in (None, self.selected) and confirm_t.get(last_confirmation, -1.) >= t_switch:
                 new_cue = last_confirmation
             if switch_pending and new_cue is not None and self.phase in ('hold_switch', 'wait_new_cue'):
-                old = self.selected; self.selected = new_cue; self.source_pos = current[self.selected].copy()
+                old = self.selected; self.selected = new_cue
+                if self.inject == 's2_wrong_neighbour' and not getattr(self, '_s2_done', False):
+                    self.selected = self.wrong_neighbour(current, new_cue, old)
+                    self._s2_done = self._s2_active = self._s2_recover = True; ep.event('injected_wrong_commit', true_target=new_cue, committed=self.selected)
+                self.source_pos = current[self.selected].copy()
                 clear_samples = 0; switch_pending = False; self.set_phase('wait_hand_clear', switched_from=old)
             if self.phase == 'observe' and decided is not None and (self.forecast_mode or visible_still >= 3):
                 self.selected = decided; self.source_pos = current[self.selected].copy(); self.set_phase('wait_hand_clear')
             elif (decided is not None and self.selected is not None and decided != self.selected
+                  and not (getattr(self, '_s2_active', False) and ep.attached_name() is None)
                   and self.phase in ('wait_hand_clear', 'approach', 'descend', 'close', 'lift', 'move_plate', 'lower_plate', 'open')):
                 switched = True
                 if ep.attached_name() is not None:
                     pending = decided; self.set_phase('return_above', new=pending)
+                elif self.inject == 's1_close_at_first_target' and not getattr(self, '_s1_done', False):
+                    self._s1_done = True; self._after_inject = (decided, self.selected)
+                    ep.event('injected_close_after_switch', ticks=self.inject_hold_ticks); self.set_phase('inject_close')
                 else:
-                    old = self.selected; self.selected = decided; self.source_pos = current[self.selected].copy()
+                    old = self.selected; self.selected = decided
+                    if self.inject == 's2_wrong_neighbour' and not getattr(self, '_s2_done', False):
+                        self.selected = self.wrong_neighbour(current, decided, old)
+                        self._s2_done = self._s2_active = self._s2_recover = True
+                        ep.event('injected_wrong_commit', true_target=decided, committed=self.selected)
+                    self.source_pos = current[self.selected].copy()
                     clear_samples = 0; self.set_phase('wait_hand_clear', switched_from=old)
+            # observed-state recovery of an injected wrong commit: the cake in the gripper is not the last confirmed ray target
+            if (getattr(self, '_s2_recover', False) and self.selected is not None and ep.attached_name() == self.selected
+                    and last_confirmation not in (None, self.selected) and self.phase in ('lift', 'move_plate')):
+                self._s2_recover = False; pending = last_confirmation
+                ep.event('wrong_cake_attached', held=self.selected, last_pointed=last_confirmation); self.set_phase('return_above', new=pending)
             if self.phase == 'wait_hand_clear':
                 clear_samples = clear_samples + 1 if np.linalg.norm(wrist - current[self.selected]) > .22 else 0
                 if clear_samples >= 3:
@@ -130,6 +159,16 @@ class Expert(BaseExpert):
                     advance = ep.tick - self.stage_start + 1 >= COUNT_PHASES[self.phase]
                 elif self.phase != 'close':
                     advance = ep.reached(goal)
+            elif self.phase == 'inject_close':
+                cmd = ep.hold(GRIP_CLOSED)
+                if ep.tick - self.stage_start + 1 >= self.inject_hold_ticks:
+                    after = getattr(self, '_after_inject', None)
+                    if after is not None:
+                        self._after_inject = None; new, old = after
+                        self.selected = new; self.source_pos = current[new].copy(); clear_samples = 0
+                        self.set_phase('wait_hand_clear', switched_from=old)
+                    else:
+                        self.set_phase('hold_switch')
             elif self.phase == 'hold_switch':
                 cmd = ep.command_to(hold_goal, 'hold_switch', GRIP_OPEN)
             elif self.phase == 'wait_new_cue':
@@ -152,7 +191,7 @@ class Expert(BaseExpert):
             yield cmd
             if self.phase == 'close':
                 if ep.attached_name() == self.selected:
-                    ep.event('robot_grasp', object=self.selected); advance = True
+                    ep.event('robot_grasp', object=self.selected); advance = True; self._s2_active = False
                 elif ep.tick - self.stage_start > 60:
                     ep.event('grasp_failed', item=self.selected); return
             if advance:
