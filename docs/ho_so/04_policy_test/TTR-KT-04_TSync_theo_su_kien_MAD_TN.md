@@ -1,4 +1,4 @@
-# 02/TTr-KT — Tờ trình: công thức TSync theo cửa sổ sự kiện (MAD-TN), chờ quyết (19/11/2026)
+# 04/TTr-KT — Tờ trình: công thức TSync theo cửa sổ sự kiện (MAD-TN), chờ quyết (19/11/2026)
 
 **Nguồn:** người dùng dán bản tra cứu (SciSpace, alphaXiv, ResearchGate, DBLP, GitHub) vào chat, 19/11/2026 ~21:0x. **Ghi:** agent, 2026-11-19 21:05. **Cấp:** tờ trình, **chưa có hiệu lực**.
 **Liên quan:** 17/QĐ-KT mục 2 và 8 (không tự chế công thức gắn tên HRIBench; chưa xác minh được thì báo rõ).

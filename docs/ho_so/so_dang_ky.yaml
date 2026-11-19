@@ -2597,7 +2597,7 @@ van_ban:
     sua: [QD-KT-10, QD-KT-16]
     noi_luu: docs/ho_so/04_policy_test/QD-KT-17_chuan_hoa_benchmark_theo_HRIBench_10_metric.md
 
-  - so: TTR-KT-02
+  - so: TTR-KT-04
     loai: TTr
     hm: [KT]
     ngay: "2026-11-19 21:05"
@@ -2607,7 +2607,7 @@ van_ban:
     chu_de: [policy_test]
     trang_thai: cho_quyet
     can_cu: [QD-KT-17]
-    noi_luu: docs/ho_so/04_policy_test/TTR-KT-02_TSync_theo_su_kien_MAD_TN.md
+    noi_luu: docs/ho_so/04_policy_test/TTR-KT-04_TSync_theo_su_kien_MAD_TN.md
 
   - so: BC-HL-02
     loai: BC

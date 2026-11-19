@@ -1,6 +1,6 @@
 # Chạy policy và test — mục lục (KT)
 
-Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 19/11/2026 20:45. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
+Sinh tự động từ `docs/ho_so/so_dang_ky.yaml` lúc 19/11/2026 20:47. Không sửa tay; sửa sổ rồi chạy `./run.sh scripts/ho_so.py kiem`.
 Tra nhanh: `./run.sh scripts/ho_so.py tra --hm KT` (thêm `--pham-vi <task>` để lọc theo task).
 
 ## Đang hiệu lực
@@ -57,7 +57,7 @@ Tra nhanh: `./run.sh scripts/ho_so.py tra --hm KT` (thêm `--pham-vi <task>` đ�
 
 | Số hiệu | Ngày | Trích yếu | Trạng thái | Toàn văn |
 |---|---|---|---|---|
-| 02/TTr-KT | 19/11/2026 21:05 | Đề xuất TSync theo cửa sổ sự kiện (MAD-TN, Isaacson et al. 2020): s_i = exp(-e_i / tau_i), e_i = max(l_i - Delta_i, 0, Delta_i - u_i), TSync = trung bình s_i, sự kiện không xảy ra chấm 0; tên báo cáo 'HRIBench-inspired, event-based implementation (MAD-TN grounded)', không gọi official. Chưa tìm được công thức TSync chính thức (arXiv v1 thiếu Appendix A, chưa thấy evaluator của tác giả). Còn thiếu: cặp sự kiện từng task, cửa sổ [l, u] và tau khoá trước khi xem kết quả, quy tắc N/A. Chờ người dùng duyệt; chưa có hiệu lực. | chờ quyết | [TTR-KT-02_TSync_theo_su_kien_MAD_TN.md](TTR-KT-02_TSync_theo_su_kien_MAD_TN.md) |
+| 04/TTr-KT | 19/11/2026 21:05 | Đề xuất TSync theo cửa sổ sự kiện (MAD-TN, Isaacson et al. 2020): s_i = exp(-e_i / tau_i), e_i = max(l_i - Delta_i, 0, Delta_i - u_i), TSync = trung bình s_i, sự kiện không xảy ra chấm 0; tên báo cáo 'HRIBench-inspired, event-based implementation (MAD-TN grounded)', không gọi official. Chưa tìm được công thức TSync chính thức (arXiv v1 thiếu Appendix A, chưa thấy evaluator của tác giả). Còn thiếu: cặp sự kiện từng task, cửa sổ [l, u] và tau khoá trước khi xem kết quả, quy tắc N/A. Chờ người dùng duyệt; chưa có hiệu lực. | chờ quyết | [TTR-KT-04_TSync_theo_su_kien_MAD_TN.md](TTR-KT-04_TSync_theo_su_kien_MAD_TN.md) |
 
 ## Báo cáo hiện hành
 
