@@ -147,7 +147,7 @@ Research focus: how predicted human motion influences a learned robot policy.
 
 \begin{frame}{Proposed Method \hfill Overall system architecture}
 \centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex]
+\begin{tikzpicture}[font=\scriptsize,>=Latex,scale=0.87,transform shape]
 \node[module,text width=2.19cm,minimum height=0.83cm] (scene) at (-3.44,2.15)
  {RGB scene + robot state};
 \node[forecast,text width=2.19cm,minimum height=0.83cm] (history) at (-3.44,0.47)
@@ -168,7 +168,7 @@ Research focus: how predicted human motion influences a learned robot policy.
 \draw[-{Latex[length=1.7mm]},HG,thick] (exec.south) |- (2.92,-1.01) -| (scene.south);
 \node[font=\tiny,HG] at (1.43,-1.21){reobserve and replan};
 \end{tikzpicture}
-\end{frame>
+\end{frame}
 
 \begin{frame}{Proposed Method \hfill A structured forecast preserves time and joints}
 \centering
@@ -266,7 +266,7 @@ Cooperative & C1, C2, C3 & Shared-action scenes\\
 Concurrent work & W1, W2 & W1 linger condition\\
 \bottomrule
 \end{tabular}
-\end{frame>
+\end{frame}
 
 \begin{frame}{Benchmark \hfill Evaluation metrics}
 \centering\scriptsize
@@ -288,7 +288,7 @@ TSync, DSR & Event synchronization; disruption recovery & Coordination\\
 \begin{center}\scriptsize
 Benchmark indicators are defined by the project evaluators; success and response are reported on their available sample sets.
 \end{center}
-\end{frame>
+\end{frame}
 
 \begin{frame}{Evaluation \hfill Paired observations, shared seeds, fixed checkpoints}
 \centering
@@ -326,7 +326,7 @@ CT and Rsp: separate 10-seed evaluation; CT among successful episodes.
 \end{center}
 \vspace{0.10cm}
 \keyidea{Ours improves selected collaborative tasks; I2 exposes a significant execution regression.}
-\end{frame>
+\end{frame}
 
 \begin{frame}{Results \hfill Paired differences reveal opposite effects}
 \centering
@@ -445,5 +445,5 @@ Remaining 3/14 failures attached B but did not finish; 0/14 first attached A.
 \end{enumerate}
 \vspace{0.15cm}
 \keyidea{Timely HRC requires learning both when to anticipate and when to revise robot actions.}
-\end{frame>
+\end{frame}
 \end{document}
