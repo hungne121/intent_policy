@@ -2939,3 +2939,16 @@ van_ban:
     trang_thai: hieu_luc
     can_cu: [QD-HL-28, QD-HL-29]
     noi_luu: docs/ho_so/03_train/QD-HL-30_sua_expert_i3_audit_C2_I3_corrective.md
+
+  - so: QD-HL-31
+    loai: QĐ
+    hm: [HL, KT]
+    cap: 2
+    ngay: "2026-11-20 06:53"
+    ban_hanh: người dùng
+    trich_yeu: "Sau báo cáo Phase 3 (chat 20/11): duyệt evaluator chấp nhận retry hợp lệ (giữ bản cũ, unit test), giữ STAY_TOL 10 mm (chỉ báo sai số + sensitivity), chưa thu dataset/fine-tune, hoàn thiện video I2/I3 + physics, chấm lại S2 bằng evaluator retry, tiếp tục audit S1, audit M* trả A lệch (I3 switch_after) và vị trí dừng C2, thiết kế E0/E1/E2 cụ thể; không so M0 50k laptop với M0 60k pod; chưa pod/RL/final eval."
+    pham_vi: [I2, I3, C2, M0, M_star, eval]
+    chu_de: [train, danh_gia, du_lieu]
+    trang_thai: hieu_luc
+    can_cu: [QD-HL-30]
+    noi_luu: docs/ho_so/03_train/QD-HL-31_evaluator_retry_va_audit_E0E1E2.md

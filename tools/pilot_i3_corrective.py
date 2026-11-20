@@ -25,9 +25,13 @@ def run(seed, variant, mode, pred, out=None, rest_lean_free=True, task_variant='
     ep.event('task_active', **{k + '_evaluator_only': v for k, v in info.items() if k != 'variant'})
     ep.run(sc.human(ep, info), ex.run(), done=lambda: sc.human_done(ep))
     ok, reason = ex.success()
-    if ok and hasattr(sc, 'check'): ok, reason = sc.check(ep, info)
+    ok_v2, reason_v2 = ok, reason
+    if ok and hasattr(sc, 'check'):
+        ok, reason = sc.check(ep, info, retry_ok=False)        # old evaluator (31/QĐ-HL: kept for comparison)
+        ok_v2, reason_v2 = sc.check(ep, info, retry_ok=True)   # retry-aware evaluator
     if ep.stalled: ok, reason = False, 'motion_stalled'
     s = ep.finish(ok, reason, {'reading': ex.reading, **ex.extra()}); s.pop('_arrays', None)
+    s['_v2'] = (bool(ok_v2), reason_v2)
     return info, s
 
 
@@ -43,7 +47,7 @@ def main():
         info, s = run(seed, a.variant, a.mode, pred, out=a.out / 'video' if a.video else None, rest_lean_free=not a.keep_rest_lean)
         viol = {k: v.get('category') for k, v in s.get('contact_classes', {}).items() if v.get('violation')}
         rest = [r for r in (s['failure_reason'] or '').split('; ') if r and not r.startswith('grasp sequence')]
-        row = dict(variant=a.variant, seed=seed, A=info['A'], B=info['B'], success=s['success'], reason=s['failure_reason'],
+        row = dict(variant=a.variant, seed=seed, A=info['A'], B=info['B'], success=s['success'], ok_v2=s['_v2'][0], reason_v2=s['_v2'][1], reason=s['failure_reason'],
                    corrective_ok=bool(s['success'] or (not rest and a.variant != 'original' and s['failure_reason'] and s['failure_reason'].startswith('grasp sequence'))),
                    physics_valid=s.get('physics_valid'), robot_limits_ok=s.get('robot_limits_ok'), violations=viol, dur_s=s['duration_s'],
                    events=[(e['event'], e.get('object') or e.get('committed') or e.get('item')) for e in s['events'] if e['event'] in keep])

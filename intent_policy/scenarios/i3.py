@@ -6,8 +6,10 @@ visibly heads for A with an empty gripper, then withdraws. Variants (14/11): `no
 `switch_after_commit` (full withdraw, 1.2 s pause, second reach to B after the robot grasped A)."""
 import xml.etree.ElementTree as ET
 import numpy as np
+import yaml
 
 from intent_policy.shared.events import detector
+from intent_policy.benchmark.grasp_sequence import sequence_reason
 from intent_policy.scenarios.layout import make
 from intent_policy.shared.sim_env import ROOT, DT, STATION, apply_station, smooth, smooth_motion_path, motion_deviation
 from intent_policy.sim.motion_bank_v2 import to_scene, palm_path, segment_ranges, clip_id
@@ -129,7 +131,7 @@ def human_done(ep):
     return ep.human_phase == 'done'
 
 
-def check(ep, info):
+def check(ep, info, retry_ok=None):
     """Evaluator-only (I3 quality gate `task_success`): the last pointed cake on the receive tray, the others
     unmoved, and the grasp sequence matching the variant."""
     a, b = info['A'], info['B']; target = b or a
@@ -141,12 +143,11 @@ def check(ep, info):
         if k != target and np.linalg.norm(ep.pos(k)[:2] - ep.initial[k][:2]) > STAY_TOL:
             reasons.append(f'{k} moved')
     grasps = [e['object'] for e in ep.events if e['event'] == 'robot_grasp']
-    if info['variant'] == 'nominal' and grasps != [target]:
-        reasons.append(f'grasp sequence {grasps}')
-    if info['variant'] == 'switch_before_commit' and grasps != [target]:
-        reasons.append(f'grasp sequence {grasps} (A must not be grasped)')
+    if retry_ok is None:                       # 31/QĐ-HL: configs/hrc/evaluator.yaml (default false = old evaluator)
+        retry_ok = bool(yaml.safe_load((ROOT / 'configs/hrc/evaluator.yaml').read_text()).get('grasp_sequence_retry_ok', False))
     # 66/QĐ-DL: the switch time is on the person's clock (seed); a robot that had not yet grasped A when the person
     # switched (the slower observed expert) correctly takes only B. Outcome-based: [A, B] (A taken, returned) or [B].
-    if info['variant'] == 'switch_after_commit' and grasps not in ([a, target], [target]):
-        reasons.append(f'grasp sequence {grasps} (A then B, or only B, expected)')
+    reason = sequence_reason(info['variant'], grasps, a, target, retry_ok)
+    if reason:
+        reasons.append(reason)
     return not reasons, '; '.join(reasons) or None

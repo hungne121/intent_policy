@@ -38,3 +38,12 @@ Lý do duy nhất do bộ kiểm trả về: `dust_objects_or_brush` (cup và cl
 ## 4. Còn lại cần người dùng quyết
 1. Luật trình tự gắp có tiếp tục phạt retry không (giữ nguyên, đổi, hay báo cáo thêm cột "không tính retry"; không đổi khi chưa duyệt).
 2. Ngưỡng `STAY_TOL` 10 mm cho cake được trả lại (giữ nguyên; độ nhạy ở trên).
+
+## 5. Bổ sung 20/11/2026 07:00 (31/QĐ-HL mục 4–5): M* trả A lệch ở I3 đổi ý sau commit
+Chỉ M* 60k (laptop, `audit_policy_reason --ticks`, log từng tick), 10 ca thất bại do A trả lệch (không so với M0). Evaluator: bản cũ và bản retry cho kết quả giống nhau với 10 ca này.
+- A được **nhả đúng độ cao bàn** (z so với ban đầu −2 đến +5 mm; một ca +11 mm), nên không phải thả rơi.
+- Sai số nằm **ngay tại điểm nhả** và không tăng sau nhả (ví dụ 14 → 15 mm, 25 → 25 mm): không phải trượt/va chạm sau đó. Ngoại lệ seed 300839: 9 mm lúc nhả → 34 mm cuối (cake bị đẩy thêm sau nhả, chưa xác định bằng gì).
+- Vị trí TCP khi nhả lệch so với chỗ cũ của A 5–23 mm: robot hạ A xuống chỗ đã lệch.
+- Sai số 12–34 mm (trung vị 14 mm), chủ yếu theo trục x của hàng cake (dx 7–22 mm; dy ≤ 13 mm, trừ 300839 dy 32 mm). Không có hướng chung nghiêng về khay nhận (cos −0,96 … +0,47).
+- Thời gian giữ A 0,2–3,7 s (một ca 0,2 s).
+**Kết luận có bằng chứng:** lỗi là **độ chính xác vị trí khi đặt A về chỗ cũ**, 12–25 mm với ngưỡng 10 mm; expert trả chính xác. Chưa kiểm vì sao (ACT hồi quy vị trí từ ảnh: chưa đo sai số vị trí của policy ở các thao tác đặt khác; chưa so với M0 60k). **Chưa kết luận** M* kém M0 ở điểm này (khác checkpoint).

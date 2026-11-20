@@ -1,0 +1,5 @@
+# Evaluator switches (31/QĐ-HL, 20/11/2026). Defaults keep the collected-data / old evaluation behaviour.
+# grasp_sequence_retry_ok: a consecutive re-grasp of the SAME object (retry after a missed attach / a drop) does not by
+#   itself fail the I3 grasp-sequence rule. Target in the receive tray, unmoved other cakes (STAY_TOL 10 mm), final state and
+#   physics are still checked. A re-grasp of a different object is not a retry.
+grasp_sequence_retry_ok: false
