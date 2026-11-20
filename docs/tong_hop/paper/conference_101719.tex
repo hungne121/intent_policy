@@ -15,225 +15,277 @@
 \definecolor{diagramSoft}{RGB}{238,243,247}
 
 \begin{document}
+
 \title{Learning Collaborative Action Policies for Humans and Robots with Intent Awareness}
 \author{\IEEEauthorblockN{Dao Duy Hung}
-\IEEEauthorblockA{Affiliation and email to be confirmed}}
+\IEEEauthorblockA{Affiliation and contact to be confirmed}}
 \maketitle
 
 \begin{abstract}
-Human--robot collaboration requires a robot to coordinate the timing and location of its actions with a human partner whose future behavior is not fully observable. A policy that waits until every human event is completed may introduce avoidable delays; a policy that commits prematurely to an inaccurate prediction may instead create rework or unsafe interaction. This work studies how a unified robot action policy can learn to exploit short-horizon human-motion forecasts while retaining the ability to correct decisions based on updated observations. Action Chunking with Transformers (ACT) provides the imitation-learning backbone and ManiCast serves as a replaceable source of predicted human motion. We formulate three complementary learning questions: useful early action, selective dependence on forecasts, and correction after prediction errors or human goal changes. The evaluation design separates task success from anticipation, waiting time, physical validity, and forecast sensitivity. Preliminary project evaluations reveal task-specific strengths and failures but do not yet provide a statistically verified improvement in collaboration efficiency or robustness. Accordingly, this paper presents a research formulation, candidate learning mechanisms, controlled comparisons, and the evidence required to validate them.
+Human--robot collaboration requires manipulation actions to be coordinated with the evolving motion and decisions of a human partner. Human-motion forecasts can support earlier preparation, but imitation-learned policies may ignore the forecast or react incorrectly to a changing goal. We investigate forecast-conditioned Action Chunking with Transformers (ACT) using ManiCast as a replaceable predictor. A failed flattened-forecast encoder motivates three implemented changes in the M* policy: spatiotemporal forecast tokens, isolation of forecast features from the conditional variational autoencoder's KL gradient, and increased reconstruction weight at decision events. In a paired development validation comprising 1,290 MuJoCo episodes across three models, M* completes 38/40 I3 nominal cases compared with 18/40 for an observation-only baseline, but falls to 12/40 on I2 compared with 34/40 for that baseline. A failure audit identifies a mismatch between gripper closure time and object attachment in I2, while other cases remain limited by correction and task execution. These results demonstrate task-dependent policy differences, not yet improved anticipation or safety attributable to any individual component. We present the implementation, paired comparisons, and unresolved causal and metric-validity questions.
 \end{abstract}
+
 \begin{IEEEkeywords}
-human--robot collaboration, imitation learning, anticipatory action, human-motion forecasting, action chunking, intent awareness
+human--robot collaboration, imitation learning, action chunking, human-motion forecasting, anticipatory policy, forecast conditioning
 \end{IEEEkeywords}
 
 \section{Introduction}
-Effective human--robot collaboration (HRC) involves more than the accurate execution of individual manipulations. The actions of the two partners may depend on one another in space and time. When the robot begins a task-dependent movement only after a decisive human event has become observable, part of the work that could have overlapped is delayed. However, acting toward a guessed goal before the human's choice is sufficiently clear can create unnecessary travel, inappropriate contact, or a failed task. The robot must therefore learn not only \emph{what} to do but also \emph{when} and \emph{where} an action is useful.
+A human and a robot may complete their individual manipulations correctly while still collaborating inefficiently. When the robot waits until the partner's choice is fully observable, its next operation can begin too late; when it commits to an incorrect prediction, the team incurs unnecessary motion or recovery. The decision is therefore spatial and temporal: what should the robot do, where, and when? Joint-action theory and studies of interaction fluency describe the importance of anticipating and synchronizing with a partner \cite{sebanz2006,hoffman2007,hoffman2019}.
 
-Joint-action theory motivates coordination through shared task representations and anticipation of the partner's behavior \cite{sebanz2006}. Measures of human--robot team fluency further distinguish successful manipulation from smooth, timely collaboration \cite{hoffman2007,hoffman2019}. Motion forecasting provides a possible source of advance information. ManiCast studies cost-aware forecasting of human motion for collaborative manipulation and emphasizes the effect of prediction errors on downstream decisions \cite{kedia2023}. In parallel, Action Chunking with Transformers (ACT) learns sequences of robot actions from demonstrations \cite{zhao2023}; Diffusion Co-Policy provides another example of learning coordinated behavior from interaction data \cite{ng2024}.
+Predicting human motion is one way to provide advance information. ManiCast explicitly investigates the downstream consequences of forecasting errors \cite{kedia2023}. ACT learns sequences of continuous robot actions from demonstrations \cite{zhao2023}; Diffusion Co-Policy provides another example of learned collaborative actions \cite{ng2024}. Nevertheless, a forecast supplied to an action network need not influence its decisions. Even meaningful changes in action may not reduce human waiting if task geometry or the execution controller dominates the episode.
 
-Connecting these capabilities directly does not guarantee that the learned policy will use future-motion information. A network may ignore the forecast input, act early without changing task duration, or continue an obsolete action chunk after the human changes course. These are policy-learning and execution problems, distinct from prediction accuracy alone. The central research question is how a unified policy can use predicted human behavior to initiate \emph{useful} action early while adapting to uncertainty and new observations.
-
-The study addresses three questions. First, can forecast-conditioned learning improve the onset of useful robot activity and reduce unnecessary waiting? Second, can the policy respond to informative forecast changes without becoming unstable under unreliable predictions? Third, can it correct goal-dependent actions when the forecast is wrong or the human changes intention, while satisfying physical constraints? We treat ManiCast as one possible forecaster; the intended methodological contribution is not an intent classifier, a new prediction network, or task-specific hand-coded control laws.
-
+Our research asks how a unified robot action policy can \emph{learn} to use future human motion, rather than adding an external rule that switches among task-specific controllers. The current work makes three contributions at the development stage. First, we identify and test an information-collapse failure in a direct ACT--ManiCast integration. Second, we implement a structured, decision-weighted ACT variant, M*, that addresses this failure at the level of representation and learning. Third, we evaluate multiple collaborative cases with paired seeds and trace-level fault analysis, revealing both substantial successes and regressions. We distinguish measured effects from the still-unverified claims of useful anticipation, selective forecast dependence, and recovery.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[x=0.51cm,y=0.67cm, font=\scriptsize,>=Latex]
-\draw[->] (0,0)--(8.2,0) node[right]{time};
-\foreach \x/\s in {1/start,4/reveal,7/finish} {
-  \draw[diagramNavy] (\x,-0.1)--(\x,0.10);
-  \node[below] at (\x,-0.10) {\s};}
-\node[anchor=east] at (0.8,3.07){Human};
-\node[anchor=east] at (0.8,2.07){Observed};
-\node[anchor=east] at (0.8,1.07){Forecast};
-\fill[diagramNavy!18] (1,2.76) rectangle (4.0,3.25);
-\node at (2.50,3.01){Human motion};
-\fill[diagramNavy!45] (4,1.76) rectangle (7,2.25);
-\node at (5.50,2.01){React};
-\fill[diagramTeal!45] (2.65,0.76) rectangle (6.65,1.25);
-\node at (4.65,1.01){Prepare + execute};
-\draw[densely dashed] (4,0.3)--(4,3.47);
+\begin{tikzpicture}[x=0.46cm,y=0.59cm,font=\scriptsize,>=Latex]
+\draw[->,thick] (0,0)--(8.0,0) node[right]{time};
+\foreach \x/\label in {1/onset,4/reveal,7/finish} {
+ \draw (\x,0.10)--(\x,-0.10);
+ \node[below,font=\tiny] at (\x,-0.12){\label};
+}
+\node[anchor=east] at (0.83,2.83){Human};
+\node[anchor=east] at (0.83,1.86){Observed};
+\node[anchor=east] at (0.83,0.89){Forecast};
+\fill[diagramNavy!20] (1,2.59) rectangle (4,3.05);
+\node at (2.5,2.83){motion unfolding};
+\fill[diagramNavy!45] (4,1.63) rectangle (7,2.09);
+\node at (5.5,1.86){task-dependent action};
+\fill[diagramTeal!40] (2.6,0.66) rectangle (6.65,1.12);
+\node at (4.6,0.89){possible preparation};
+\draw[dashed,diagramNavy] (4,0.28)--(4,3.23);
 \end{tikzpicture}
-\caption{Illustrative action timing. Forecast access can enable preparation before the human event becomes observable. Earlier motion is not itself evidence of reduced waiting or task completion time.}
-\label{fig:timing}
+\caption{Conceptual anticipation window. The illustrated preparation is a possible behavior, not a measured lead-time gain. Useful onset must be distinguished from motion that begins before it is needed.}
+\label{fig:motivation}
 \end{figure}
 
-\section{Related Work}
-\subsection{Anticipation and coordination}
-Sebanz et al. characterize joint action as coordinated behavior among multiple agents \cite{sebanz2006}. Hoffman and Breazeal examine anticipatory decisions in human--robot teams \cite{hoffman2007}, and Hoffman reviews measures of teamwork fluency \cite{hoffman2019}. These studies motivate the distinction between early movement and useful anticipation. A meaningful timing measure must account for task dependencies, human waiting, and the consequence of an early commitment.
+\section{Research Basis}
+Anticipatory action has been investigated for human--robot teamwork \cite{hoffman2007}. Motion forecasters such as ManiCast can provide possible future paths but cannot guarantee a human goal \cite{kedia2023}. Learned manipulation policies such as ACT can produce temporally coherent actions, while their chunk execution schedule can limit reactivity \cite{zhao2023}. Learning from demonstration also faces distribution shift: states visited by an imperfect policy need not appear in nominal demonstrations \cite{argall2009,ross2011}. This matters in collaborative tasks because a mistaken commitment may produce a state never encountered by the expert. The central gap examined here is whether a learned ACT policy uses the content of the forecast in its actions and whether that dependence is beneficial under goal changes.
 
-\subsection{Human-motion forecasting}
-Forecasts represent possible future movement rather than observed future ground truth. ManiCast considers prediction errors according to their effect on collaborative planning \cite{kedia2023}. A motion trajectory can reveal both the direction of human movement and the evolving region of interaction, although its task meaning depends on the surrounding scene and activity. Thus, forecast quality alone does not specify the correct robot action. The present work uses forecasts as policy inputs, leaving the predictor replaceable.
+\section{System and Methods}
+\subsection{Forecast and action representation}
+Let $o_t$ denote observations available at decision time $t$. ManiCast processes recent human poses to yield a short-horizon sequence $\hat{\mathbf h}_{k,j}\in\mathbb R^3$, indexed by $K=10$ future steps and $J=6$ upper-body joints. The intended horizon is $0.1,\ldots,1.0$\,s, comprising both arms. Given robot tool-center-point position $\mathbf p_t^{\mathrm{TCP}}$, the deployed feature builder normalizes positions using training-set statistics and constructs
+\begin{equation}
+\mathbf x_{k,j} =
+\left[
+\bar{\mathbf h}_{k,j},\
+\bar{\mathbf h}_{k,j}-\bar{\mathbf p}^{\mathrm{TCP}}_t,\
+\frac{\bar{\mathbf h}_{k,j}-\bar{\mathbf h}_{k-1,j}}{\Delta t}
+\right],
+\quad \Delta t=0.1\,\mathrm s.
+\label{eq:features}
+\end{equation}
+The first velocity is copied from the next finite difference. Invalid forecasts are masked, and a validity flag is retained. Crucially, ground-truth future human motion is not provided to a deployed policy.
 
-\subsection{Learning and adapting robot actions}
-Learning from demonstration supports robot manipulation when explicit procedural rules are cumbersome \cite{argall2009}. ACT produces continuous action chunks from observations \cite{zhao2023}. Diffusion Co-Policy addresses learned coordination in collaborative tasks \cite{ng2024}. One difficulty with behavior cloning is distribution shift: the learner may encounter states absent from expert demonstrations. DAgger addresses this issue by incorporating expert feedback on states visited by the current policy \cite{ross2011}. Human goal changes and incorrect commitments create analogous off-demonstration states that should be represented in corrective training data.
+M1 flattened these features into a 541-dimensional input and produced one forecast token through an MLP with ReLU. M* instead processes all $10\times 6$ positions separately. Each token is projected with time and joint embeddings and passed through a two-layer pre-layer-normalized transformer:
+\begin{equation}
+\mathbf e_{k,j}=\mathrm{LN}
+\bigl(W[\mathbf x_{k,j},v_{\rm valid}]
+ + E^{\rm time}_{k}+E^{\rm joint}_{j}\bigr),
+\quad
+Z_H=T_{\phi}(\{\mathbf e_{k,j}\}) .
+\label{eq:tokens}
+\end{equation}
+Here $Z_H\in\mathbb R^{60\times256}$, with four attention heads, GELU activation and dropout 0.1. These forecast tokens enter the ACT policy alongside visual and robot-state representations. The resulting network generates 40 continuous actions per chunk. For the reported evaluation, it executes 10 actions before requesting a new chunk at the 20\,Hz simulation rate; temporal ensembling is disabled.
 
-\section{Problem Definition}
 \begin{figure*}[t]
 \centering
-\begin{tikzpicture}[>=Latex, font=\footnotesize,
- n/.style={draw=diagramNavy, rounded corners=2pt, fill=diagramSoft,
-           align=center, minimum height=0.73cm, text width=3.00cm},
- pred/.style={draw=diagramTeal, rounded corners=2pt, fill=diagramTeal!8,
-           align=center, minimum height=0.73cm, text width=3.00cm},
- flow/.style={->, thick, draw=diagramNavy}]
-\node[n] (ob) at (0,1.55) {Current observations\\human, robot, objects};
-\node[pred] (hist) at (0,0.17) {Human-motion history\\past poses};
-\node[n] (enc) at (3.65,1.55) {Observed-state\\encoder};
-\node[pred] (mc) at (3.65,0.17) {ManiCast\\future motion};
-\node[pred] (fenc) at (7.20,0.17) {Trajectory encoder\\multiple steps, both arms};
-\node[n,fill=diagramTeal!10] (act) at (10.85,1.03) {Unified ACT policy\\action chunks};
-\node[n] (phys) at (14.15,1.03) {MuJoCo execution\\physics checks};
-\draw[flow] (ob)--(enc); \draw[flow] (hist)--(mc); \draw[flow] (mc)--(fenc);
-\draw[flow] (enc.east)--(act.north west); \draw[flow] (fenc.east)--(act.south west);
-\draw[flow] (act)--(phys);
-\node[anchor=north,align=center,text width=10cm,font=\scriptsize] at (7.1,-0.46)
- {The predictor supplies information; the research concerns how the action policy learns to use it.};
+\begin{tikzpicture}[font=\scriptsize,>=Latex,
+ box/.style={draw=diagramNavy,fill=diagramSoft,rounded corners=2pt,align=center,minimum height=0.65cm,text width=2.18cm},
+ fbox/.style={draw=diagramTeal,fill=diagramTeal!10,rounded corners=2pt,align=center,minimum height=0.65cm,text width=2.45cm},
+ arrow/.style={->,thick,draw=diagramNavy}]
+\node[box] (obs) at (0,1.30) {3 camera images\\+ robot state};
+\node[fbox] (history) at (0,-0.15) {ManiCast output\\10 times $\times$ 6 joints};
+\node[box] (vision) at (3.30,1.30) {Visual / state\\ACT encoders};
+\node[fbox] (tokens) at (3.30,-0.15) {Normalize, relative\\TCP, finite differences};
+\node[fbox] (st) at (6.72,-0.15) {60 tokens\\2-layer, 4-head GELU};
+\node[box] (policy) at (10.15,0.87) {Unified ACT decoder\\40-action chunk};
+\node[box] (execute) at (13.35,0.87) {Execute 10 steps\\then reobserve};
+\draw[arrow] (obs)--(vision); \draw[arrow] (history)--(tokens);
+\draw[arrow] (tokens)--(st);
+\draw[arrow] (vision.east)--(policy.north west);
+\draw[arrow] (st.east)--(policy.south west);
+\draw[arrow] (policy)--(execute);
+\node[draw=diagramNavy,fill=diagramSoft,rounded corners=2pt,align=center,text width=3.7cm] (kl) at (3.1,-1.72) {KL isolation: forecast tokens absent\\from CVAE encoder};
+\node[draw=diagramTeal,fill=diagramTeal!10,rounded corners=2pt,align=center,text width=3.9cm] (loss) at (9.2,-1.72) {Decision-weighted L1 reconstruction\\$w_i=1+2m_i$; standard KL};
+\draw[->,dashed,diagramNavy] (kl.north) -- (tokens.south);
+\draw[->,dashed,diagramTeal] (loss.north) -- (policy.south);
 \end{tikzpicture}
-\caption{Conceptual forecast-conditioned policy. The diagram describes the intended information flow, not a verified final encoder or fusion implementation.}
-\label{fig:framework}
+\caption{Implemented M* architecture. Three changes relative to the direct forecast baseline M1 are the structured 60-token encoder, isolation of forecast features from the CVAE KL path, and decision-weighted action reconstruction. The transformer and learned fusion remain a single action policy, not a task-specific rule system.}
+\label{fig:mstar}
 \end{figure*}
 
-Let $o_t$ denote observations available at time $t$, including the robot, human, objects, and task context. From human-motion history $h_{t-L:t}$, a forecaster $F$ produces a future trajectory
+\subsection{A unified imitation objective}
+For training samples $i=1,\ldots,B$, let $m_i\in\{0,1\}$ indicate an event-centered decision window. The implemented weighting is $w_i=1+\alpha m_i$ with $\alpha=2$. Given target and predicted action chunks $A_i$ and $\hat A_i$, action-padding mask $M_{ik}$, and $N_{\rm valid}$ valid action components in the batch, the implemented loss can be written
 \begin{equation}
-\hat{\mathcal H}_t=F(h_{t-L:t})=
-\{\hat h_{t+\Delta},\ldots,\hat h_{t+K\Delta}\}.
-\label{eq:forecast}
+\mathcal L_{M^*}=
+\frac{B}{N_{\rm valid}}
+\frac{\sum_{i=1}^{B} w_i
+  \sum_{k,d}M_{ik}|A_{ikd}-\hat A_{ikd}|}
+{\sum_{i=1}^{B} w_i}
++10\mathcal L_{\rm KL}.
+\label{eq:loss}
 \end{equation}
-The intended ManiCast interface retains multiple time steps over approximately one second, with upper-body joints from both arms. The exact deployed sampling and joint layout require code-level verification; reducing the forecast to only the terminal wrist position would discard trajectory-shape information that the research aims to test.
+The mask is assigned to each training frame, not separately to each future action within a chunk. Event windows cover onset, target selection, pre-commit, switch, and forecast-fault recovery metadata. On the approved training set, 14.75\% of frames lie in these windows; W1 and W2 receive uniform weighting because they contain no matching selected events.
 
-A shared policy $\pi_\theta$ generates an action chunk
-\begin{equation}
-\hat{\mathcal A}_t=\pi_\theta(o_t,\hat{\mathcal H}_t)=
-\{\hat a_t,\ldots,\hat a_{t+H-1}\}.
-\label{eq:policy}
-\end{equation}
-The task is represented through the observed scene and interaction rather than by a separate, manually assigned task-intent label. In this study, intent awareness is expressed by decisions about when a task-dependent action becomes useful and where the relevant human--robot interaction is likely to take place.
-
-A causal deployment constraint is essential. At time $t$, the policy may use observations through $t$ and forecasts computed from them, but not ground-truth human poses from future time steps. Oracle future motion may be used only as a diagnostic control. We further distinguish reversible preparation from commitment to a specific goal. A successful policy may prepare early while deferring an irreversible movement until enough evidence is available.
-
-\section{Proposed Learning Framework}
-\subsection{Shared action-policy backbone}
-The observation-only and forecast-aware configurations use the same robot action representation and physical task constraints. The candidate architecture encodes the observed scene and the forecast trajectory separately before combining their representations in ACT. This separation lets the learning system access current evidence even when a forecast is absent or contradicted. The exact fusion mechanism remains an implementation decision and must be reported from the trained code, not inferred from the conceptual diagram.
-
-\subsection{Learning useful anticipation}
-The training workflow begins with demonstrations from a physically constrained expert. Observation-based and forecast-aware demonstrations must use equivalent scenes, collision criteria, and success gates; otherwise, apparent forecast benefits may originate from differences in expert quality. A standard imitation objective is
-\begin{equation}
-\mathcal L_{\mathrm{BC}}=\mathbb E_{\mathcal D}
-\left[\ell\bigl(\pi_\theta(o_t,\hat{\mathcal H}_t),
-\mathcal A_t^*\bigr)\right].
-\label{eq:bc}
-\end{equation}
-One proposed mechanism is to increase attention to onset and transition frames, where a small action error may have a larger effect on collaboration timing. A candidate weighted objective is
-\begin{equation}
-\mathcal L_{\mathrm{event}}=\mathbb E_{\mathcal D}
-\left[\sum_{k=0}^{H-1} w_{t,k}
-\ell(\hat a_{t+k},a^*_{t+k})\right].
-\label{eq:event}
-\end{equation}
-Here $w_{t,k}$ is based on independently defined decision events. Equation~\eqref{eq:event} is a hypothesis to be tested, not an assertion about the final implemented objective. The effect of such weighting must be isolated with the same data, model capacity, and training budget. For latent-variable ACT models, KL regularization and latent-unit activity should also be monitored. Preventing latent collapse by itself does not prove that the policy uses forecasts.
-
-\subsection{Selective forecast dependence}
-A forecast can be wrong in destination, timing, or path. Such forecast faults differ from an actual human change of mind. Training and evaluation should therefore include nominal predictions, controlled faults, forecast masking, and newly observed motion contradicting an earlier prediction. The desired policy changes its action when the forecast is decision-relevant but avoids unnecessary motion when the forecast is irrelevant or unreliable.
-
-To diagnose forecast dependence, we compare action outputs with the same observation $o_t$ but alternative forecasts $\hat{\mathcal H}_t$ and $\tilde{\mathcal H}_t$. This intervention reveals whether future-motion information changes the action. It does not establish that the change is beneficial; correctness and task outcome must be measured separately. Similarly, zero action difference is informative only when the substituted forecasts imply different useful actions.
-
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[font=\scriptsize, >=Latex,
- node distance=0.27cm,
- b/.style={draw=diagramNavy,rounded corners=2pt,fill=diagramSoft,align=center,text width=2.28cm,minimum height=0.60cm},
- c/.style={draw=diagramTeal,rounded corners=2pt,fill=diagramTeal!8,align=center,text width=2.28cm,minimum height=0.60cm}]
-\node[b] (a) {Updated observation\\+ new forecast};
-\node[c,right=0.35cm of a] (b) {Consistent with\\previous goal?};
-\node[b,below=0.50cm of b] (c) {Continue / prepare\\as appropriate};
-\node[c,below=0.50cm of a] (d) {Reassess commitment\\and feasible correction};
-\draw[->,thick] (a)--(b);
-\draw[->,thick] (b)--node[right,near start]{yes} (c);
-\draw[->,thick] (b.north) -- ++(0,0.17) -| node[above,pos=0.28]{no} (d.north);
-\end{tikzpicture}
-\caption{Decision-level interpretation of forecast updates. This is a learning target, not a separately implemented rule controller; feasible actions remain subject to physical constraints.}
-\label{fig:update}
-\end{figure}
-
-\subsection{Correction after commitment}
-The human may switch goals before or after the robot commits to a target-dependent movement. Before commitment, correction may require only a target update. After commitment, the robot may need to redirect, finish a safe intermediate motion, or acknowledge that a valid recovery is no longer feasible. We investigate corrective demonstrations collected from states reached by the current policy. The DAgger principle \cite{ross2011} offers one way to collect such examples before introducing reinforcement learning. Recovery should be evaluated by successful adaptation and physical validity, rather than assuming that recovery time should always be minimized.
-
-\subsection{Execution and physical constraints}
-Action chunks are executed with feedback from new observations. The chunk length, execution step, and forecasting cycle jointly limit responsiveness to human changes. Physical checks in MuJoCo include joint limits, collision and contact conditions, and human--robot clearance. These checks are distinct from learned behavior: a low imitation error or successful target placement does not guarantee physically valid execution.
-
-\section{Experimental Design}
-\subsection{Interaction patterns and scenarios}
-The MuJoCo task suite covers three patterns: human-guided work, cooperative handling, and relatively independent concurrent work. It contains tasks designed to require correct spatial decisions, temporal alignment, or both. Cases include nominal interaction, forecast faults, and goal switches before or after commitment where meaningful. Task categories are inspired by the broader human--robot interaction literature and HRIBench \cite{hribench2026}, but all project scenes and metrics remain project-specific. Tasks whose experts or contact constraints have not passed feasibility checks must not enter a definitive comparison.
-
-\subsection{Baselines}
-\begin{table}[t]
-\caption{Intended comparison conditions}
-\label{tab:baselines}
-\centering\footnotesize
-\begin{tabular}{p{0.32\columnwidth}p{0.59\columnwidth}}
-\toprule
-Policy & Question tested\\
-\midrule
-Observed ACT & Performance using available observations without forecasts\\
-History ACT & Added effect of past human motion alone\\
-Direct forecast ACT & Effect of providing ManiCast predictions with ordinary imitation learning\\
-Proposed variants & Added effect of each verified learning mechanism\\
-\bottomrule
-\end{tabular}
-\end{table}
-All configurations should be compared with matched human episodes, seeds, robot settings, and evaluator definitions. Development model names M0, M1-noH, and M* must be mapped to exact inputs, objectives, and checkpoints before publication; their names are not substitutes for architectural specifications.
-
-\subsection{Evaluation criteria}
-Task success is necessary but insufficient. We measure the first \emph{useful} robot action onset, human waiting, total task duration, task-specific synchronization, physical validity, forecast sensitivity, and recovery under controlled changes. An onset gain counts as a collaborative benefit only when it lowers waiting or completion time without unacceptable failures. Synchronization thresholds should reflect each task's dependency structure; project-defined TSync thresholds must not be presented as official HRIBench metrics.
-
+M* also sets \texttt{forecast\_in\_cvae=false}, which excludes forecast tokens from the CVAE encoder. Consequently, the direct gradient path from $\mathcal L_{\rm KL}$ to the forecast encoder is zero. This change does not eliminate the KL term from the action model. The representation, KL isolation, and decision weighting were introduced together in M*, so their individual contributions cannot be identified from a comparison of complete models alone. Component ablations remain necessary.
 
 \begin{table}[t]
-\caption{Proposed task cases and key diagnostic questions}
-\label{tab:scenario}
+\caption{Models and sources of variation}
+\label{tab:models}
 \centering\footnotesize
-\begin{tabular}{p{0.30\columnwidth}p{0.57\columnwidth}}
+\begin{tabular}{p{0.19\columnwidth}p{0.30\columnwidth}p{0.42\columnwidth}}
 \toprule
-Case & Primary question \\
+Model & Forecast path & Demonstrations / learning\\
 \midrule
-Nominal & Is forecast-driven anticipation useful?\\
-Forecast fault & Does the policy rely on wrong prediction?\\
-Switch before commit & Can it defer or redirect a goal?\\
-Switch after commit & Can it recover in a feasible state?\\
+M0 & None & Observed expert, ordinary ACT\\
+M1-noH & None & Forecast-expert data, ordinary ACT\\
+M1 & Flattened MLP; one token & Forecast-expert data, ordinary ACT\\
+M* & Structured 60-token transformer & Forecast-expert data, KL isolation + decision loss\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Ablations and error attribution}
-The planned ablations remove forecast input, decision-event weighting, forecast-reliance mechanisms, or corrective data one at a time. Paired forecast swaps, masks, and contradictions test whether the policy actually uses predictions. Failure analysis is performed by task and execution phase to distinguish expert errors, dataset problems, observation errors, learned-action errors, evaluator mistakes, and physics violations. This audit should precede a decision to add more training or reinforcement learning.
+\section{Evaluation Protocol}
+The MuJoCo study uses a UR3e manipulation setting and human-motion trajectories in human-guided (I), cooperative (C), and concurrent-work (W) interaction patterns. The current validation includes 11 task--condition pairs: C1--C3, I1--I2, I3 nominal and two goal-switch variants, W1 nominal and linger, and W2. Other planned tasks are excluded pending feasibility or dataset approval. M0, M1-noH, and M* use checkpoints at 60k optimizer steps and the same seed sets per condition. There are 40 validation seeds for ten conditions and 30 for W1 linger, totaling $430\times3=1290$ recorded rollouts. No independent held-out test results are reported here.
 
-\section{Preliminary Results and Evidence Boundaries}
+We use the project's task-success evaluator and report exact success counts. Matched M0--M* binary outcomes are evaluated with two-sided exact McNemar tests on discordant seeds, without multiple-comparison correction. Since M0 uses observed-expert training data and M* uses forecast-expert data, this is a whole-policy comparison; it does \emph{not} isolate the causal effect of adding forecast information. M1-noH controls the demonstration source but not every component of M*.
+
+Time to first useful action, partner waiting, and completion time are intended collaboration outcomes. However, the current synchronization formula uses a robot-ready event that is largely independent of the learned policy; its values are saturated. The metric cannot yet support a positive synchronization claim. Completion times computed only on successful episodes are likewise subject to selection bias when success rates differ.
+
+\section{Experimental Findings}
+\subsection{The direct forecast pathway collapses}
+A model audit confirmed that the M1 forecast tensor entered the network and its optimizer, while the forecast's effect on robot actions nearly vanished. The first-layer ReLU units of the flattened encoder became inactive over training: 210/256 were dead by 20k steps, 253/256 by 40k, and all 256/256 by 50k. Replacing one valid forecast with another yielded effectively zero tool-center-point displacement at 60k.
+
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[x=0.57cm,y=0.044cm,font=\scriptsize]
-\draw[->] (0,0)--(0,102) node[above]{CSR};
-\draw[->] (0,0)--(8,0);
-\foreach \y in {0,25,50,75,100}{\draw (-0.12,\y)--(0.10,\y);\node[left] at (-0.13,\y){\y\%};}
-\fill[diagramNavy!40] (1,0) rectangle (2.2,76);
-\fill[diagramTeal!45] (3.4,0) rectangle (4.6,59);
-\fill[diagramNavy!75] (5.8,0) rectangle (7,80);
-\foreach \x/\v/\s in {1.6/76/M0,4/59/M1-noH,6.4/80/M*} {
-\node[above] at (\x,\v){\v\%};\node[below] at (\x,-1){\s};}
+\begin{tikzpicture}[x=0.45cm,y=0.036cm,font=\scriptsize,>=Latex]
+\draw[->] (0,0)--(8.7,0) node[right,font=\tiny]{steps};
+\draw[->] (0,0)--(0,110) node[above,font=\tiny]{dead units (\%)};
+\foreach \y in {0,50,100} {
+  \draw[diagramNavy!25] (0,\y)--(8.10,\y);
+  \node[left,font=\tiny] at (0,\y){\y};
+}
+\foreach \x/\lab in {0/0,2/20k,4/40k,5/50k,6/60k} {
+ \node[below,font=\tiny] at (\x,0){\lab};
+}
+\draw[very thick,diagramTeal] (0,14.84)--(2,82.03)--(4,98.83)--(5,100)--(6,100);
+\foreach \x/\y in {0/14.84,2/82.03,4/98.83,5/100,6/100}
+ \fill[diagramTeal] (\x,\y) circle (2.0pt);
+\node[anchor=west,font=\tiny,align=left] at (6.2,74) {M1 flattened\\forecast MLP};
 \end{tikzpicture}
-\caption{Development validation CSR reported on 19 Nov. 2026 (300 episodes, ten validation seeds). Descriptive, not a paired significance test or final benchmark.}
-\label{fig:devcsr}
+\caption{M1 forecast-encoder collapse: the share of first-layer ReLU units inactive over sampled valid training frames. Data from the 19 Nov.\ audit. This diagnoses M1; it is not a curve of M* performance.}
+\label{fig:collapse}
 \end{figure}
 
-An internal project validation dated 19 November 2026 describes 300 evaluation episodes over ten validation seeds and selected task/case conditions. The reported descriptive macro task-success rates are 0.76 for M0, 0.59 for M1-noH, and 0.80 for M*. These figures are development observations, not a verified overall model ranking. Confidence intervals are broad, paired statistical tests are absent, and the models behave differently across tasks. In particular, M* remained weak on I2 and on an I3 switch-after-commit case. Evaluator and metric definitions, including temporal synchronization and recovery-related measures, still require reconciliation.
+A separate intervention fine-tuned the M1 branch on decision windows. Turning off its direct KL path preserved the output variance but still left 184/256 units inactive at the final measurement. A matched forecast swap changed the TCP action output by only 0.010\,mm median and achieved 46\% correct movement direction ($p=0.48$). These results show that removing KL alone did not restore useful forecast conditioning. They motivated the combined M* redesign; they do not isolate the effect of any one M* component.
 
-A separate exploratory diagnostic investigated whether modifying latent regularization was sufficient to induce forecast usage. With the KL term disabled, 184 of 256 latent units were still inactive in the reported run. In a forecast-swap test, the median tool-center-point change was approximately 0.010 mm and direction correctness was 46\%. These measurements support investigating a specific conditioning failure mode. They do not demonstrate that every checkpoint ignores the forecast, nor do they establish the effect of any individual training mechanism.
+\subsection{Paired task outcomes show large, opposing effects}
+Table~\ref{tab:success} gives the complete counted outcomes from the 1,290 validated rollouts. The three models achieve 314/430 (M0), 257/430 (M1-noH), and 329/430 (M*) successful episodes overall. These are pooled validation counts, not independently tested generalization performance.
 
-Task completion and physical validity also differ in several evaluated cases. Violations of clearance or contact constraints cannot be removed from analysis simply because a goal was reached. Therefore, current evidence does not justify a final claim of earlier useful action, reduced total task time, statistically superior completion, or robust recovery. The next required steps are task-level audits, aligned evaluation metrics, paired rollouts, and verified corrective learning.
+\begin{table*}[t]
+\caption{Task completion on paired validation seeds at 60k steps. Entries are successes/episodes. Exact McNemar $p$ values compare M0 and M*; values are unadjusted for multiple tests.}
+\label{tab:success}
+\centering\footnotesize
+\begin{tabular}{lrrrrr@{\hspace{0.55cm}}lrrrrr}
+\toprule
+Condition & $n$ & M0 & M1-noH & M* & $p$ &
+Condition & $n$ & M0 & M1-noH & M* & $p$\\
+\midrule
+C1 &40&40&40&40&1.00 & C2 &40&20&2&24&0.56\\
+C3 &40&40&40&40&1.00 & I1 &40&40&20&40&1.00\\
+I2 &40&34&24&12&$<.001$ & I3 nominal &40&18&25&38&$<.001$\\
+I3 switch before &40&17&12&26&.078 & I3 switch after &40&14&7&15&1.00\\
+W1 nominal &40&33&32&33&1.00 & W1 linger &30&24&21&23&1.00\\
+W2 &40&34&34&38&.29 & \multicolumn{6}{l}{}\\
+\midrule
+\multicolumn{2}{l}{Pooled successes} &314&257&329&-- &\multicolumn{6}{l}{430 episodes per model; validation only}\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[x=0.109cm,y=0.40cm,font=\scriptsize,>=Latex]
+\node[anchor=west,font=\footnotesize] at (0,12.05) {M* minus M0 success rate (percentage points)};
+\draw[->] (57,0.3)--(57,11.5);
+\foreach \d in {-60,-40,-20,0,20,40,60} {
+  \draw[diagramNavy!15] (57+\d,0.35)--(57+\d,11.40);
+  \node[above,font=\tiny] at (57+\d,11.47){\d};
+}
+\foreach \name/\v/\yy in {C1/0/11,C2/10/10,C3/0/9,I1/0/8,I2/-55/7,I3-nominal/50/6,I3-before/22.5/5,I3-after/2.5/4,W1-nominal/0/3,W1-linger/-3.33/2,W2/10/1} {
+ \node[anchor=east,font=\scriptsize] at (-6,\yy){\name};
+ \fill[diagramTeal!65] (57,\yy-0.23) rectangle ({57+max(\v,0)},\yy+0.23);
+ \fill[diagramNavy!65] ({57+min(\v,0)},\yy-0.23) rectangle (57,\yy+0.23);
+ \ifdim \v pt=0pt \fill[diagramTeal] (56.4,\yy-0.10) rectangle (57.6,\yy+0.10);\fi
+}
+\end{tikzpicture}
+\caption{Descriptive paired validation success-rate differences from Table~\ref{tab:success}. Positive bars favor M*, negative bars favor M0. The largest contrasts run in opposite directions: I3 nominal (+50 points) and I2 (-55 points). The plot is not an ablation of forecast information.}
+\label{fig:deltas}
+\end{figure*}
+
+The discordant-pair counts are especially informative. In I2, M0 succeeds and M* fails on 23 seeds, while the reverse occurs on only one ($p<0.001$). In I3 nominal, the corresponding counts are one and 21 in favor of M* ($p<0.001$). Differences on C2 and I3 switch-before do not reach significance under the reported paired tests. Switch-after remains difficult for both models (14/40 and 15/40 successes). Thus the pooled advantage of M* cannot be interpreted as uniform task improvement.
+
+\subsection{I2 exposes a grasp-timing failure}
+The first failed grasp in I2 is usually geometrically correct. A later expert replay measured approximately 1.00\,s from gripper-close command to object attachment under guarded closure; the expert waits until attachment is detected. In contrast, unsuccessful M* episodes often begin lifting after a 0.90\,s hold, before the object has attached. In plate 1 and plate 2 failure cases, 24/27 first closures have a hold below 1.00\,s.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=0.43cm,y=0.53cm,font=\scriptsize,>=Latex]
+\node[anchor=east] at (1.7,3.3){Expert};
+\node[anchor=east] at (1.7,2.0){M* failure};
+\draw[->] (2,0.7)--(8.5,0.7) node[right]{time since close};
+\foreach \x/\label in {2/0,6.5/0.90,7/1.00,7.25/1.05} {
+  \draw (\x,0.55)--(\x,0.85);
+}
+\node[below,font=\tiny] at (2,0.52){0};
+\node[below,font=\tiny] at (6.3,0.48){0.90\,s};
+\node[below,font=\tiny] at (7.75,0.48){1.00\,s};
+\fill[diagramTeal!35] (2,3.05) rectangle (7,3.55);
+\node at (4.6,3.3){guarded closing};
+\fill[diagramNavy!50] (7,3.05) rectangle (8.5,3.55);
+\node[above,font=\tiny] at (7,3.55){attach};
+\fill[diagramNavy!24] (2,1.75) rectangle (6.5,2.25);
+\fill[diagramNavy!60] (6.5,1.75) rectangle (8.5,2.25);
+\node[above,font=\tiny] at (6.5,2.25){premature lift};
+\node[font=\tiny,anchor=west] at (2.05,1.25){No attachment $\rightarrow$ repeated close/open; no recovery};
+\end{tikzpicture}
+\caption{Measured I2 mechanism, shown schematically. Expert attachment occurs at about 1.00\,s; unsuccessful M* episodes frequently lift at 0.90\,s. The diagnostic explains an observed failure mode, not its learned causal origin.}
+\label{fig:i2}
+\end{figure}
+
+A corrective-expert pilot using a recovery trajectory succeeded on 20/20 selected validation seeds, although only 13/20 were marked physically valid under the current contact evaluator. This is an expert pilot, not evidence that the policy has learned recovery. Its invalidity cases also reinforce the need to repair or adjudicate contact criteria before claiming safe execution.
+
+\subsection{Forecast effects, correction and metric validity}
+The forecast-pathway failure in M1 is clear, but M* also requires careful causal tests. In one 40k checkpoint experiment on four tasks and five seeds per task, true forecast input produced 13/20 successful rollouts, while masking the forecast produced 0/20. This establishes an input-intervention effect \emph{under that protocol}; masking a feature may itself create an out-of-distribution condition and does not identify an individual M* component. The 60k paired evaluation above tests overall task completion, not the separate benefits of early preparation, uncertainty calibration, or corrective learning.
+
+A second limitation concerns task and physical evaluators. An audit found \texttt{physics\_valid=false} in 695 of 900 successful and 299 of 390 unsuccessful episodes, so this flag does not yet explain success or failure and must be reexamined. The current TSync formulation also saturates because its robot-ready event is earlier than the human-ready event in all measured rounds. It therefore cannot distinguish policies. DSR is unavailable because the disruption event was never recorded as true in the 1,290 rollout set. We consequently exclude TSync, DSR, and physics-valid success as established improvements.
+
+\begin{table}[t]
+\caption{Evidence boundary for the main research claims}
+\label{tab:evidence}
+\centering\footnotesize
+\begin{tabular}{p{0.30\columnwidth}p{0.61\columnwidth}}
+\toprule
+Question & Present evidence / next required control\\
+\midrule
+Does M1 ignore forecasts? & Encoder collapse and forecast swaps support this failure.\\
+Does M* complete more tasks? & Paired, heterogeneous validation results; I2 regresses.\\
+Does forecasting cause the gains? & Not isolated: M* changes architecture and loss; M0 uses other expert data.\\
+Does action start usefully earlier? & Onset and waiting metrics need matched counterfactual rollouts.\\
+Can it recover safely? & Expert pilots exist, but corrective IL and physical validity require validation.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+The experiments reveal two distinct learning problems. M1 suffers from a feature-path failure in which forecast representations become nearly constant. M* changes the representation and training interface to mitigate that mechanism, but its heterogeneous task outcomes expose the separate problem of correctly executing and correcting actions. The I2 regression is associated with lifting before attachment and lack of recovery, rather than an observed failure to reach the target position. In I3 switch-after, even expert-feasible corrections are difficult for learned policies. These findings favor error-driven corrective demonstrations before introducing additional training stages without a clear identified target.
+
+The scientifically relevant next controls are component-level M* ablations, true-versus-swapped forecast rollouts constrained to comparable observations, and an onset/waiting metric based on the moment of actual task-dependent action. Corrective imitation learning must be compared against equal-budget continued training and additional nominal demonstrations. Before any final benchmark, the safety and synchronization evaluators need frozen definitions and repeatable physical checks. All reported results use validation seeds, not an independent test split.
 
 \section{Conclusion}
-This work frames intent-aware human--robot collaboration as learning to act from uncertain future-motion information. The proposed ACT-based policy treats forecasts as decision-relevant but fallible inputs and separates preparation, commitment, and correction from the physical constraints of execution. The central test is whether the resulting policy can convert predicted human motion into timely, correctable, and physically valid robot behavior. Current development results identify meaningful research problems but remain preliminary. Controlled ablations and paired evaluations are required before the proposed mechanisms can be claimed as experimentally established contributions.
+Forecast-conditioned human--robot collaboration cannot be evaluated solely by aggregate manipulation success. A direct ACT--ManiCast integration can become insensitive to forecast content; a structured, decision-weighted policy can behave very differently across tasks without guaranteeing useful anticipation or recovery. The present study implements and diagnoses these mechanisms, reports matched validation outcomes and failure modes, and identifies the experiments still needed to attribute improvements to forecast use. Robust and physically valid anticipatory coordination remains the target, not a conclusion already established.
+
 
 \begin{thebibliography}{00}
 \bibitem{sebanz2006} N. Sebanz, H. Bekkering, and G. Knoblich, ``Joint action: Bodies and minds moving together,'' \emph{Trends in Cognitive Sciences}, 2006, doi: 10.1016/j.tics.2005.12.009.
