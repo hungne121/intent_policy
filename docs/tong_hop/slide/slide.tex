@@ -34,129 +34,126 @@
 \titlepage
 \end{frame}
 
-% 02
-\begin{frame}{Introduction \hfill Coordination is an action problem}
+\begin{frame}{Introduction \hfill Coordination depends on timing}
 \centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex,x=0.82cm,y=0.78cm]
-\node[anchor=east] at (0.1,3.55){Human};
-\node[anchor=east] at (0.1,2.4){Robot A};
-\node[anchor=east] at (0.1,1.25){Robot B};
-\draw[->,HG] (0.4,0.45)--(9.3,0.45) node[right]{time};
-\foreach \x/\lab in {1/start,4/cue,8/task end}{\draw (\x,0.36)--(\x,0.58); \node[below,font=\tiny] at (\x,0.35){\lab};}
-\fill[HG!26] (1,3.30) rectangle (4,3.78);
-\node at (2.5,3.54){human works};
-\fill[HN!63] (4,2.15) rectangle (8,2.63);
-\node[white] at (6,2.39){wait, then act};
-\fill[HT!50] (2.35,1.0) rectangle (7.05,1.48);
-\node at (4.7,1.24){prepare before cue};
-\draw[dashed,HG!70] (4,0.85)--(4,3.92);
-\draw[decorate,decoration={brace,mirror,amplitude=4pt},HT] (2.35,0.84)--(4,0.84);
-\node[anchor=west,font=\tiny,HT] at (4.3,0.9){potential overlap};
+\begin{tikzpicture}[font=\scriptsize,>=Latex,x=0.91cm,y=0.80cm]
+\node[anchor=east] at (0.9,3.56){Human};
+\node[anchor=east] at (0.9,2.46){Observed policy};
+\node[anchor=east] at (0.9,1.36){Forecast policy};
+\draw[->,HG] (1.0,0.49)--(9.7,0.49) node[right]{time};
+\fill[HG!24] (1.7,3.30) rectangle (5.1,3.78);
+\fill[HN!65] (5.1,2.22) rectangle (8.6,2.70);
+\fill[HT!55] (3.15,1.12) rectangle (8.1,1.60);
+\node at (3.4,3.54){human prepares};
+\node[white] at (6.8,2.46){robot responds};
+\node at (5.6,1.36){robot anticipates};
+\draw[dashed,HG!80] (5.1,0.71)--(5.1,3.91);
+\node[above,font=\tiny] at (5.1,3.90){observable cue};
 \end{tikzpicture}
-\keyidea{The same manipulation can be timely, late, or premature.}
-\subnote{Conceptual timeline, not a measured speedup. Readiness, outcome and safety must be evaluated together.}
+\keyidea{Earlier motion is useful only if it reduces waiting without compromising task execution.}
+\subnote{Illustrative comparison, not measured timing data. Source: thesis Introduction, coordination challenge.}
 \end{frame}
 
-% 03
-\begin{frame}{Introduction \hfill Three reasons to learn collaboration}
+\begin{frame}{Introduction \hfill From expert behavior to anticipatory decisions}
+\vspace{0.14cm}
 \centering
 \begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[module,text width=2.45cm,minimum height=1.55cm] (a) at (-3,1.6)
-  {\textbf{Learn from experts}\\[4pt]Demonstrations encode how and when to act};
-\node[module,text width=2.45cm,minimum height=1.55cm] (b) at (0,1.6)
-  {\textbf{Partial observation}\\[4pt]A human goal may not yet be observable};
-\node[forecast,text width=2.45cm,minimum height=1.55cm] (c) at (3,1.6)
-  {\textbf{Predicted motion}\\[4pt]Future cues are useful but can be wrong};
-\draw[conn] (a)--(b);
-\draw[conn] (b)--(c);
-\node[forecast,text width=8.1cm,minimum height=0.68cm] (q) at (0,-0.3)
-  {\textbf{Research question} \quad Can a single learned policy use future motion to act earlier \emph{when useful} and adjust as observations change?};
-\draw[-{Latex[length=2mm]},HG] (b.south)--(q.north);
+\node[align=center,text width=2.65cm] (a) at (-3.16,1.52) {\textbf{Learning from demonstration}\\[5pt]Expert actions encode task progress and cooperation};
+\node[align=center,text width=2.63cm] (b) at (0,1.52) {\textbf{Partial observation}\\[5pt]Human goals may not yet be distinguishable};
+\node[align=center,text width=2.63cm] (c) at (3.16,1.52) {\textbf{Human motion forecasts}\\[5pt]Future cues are uncertain and may change};
+\draw[HT,thick] (-4.55,2.32)--(-1.8,2.32);
+\draw[HN,thick] (-1.37,2.32)--(1.37,2.32);
+\draw[HT,thick] (1.8,2.32)--(4.55,2.32);
+\draw[->,thick,HN] (a.east)--(b.west);
+\draw[->,thick,HN] (b.east)--(c.west);
+\node[future,text width=8.35cm,minimum height=0.82cm] at (0,-0.60)
+ {\textbf{Research question:} Can a unified policy learn to use motion predictions for timely actions and revise them when human behavior changes?};
 \end{tikzpicture}
-\subnote{Directly follows three motivations in thesis Introduction: expert collaboration, limited observation, and uncertain motion forecasts.}
+\subnote{Three research motivations from thesis Chapter 1. Forecasting is derived from observed motion, not independent knowledge of the human's future.}
 \end{frame}
 
-% 04
-\begin{frame}{Introduction \hfill What must actually improve?}
-\centering
-\begin{tikzpicture}[font=\scriptsize]
-\node[neutral,text width=2.45cm,minimum height=1.33cm] at (-3,1.5)
- {\textbf{Earlier useful action}\\[5pt]Onset before a human event};
-\node[neutral,text width=2.45cm,minimum height=1.33cm] at (0,1.5)
- {\textbf{Better coordination}\\[5pt]Human waiting; task duration};
-\node[neutral,text width=2.45cm,minimum height=1.33cm] at (3,1.5)
- {\textbf{Reliable correction}\\[5pt]Wrong forecast; goal switch};
-\node[forecast,text width=8.0cm,minimum height=0.74cm] at (0,-0.35)
- {\textbf{Necessary condition:} Task success and physically valid execution remain comparable.};
-\end{tikzpicture}
-\subnote{These are evaluation questions from the thesis argument, not three already demonstrated performance claims.}
+\begin{frame}{Research objective \hfill What must the policy learn?}
+\vspace{0.24cm}
+\[
+\underbrace{o_t}_{\mathrm{observed\ state}}\quad+\quad
+\underbrace{\hat H_t}_{\mathrm{predicted\ human\ motion}}
+\;\xrightarrow{\;\pi_\theta\;}\;
+\underbrace{A_{t:t+H-1}}_{\mathrm{robot\ action\ chunk}}
+\]
+\vspace{0.36cm}
+\begin{columns}[T]
+\column{.48\textwidth}
+\textbf{\color{HN}Desired decision behavior}
+\begin{itemize}\small
+\item Useful early preparation
+\item Appropriate target selection
+\item Correction under goal changes
+\end{itemize}
+\column{.48\textwidth}
+\textbf{\color{HN}Required execution properties}
+\begin{itemize}\small
+\item Task success
+\item Acceptable waiting and duration
+\item Physical feasibility and safety
+\end{itemize}
+\end{columns}
+\subnote{These are the research claims to evaluate, not established outcomes.}
 \end{frame}
 
-% 05
-\begin{frame}{Related Work \hfill What does each foundation provide?}
-\scriptsize
-\centering
-\renewcommand{\arraystretch}{1.40}
-\begin{tabular}{p{2.18cm}p{2.30cm}p{2.87cm}p{1.53cm}}
+\begin{frame}{Related Work \hfill Forecasting and action learning address different layers}
+\centering\scriptsize
+\renewcommand{\arraystretch}{1.53}
+\begin{tabular}{p{2.18cm}p{2.88cm}p{3.75cm}}
 \toprule
-\textbf{Study} & \textbf{Core idea} & \textbf{What we use} & \textbf{Open issue}\\
+\textbf{Work} & \textbf{Relevant approach} & \textbf{Relevance to this thesis}\\
 \midrule
-Hoffman (2007, 2019) & Anticipation, team fluency & Timing and waiting are relevant outcomes & Learned policy\\
-ManiCast (2023) & Cost-aware human forecasting + MPC & Short-horizon human motion & Policy learning\\
-ACT (2023) & Behavior cloning with action chunks & Continuous action-policy backbone & Human coordination\\
-Diffusion Co-Policy (2024) & Joint collaborative action sequences & Learning interaction behavior & Forecast dependence\\
-Learning to Assist (2026) & Collaborative VLA from demonstrations & Implicit assistance and timing challenges & Timely response\\
+Hoffman (2007, 2019) & Anticipatory teamwork; fluency & Temporal coordination is part of collaboration\\
+ManiCast (CoRL 2023) & Cost-aware human forecasts + MPC & Predicts future human motion for robot decisions\\
+ACT (RSS 2023) & Imitation of continuous action chunks & Robot manipulation policy backbone\\
+Diffusion Co-Policy (RA-L 2024) & Learn coordinated human--robot action sequences & Human motion may condition learned collaboration\\
+Learning to Assist (2026) & Learned assistance from implicit cues & Anticipatory timing remains a learning question\\
 \bottomrule
 \end{tabular}
-\subnote{\tiny References: Hoffman and Breazeal 2007; Hoffman 2019; Kedia et al. 2023; Zhao et al. 2023; Ng et al. 2024; Xu et al. 2026. Scope contrasts are this project's research framing.}
+\vspace{0.21cm}
+\begin{center}\small\bfseries
+Research focus: how predicted human motion influences a learned robot policy.
+\end{center}
+\subnote{Related-work scope is selective; this comparison does not claim that earlier studies never combine anticipation and learned actions.}
 \end{frame}
 
-% 06
-\begin{frame}{Research Gap \hfill A forecast input is not a forecast-aware policy}
+\begin{frame}{Research gap \hfill A forecast input may not change the action}
 \centering
 \begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[forecast,text width=2.05cm,minimum height=0.75cm] (f) at (-3.2,2.25) {Human motion forecast};
-\node[module,text width=2.15cm,minimum height=0.75cm] (p) at (0,2.25) {ACT policy};
-\node[module,text width=1.9cm,minimum height=0.75cm] (a) at (3.05,2.25) {Robot actions};
-\draw[conn] (f)--node[above,font=\tiny]{provided} (p);
-\draw[conn] (p)--(a);
-\node[neutral,text width=2.05cm,minimum height=1.01cm] at (-3.2,0.38)
- {\textbf{Information collapse}\\No sensitivity to forecast};
-\node[neutral,text width=2.15cm,minimum height=1.01cm] at (0,0.38)
- {\textbf{Timing errors}\\Act before grasp is secure};
-\node[neutral,text width=1.9cm,minimum height=1.01cm] at (3.05,0.38)
- {\textbf{Adaptation errors}\\Fail after goal changes};
-\draw[dashed,HG,->] (-3.2,1.83)--(-3.2,0.98);
-\draw[dashed,HG,->] (0,1.83)--(0,0.98);
-\draw[dashed,HG,->] (3.05,1.83)--(3.05,0.98);
+\node[future,text width=2.45cm,minimum height=0.96cm] (h) at (-3,1.82){Human-motion forecast};
+\node[stage,text width=2.45cm,minimum height=0.96cm] (pi) at (0,1.82){ACT robot policy};
+\node[stage,text width=2.45cm,minimum height=0.96cm] (a) at (3,1.82){Action chunk};
+\draw[conn] (h)--(pi);\draw[conn] (pi)--(a);
+\draw[dashed,HG,->] (-3,1.29)--(-3,0.38);
+\draw[dashed,HG,->] (0,1.29)--(0,0.38);
+\draw[dashed,HG,->] (3,1.29)--(3,0.38);
+\node[align=center,text width=2.5cm] at (-3,-0.02){\textbf{Representation}\\Forecast features may collapse};
+\node[align=center,text width=2.5cm] at (0,-0.02){\textbf{Imitation loss}\\Decision frames may be underrepresented};
+\node[align=center,text width=2.5cm] at (3,-0.02){\textbf{Execution}\\Contact timing and recovery may fail};
 \end{tikzpicture}
-\keyidea{The method must target the learning mechanism, not just the prediction output.}
-\subnote{Failure categories are observed in separate diagnostics; they need not share a single causal explanation.}
+\keyidea{The scientific question concerns the learning mechanism, not feature concatenation.}
+\subnote{The three failure categories are supported by separate diagnostics; none alone explains all task failures.}
 \end{frame}
 
-% 07
-\begin{frame}{Proposed Method \hfill One policy, two information streams}
+\begin{frame}{Proposed Method \hfill Expert demonstrations to one action policy}
 \centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex,scale=0.92,transform shape]
-\node[module,text width=2.14cm,minimum height=0.80cm] (scene) at (-3.5,2.6) {Robot + objects +\\human observations};
-\node[forecast,text width=2.14cm,minimum height=0.80cm] (hist) at (-3.5,0.95) {Past human motion};
-\node[module,text width=1.90cm,minimum height=0.80cm] (obs) at (-0.8,2.6) {Observation encoder};
-\node[forecast,text width=1.90cm,minimum height=0.80cm] (man) at (-0.8,0.95) {ManiCast forecast};
-\node[forecast,text width=1.82cm,minimum height=0.80cm] (enc) at (1.63,0.95) {Structured forecast encoder};
-\node[module,text width=1.85cm,minimum height=0.80cm] (act) at (3.75,2.6) {Unified ACT decoder};
-\node[neutral,text width=1.90cm,minimum height=0.70cm] (exec) at (3.75,0.95) {Execute + observe again};
-\draw[conn] (scene)--(obs);
-\draw[conn] (hist)--(man);
-\draw[conn] (man)--(enc);
-\draw[conn] (obs)--(act);
-\draw[conn] (enc.north east)--(act.south west);
-\draw[conn] (act)--(exec);
-\node[font=\tiny,HG] at (-0.3,-0.08){Forecast is a replaceable information source.};
+\begin{tikzpicture}[font=\scriptsize,>=Latex]
+\node[stage,text width=2.18cm,minimum height=1.0cm] (env) at (-3.22,1.84) {Shared MuJoCo scene\\and physical rules};
+\node[stage,text width=2.24cm,minimum height=1.0cm] (ex) at (-0.50,1.84) {Observed / forecast-aware expert};
+\node[future,text width=2.17cm,minimum height=1.0cm] (data) at (2.22,1.84) {Robot demonstrations\\with observations};
+\draw[conn] (env)--(ex);\draw[conn] (ex)--(data);
+\node[stage,text width=2.35cm,minimum height=0.95cm] (act) at (2.22,-0.30) {ACT policy training};
+\node[stage,text width=2.54cm,minimum height=0.95cm] (eval) at (-0.80,-0.30) {Paired closed-loop evaluation};
+\draw[conn] (data)--(act);\draw[conn] (act)--(eval);
+\draw[->,dashed,HG] (env.south) |- (-3.22,-1.3) -| (eval.south);
 \end{tikzpicture}
-\subnote{Policy predicts continuous robot actions; it does not decode a hand-coded task identifier or use the future ground truth at inference.}
+\subnote{The expert defines a desired behavior; paired learned-policy rollouts assess whether that behavior has been learned.}
 \end{frame}
 
-% 08
 \begin{frame}{Proposed Method \hfill Demonstrations teach coordination}
 \centering
 \begin{tikzpicture}[font=\scriptsize,>=Latex]
@@ -173,95 +170,94 @@ Learning to Assist (2026) & Collaborative VLA from demonstrations & Implicit ass
 \subnote{Expert quality and learned-policy quality must be evaluated separately; matching scene constraints does not itself make training distributions identical.}
 \end{frame}
 
-% 09
-\begin{frame}{Proposed Method \hfill Which model learns from what?}
-\scriptsize
-\centering
-\renewcommand{\arraystretch}{1.42}
-\begin{tabular}{p{1.60cm}p{2.26cm}p{2.25cm}p{2.0cm}}
+\begin{frame}{Evaluation controls \hfill Separate data effects from forecast effects}
+\centering\scriptsize
+\renewcommand{\arraystretch}{1.60}
+\begin{tabular}{p{1.18cm}p{2.25cm}p{2.65cm}p{2.15cm}}
 \toprule
-\textbf{Model} & \textbf{Expert data} & \textbf{Motion input} & \textbf{Learning}\\
+\textbf{Model} & \textbf{Expert data} & \textbf{Human-motion input} & \textbf{Learning configuration}\\
 \midrule
-M0 & Observed & No forecast & Ordinary ACT\\
-M1-noH & Forecast expert & Forecast excluded & Ordinary ACT\\
-M1 & Forecast expert & Flattened, one token & Ordinary ACT\\
-M* & Forecast expert & Structured, 60 tokens & KL isolation + decision loss\\
+M0 & Observed expert & Current observations & Standard ACT\\
+M1-noH & Forecast expert & Forecast excluded & Standard ACT\\
+M1 & Forecast expert & Flattened, one token & Standard ACT\\
+M* & Forecast expert & 60 structured tokens & KL isolation + decision loss\\
 \bottomrule
 \end{tabular}
-\vspace{0.42cm}
-\begin{tikzpicture}[font=\scriptsize]
-\node[neutral,text width=7.3cm,minimum height=0.83cm] at (0,0)
-{\textbf{Interpretation:} M0 versus M* changes both the training expert and the policy mechanism. Component-level ablations are still required.};
-\end{tikzpicture}
-\subnote{Names refer to implementation configurations, not generic hypothetical baselines.}
+\vspace{0.35cm}
+\begin{center}\small
+M0 vs M* is a \textbf{whole-policy comparison}. An individual gain cannot be attributed solely to ManiCast.
+\end{center}
+\subnote{The 1,290-rollout paired evaluation contains M0, M1-noH and M*. M1 was separately audited for forecast-path collapse.}
 \end{frame}
 
-% 10
-\begin{frame}{Proposed Method \hfill Preserve the structure of future motion}
+\begin{frame}{Proposed Method \hfill A structured forecast preserves time and joints}
 \centering
-\begin{tikzpicture}[font=\scriptsize,scale=0.94,transform shape]
-\node[anchor=east] at (-2.85,2.7){6 joints};
-\foreach \r/\label in {0/L shoulder,1/L elbow,2/L wrist,3/R shoulder,4/R elbow,5/R wrist}{
-\node[anchor=east,font=\tiny] at (-2.85,2.35-\r*0.43){\label};
-\foreach \c in {0,...,9}{
-\filldraw[fill=HT!28,draw=white] (-2.74+\c*0.51,2.19-\r*0.43) rectangle (-2.28+\c*0.51,2.52-\r*0.43);
-}}
-\foreach \c/\lab in {0/0.1,4/0.5,9/1.0}{\node[below,font=\tiny] at (-2.5+\c*0.51,-0.06){\lab};}
-\node[font=\tiny] at (0,-0.40){future horizon (s)};
-\node[forecast,text width=2.3cm,minimum height=1.55cm] (feat) at (3.40,1.25)
-{\textbf{Each joint-time token}\\[4pt]position\\relative to robot TCP\\finite-difference velocity};
-\draw[conn] (2.45,1.25)--(feat.west);
-\node[font=\tiny,HT] at (0,2.9){10 timestamps $\times$ 6 joints $=$ 60 tokens};
+\begin{tikzpicture}[font=\scriptsize,x=0.54cm,y=0.47cm]
+\foreach \r/\lab in {0/{L shoulder},1/{L elbow},2/{L wrist},3/{R shoulder},4/{R elbow},5/{R wrist}}{
+\node[anchor=east,font=\tiny] at (-0.4,5-\r){\lab};
+\foreach \c in {0,...,9}{\filldraw[fill=HT!28,draw=white] (\c,4.7-\r) rectangle (\c+0.8,5.3-\r);}
+}
+\node[font=\tiny] at (4.5,-0.72){future 0.1 -- 1.0 s, 10 timestamps};
+\draw[->,HG] (0,-0.32)--(9.9,-0.32);
 \end{tikzpicture}
-\subnote{M* forecast encoder: pre-LN Transformer, 2 layers, 4 heads, 256 dimensions, GELU; input includes a validity flag.}
+\vspace{0.10cm}
+\[
+\hat H_t\in\mathbb R^{10\times6\times3},\qquad
+z_{k,j}=\mathrm{LN}\big(W[x_{k,j},v]+e_k^{time}+e_j^{joint}\big)
+\]
+\begin{center}\scriptsize
+$x_{k,j}$ includes predicted position, displacement relative to TCP, and finite-difference velocity.
+\end{center}
+\subnote{M* StructuredForecastEncoder: 60 tokens, two Transformer layers, four heads, $d=256$ (M_STAR_CODE_2026-11-19).}
 \end{frame}
 
-% 11
-\begin{frame}{Proposed Method \hfill Three implemented changes in M*}
+\begin{frame}{Proposed Method \hfill The training signal must reach the forecast encoder}
 \centering
 \begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[neutral,text width=2.55cm,minimum height=0.76cm] (m1) at (0,3.1)
- {M1: one flattened ReLU forecast token};
-\node[forecast,text width=2.52cm,minimum height=0.80cm] (m) at (0,1.95)
- {M*: 60 structured forecast tokens};
-\node[module,text width=2.44cm,minimum height=1.15cm] (kl) at (-2.95,0.25)
- {\textbf{KL isolation}\\Forecast absent from CVAE encoder};
-\node[module,text width=2.44cm,minimum height=1.15cm] (dl) at (2.95,0.25)
- {\textbf{Decision-aware loss}\\Extra weight at selected events};
-\draw[conn] (m1)--(m);
-\draw[conn] (m.south west)--(kl.north);
-\draw[conn] (m.south east)--(dl.north);
+\node[anchor=east,font=\bfseries,HG] at (-3.96,2.49){M1};
+\node[future,text width=2.18cm,minimum height=0.82cm] (f) at (-2.1,2.49){Flattened forecast};
+\node[stage,text width=1.98cm,minimum height=0.82cm] (relu) at (0.45,2.49){ReLU encoder};
+\node[stage,text width=1.72cm,minimum height=0.82cm] (act) at (3.05,2.49){ACT};
+\draw[conn] (f)--(relu);\draw[conn] (relu)--(act);
+\node[below,font=\tiny,HG] at (0.35,1.98){Direct CVAE KL path also reaches forecast features};
+\draw[HG!60] (-4.2,1.21)--(4.20,1.21);
+\node[anchor=east,font=\bfseries,HT] at (-3.96,0.18){M*};
+\node[future,text width=2.18cm,minimum height=0.82cm] (sf) at (-2.1,0.18){60 forecast tokens};
+\node[future,text width=1.98cm,minimum height=0.82cm] (st) at (0.45,0.18){Transformer};
+\node[stage,text width=1.72cm,minimum height=0.82cm] (ac) at (3.05,0.18){ACT};
+\draw[conn] (sf)--(st);\draw[conn] (st)--(ac);
+\node[below,font=\tiny,HT,align=center] at (0.35,-0.35){Forecast excluded from CVAE encoder; L1 gradient still reaches forecast encoder};
 \end{tikzpicture}
-\subnote{All three changes are implemented together. Their individual causal effects are not established by the current M0--M* comparison.}
+\subnote{M1 collapse was measured. M* changes representation, KL routing, and decision weighting together; causal component ablations are still required.}
 \end{frame}
 
-% 12
-\begin{frame}{Proposed Method \hfill Learn at consequential moments}
-\centering
-\begin{tikzpicture}[font=\scriptsize,x=0.93cm,y=0.8cm]
-\draw[->,HG] (0,0)--(8.7,0) node[right]{time};
-\node[anchor=east] at (0,2.45){Events};
-\node[anchor=east] at (0,1.55){Weights};
-\foreach \x/\lab in {1/onset,4/commit,6/switch}{
-  \draw[dashed,HG!50] (\x,0.35)--(\x,2.85);
-  \node[above,font=\tiny] at (\x,2.74){\lab};
-}
-\fill[HT!22] (1,1.25) rectangle (2.1,1.78);
-\fill[HT!22] (3.0,1.25) rectangle (4.0,1.78);
-\fill[HT!22] (5.1,1.25) rectangle (7.0,1.78);
-\node[HT,font=\tiny] at (1.55,1.52){$w=3$};
-\node[HT,font=\tiny] at (3.5,1.52){$w=3$};
-\node[HT,font=\tiny] at (6.0,1.52){$w=3$};
-\node[HG,font=\tiny] at (7.65,1.52){$w=1$};
-\end{tikzpicture}
+\begin{frame}{Proposed Method \hfill Decision-aware imitation emphasizes critical frames}
 \[
- \mathcal{L}_{M^*}=\mathcal{L}_{1,\mathrm{weighted}}+10\,\mathcal{L}_{\mathrm{KL}},
- \qquad w_i=1+2m_i
+\boxed{\quad
+\mathcal L_{M^*}=
+\frac{\sum_i (1+2m_i)\,\ell_{\mathrm{L1},i}}{\sum_i(1+2m_i)}
++10\mathcal L_{\mathrm{KL}}
+\quad}
 \]
-\subnote{Illustrative event windows. The implemented mask $m_i$ weights training samples at onset, selection, pre-commit, switch and fault-recovery intervals; not separate action steps within a chunk.}
+\centering
+\begin{tikzpicture}[font=\scriptsize,x=0.92cm,y=0.8cm]
+\draw[->,HG] (0,0)--(9,0) node[right]{time};
+\fill[HN!18] (0.2,0.60) rectangle (8.7,1.03);
+\fill[HT!69] (1.18,0.60) rectangle (2.17,1.03);
+\fill[HT!69] (4.2,0.60) rectangle (5.25,1.03);
+\fill[HT!69] (6.6,0.60) rectangle (7.62,1.03);
+\node[above,font=\tiny] at (1.68,1.06){onset};
+\node[above,font=\tiny] at (4.72,1.06){selection};
+\node[above,font=\tiny] at (7.11,1.06){switch};
+\node[font=\tiny] at (8.34,1.40){$m=0,\ w=1$};
+\node[font=\tiny,HT] at (4.47,-0.35){$m=1:\ w=3$};
+\end{tikzpicture}
+\begin{center}\scriptsize
+The event mask weights each training sample, not each individual step in the action chunk.
+\end{center}
+\subnote{$\alpha=2$. Decision-window frames constitute 14.75\% of approved train data. W1/W2 use uniform weights under the implemented event set.}
 \end{frame}
 
-% 13
 \begin{frame}{Proposed Method \hfill Continuous correction is part of execution}
 \centering
 \begin{tikzpicture}[font=\scriptsize,>=Latex]
@@ -276,122 +272,180 @@ M* & Forecast expert & Structured, 60 tokens & KL isolation + decision loss\\
 \subnote{The response is learned from data; this is the execution loop, not a hand-coded branching policy.}
 \end{frame}
 
-% 14
-\begin{frame}{Evaluation \hfill Collaborative scenes and interventions}
+\begin{frame}{Evaluation \hfill Task diversity tests generality}
 \centering
+\vspace{0.18cm}
 \begin{tikzpicture}[font=\scriptsize]
-\node[module,text width=2.5cm,minimum height=1.30cm] at (-2.95,1.72)
- {\textbf{Instructor}\\I1: coaster $\to$ cup\\I2: pointing\\I3: goal switch};
-\node[forecast,text width=2.5cm,minimum height=1.30cm] at (0,1.72)
- {\textbf{Cooperative}\\C1: handover\\C2 and C3: shared work};
-\node[module,text width=2.5cm,minimum height=1.30cm] at (2.95,1.72)
- {\textbf{Work-alone}\\W1, W2:\\parallel operation};
-\node[neutral,text width=7.8cm,minimum height=0.80cm] at (0,-0.20)
- {\textbf{Evaluated conditions:} nominal behavior; selected goal switches; project-defined task variants.};
+\node[anchor=west,font=\bfseries,HN] at (-4.30,2.30){Human-guided interaction};
+\draw[thick,HT] (-4.30,2.05)--(4.35,2.05);
+\node[anchor=west] at (-4.30,1.74){I1 sequential placement \quad I2 pointing \quad I3 nominal and goal switches};
+\node[anchor=west,font=\bfseries,HN] at (-4.30,0.72){Cooperative interaction};
+\draw[thick,HT] (-4.30,0.47)--(4.35,0.47);
+\node[anchor=west] at (-4.30,0.17){C1 / C2 / C3 shared-task scenes};
+\node[anchor=west,font=\bfseries,HN] at (-4.30,-0.79){Concurrent independent work};
+\draw[thick,HT] (-4.30,-1.04)--(4.35,-1.04);
+\node[anchor=west] at (-4.30,-1.33){W1 nominal / linger, W2};
 \end{tikzpicture}
-\subnote{11 audited task-condition pairs at 60k. Designed tasks outside this validated set are not represented as experimental results.}
+\subnote{11 validated task-condition pairs. C4, W3 and unapproved extensions are not included in the reported results.}
 \end{frame}
 
-% 15
-\begin{frame}{Evaluation \hfill Paired rollout design}
+\begin{frame}{Evaluation \hfill Paired observations, shared seeds, fixed checkpoints}
 \centering
 \begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[neutral,text width=2.25cm,minimum height=0.92cm] (seed) at (-3,1.8)
- {Matched human clip\\matched validation seed};
-\node[module,text width=2.05cm,minimum height=0.76cm] (m0) at (-0.15,2.65) {M0\\observed expert};
-\node[module,text width=2.05cm,minimum height=0.76cm] (mn) at (-0.15,1.65) {M1-noH\\same forecast expert};
-\node[forecast,text width=2.05cm,minimum height=0.76cm] (ms) at (-0.15,0.65) {M*\\structured forecast};
-\node[forecast,text width=2.25cm,minimum height=1.50cm] (out) at (3.10,1.65)
- {430 episodes / model\\11 condition pairs\\60k checkpoint\\$n_{\rm action}=10$};
-\draw[conn] (seed)--(m0); \draw[conn] (seed)--(mn); \draw[conn] (seed)--(ms);
-\draw[conn] (m0)--(out); \draw[conn] (mn)--(out); \draw[conn] (ms)--(out);
+\node[neutral,text width=2.36cm,minimum height=1.20cm] (seed) at (-3.12,1.52){Same human trajectory\\same task and seed};
+\node[stage,text width=1.82cm,minimum height=0.67cm] (m0) at (-0.03,2.56){M0};
+\node[stage,text width=1.82cm,minimum height=0.67cm] (mn) at (-0.03,1.48){M1-noH};
+\node[future,text width=1.82cm,minimum height=0.67cm] (ms) at (-0.03,0.40){M*};
+\node[future,text width=2.32cm,minimum height=1.48cm] (out) at (3.10,1.48){430 rollouts/model\\60k steps\\10 executed actions\\11 conditions};
+\draw[conn] (seed)--(m0);\draw[conn] (seed)--(mn);\draw[conn] (seed)--(ms);
+\draw[conn] (m0)--(out);\draw[conn] (mn)--(out);\draw[conn] (ms)--(out);
 \end{tikzpicture}
-\keyidea{1,290 development-validation episodes, not an independent test set.}
-\subnote{Same seed within each condition; ten conditions use 40 seeds, W1 linger uses 30.}
+\keyidea{1,290 matched validation rollouts; not an independent test set.}
+\subnote{Ten conditions have $n=40$ per model; W1 linger has $n=30$. Paired McNemar tests compare matched binary outcomes.}
 \end{frame}
 
-% 16
-\begin{frame}{Evaluation \hfill Success changes depend on the task}
-\centering
-\begin{tikzpicture}[font=\scriptsize,x=0.080cm,y=0.57cm]
-\draw[->,HG] (0,0)--(101,0);
-\foreach \v in {0,25,50,75,100}{\draw[HG!20] (\v,0.2)--(\v,5.95); \node[below,font=\tiny] at (\v,0){\v};}
-\foreach \yy/\name/\a/\b in {5/I2/85/30,4/I3 nominal/45/95,3/I3 switch before/42.5/65,2/I3 switch after/35/37.5,1/C2/50/60}{
-\node[anchor=east,font=\tiny] at (-3,\yy){\name};
-\fill[HN!65] (0,\yy+0.03) rectangle (\a,\yy+0.22);
-\fill[HT!65] (0,\yy-0.22) rectangle (\b,\yy-0.03);
-}
-\node[HN,anchor=west,font=\tiny] at (7,6.25){\rule{0.22cm}{0.17cm} M0};
-\node[HT,anchor=west,font=\tiny] at (37,6.25){\rule{0.22cm}{0.17cm} M*};
-\node[font=\tiny,HG] at (52,-0.48){success rate (\%)};
-\end{tikzpicture}
-\subnote{Paired validation, 40 seeds / condition. I2: 34/40 vs 12/40; I3 nominal: 18/40 vs 38/40. Two-sided exact McNemar $p<0.001$ for each; tests unadjusted.}
-\end{frame}
-
-% 17
-\begin{frame}{Evaluation \hfill The main results run in opposite directions}
-\centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[module,text width=3.20cm,minimum height=1.9cm] at (-2.12,1.6)
- {\textbf{I3 nominal}\\[6pt]{\Large 18/40 $\to$ 38/40}\\[4pt]M0 $\to$ M*\\[2pt]\color{HT} Strong completion gain};
-\node[neutral,text width=3.20cm,minimum height=1.9cm] at (2.12,1.6)
- {\textbf{I2 pointing}\\[6pt]{\Large 34/40 $\to$ 12/40}\\[4pt]M0 $\to$ M*\\[2pt]\color{HN} Severe regression};
-\node[forecast,text width=8.4cm,minimum height=0.71cm] at (0,-0.15)
- {Whole-policy differences; not evidence that the forecast alone caused either outcome.};
-\end{tikzpicture}
-\subnote{I2 discordant seeds: 23 only M0 succeed versus 1 only M*; I3 nominal: 1 only M0 versus 21 only M*.}
-\end{frame}
-
-% 18
-\begin{frame}{Evaluation \hfill Diagnosis explains more than a CSR average}
-\centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[module,text width=2.50cm,minimum height=1.35cm] (collapse) at (-2.90,1.66)
- {\textbf{M1: dead forecast path}\\[4pt]256/256 inactive ReLU units by 50k};
-\node[neutral,text width=2.50cm,minimum height=1.35cm] (grasp) at (0,1.66)
- {\textbf{I2: early lifting}\\[4pt]M* often lifts before object attachment};
-\node[neutral,text width=2.50cm,minimum height=1.35cm] (switch) at (2.90,1.66)
- {\textbf{I3: late switch}\\[4pt]Policy may fail to recover after commit};
-\node[forecast,text width=7.9cm,minimum height=0.75cm] at (0,-0.16)
- {Different failure modes require different evidence and corrective data.};
-\end{tikzpicture}
-\subnote{M1 collapse and I2 timing are directly observed; correction after goal switch remains a policy-learning challenge. Audit reports dated 19--20 Nov 2026.}
-\end{frame}
-
-% 19
-\begin{frame}{Evaluation \hfill What the current metrics cannot claim}
+\begin{frame}{Results \hfill Full validation task completion}
 \centering
 \scriptsize
-\renewcommand{\arraystretch}{1.42}
-\begin{tabular}{p{2.15cm}p{2.80cm}p{3.33cm}}
+\renewcommand{\arraystretch}{1.17}
+\begin{tabular}{lrrrr}
 \toprule
-\textbf{Metric} & \textbf{Current state} & \textbf{Consequence}\\
+\textbf{Condition} & \textbf{$n$} & \textbf{M0} & \textbf{M1-noH} & \textbf{M*}\\
 \midrule
-Completion rate & Paired validation available & Supports task-specific comparisons\\
-TSync & Saturated by task-event definition & Cannot distinguish learned timing\\
-DSR & Disruption event absent & Recovery metric unavailable\\
-Physics-valid & Flag inconsistent with success & Safety conclusion withheld\\
-Human waiting & Needs policy-dependent onset & Anticipation claim not yet established\\
+C1 &40&40&40&40\\
+C2 &40&20&2&24\\
+C3 &40&40&40&40\\
+I1 &40&40&20&40\\
+I2 &40&34&24&\textbf{\color{HN}12}\\
+I3 nominal &40&18&25&\textbf{\color{HT}38}\\
+I3 switch-before &40&17&12&26\\
+I3 switch-after &40&14&7&15\\
+W1 nominal &40&33&32&33\\
+W1 linger &30&24&21&23\\
+W2 &40&34&34&38\\
+\midrule
+\textbf{Pooled} &\textbf{430}&\textbf{314}&\textbf{257}&\textbf{329}\\
 \bottomrule
 \end{tabular}
-\keyidea{Better success alone does not establish earlier, safer collaboration.}
-\subnote{Based on the project's Phase 4 metric audit, not official HRIBench metric definitions.}
+\subnote{Successes/$n$ on validation only, checkpoints 60k. M* is not uniformly better; task-specific results must be interpreted instead of an aggregate ranking.}
 \end{frame}
 
-% 20
-\begin{frame}{Conclusion \hfill What this project establishes and tests next}
+\begin{frame}{Results \hfill Paired differences reveal opposite effects}
 \centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex]
-\node[module,text width=3.60cm,minimum height=1.17cm] (known) at (-2.0,1.62)
- {\textbf{Established in development}\\[3pt]M1 forecast collapse; M* implementation; task-level success differences};
-\node[forecast,text width=3.60cm,minimum height=1.17cm] (next) at (2.0,1.62)
- {\textbf{Needs controlled evidence}\\[3pt]Forecast benefit, useful onset, correction, physical safety};
-\draw[conn] (known)--(next);
-\node[neutral,text width=7.7cm,minimum height=0.82cm] at (0,-0.29)
- {Next: component ablations, matched forecast swaps, expert corrective data, and validated synchronization metrics.};
+\begin{tikzpicture}[font=\scriptsize,x=0.057cm,y=0.77cm]
+\draw[->,HG] (-62,0)--(67,0) node[right]{pp};
+\foreach \x in {-50,-25,0,25,50}{\draw[HG!20] (\x,0.16)--(\x,5.58);\node[below,font=\tiny] at (\x,0){\x};}
+\node[anchor=east] at (-63,4.7){I2};
+\node[anchor=east] at (-63,3.57){I3 nominal};
+\node[anchor=east] at (-63,2.44){I3 switch-before};
+\node[anchor=east] at (-63,1.31){C2};
+\fill[HN!75] (-55,4.42) rectangle (0,4.98);
+\fill[HT!70] (0,3.29) rectangle (50,3.85);
+\fill[HT!70] (0,2.16) rectangle (22.5,2.72);
+\fill[HT!70] (0,1.03) rectangle (10,1.59);
+\node[anchor=east,font=\tiny] at (-3,4.70){$-55$};
+\node[anchor=west,font=\tiny] at (50,3.57){$+50$};
+\node[anchor=west,font=\tiny] at (22.5,2.44){$+22.5$};
+\node[anchor=west,font=\tiny] at (10,1.31){$+10$};
 \end{tikzpicture}
-\keyidea{The contribution is learning to use predictions in action, not prediction itself.}
-\subnote{\tiny Foundations: ManiCast (CoRL 2023), ACT (RSS 2023), Diffusion Co-Policy (RA-L 2024), Hoffman (2019), Learning to Assist (2026).}
+\begin{center}\scriptsize
+Exact paired McNemar: I2 $p<.001$; I3 nominal $p<.001$; switch-before $p=.078$; C2 $p=.56$.
+\end{center}
+\subnote{M* minus M0, 40 matched seeds/condition; two-sided tests without multiplicity correction. These are whole-model differences, not isolated forecast benefit.}
 \end{frame}
 
+\begin{frame}{Mechanism evidence \hfill M1 loses its forecast representation}
+\centering
+\begin{tikzpicture}[font=\scriptsize,x=0.108cm,y=0.035cm]
+\draw[->,HN] (0,0)--(68,0) node[right,font=\tiny]{training steps (k)};
+\draw[->,HN] (0,0)--(0,110) node[above,font=\tiny]{dead ReLU (\%)};
+\foreach \y in {0,25,50,75,100}{\draw[HG!20] (0,\y)--(60,\y);\node[left,font=\tiny] at (0,\y){\y};}
+\foreach \x in {0,20,40,50,60}{\node[below,font=\tiny] at (\x,0){\x};}
+\draw[very thick,HT] (0,14.84)--(20,82.03)--(40,98.83)--(50,100)--(60,100);
+\foreach \x/\y in {0/14.84,20/82.03,40/98.83,50/100,60/100}{\fill[HT] (\x,\y) circle (2.3pt);}
+\end{tikzpicture}
+\keyidea{At 50k, all 256 first-layer forecast ReLU units in M1 were inactive.}
+\subnote{M1_COLLAPSE_P0_2026-11-19.md. Initial value is a sample; later measurements use valid train frames. This is a diagnosis of M1, not proof that one change in M* fixes it.}
+\end{frame}
+
+\begin{frame}{Failure analysis \hfill I2 regresses because grasp timing is wrong}
+\centering
+\begin{tikzpicture}[font=\scriptsize,x=0.93cm,y=0.72cm]
+\node[anchor=east] at (0.8,2.87){Expert};
+\node[anchor=east] at (0.8,1.72){M* failure};
+\draw[->,HG] (1,0.42)--(9.38,0.42) node[right]{time};
+\fill[HT!40] (1.8,2.58) rectangle (7.16,3.09);
+\fill[HN!65] (7.16,2.58) rectangle (8.65,3.09);
+\node at (4.4,2.83){close until attached};
+\node[white,font=\tiny] at (7.91,2.83){lift};
+\fill[HG!38] (1.8,1.43) rectangle (6.63,1.94);
+\fill[HN!65] (6.63,1.43) rectangle (8.65,1.94);
+\node at (4.2,1.69){not yet attached};
+\node[white,font=\tiny] at (7.61,1.69){early lift};
+\draw[dashed,HG] (6.63,0.70)--(6.63,3.30);
+\draw[dashed,HT] (7.16,0.70)--(7.16,3.30);
+\node[below,font=\tiny] at (6.2,0.70){0.90 s};
+\node[below,font=\tiny] at (7.74,0.70){1.00 s attach};
+\end{tikzpicture}
+\vspace{0.15cm}
+\begin{center}\scriptsize
+24/27 failed M* first closures held $<1.0$ s. After first-grasp failure, M* recovered in 0/28 episodes.
+\end{center}
+\subnote{I2 attach replay and taxonomy, 20 Nov 2026. Expert waits on observed attachment, not a fixed timer. This illustrates an observed failure, not a proven learning cause.}
+\end{frame>
+
+\begin{frame}{Failure analysis \hfill I3 switch-before errors are not wrong commitment to A}
+\centering
+\begin{tikzpicture}[font=\scriptsize,x=0.79cm,y=0.78cm]
+\draw[->,HG] (0,0)--(8.55,0) node[right]{episodes};
+\foreach \x/\t in {0/0,2/5,4/10,6/15,8/20}{\node[below,font=\tiny] at (\x,0){\t};}
+\node[anchor=east] at (-0.16,2.83){Success};
+\node[anchor=east] at (-0.16,1.91){Wrong 3rd object};
+\node[anchor=east] at (-0.16,1.03){No attachment};
+\fill[HT!72] (0,2.57) rectangle (8.0,3.10);
+\fill[HN!58] (0,1.65) rectangle (1.84,2.18);
+\fill[HG!55] (0,0.77) rectangle (1.54,1.30);
+\node[right,font=\tiny] at (8.0,2.84){26/40};
+\node[right,font=\tiny] at (1.84,1.91){6/14 failures};
+\node[right,font=\tiny] at (1.54,1.04){5/14 failures};
+\end{tikzpicture}
+\begin{center}\scriptsize
+Remaining 3/14 failures attached B but did not finish; 0/14 first attached A.
+\end{center}
+\keyidea{An early close near A is not the same as attaching the wrong object.}
+\subnote{Corrected first-attachment audit: PHASE3_I3_SWITCH_BEFORE_2026-11-20.md.}
+\end{frame>
+
+\begin{frame}{Evidence limits \hfill Completion, timing and safety are distinct}
+\centering\scriptsize
+\renewcommand{\arraystretch}{1.55}
+\begin{tabular}{p{2.13cm}p{3.0cm}p{3.40cm}}
+\toprule
+\textbf{Target claim} & \textbf{Available evidence} & \textbf{Boundary of inference}\\
+\midrule
+Learned task success & Paired 1,290 validation rollouts & Task-specific differences; no causal mechanism isolation\\
+Forecast dependence & M1 collapse; M* 40k true/masked test & Masking may be out of distribution\\
+Earlier useful actions & Partial response metrics & TSync v1 saturated; no validated waiting-time gain\\
+Correction under change & I2/I3 trace evidence & Recovery and contact timing remain limited\\
+Safe physical operation & Contact and physics diagnostics & \texttt{physics_valid} flag needs auditing\\
+\bottomrule
+\end{tabular}
+\subnote{Phase 4 audit: the current TSync ready time is policy-independent, DSR absent, physics-valid metric not yet suitable for a safety claim.}
+\end{frame}
+
+\begin{frame}{Conclusion \hfill Learning when motion forecasts matter}
+\vspace{0.15cm}
+\begin{enumerate}\setlength{\itemsep}{0.32cm}
+\item \textbf{Problem.} Robot collaboration requires decisions about action timing, location and changes in human behavior.
+\item \textbf{Approach.} A unified ACT policy learns from expert demonstrations while conditioning on structured ManiCast predictions.
+\item \textbf{Evidence.} Direct forecast integration can collapse; M* gives heterogeneous gains and regressions across tasks.
+\item \textbf{Next verification.} Component ablations, useful-onset measurements, corrective imitation and validated physical safety.
+\end{enumerate}
+\vspace{0.13cm}
+\begin{center}\large\color{HN}\bfseries
+The contribution sought is an action policy that learns\\
+to use forecasts, not a new forecast model.
+\end{center}
+\subnote{Conclusions bounded to current validation. The thesis does not yet establish a general improvement in human waiting, total time, or safety.}
+\end{frame}
 \end{document}
