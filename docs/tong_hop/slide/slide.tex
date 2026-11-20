@@ -213,7 +213,7 @@ z_{k,j}=\mathrm{LN}\big(W[x_{k,j},v]+e_k^{time}+e_j^{joint}\big)
 \begin{center}\scriptsize
 $x_{k,j}$ includes predicted position, displacement relative to TCP, and finite-difference velocity.
 \end{center}
-\subnote{M* StructuredForecastEncoder: 60 tokens, two Transformer layers, four heads, $d=256$ (M_STAR_CODE_2026-11-19).}
+\subnote{M* StructuredForecastEncoder: 60 tokens, two Transformer layers, four heads, $d=256$ (M* implementation audit, 19 Nov. 2026).}
 \end{frame}
 
 \begin{frame}{Proposed Method \hfill The training signal must reach the forecast encoder}
@@ -378,7 +378,7 @@ I1 nominal & 23.9 & 21.9 & $-2.0$ & 0.55 & 0.10 & $-0.45$\\
 \begin{center}\scriptsize
 Descriptive comparisons on 10 validation seeds per task. Both policies succeed in all 10 C1 and I1 cases, but the test does not isolate ManiCast's effect from demonstration data.
 \end{center}
-\subnote{HRIBENCH_STYLE_M0_M1NOH_MSTAR_2026-11-19.md. CT/Rsp are project-defined metrics; broad claims about early onset and human waiting remain unverified.}
+\subnote{10-seed model comparison, 19 Nov. 2026. CT/Rsp are project-defined metrics; broad claims about early onset and human waiting remain unverified.}
 \end{frame}
 
 \begin{frame}{Mechanism evidence \hfill M1 loses its forecast representation}
@@ -392,7 +392,7 @@ Descriptive comparisons on 10 validation seeds per task. Both policies succeed i
 \foreach \x/\y in {0/14.84,20/82.03,40/98.83,50/100,60/100}{\fill[HT] (\x,\y) circle (2.3pt);}
 \end{tikzpicture}
 \keyidea{At 50k, all 256 first-layer forecast ReLU units in M1 were inactive.}
-\subnote{M1_COLLAPSE_P0_2026-11-19.md. Initial value is a sample; later measurements use valid train frames. This is a diagnosis of M1, not proof that one change in M* fixes it.}
+\subnote{M1 collapse audit, 19 Nov. 2026. Initial value is a sample; later measurements use valid train frames. This is a diagnosis of M1, not proof that one change in M* fixes it.}
 \end{frame}
 
 \begin{frame}{Failure analysis \hfill I2 regresses because grasp timing is wrong}
@@ -440,7 +440,7 @@ Descriptive comparisons on 10 validation seeds per task. Both policies succeed i
 Remaining 3/14 failures attached B but did not finish; 0/14 first attached A.
 \end{center}
 \keyidea{An early close near A is not the same as attaching the wrong object.}
-\subnote{Corrected first-attachment audit: PHASE3_I3_SWITCH_BEFORE_2026-11-20.md.}
+\subnote{Corrected first-attachment audit: I3 first-attachment audit, 20 Nov. 2026.}
 \end{frame>
 
 \begin{frame}{Evidence limits \hfill Completion, timing and safety are distinct}
@@ -454,7 +454,7 @@ Learned task success & Paired 1,290 validation rollouts & Task-specific differen
 Forecast dependence & M1 collapse; M* 40k true/masked test & Masking may be out of distribution\\
 Earlier useful actions & Partial response metrics & TSync v1 saturated; no validated waiting-time gain\\
 Correction under change & I2/I3 trace evidence & Recovery and contact timing remain limited\\
-Safe physical operation & Contact and physics diagnostics & \texttt{physics_valid} flag needs auditing\\
+Safe physical operation & Contact and physics diagnostics & \texttt{physics\_valid} flag needs auditing\\
 \bottomrule
 \end{tabular}
 \subnote{Phase 4 audit: the current TSync ready time is policy-independent, DSR absent, physics-valid metric not yet suitable for a safety claim.}
