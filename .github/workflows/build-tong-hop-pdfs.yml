@@ -1,0 +1,82 @@
+name: Compile tong_hop PDFs
+
+on:
+  push:
+    branches:
+      - claude/sleepy-euler-hkffe1
+    paths:
+      - docs/tong_hop/paper/conference_101719.tex
+      - docs/tong_hop/slide/slide.tex
+      - docs/tong_hop/tomtat.tex
+      - .github/workflows/build-tong-hop-pdfs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build paper (IEEEtran, pdfLaTeX)
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: docs/tong_hop/paper/conference_101719.tex
+          work_in_root_file_dir: true
+
+      - name: Build slide (original Beamer theme, pdfLaTeX)
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: docs/tong_hop/slide/slide.tex
+          work_in_root_file_dir: true
+
+      - name: Prepare temporary summary wrapper using thesis layout
+        shell: bash
+        run: |
+          cat > docs/tong_hop/thesis/__summary_ci.tex <<'LATEX'
+          \RequirePackage{fix-cm}
+          \documentclass[a4paper,fontsize=12pt,oneside,numbers=enddot,listof=totoc,DIV=12,footheight=24pt]{scrreprt}
+          \input{setup}
+          \begin{document}
+          \input{../tomtat.tex}
+          \end{document}
+          LATEX
+
+      - name: Build Vietnamese summary (thesis style, XeLaTeX)
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: docs/tong_hop/thesis/__summary_ci.tex
+          work_in_root_file_dir: true
+          latexmk_use_xelatex: true
+
+      - name: Check generated PDFs
+        shell: bash
+        run: |
+          cp docs/tong_hop/thesis/__summary_ci.pdf docs/tong_hop/tomtat.pdf
+          for pdf in \
+            docs/tong_hop/paper/conference_101719.pdf \
+            docs/tong_hop/slide/slide.pdf \
+            docs/tong_hop/tomtat.pdf; do
+            test -s "$pdf" || { echo "Missing PDF: $pdf"; exit 1; }
+            head -c 5 "$pdf" | grep -q '%PDF-' || { echo "Invalid PDF: $pdf"; exit 1; }
+            echo "Compiled $(wc -c < "$pdf") bytes: $pdf"
+          done
+
+      - name: Commit PDFs to the same branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f \
+            docs/tong_hop/paper/conference_101719.pdf \
+            docs/tong_hop/slide/slide.pdf \
+            docs/tong_hop/tomtat.pdf
+          if git diff --cached --quiet; then
+            echo 'PDFs already match committed versions.'
+            exit 0
+          fi
+          git commit -m 'docs(pdf): compile paper, slide and summary'
+          git push origin "HEAD:$GITHUB_REF_NAME"
