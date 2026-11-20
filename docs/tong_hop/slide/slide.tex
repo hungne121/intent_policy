@@ -1,144 +1,196 @@
-% SLIDE MẪU: https://www.overleaf.com/read/fchtwnwbvdfn
-\documentclass[11pt]{beamer} % STEP 1: Chon template
-
-
-% STEP 2: Chon theme 
-% 	\usetheme{default}
-% 	\usetheme{AnnArbor}
-% 	\usetheme{Antibes}
-% 	\usetheme{Bergen}
-% 	\usetheme{Berkeley}
-% 	\usetheme{Berlin}
-% 	\usetheme{Boadilla}
-% \usetheme{CambridgeUS}
-% 	\usetheme{Copenhagen}
-% 	\usetheme{Darmstadt}
-% 	\usetheme{Dresden}
-% 	\usetheme{Frankfurt}
-% 	\usetheme{Goettingen}
-	\usetheme{Hannover}
-% 	\usetheme{Ilmenau}
-% 	\usetheme{JuanLesPins}
-% 	\usetheme{Luebeck}
-% 	\usetheme{Madrid}
-% 	\usetheme{Malmoe}
-% 	\usetheme{Marburg}
-% 	\usetheme{Montpellier}
-%\usetheme{PaloAlto}
-%\usetheme{Pittsburgh}
-%\usetheme{Rochester}
-%\usetheme{Singapore}
-%\usetheme{Szeged}
-%\usetheme{Warsaw}
- 
+% Sử dụng template Beamer gốc; không thay theme/kiểu trang.
+% Các màu dưới đây chỉ dùng cho hình vẽ, không thay định dạng Beamer.
+\documentclass[11pt]{beamer}
+\usetheme{Hannover}
 \usetheme{default}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath}
-\usepackage{amsfonts}
-\usepackage{amssymb}
+\usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{booktabs}
-
-%
-\author{ONG, Hong Xuan}
-\title{LaTex Thesis Template}
-\institute{Japan Advanced Institute of Science And Technology} 
-
-%
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc}
+\definecolor{HN}{RGB}{35,60,85}
+\definecolor{HT}{RGB}{30,119,130}
+\definecolor{HG}{RGB}{99,108,117}
+\newcommand{\subnote}[1]{\par\vspace{0.15cm}{\scriptsize\color{HG}#1\par}}
+\author{Dao Duy Hung}
+\title{Learning Collaborative Action Policies for Humans and Robots with Intent Awareness}
+\institute{Research in Human--Robot Collaboration}
+\date{November 2026}
 \setbeamertemplate{caption}[numbered]
 \setbeamertemplate{footline}[frame number]
-
-%
-\newcommand{\argmax}{\arg\!\max} %\renewcommand
-
 \begin{document}
 
+% 1 -- cover
 \begin{frame}
-\titlepage % STEP 4: 
+\titlepage
 \end{frame}
 
-\begin{frame}{Contents} 
-\tableofcontents % \section{...} - chương 1, \subsection{...} - chương 1.1, \subsubsection{...}
+% 2 -- unified system
+\begin{frame}{One policy for human--robot collaboration}
+\centering
+\begin{tikzpicture}[>=Latex,font=\scriptsize,
+ box/.style={draw=HN,rounded corners=2pt,fill=HN!5,align=center,minimum height=0.73cm,text width=2.25cm},
+ pred/.style={draw=HT,rounded corners=2pt,fill=HT!8,align=center,minimum height=0.73cm,text width=2.25cm}]
+\node[box] (scene) at (0,2.8) {Observed scene\\human, robot, objects};
+\node[pred] (hist) at (0,1.3) {Human pose history};
+\node[box] (encoder) at (3.05,2.8) {Observation\\representation};
+\node[pred] (forecast) at (3.05,1.3) {ManiCast\\future trajectory};
+\node[pred] (fenc) at (6.0,1.3) {Forecast encoder\\10-step trajectory};
+\node[box,fill=HT!9] (policy) at (6.0,3) {ACT policy\\action chunks};
+\node[box] (exec) at (6.0,4.35) {Robot execution\\physics / safety};
+\draw[->,thick] (scene)--(encoder);
+\draw[->,thick] (hist)--(forecast);
+\draw[->,thick] (forecast)--(fenc);
+\draw[->,thick] (encoder)--(policy);
+\draw[->,thick] (fenc)--(policy);
+\draw[->,thick] (policy)--(exec);
+
+\end{tikzpicture}
+\subnote{Conceptual architecture. The contribution concerns action-policy learning; ManiCast can be replaced.}
 \end{frame}
 
-\section{Introduction} % STEP 5: mục lục
-\begin{frame}{Introduction} % STEP 6: \begin{frame}...\end{frame}
-	\begin{itemize}
-		\item Introduction 1
-		\item Introduction 2
-		\item Introduction 3
-	\end{itemize}
+% 3 -- comparative timeline
+\begin{frame}{An early action is useful only if it improves coordination}
+\centering
+\begin{tikzpicture}[x=0.87cm,y=0.88cm,font=\scriptsize,>=Latex]
+\draw[->] (1,0.3)--(9.8,0.3) node[right]{time};
+\foreach \x/\s in {2/starts,5/revealed,9/ends}{\draw (\x,0.22)--(\x,0.45);\node[below] at (\x,0.15){\s};}
+\node[anchor=east] at (1,3.35){Human};
+\node[anchor=east] at (1,2.35){Observed};
+\node[anchor=east] at (1,1.35){Forecast};
+\fill[HG!24] (2,3.04) rectangle (5,3.58);
+\node at (3.5,3.31){Human motion};
+\fill[HN!55] (5,2.04) rectangle (9,2.58);
+\node[white] at (7,2.31){Robot acts};
+\fill[HT!48] (3.65,1.04) rectangle (8.3,1.58);
+\node at (5.975,1.31){Earlier useful preparation};
+\draw[dashed,HG,thick] (5,0.6)--(5,3.89);
+\draw[<->,HT,thick] (3.65,0.73)--(5,0.73);
+\end{tikzpicture}
+\subnote{Compare human waiting and total task time under matched success and physical constraints. Illustrative, not measured.}
 \end{frame}
 
-\subsection{Related works}
-\begin{frame}{Related works}
-
-	\begin{figure}[h!]
-	  \includegraphics[width=0.9\linewidth]{charts/writing-thesis.png}
-	  \caption{Caption of this graph.}
-	  \label{fig:writing-thesis}
-	\end{figure}
+% 4 -- data paired demonstration
+\begin{frame}{Learn timing from paired demonstrations}
+\centering
+\begin{tikzpicture}[>=Latex,font=\scriptsize,scale=0.92,
+ b/.style={draw=HN,rounded corners,fill=HN!6,minimum height=0.66cm,text width=2.35cm,align=center},
+ g/.style={draw=HT,rounded corners,fill=HT!7,minimum height=0.66cm,text width=2.35cm,align=center}]
+\node[b] (a) at (0,3.55) {Same scene +\\human episode};
+\node[b] (obs) at (-3,2.3) {Observed expert\\wait / then act};
+\node[g] (int) at (3,2.3) {Forecast-aware expert\\safe early preparation};
+\node[b] (left) at (-3,1) {Actions + onset\\time stamps};
+\node[g] (right) at (3,1) {Actions + onset\\time stamps};
+\node[b,fill=HT!8,text width=3.65cm] (train) at (0,-0.35) {Matched physics, training data\\and ACT imitation};
+\draw[->,thick] (a)--(obs);\draw[->,thick] (a)--(int);
+\draw[->,thick] (obs)--(left);\draw[->,thick] (int)--(right);
+\draw[->,thick] (left)--(train);\draw[->,thick] (right)--(train);
+\end{tikzpicture}
+\subnote{A better expert is not yet evidence of a better learned policy.}
 \end{frame}
 
-\section{Background}
-\begin{frame}{Background}
-\begin{center} %\begin{table} + \centering
-
-\captionof{table}{Caption of this table %%% CAPTION
-\label{table:table-template}} 
-
-  \begin{tabular} {l l l l l}
-  \toprule
-  \it Column 1 & \it Column 2 & \it Column 3 & \it Column 4 \\
-  \midrule
-
-  Row 1.1 & Row 1.2 & Row 1.3 & Row 1.4 \\
-  Row 2.1 & Row 2.2 & Row 2.3 & Row 2.4 \\  
-          
-  \bottomrule
-  \end{tabular}
-
-
-\end{center}
+% 5 -- learning mechanisms as three cards
+\begin{frame}{Three learned behaviors to test}
+\centering
+\begin{tikzpicture}[font=\scriptsize,>=Latex,
+ box/.style={draw=HN,rounded corners,fill=HN!5,text width=2.4cm,minimum height=1.38cm,align=center}]
+\node[box] (a) at (0,1.9) {{\bfseries Useful anticipation}\\[4pt] Prepare when the forecast changes the best action};
+\node[box,draw=HT,fill=HT!7] (b) at (3.28,1.9) {{\bfseries Selective reliance}\\[4pt] Use the forecast only when informative};
+\node[box] (c) at (6.56,1.9) {{\bfseries Correction}\\[4pt] Revise actions after conflicting observations};
+\draw[->,thick] (a)--(b);\draw[->,thick] (b)--(c);
+\node[draw=HG,fill=HG!7,rounded corners,text width=8.2cm,align=center,minimum height=0.85cm] at (3.28,-0.15)
+ {ACT imitation \quad $+$ decision-event emphasis \quad $+$ forecast variation \quad $+$ corrective data};
+\end{tikzpicture}
+\subnote{Candidate learning mechanisms, not three separate rule controllers or validated contributions.}
 \end{frame}
 
-\section{Proposed method} % cho vao muc luc \tableofcontents
-\begin{frame}{Proposed method}
-	Some mathematics formula $$F(x) = \argmax_{y \in GEN(x)} w \cdot f(x, y)$$
+% 6 -- dynamic changes
+\begin{frame}{Adapting as new human information arrives}
+\centering
+\begin{tikzpicture}[font=\scriptsize,>=Latex,
+ box/.style={draw=HN,rounded corners,fill=HN!6,text width=2.0cm,minimum height=0.82cm,align=center},
+ case/.style={draw=HT,rounded corners,fill=HT!8,text width=2.35cm,minimum height=0.82cm,align=center}]
+\node[box] (obs) at (0,3.2) {Updated human\\observation};
+\node[case] (match) at (3.0,3.2) {Forecast still\\consistent?};
+\node[box] (on) at (6.2,3.2) {Continue suitable\\preparation};
+\node[box] (re) at (3.0,1.6) {Reassess goal\\and commitment};
+\node[case] (early) at (0.2,0) {Before commitment\\defer or redirect};
+\node[case] (late) at (5.8,0) {After commitment\\feasible correction};
+\draw[->,thick] (obs)--(match);
+\draw[->,thick] (match)--node[above]{yes} (on);
+\draw[->,thick] (match)--node[right]{no} (re);
+\draw[->,thick] (re)--(early);
+\draw[->,thick] (re)--(late);
+\end{tikzpicture}
+\subnote{Forecast fault and a genuine human change of mind must be evaluated separately.}
 \end{frame}
 
-
-\section{Evaluation}
-\begin{frame}{Evaluation}
-	\begin{itemize}
-		\item Evaluation 1
-		\item Evaluation 2
-		\item Evaluation 3
-	\end{itemize}
+% 7 -- interaction patterns
+\begin{frame}{Three interaction patterns}
+\centering
+\begin{tikzpicture}[font=\small,
+ card/.style={draw=HN,rounded corners,fill=HN!4,text width=2.5cm,align=center,minimum height=2.75cm}]
+\node[card] at (0,1) {{\bfseries Instructor}\\[0.2cm]{\large I1--I3}\\[0.2cm]Human guides\\robot action};
+\node[card,draw=HT,fill=HT!5] at (3.35,1) {{\bfseries Cooperative}\\[0.2cm]{\large C1--C4}\\[0.2cm]Interdependent\\shared work};
+\node[card] at (6.7,1) {{\bfseries Work-alone}\\[0.2cm]{\large W1--W3}\\[0.2cm]Robot can work\\in parallel};
+\end{tikzpicture}
+\subnote{Task-suite design; not all designed cases have validated experts or final benchmark status.}
 \end{frame}
 
-
-\section{Conclusion}
-\begin{frame}{Conclusion}
-	\begin{itemize}
-		\item Conclusion 1
-		\item Conclusion 2
-		\item Conclusion 3
-	\end{itemize}
+% 8 -- comparison table
+\begin{frame}{Matched tests isolate forecast value}
+\centering
+\scriptsize
+\begin{tabular}{p{2.75cm}ccc}
+\toprule
+Policy control & Observation & Human history & Forecast\\
+\midrule
+Observation ACT & Yes & -- & --\\
+History ACT & Yes & Yes & --\\
+Direct ManiCast $\to$ ACT & Yes & Yes & Yes\\
+Proposed learned policy & Yes & Yes & Yes + mechanism\\
+\bottomrule
+\end{tabular}
+\vspace{0.42cm}
+\begin{tikzpicture}[font=\scriptsize,>=Latex]
+\node[draw=HN,fill=HN!5,rounded corners] (a) at (0,0){Same human episode};
+\node[draw=HN,fill=HN!5,rounded corners] (b) at (3.3,0){Same task gates};
+\node[draw=HT,fill=HT!7,rounded corners] (c) at (6.2,0){Paired outcomes};
+\draw[->,thick] (a)--(b);\draw[->,thick] (b)--(c);
+\end{tikzpicture}
+\subnote{Do not conflate M0/M1-noH/M* labels with these controls without checking their actual code.}
 \end{frame}
 
-\begin{frame}{Q\&A}
-	\begin{center}
-		\Huge Thank You
-	\end{center}
+% 9 -- results bar chart
+\begin{frame}{Internal validation reveals an unresolved gap}
+\centering
+\begin{tikzpicture}[x=0.91cm,y=0.045cm,font=\scriptsize]
+\draw[->] (0,0)--(0,105) node[above]{CSR};
+\draw[->] (0,0)--(8.2,0);
+\foreach \y in {0,25,50,75,100}{\draw (-0.10,\y)--(0.10,\y);\node[left] at (-0.12,\y){\y\%};}
+\fill[HN!44] (0.8,0) rectangle (2.15,76);
+\fill[HG!38] (3.05,0) rectangle (4.4,59);
+\fill[HT!65] (5.3,0) rectangle (6.65,80);
+\foreach \x/\y/\name in {1.475/76/M0,3.725/59/M1-noH,5.975/80/M*}{
+  \node[above] at (\x,\y){\textbf{\y\%}};\node[below] at (\x,-1){\name};}
+\end{tikzpicture}
+\subnote{19 Nov 2026 internal validation; 300 episodes / 10 seeds. Descriptive macro CSR, not a final paired benchmark.}
 \end{frame}
 
-\begin{frame}{References}
-	\begin{itemize}
-		\item Mario Baroni, Simon Maguire, and William Drabkin. The concept of musical grammar.\textit{Music Analysis}, 1983.
-		\item References 2
-		\item References 3
-	\end{itemize}
+% 10 -- scientific conclusion
+\begin{frame}{What the experiments must establish}
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+ b/.style={draw=HN,fill=HN!5,rounded corners,align=center,text width=2.65cm,minimum height=1.10cm}]
+\node[b] at (0,2.45) {\textbf{Anticipation}\\First useful onset};
+\node[b] at (3.25,2.45) {\textbf{Coordination}\\Waiting + total time};
+\node[b] at (6.5,2.45) {\textbf{Task quality}\\Success + physics};
+\node[b] at (1.65,0.45) {\textbf{Forecast use}\\Mask / swap / contradict};
+\node[b] at (4.9,0.45) {\textbf{Adaptation}\\Correction / recovery};
+\end{tikzpicture}
+\subnote{Core conclusion remains open: useful, correctable early action must be shown by paired experiments.}
 \end{frame}
+
 \end{document}
