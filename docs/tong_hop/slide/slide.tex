@@ -126,69 +126,63 @@ Research focus: how predicted human motion influences a learned robot policy.
 \begin{frame}{Our Proposal \hfill Intent-aware imitation learning for HRC}
 \centering
 \[
-\boxed{\quad
-\underbrace{o_t}_{\text{current observations}}
-\;+\;
-\underbrace{\hat H_t}_{\text{predicted human motion}}
-\;\xrightarrow{\;\pi_\theta^{\mathrm{ACT}}\;}\;
-\underbrace{A_{t:t+H-1}}_{\text{robot action chunk}}
-\quad}
+\boxed{\quad \pi_\theta(o_t,\hat H_t)\ \rightarrow\ \hat A_{t:t+H-1}\quad}
 \]
-\vspace{0.20cm}
-\begin{enumerate}\small
-\setlength{\itemsep}{0.24cm}
-\item \textbf{Anticipatory coordination.} Learn better-timed responses to reduce unnecessary waiting and task duration.
-\item \textbf{Adaptation under intent uncertainty.} Learn appropriate actions under forecast errors and human changes of mind.
-\item \textbf{Simulated HRC benchmark.} Build diverse interaction cases and quantitative evaluation protocols.
+\begin{center}\scriptsize
+$o_t$: current observations \qquad $\hat H_t$: forecast human poses\\
+$\pi_\theta$: ACT action policy \qquad $\hat A_{t:t+H-1}$: robot action chunk
+\end{center}
+\vspace{.13cm}
+\begin{enumerate}\small\setlength{\itemsep}{.24cm}
+\item \textbf{Claim 1 -- Anticipatory coordination:} reduce unnecessary waiting and task completion time.
+\item \textbf{Claim 2 -- Intent adaptability:} handle inaccurate predictions and changes in human goals.
+\item \textbf{Benchmark contribution:} multi-task simulated HRC with quantitative evaluation.
 \end{enumerate}
-\vspace{0.12cm}
-\keyidea{The research contribution concerns the learned action policy, not a new human forecaster.}
 \end{frame}
 
 \begin{frame}{Proposed Method \hfill Overall system architecture}
 \centering
-\begin{tikzpicture}[font=\scriptsize,>=Latex,scale=0.87,transform shape]
-\node[module,text width=2.19cm,minimum height=0.83cm] (scene) at (-3.44,2.15)
- {RGB scene + robot state};
-\node[forecast,text width=2.19cm,minimum height=0.83cm] (history) at (-3.44,0.47)
- {Human pose history};
-\node[module,text width=2.06cm,minimum height=0.83cm] (visual) at (-0.81,2.15)
- {Observation encoder};
-\node[forecast,text width=2.06cm,minimum height=0.83cm] (man) at (-0.81,0.47)
- {ManiCast: 1 s forecast};
-\node[forecast,text width=1.88cm,minimum height=0.83cm] (tokens) at (1.70,0.47)
- {60-token encoder};
-\node[module,text width=1.88cm,minimum height=1.05cm] (act) at (1.70,2.15)
- {\textbf{Intent-aware ACT}\\40-action chunk};
-\node[module,text width=1.78cm,minimum height=0.95cm] (exec) at (4.02,2.15)
- {Robot execution\\10 actions};
-\draw[conn] (scene)--(visual); \draw[conn] (history)--(man);
-\draw[conn] (man)--(tokens); \draw[conn] (visual)--(act);
-\draw[conn] (tokens)--(act); \draw[conn] (act)--(exec);
-\draw[-{Latex[length=1.7mm]},HG,thick] (exec.south) |- (2.92,-1.01) -| (scene.south);
-\node[font=\tiny,HG] at (1.43,-1.21){reobserve and replan};
+\begin{tikzpicture}[font=\scriptsize,>=Latex,scale=0.85,transform shape]
+\node[module,text width=2.18cm,minimum height=.84cm] (scene) at (-4.1,2.0){RGB observations\\robot state};
+\node[module,text width=2.06cm,minimum height=.84cm] (vis) at (-1.5,2.0){Observation\\encoder};
+\node[module,text width=2.06cm,minimum height=.84cm] (act) at (1.35,2.0){\textbf{ACT policy}\\40-action chunk};
+\node[module,text width=2.06cm,minimum height=.84cm] (exec) at (4.15,2.0){Robot execution\\10 steps};
+\node[forecast,text width=2.18cm,minimum height=.84cm] (hist) at (-4.1,-.25){Human pose history\\0.4 seconds};
+\node[forecast,text width=2.06cm,minimum height=.84cm] (man) at (-1.5,-.25){ManiCast\\1-second forecast};
+\node[forecast,text width=2.06cm,minimum height=.84cm] (tok) at (1.35,-.25){Structured 60-token\\forecast encoder};
+\draw[conn] (scene.east)--(vis.west);
+\draw[conn] (vis.east)--(act.west);
+\draw[conn] (act.east)--(exec.west);
+\draw[conn] (hist.east)--(man.west);
+\draw[conn] (man.east)--(tok.west);
+\draw[conn] (tok.north)--(act.south);
+\node[font=\tiny,HG] at (-1.5,-1.34){Human history $\to$ future motion cues};
+\node[font=\tiny,HG] at (3.20,-1.34){Reobserve after each chunk};
 \end{tikzpicture}
+\begin{center}\scriptsize
+Two observation streams condition the same ACT policy. Connections terminate at module boundaries.
+\end{center}
 \end{frame}
 
-\begin{frame}{Proposed Method \hfill A structured forecast preserves time and joints}
+\begin{frame}{Proposed Method \hfill Structured future-motion representation}
 \centering
-\begin{tikzpicture}[font=\scriptsize,x=0.54cm,y=0.47cm]
+\begin{tikzpicture}[font=\scriptsize,x=.54cm,y=.46cm]
 \foreach \r/\lab in {0/{L shoulder},1/{L elbow},2/{L wrist},3/{R shoulder},4/{R elbow},5/{R wrist}}{
-\node[anchor=east,font=\tiny] at (-0.4,5-\r){\lab};
-\foreach \c in {0,...,9}{\filldraw[fill=HT!28,draw=white] (\c,4.7-\r) rectangle (\c+0.8,5.3-\r);}
+\node[anchor=east,font=\tiny] at (-.4,5-\r){\lab};
+\foreach \c in {0,...,9}{\filldraw[fill=HT!28,draw=white] (\c,4.7-\r) rectangle (\c+.8,5.3-\r);}
 }
-\node[font=\tiny] at (4.5,-0.72){future 0.1 -- 1.0 s, 10 timestamps};
-\draw[->,HG] (0,-0.32)--(9.9,-0.32);
+\draw[->,HG] (0,-.32)--(9.9,-.32);
+\node[font=\tiny] at (4.5,-.72){10 future steps: 0.1--1.0 s};
 \end{tikzpicture}
-\vspace{0.10cm}
 \[
 \hat H_t\in\mathbb R^{10\times6\times3},\qquad
-z_{k,j}=\mathrm{LN}\big(W[x_{k,j},v]+e_k^{time}+e_j^{joint}\big)
+z_{k,j}=\mathrm{LN}\big(W[x_{k,j},v]+e_k^{\mathrm{time}}+e_j^{\mathrm{joint}}\big)
 \]
 \begin{center}\scriptsize
-$x_{k,j}$ includes predicted position, displacement relative to TCP, and finite-difference velocity.
+$k$: future time; $j$: body joint; $\hat H_t$: forecasted 3D poses.\\
+$x_{k,j}$: position, TCP-relative displacement and velocity; $v$: validity flag.\\
+$e^{\mathrm{time}},e^{\mathrm{joint}}$: embeddings; $z_{k,j}$: forecast token for ACT.
 \end{center}
-
 \end{frame}
 
 \begin{frame}{Proposed Method \hfill The training signal must reach the forecast encoder}
@@ -211,82 +205,75 @@ $x_{k,j}$ includes predicted position, displacement relative to TCP, and finite-
 
 \end{frame}
 
-\begin{frame}{Proposed Method \hfill Decision-aware imitation emphasizes critical frames}
+\begin{frame}{Proposed Method \hfill Decision-aware imitation learning}
 \[
-\boxed{\quad
-\mathcal L_{M^*}=
-\frac{\sum_i (1+2m_i)\,\ell_{\mathrm{L1},i}}{\sum_i(1+2m_i)}
-+10\mathcal L_{\mathrm{KL}}
-\quad}
+\boxed{\quad \mathcal L =
+\frac{\sum_i w_i\ell_{\mathrm{L1},i}}{\sum_i w_i}
++10\,\mathcal L_{\mathrm{KL}},
+\qquad w_i=1+2m_i\quad}
 \]
 \centering
-\begin{tikzpicture}[font=\scriptsize,x=0.92cm,y=0.8cm]
-\draw[->,HG] (0,0)--(9,0) node[right]{time};
-\fill[HN!18] (0.2,0.60) rectangle (8.7,1.03);
-\fill[HT!69] (1.18,0.60) rectangle (2.17,1.03);
-\fill[HT!69] (4.2,0.60) rectangle (5.25,1.03);
-\fill[HT!69] (6.6,0.60) rectangle (7.62,1.03);
-\node[above,font=\tiny] at (1.68,1.06){onset};
-\node[above,font=\tiny] at (4.72,1.06){selection};
-\node[above,font=\tiny] at (7.11,1.06){switch};
-\node[font=\tiny] at (8.34,1.40){$m=0,\ w=1$};
-\node[font=\tiny,HT] at (4.47,-0.35){$m=1:\ w=3$};
+\begin{tikzpicture}[font=\scriptsize,x=.92cm,y=.80cm]
+\draw[->,HG] (0,0)--(9.0,0) node[right]{time};
+\fill[HN!18] (.2,.6) rectangle (8.7,1.04);
+\foreach \a/\b in {1.2/2.2,4.2/5.2,6.5/7.5}{\fill[HT!69] (\a,.6) rectangle (\b,1.04);}
+\node[above,font=\tiny] at (1.7,1.08){onset};
+\node[above,font=\tiny] at (4.7,1.08){selection};
+\node[above,font=\tiny] at (7.0,1.08){switch};
+\node[font=\tiny,HT] at (4.5,-.40){Decision window: $m_i=1$, $w_i=3$};
 \end{tikzpicture}
 \begin{center}\scriptsize
-The event mask weights each training sample, not each individual step in the action chunk.
+$\ell_{\mathrm{L1},i}$: demonstration-versus-prediction error for action chunk $i$.\\
+$m_i$: event-window indicator; $w_i$: training-sample weight.\\
+$\mathcal L_{\mathrm{KL}}$: ACT latent regularization; $10$: KL coefficient.
 \end{center}
-
 \end{frame}
 
-\begin{frame}{Simulated Benchmark \hfill Three HRC interaction settings}
-\centering
-\begin{columns}[T,onlytextwidth]
-\column{0.33\textwidth}
-\centering
-\includegraphics[width=2.94cm,height=1.64cm,keepaspectratio]{c1_A_t80.png}
-{\scriptsize\bfseries Cooperative}
-\column{0.33\textwidth}
-\centering
-\includegraphics[width=2.94cm,height=1.64cm,keepaspectratio]{point.png}
-{\scriptsize\bfseries Human-guided}
-\column{0.33\textwidth}
-\centering
-\includegraphics[width=2.94cm,height=1.64cm,keepaspectratio]{cam_side.png}
-{\scriptsize\bfseries Concurrent work}
-\end{columns}
-\vspace{0.26cm}
-\scriptsize
-\renewcommand{\arraystretch}{1.28}
-\begin{tabular}{p{2.15cm}p{3.65cm}p{2.30cm}}
-\toprule
-\textbf{Group} & \textbf{Task scenes} & \textbf{Variations}\\
-\midrule
-Human-guided & I1 placement, I2 pointing, I3 sorting & I3 goal switches\\
-Cooperative & C1, C2, C3 & Shared-action scenes\\
-Concurrent work & W1, W2 & W1 linger condition\\
-\bottomrule
-\end{tabular}
-\end{frame}
-
-\begin{frame}{Benchmark \hfill Evaluation metrics}
+\begin{frame}{Simulated Benchmark \hfill Tasks grouped by research claim}
 \centering\scriptsize
-\renewcommand{\arraystretch}{1.47}
-\begin{tabular}{p{1.48cm}p{4.30cm}p{2.20cm}}
+\renewcommand{\arraystretch}{1.55}
+\begin{tabular}{p{1.25cm}p{2.14cm}p{2.55cm}p{2.39cm}}
 \toprule
-\textbf{Metric} & \textbf{Measured quantity} & \textbf{Purpose}\\
+\textbf{Objective} & \textbf{Interaction type} & \textbf{Scenes / conditions} & \textbf{Evaluation focus}\\
 \midrule
-CSR $\uparrow$ & Fraction of successfully completed episodes & Task reliability\\
-CT $\downarrow$ & Time to task completion & Efficiency\\
-Rsp $\downarrow$ & Latency to relevant robot response & Timeliness\\
-OC $\uparrow$ & Fraction of required steps completed & Task progress\\
-CFR $\uparrow$ & Contact-free episode rate & Contact behavior\\
-Switch CSR $\uparrow$ & Success after human goal change & Adaptation\\
-TSync, DSR & Event synchronization; disruption recovery & Coordination\\
+Claim 1 & Cooperative & C1, C2, C3 & Coordination and completion time\\
+Claim 1 & Human-guided & I1, I2, I3 nominal & Responsive action and success\\
+Claim 1 & Concurrent work & W1, W1 linger, W2 & Task-general performance\\
+\midrule
+Claim 2 & Goal switching & I3 switch-before & Adaptation before commitment\\
+Claim 2 & Goal switching & I3 switch-after & Adaptation after commitment\\
 \bottomrule
 \end{tabular}
-\vspace{0.19cm}
+\vspace{.23cm}
+\begin{columns}[T,onlytextwidth]
+\column{.50\textwidth}\centering
+\includegraphics[width=3.8cm,height=1.35cm,keepaspectratio]{c1_A_t80.png}
+{\scriptsize Cooperative task}
+\column{.50\textwidth}\centering
+\includegraphics[width=3.8cm,height=1.35cm,keepaspectratio]{point.png}
+{\scriptsize Human-guided task}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Benchmark \hfill Metrics organized by evaluation objective}
+\centering\scriptsize
+\renewcommand{\arraystretch}{1.46}
+\begin{tabular}{p{2.05cm}p{1.31cm}p{4.86cm}}
+\toprule
+\textbf{Objective} & \textbf{Metric} & \textbf{Definition}\\
+\midrule
+Claim 1: efficiency & CT $\downarrow$ & Mean task completion time on successful runs\\
+Claim 1: timeliness & Rsp $\downarrow$ & Response latency after relevant human action\\
+Completion & CSR $\uparrow$ & Fraction of successful episodes\\
+Task progress & OC $\uparrow$ & Fraction of expected steps completed\\
+Contact behavior & CFR $\uparrow$ & Contact-free episode rate under project definition\\
+\midrule
+Claim 2: adaptation & Switch CSR & Completion following goal changes\\
+Coordination & TSync / DSR & Event synchronization / disruption recovery\\
+\bottomrule
+\end{tabular}
 \begin{center}\scriptsize
-Benchmark indicators are defined by the project evaluators; success and response are reported on their available sample sets.
+Metrics follow project-defined evaluation rules; unavailable measurements are denoted n/a.
 \end{center}
 \end{frame}
 
@@ -305,145 +292,105 @@ Benchmark indicators are defined by the project evaluators; success and response
 
 \end{frame}
 
-\begin{frame}{Results \hfill Policy comparison across evaluation metrics}
-\centering\scriptsize
-\renewcommand{\arraystretch}{1.67}
-\begin{tabular}{p{1.40cm}rrrrrr}
+\begin{frame}{Results \hfill Macro mean across 11 conditions}
+\centering\vspace{.09cm}
+\resizebox{.98\textwidth}{!}{%
+\begin{tabular}{lcrrrrrrr}
 \toprule
- & \multicolumn{4}{c}{\textbf{Task success (\%)}} & \multicolumn{2}{c}{\textbf{Time (s)}}\\
-\cmidrule(lr){2-5}\cmidrule(lr){6-7}
-\textbf{Policy} & Overall & I3 & I2 & Switch$^\dagger$ & C1 CT & I1 Rsp\\
+\textbf{Model} & \textbf{Cond.} & \textbf{CSR $\uparrow$} & \textbf{CT (s) $\downarrow$} & \textbf{Rsp (s) $\downarrow$} & \textbf{OC $\uparrow$} & \textbf{CFR $\uparrow$} & \textbf{DSR} & \textbf{TSync $\uparrow$}\\
 \midrule
-M0 & 73.0 & 45.0 & 85.0 & 42.5 & 24.8 & 0.55\\
-M1-noH & 59.8 & 62.5 & 60.0 & 30.0 & 20.4 & 0.11\\
-\textbf{Ours (M*)} & \textbf{76.5} & \textbf{95.0} & 30.0 & \textbf{65.0} & 21.0 & \textbf{0.10}\\
+M0 & 11 & 0.73 & 21.23 & 0.31 & 0.77 & 0.93 & n/a & 1.00\\
+M1-noH & 11 & 0.60 & 19.19 & \textbf{0.28} & 0.67 & 0.97 & n/a & 0.91\\
+\textbf{\color{HT}Ours (M*)} & \textbf{11} & \textbf{0.77} & \textbf{19.02} & 0.30 & \textbf{0.78} & \textbf{0.98} & n/a & 0.93\\
+\bottomrule
+\end{tabular}}
+\vspace{.33cm}
+\begin{center}\small
+Macro mean: each condition contributes equally.\\[6pt]
+\scriptsize CSR, CT, OC, CFR: 11 conditions; Rsp: 7; TSync: 6; DSR: 0.
+\end{center}
+\vspace{.10cm}
+\begin{center}\small
+Ours leads on macro CSR, CT and CFR, but M1-noH has the lowest mean response latency.
+\end{center}
+\end{frame}
+
+\begin{frame}{Claim 1 \hfill Efficiency and timely robot response}
+\centering
+\begin{columns}[T]
+\column{.5\textwidth}\centering
+{\scriptsize\bfseries Completion time, macro mean (s)}
+\begin{tikzpicture}[font=\tiny,x=.17cm,y=.75cm]
+\draw[->,HG] (0,0)--(25,0);
+\fill[HN!72] (0,1.48) rectangle (21.23,2.02);
+\fill[HT!72] (0,.54) rectangle (19.02,1.08);
+\node[white] at (10.6,1.75){M0: 21.23};
+\node[white] at (9.5,.81){Ours: 19.02};
+\end{tikzpicture}
+\column{.5\textwidth}\centering
+{\scriptsize\bfseries Response latency, macro mean (s)}
+\begin{tikzpicture}[font=\tiny,x=10cm,y=.75cm]
+\draw[->,HG] (0,0)--(.43,0);
+\fill[HN!72] (0,1.48) rectangle (.31,2.02);
+\fill[HT!72] (0,.54) rectangle (.30,1.08);
+\node[white] at (.16,1.75){M0: 0.31};
+\node[white] at (.15,.81){Ours: 0.30};
+\end{tikzpicture}
+\end{columns}
+\vspace{.32cm}
+\scriptsize\centering
+\renewcommand{\arraystretch}{1.36}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{\textbf{CT (s)}} & \multicolumn{2}{c}{\textbf{Rsp (s)}}\\
+Condition & M0 & Ours & M0 & Ours\\
+\midrule
+C1 & 24.9 & 21.2 & 0.26 & 0.22\\
+I1 & 24.3 & 22.1 & 0.57 & 0.08\\
 \bottomrule
 \end{tabular}
-\vspace{0.19cm}
+\vspace{.12cm}
 \begin{center}\scriptsize
-Overall: 430 validation rollouts/model; I3, I2, switch-before ($^\dagger$): 40/model.\\
-CT and Rsp: separate 10-seed evaluation; CT among successful episodes.
+Macro CT is 2.21 s lower for Ours; temporal effects vary by task. CT includes successful episodes only.
 \end{center}
-\vspace{0.10cm}
-\keyidea{Ours improves selected collaborative tasks; I2 exposes a significant execution regression.}
 \end{frame}
 
-\begin{frame}{Results \hfill Paired differences reveal opposite effects}
+\begin{frame}{Claim 2 \hfill Behavior when human goals change}
 \centering
-\begin{tikzpicture}[font=\scriptsize,x=0.057cm,y=0.77cm]
-\draw[->,HG] (-62,0)--(67,0) node[right]{pp};
-\foreach \x in {-50,-25,0,25,50}{\draw[HG!20] (\x,0.16)--(\x,5.58);\node[below,font=\tiny] at (\x,0){\x};}
-\node[anchor=east] at (-63,4.7){I2};
-\node[anchor=east] at (-63,3.57){I3 nominal};
-\node[anchor=east] at (-63,2.44){I3 switch-before};
-\node[anchor=east] at (-63,1.31){C2};
-\fill[HN!75] (-55,4.42) rectangle (0,4.98);
-\fill[HT!70] (0,3.29) rectangle (50,3.85);
-\fill[HT!70] (0,2.16) rectangle (22.5,2.72);
-\fill[HT!70] (0,1.03) rectangle (10,1.59);
-\node[anchor=east,font=\tiny] at (-3,4.70){$-55$};
-\node[anchor=west,font=\tiny] at (50,3.57){$+50$};
-\node[anchor=west,font=\tiny] at (22.5,2.44){$+22.5$};
-\node[anchor=west,font=\tiny] at (10,1.31){$+10$};
+\begin{tikzpicture}[font=\scriptsize,x=.063cm,y=.78cm]
+\draw[->,HG] (0,0)--(102,0) node[right,font=\tiny]{success (\%)};
+\foreach \v in {0,25,50,75,100}{\draw[HG!15] (\v,.12)--(\v,4.75);\node[below,font=\tiny] at (\v,0){\v};}
+\node[anchor=east,font=\tiny] at (-2,3.98){I3 nominal};
+\node[anchor=east,font=\tiny] at (-2,2.78){Switch before};
+\node[anchor=east,font=\tiny] at (-2,1.58){Switch after};
+\fill[HN!70] (0,4.07) rectangle (45,4.3);
+\fill[HT!70] (0,3.72) rectangle (95,3.95);
+\fill[HN!70] (0,2.87) rectangle (42.5,3.1);
+\fill[HT!70] (0,2.52) rectangle (65,2.75);
+\fill[HN!70] (0,1.67) rectangle (35,1.9);
+\fill[HT!70] (0,1.32) rectangle (37.5,1.55);
+\node[font=\tiny,HN] at (18,4.63){M0};
+\node[font=\tiny,HT] at (45,4.63){Ours};
 \end{tikzpicture}
+\vspace{.13cm}
 \begin{center}\scriptsize
-Exact paired McNemar: I2 $p<.001$; I3 nominal $p<.001$; switch-before $p=.078$; C2 $p=.56$.
+40 paired seeds per condition. McNemar: nominal $p<.001$; before $p=.078$; after $p=1.00$.
 \end{center}
-
+\vspace{.12cm}
+\begin{center}\small
+Nominal improvement is strong; post-commit recovery is not established.
+\end{center}
 \end{frame}
 
-\begin{frame}{Timing evidence \hfill Do the policies coordinate earlier?}
-\centering\scriptsize
-\renewcommand{\arraystretch}{1.60}
-\begin{tabular}{lrrrrrr}
-\toprule
- & \multicolumn{3}{c}{\textbf{Completion time (s)}} & \multicolumn{3}{c}{\textbf{Response (s)}}\\
-\textbf{Task} & M0 & M* & $\Delta$ & M0 & M* & $\Delta$\\
-\midrule
-C1 nominal & 24.8 & 21.0 & $-3.8$ & 0.35 & 0.15 & $-0.20$\\
-I1 nominal & 23.9 & 21.9 & $-2.0$ & 0.55 & 0.10 & $-0.45$\\
-\bottomrule
-\end{tabular}
-\vspace{0.30cm}
-\begin{center}
-\small \textbf{Observed in these cases:} shorter task duration and response intervals for M*.
-\end{center}
-\begin{center}\scriptsize
-Descriptive comparisons on 10 validation seeds per task. Both policies succeed in all 10 C1 and I1 cases, but the test does not isolate ManiCast's effect from demonstration data.
-\end{center}
-
-\end{frame}
-
-\begin{frame}{Mechanism evidence \hfill M1 loses its forecast representation}
-\centering
-\begin{tikzpicture}[font=\scriptsize,x=0.108cm,y=0.035cm]
-\draw[->,HN] (0,0)--(68,0) node[right,font=\tiny]{training steps (k)};
-\draw[->,HN] (0,0)--(0,110) node[above,font=\tiny]{dead ReLU (\%)};
-\foreach \y in {0,25,50,75,100}{\draw[HG!20] (0,\y)--(60,\y);\node[left,font=\tiny] at (0,\y){\y};}
-\foreach \x in {0,20,40,50,60}{\node[below,font=\tiny] at (\x,0){\x};}
-\draw[very thick,HT] (0,14.84)--(20,82.03)--(40,98.83)--(50,100)--(60,100);
-\foreach \x/\y in {0/14.84,20/82.03,40/98.83,50/100,60/100}{\fill[HT] (\x,\y) circle (2.3pt);}
-\end{tikzpicture}
-\keyidea{At 50k, all 256 first-layer forecast ReLU units in M1 were inactive.}
-
-\end{frame}
-
-\begin{frame}{Failure analysis \hfill I2 regresses because grasp timing is wrong}
-\centering
-\begin{tikzpicture}[font=\scriptsize,x=0.93cm,y=0.72cm]
-\node[anchor=east] at (0.8,2.87){Expert};
-\node[anchor=east] at (0.8,1.72){M* failure};
-\draw[->,HG] (1,0.42)--(9.38,0.42) node[right]{time};
-\fill[HT!40] (1.8,2.58) rectangle (7.16,3.09);
-\fill[HN!65] (7.16,2.58) rectangle (8.65,3.09);
-\node at (4.4,2.83){close until attached};
-\node[white,font=\tiny] at (7.91,2.83){lift};
-\fill[HG!38] (1.8,1.43) rectangle (6.63,1.94);
-\fill[HN!65] (6.63,1.43) rectangle (8.65,1.94);
-\node at (4.2,1.69){not yet attached};
-\node[white,font=\tiny] at (7.61,1.69){early lift};
-\draw[dashed,HG] (6.63,0.70)--(6.63,3.30);
-\draw[dashed,HT] (7.16,0.70)--(7.16,3.30);
-\node[below,font=\tiny] at (6.2,0.70){0.90 s};
-\node[below,font=\tiny] at (7.74,0.70){1.00 s attach};
-\end{tikzpicture}
-\vspace{0.15cm}
-\begin{center}\scriptsize
-24/27 failed M* first closures held $<1.0$ s. After first-grasp failure, M* recovered in 0/28 episodes.
-\end{center}
-
-\end{frame}
-
-\begin{frame}{Failure analysis \hfill I3 switch-before errors are not wrong commitment to A}
-\centering
-\begin{tikzpicture}[font=\scriptsize,x=0.79cm,y=0.78cm]
-\draw[->,HG] (0,0)--(8.55,0) node[right]{episodes};
-\foreach \x/\t in {0/0,2/5,4/10,6/15,8/20}{\node[below,font=\tiny] at (\x,0){\t};}
-\node[anchor=east] at (-0.16,2.83){Success};
-\node[anchor=east] at (-0.16,1.91){Wrong 3rd object};
-\node[anchor=east] at (-0.16,1.03){No attachment};
-\fill[HT!72] (0,2.57) rectangle (8.0,3.10);
-\fill[HN!58] (0,1.65) rectangle (1.84,2.18);
-\fill[HG!55] (0,0.77) rectangle (1.54,1.30);
-\node[right,font=\tiny] at (8.0,2.84){26/40};
-\node[right,font=\tiny] at (1.84,1.91){6/14 failures};
-\node[right,font=\tiny] at (1.54,1.04){5/14 failures};
-\end{tikzpicture}
-\begin{center}\scriptsize
-Remaining 3/14 failures attached B but did not finish; 0/14 first attached A.
-\end{center}
-\keyidea{An early close near A is not the same as attaching the wrong object.}
-
-\end{frame}
-
-\begin{frame}{Conclusion \hfill Learning when human predictions matter}
-\begin{enumerate}
-\setlength{\itemsep}{0.31cm}
-\item \textbf{Method.} An ACT action policy is conditioned on structured ManiCast motion forecasts and trained from collaborative demonstrations.
-\item \textbf{Benchmark.} A diverse simulated HRC suite evaluates task completion, temporal coordination and goal changes.
-\item \textbf{Evidence.} Forecast conditioning produces task-dependent gains and regressions, identifying the need for execution-aware adaptation.
+\begin{frame}{Conclusion \hfill Intent-aware imitation learning for HRC}
+\vspace{.15cm}
+\begin{enumerate}\setlength{\itemsep}{.34cm}
+\item \textbf{Framework:} structured ManiCast forecasts condition a unified ACT policy trained from demonstrations.
+\item \textbf{Claim 1:} mean task completion time decreases; responsiveness gains are task-dependent.
+\item \textbf{Claim 2:} adaptation results vary with the timing of human goal changes.
+\item \textbf{Benchmark:} physically constrained HRC simulation enables task, timing and adaptation comparisons.
 \end{enumerate}
-\vspace{0.15cm}
-\keyidea{Timely HRC requires learning both when to anticipate and when to revise robot actions.}
+\vspace{.17cm}
+\keyidea{Learning to use predicted human motion is a path toward timely and adaptive collaboration.}
 \end{frame}
 \end{document}
