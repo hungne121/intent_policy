@@ -185,7 +185,6 @@ Learning to Assist (2026) & Collaborative VLA from demonstrations & Implicit ass
 M0 & Observed & No forecast & Ordinary ACT\\
 M1-noH & Forecast expert & Forecast excluded & Ordinary ACT\\
 M1 & Forecast expert & Flattened, one token & Ordinary ACT\\
-\rowcolor{HT!11}
 M* & Forecast expert & Structured, 60 tokens & KL isolation + decision loss\\
 \bottomrule
 \end{tabular}
@@ -205,7 +204,7 @@ M* & Forecast expert & Structured, 60 tokens & KL isolation + decision loss\\
 \foreach \r/\label in {0/L shoulder,1/L elbow,2/L wrist,3/R shoulder,4/R elbow,5/R wrist}{
 \node[anchor=east,font=\tiny] at (-2.85,2.35-\r*0.43){\label};
 \foreach \c in {0,...,9}{
-\filldraw[fill=HT!{10+5*\c},draw=white] (-2.74+\c*0.51,2.19-\r*0.43) rectangle (-2.28+\c*0.51,2.52-\r*0.43);
+\filldraw[fill=HT!28,draw=white] (-2.74+\c*0.51,2.19-\r*0.43) rectangle (-2.28+\c*0.51,2.52-\r*0.43);
 }}
 \foreach \c/\lab in {0/0.1,4/0.5,9/1.0}{\node[below,font=\tiny] at (-2.5+\c*0.51,-0.06){\lab};}
 \node[font=\tiny] at (0,-0.40){future horizon (s)};
