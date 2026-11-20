@@ -86,7 +86,7 @@ M1 flattened these features into a 541-dimensional input and produced one foreca
 Z_H=T_{\phi}(\{\mathbf e_{k,j}\}) .
 \label{eq:tokens}
 \end{equation}
-Here $Z_H\in\mathbb R^{60\times256}$, with four attention heads, GELU activation and dropout 0.1. These forecast tokens enter the ACT policy alongside visual and robot-state representations. The resulting network generates 40 continuous actions per chunk. For the reported evaluation, it executes 10 actions before requesting a new chunk at the 20\,Hz simulation rate; temporal ensembling is disabled.
+Here $Z_H\in\mathbb R^{60\times256}$, with four attention heads, GELU activation and dropout 0.1. These forecast tokens enter the ACT policy alongside visual and robot-state representations. The resulting network (Fig.~\ref{fig:mstar}) generates 40 continuous actions per chunk. For the reported evaluation, it executes 10 actions before requesting a new chunk at the 20\,Hz simulation rate; temporal ensembling is disabled.
 
 \begin{figure*}[t]
 \centering
@@ -147,7 +147,7 @@ M* & Structured 60-token transformer & Forecast-expert data, KL isolation + deci
 \end{table}
 
 \section{Evaluation Protocol}
-The MuJoCo study uses a UR3e manipulation setting and human-motion trajectories in human-guided (I), cooperative (C), and concurrent-work (W) interaction patterns. The current validation includes 11 task--condition pairs: C1--C3, I1--I2, I3 nominal and two goal-switch variants, W1 nominal and linger, and W2. Other planned tasks are excluded pending feasibility or dataset approval. M0, M1-noH, and M* use checkpoints at 60k optimizer steps and the same seed sets per condition. There are 40 validation seeds for ten conditions and 30 for W1 linger, totaling $430\times3=1290$ recorded rollouts. No independent held-out test results are reported here.
+The MuJoCo study uses a UR3e manipulation setting and human-motion trajectories in human-guided (I), cooperative (C), and concurrent-work (W) interaction patterns. The current validation includes 11 task--condition pairs: C1--C3, I1--I2, I3 nominal and two goal-switch variants, W1 nominal and linger, and W2. Other planned tasks are excluded pending feasibility or dataset approval. M0, M1-noH, and M* use checkpoints at 60k optimizer steps and the same seed sets per condition. There are 40 validation seeds for ten conditions and 30 for W1 linger, totaling $430\times3=1290$ recorded rollouts. No independent held-out test results are reported here. The dated project audit records and scripts are available in the public repository\footnote{\url{https://github.com/hungne121/intent_policy/tree/claude/sleepy-euler-hkffe1/docs/reports}}.
 
 We use the project's task-success evaluator and report exact success counts. Matched M0--M* binary outcomes are evaluated with two-sided exact McNemar tests on discordant seeds, without multiple-comparison correction. Since M0 uses observed-expert training data and M* uses forecast-expert data, this is a whole-policy comparison; it does \emph{not} isolate the causal effect of adding forecast information. M1-noH controls the demonstration source but not every component of M*.
 
@@ -155,7 +155,7 @@ Time to first useful action, partner waiting, and completion time are intended c
 
 \section{Experimental Findings}
 \subsection{The direct forecast pathway collapses}
-A model audit confirmed that the M1 forecast tensor entered the network and its optimizer, while the forecast's effect on robot actions nearly vanished. The first-layer ReLU units of the flattened encoder became inactive over training: 210/256 were dead by 20k steps, 253/256 by 40k, and all 256/256 by 50k. Replacing one valid forecast with another yielded effectively zero tool-center-point displacement at 60k.
+A model audit confirmed that the M1 forecast tensor entered the network and its optimizer, while the forecast's effect on robot actions nearly vanished. The first-layer ReLU units of the flattened encoder became inactive over training (Fig.~\ref{fig:collapse}): 210/256 were dead by 20k steps, 253/256 by 40k, and all 256/256 by 50k. Replacing one valid forecast with another yielded effectively zero tool-center-point displacement at 60k.
 
 \begin{figure}[t]
 \centering
@@ -181,7 +181,7 @@ A model audit confirmed that the M1 forecast tensor entered the network and its 
 A separate intervention fine-tuned the M1 branch on decision windows. Turning off its direct KL path preserved the output variance but still left 184/256 units inactive at the final measurement. A matched forecast swap changed the TCP action output by only 0.010\,mm median and achieved 46\% correct movement direction ($p=0.48$). These results show that removing KL alone did not restore useful forecast conditioning. They motivated the combined M* redesign; they do not isolate the effect of any one M* component.
 
 \subsection{Paired task outcomes show large, opposing effects}
-Table~\ref{tab:success} gives the complete counted outcomes from the 1,290 validated rollouts. The three models achieve 314/430 (M0), 257/430 (M1-noH), and 329/430 (M*) successful episodes overall. These are pooled validation counts, not independently tested generalization performance.
+Table~\ref{tab:success} and Fig.~\ref{fig:deltas} give the counted outcomes and their task-level differences from the 1,290 validated rollouts. The three models achieve 314/430 (M0), 257/430 (M1-noH), and 329/430 (M*) successful episodes overall. These are pooled validation counts, not independently tested generalization performance.
 
 \begin{table*}[t]
 \caption{Task completion on paired validation seeds at 60k steps. Entries are successes/episodes. Exact McNemar $p$ values compare M0 and M*; values are unadjusted for multiple tests.}
@@ -207,7 +207,7 @@ W2 &40&34&34&38&.29 & \multicolumn{6}{l}{}\\
 \begin{figure*}[t]
 \centering
 \begin{tikzpicture}[x=0.109cm,y=0.40cm,font=\scriptsize,>=Latex]
-\node[anchor=west,font=\footnotesize] at (0,12.05) {M* minus M0 success rate (percentage points)};
+\node[anchor=west,font=\footnotesize] at (-5,13.50) {M* minus M0 success rate (percentage points)};
 \draw[->] (57,0.3)--(57,11.5);
 \foreach \d in {-60,-40,-20,0,20,40,60} {
   \draw[diagramNavy!15] (57+\d,0.35)--(57+\d,11.40);
@@ -226,8 +226,29 @@ W2 &40&34&34&38&.29 & \multicolumn{6}{l}{}\\
 
 The discordant-pair counts are especially informative. In I2, M0 succeeds and M* fails on 23 seeds, while the reverse occurs on only one ($p<0.001$). In I3 nominal, the corresponding counts are one and 21 in favor of M* ($p<0.001$). Differences on C2 and I3 switch-before do not reach significance under the reported paired tests. Switch-after remains difficult for both models (14/40 and 15/40 successes). Thus the pooled advantage of M* cannot be interpreted as uniform task improvement.
 
+
+\begin{table}[t]
+\caption{Observed failure taxonomy for M* on the 430-rollout validation set. Counts are disjoint trace classes, not proven learning causes.}
+\label{tab:taxonomy}
+\centering\footnotesize
+\begin{tabular}{lr}
+\toprule
+Observed failure class & Episodes\\
+\midrule
+Repeated closing without attachment & 32\\
+Premature lift without attachment & 6\\
+No attachment after adequate hold & 2\\
+Grasp achieved, then prolonged stall & 34\\
+Grasp achieved, placement/give incomplete & 11\\
+C2 wiping/handover failure & 16\\
+\midrule
+Total time-limit failures & 101\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{I2 exposes a grasp-timing failure}
-The first failed grasp in I2 is usually geometrically correct. A later expert replay measured approximately 1.00\,s from gripper-close command to object attachment under guarded closure; the expert waits until attachment is detected. In contrast, unsuccessful M* episodes often begin lifting after a 0.90\,s hold, before the object has attached. In plate 1 and plate 2 failure cases, 24/27 first closures have a hold below 1.00\,s.
+The first failed grasp in I2 is usually geometrically correct (Fig.~\ref{fig:i2}). A later expert replay measured approximately 1.00\,s from gripper-close command to object attachment under guarded closure; the expert waits until attachment is detected. In contrast, unsuccessful M* episodes often begin lifting after a 0.90\,s hold, before the object has attached. In plate 1 and plate 2 failure cases, 24/27 first closures have a hold below 1.00\,s.
 
 \begin{figure}[t]
 \centering
