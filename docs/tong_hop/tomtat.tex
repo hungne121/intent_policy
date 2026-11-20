@@ -1,12 +1,15 @@
 % !TEX root = ../main.tex
-% Dài 1 trang, tối đa 2 trang. Theo hướng dẫn của mẫu, tóm tắt cần nêu:
-%  1. Bối cảnh của khóa luận
-%  2. Vấn đề được nghiên cứu
-%  3. Động lực: muốn giải quyết gì trong vấn đề, ý tưởng là gì, vì sao
-%  4. Phương pháp luận: cách tiếp cận đã chọn và vì sao nó hợp lý về mặt kỹ thuật
-%  5. Phương pháp cụ thể: dữ liệu, thuật toán, thiết kế, mô phỏng ... và các tham số chính
-%  6. Kết quả: tối đa 3 kết quả quan trọng nhất
-%  7. Kết luận: ý nghĩa của kết quả đối với vấn đề (mục 2) và bối cảnh rộng hơn (mục 1)
-% Giữ giọng văn trung tính; điều riêng tư ghi ở LỜI NÓI ĐẦU.
+% TÓM TẮT -- dự thảo 20/11/2026.
+% Nêu bối cảnh, vấn đề, động lực, phương pháp, dữ liệu, kết quả và kết luận.
+% Các kết quả thử nghiệm ghi rõ giới hạn; không suy diễn thành kết luận cuối.
 \frontpage{TÓM TẮT}
 
+Cộng tác người--robot đòi hỏi robot không chỉ thực hiện chính xác thao tác mà còn phối hợp với tiến độ và hành vi của người cộng tác. Trong các nhiệm vụ có quan hệ phụ thuộc, một robot chỉ phản ứng với trạng thái đã quan sát có thể bắt đầu hành động muộn, làm tăng thời gian chờ. Ngược lại, việc hành động sớm dựa trên dự đoán không chính xác có thể dẫn tới chuyển động không cần thiết, lựa chọn sai mục tiêu hoặc vi phạm ràng buộc vật lý. Vấn đề đặt ra là làm thế nào để robot học được thời điểm và vị trí hành động phù hợp khi thông tin về hành vi tương lai của con người còn bất định.
+
+Khóa luận nghiên cứu chính sách hành động cộng tác có nhận thức ý định, trong đó ý định không nhất thiết được biểu diễn bằng một nhãn phân loại tường minh mà được phản ánh qua tiến độ nhiệm vụ, chuyển động người và vùng tương tác dự kiến. Phương pháp sử dụng Action Chunking with Transformers (ACT) làm nền tảng học hành động từ trình diễn, kết hợp quỹ đạo chuyển động tương lai do ManiCast dự đoán. ManiCast được xem là một nguồn cung cấp thông tin có thể thay thế; trọng tâm nghiên cứu nằm ở cách chính sách học sử dụng thông tin dự đoán để chuẩn bị sớm, hạn chế phụ thuộc vào dự đoán không đáng tin cậy và điều chỉnh hành động khi quan sát mới không còn phù hợp với dự đoán trước đó.
+
+Hệ thống thực nghiệm được xây dựng trên MuJoCo với các nhiệm vụ thuộc nhóm người hướng dẫn, cộng tác và làm việc tương đối độc lập. Các trình diễn chuyên gia có và không sử dụng dự đoán được thiết kế dưới các ràng buộc vật lý tương đương. Những trường hợp đánh giá gồm thực hiện thông thường, sai lệch dự đoán và thay đổi ý định trước hoặc sau thời điểm robot cam kết với một mục tiêu. Nghiên cứu đối chiếu các chính sách theo tỷ lệ hoàn thành, thời điểm bắt đầu hành động hữu ích, thời gian người chờ, thời gian nhiệm vụ, khả năng phản ứng với thông tin dự đoán, mức độ phục hồi và tính hợp lệ về vật lý. Các cơ chế học ưu tiên thời điểm quyết định và thu thập trình diễn sửa lỗi là những hướng đang được kiểm chứng, không được coi là kết quả đã xác lập.
+
+Kết quả phát triển bước đầu cho thấy hệ thống đã có môi trường mô phỏng, dữ liệu trình diễn và các cấu hình chính sách để so sánh. Một báo cáo kiểm định nội bộ ngày 19/11/2026 ghi nhận tỷ lệ hoàn thành trung bình trên các nhóm trường hợp của M0, M1-noH và M* lần lượt là 76\%, 59\% và 80\% trong 300 lượt đánh giá. Tuy nhiên, hiệu quả không đồng đều giữa các nhiệm vụ; chưa có kiểm định thống kê ghép cặp và một số chỉ số đồng bộ, phục hồi, an toàn vẫn cần được rà soát. Một thử nghiệm chẩn đoán riêng cũng cho thấy sự thay đổi rất nhỏ của hành động khi hoán đổi dự đoán, đặt ra câu hỏi liệu chính sách đã thực sự khai thác thông tin tương lai hay chưa.
+
+Những kết quả này chưa đủ để khẳng định phương pháp làm giảm thời gian cộng tác hoặc cải thiện độ tin cậy. Đóng góp mà khóa luận hướng tới là làm rõ cách học một chính sách hành động có thể tận dụng dự đoán khi có ích, cập nhật theo quan sát thực tế và duy trì điều kiện thực thi phù hợp. Việc đánh giá cuối cùng cần dựa trên các phép thử ghép cặp, nghiên cứu loại bỏ từng thành phần và kiểm tra ràng buộc vật lý độc lập.
